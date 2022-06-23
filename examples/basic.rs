@@ -1,5 +1,5 @@
 use crate::utils::User;
-use trpc_rs::{Request, RequestKind, Router};
+use trpc_rs::Router;
 
 mod utils;
 
@@ -38,31 +38,7 @@ async fn main() {
             User::delete(1).await
         });
 
-    println!(
-        "{:#?}",
-        router
-            .exec(
-                (),
-                Request {
-                    name: "version".into(),
-                    kind: RequestKind::Query,
-                }
-            )
-            .await
-            .unwrap()
-    );
+    println!("{:#?}", router.exec_query((), "version").await.unwrap());
 
-    println!(
-        "{:#?}",
-        router
-            .exec(
-                (),
-                Request {
-                    name: "getUsers".into(),
-                    kind: RequestKind::Query,
-                }
-            )
-            .await
-            .unwrap()
-    );
+    println!("{:#?}", router.exec_query((), "getUsers").await.unwrap());
 }

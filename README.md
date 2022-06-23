@@ -21,7 +21,6 @@ let router = trpc_rs::Router::<()>::new()
 ## Planned Features:
 
  - Export working Typescript bindings using `ts_rs`
- - Replace `RequestKind` with different exec functions for each type.
  - Axum example
  - Provide arguments to resolvers
  - [Merging servers](https://trpc.io/docs/merging-routers)
