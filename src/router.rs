@@ -10,10 +10,10 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use ts_rs::{Dependency, ExportError, TS};
 
-use crate::{Context, Resolver, ResolverResult};
+use crate::{Context, Key, Resolver, ResolverResult};
 
-pub struct Router<TCtx: 'static> {
-    query: BTreeMap<&'static str, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult>>,
+pub struct Router<TCtx: 'static, TQueryKey: Key = &'static str, TMutationKey: Key = &'static str> {
+    query: BTreeMap<TQueryKey, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult>>,
     query_types: BTreeMap<
         &'static str,
         (
@@ -21,7 +21,7 @@ pub struct Router<TCtx: 'static> {
             fn(PathBuf) -> Result<(String, Vec<Dependency>), ExportError>,
         ),
     >,
-    mutation: BTreeMap<&'static str, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult>>,
+    mutation: BTreeMap<TMutationKey, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult>>,
     mutation_types: BTreeMap<
         &'static str,
         (
@@ -31,7 +31,7 @@ pub struct Router<TCtx: 'static> {
     >,
 }
 
-impl<TCtx> Router<TCtx> {
+impl<TCtx, TQueryKey: Key, TMutationKey: Key> Router<TCtx, TQueryKey, TMutationKey> {
     pub fn new() -> Self {
         Self {
             query: BTreeMap::new(),
@@ -47,21 +47,21 @@ impl<TCtx> Router<TCtx> {
         TResolver: Resolver<TType> + 'static,
     >(
         mut self,
-        name: &'static str,
+        name: TQueryKey,
         resolver: fn(Context<TCtx>, TArgs) -> TResolver,
     ) -> Self {
-        if self.query.contains_key(name) {
+        if self.query.contains_key(&name) {
             panic!("trpc-rs error: query with name '{}' already exists", name);
         }
 
         self.query.insert(
-            name,
+            name.clone(),
             Box::new(move |ctx, args| {
                 resolver(ctx, serde_json::from_value(args).unwrap()).resolve()
             }),
         );
         self.query_types.insert(
-            name,
+            name.to_val(),
             (
                 |export_path| TResolver::export(export_path),
                 |export_path| {
@@ -91,21 +91,21 @@ impl<TCtx> Router<TCtx> {
         TResolver: Resolver<TType> + 'static,
     >(
         mut self,
-        name: &'static str,
+        name: TMutationKey,
         resolver: fn(Context<TCtx>, TArgs) -> TResolver,
     ) -> Self {
-        if self.mutation.contains_key(name) {
+        if self.mutation.contains_key(&name) {
             panic!("trpc-rs error: query with name '{}' already exists", name);
         }
 
         self.mutation.insert(
-            name,
+            name.clone(),
             Box::new(move |ctx, args| {
                 resolver(ctx, serde_json::from_value(args).unwrap()).resolve()
             }),
         );
         self.mutation_types.insert(
-            name,
+            name.to_val(),
             (
                 |export_path| TResolver::export(export_path),
                 |export_path| {
@@ -203,15 +203,14 @@ impl<TCtx> Router<TCtx> {
         Ok(())
     }
 
-    pub async fn exec_query<S: AsRef<str>, TArgs: Serialize>(
+    pub async fn exec_query<TArgs: Serialize>(
         &self,
         ctx: TCtx,
-        name: S,
+        name: TQueryKey,
         args: TArgs,
     ) -> Result<Value, ()> {
-        let name = name.as_ref();
         let result =
-            self.query.get(name).ok_or(())?(Context { ctx }, serde_json::to_value(args).unwrap());
+            self.query.get(&name).ok_or(())?(Context { ctx }, serde_json::to_value(args).unwrap());
 
         // TODO: Cleanup this up to support recursive resolving
 
@@ -226,14 +225,13 @@ impl<TCtx> Router<TCtx> {
         }
     }
 
-    pub async fn exec_mutation<S: AsRef<str>, TArgs: Serialize>(
+    pub async fn exec_mutation<TArgs: Serialize>(
         &self,
         ctx: TCtx,
-        name: S,
+        name: TMutationKey,
         args: TArgs,
     ) -> Result<Value, ()> {
-        let name = name.as_ref();
-        let result = self.mutation.get(name).ok_or(())?(
+        let result = self.mutation.get(&name).ok_or(())?(
             Context { ctx },
             serde_json::to_value(args).unwrap(),
         );
@@ -257,7 +255,13 @@ mod tests {
     use serde::Deserialize;
     use serde_json::json;
 
+    // use super as trpc_rs;
     use super::*;
+    use trpc_rs_macros::Key;
+
+    mod trpc_rs {
+        pub use super::*;
+    }
 
     #[derive(TS, Deserialize, Serialize)]
     pub struct MyArgs {
@@ -302,5 +306,34 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(result, json!(["Hello", "World"]));
+    }
+
+    #[tokio::test]
+    async fn enum_key() {
+        #[derive(Key, Clone, PartialOrd, Ord, PartialEq, Eq)]
+        pub enum QueryKey {
+            DemoQuery,
+        }
+
+        #[derive(Key, Clone, PartialOrd, Ord, PartialEq, Eq)]
+        pub enum MutationKey {
+            DemoMutation,
+        }
+
+        let router = Router::<(), QueryKey, MutationKey>::new()
+            .query(QueryKey::DemoQuery, |_, _: ()| "query")
+            .mutation(MutationKey::DemoMutation, |_, _: ()| "mutation");
+
+        let result = router
+            .exec_query((), QueryKey::DemoQuery, json!(null))
+            .await
+            .unwrap();
+        assert_eq!(result, json!("query"));
+
+        let result = router
+            .exec_mutation((), MutationKey::DemoMutation, json!(null))
+            .await
+            .unwrap();
+        assert_eq!(result, json!("mutation"));
     }
 }
