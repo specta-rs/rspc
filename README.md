@@ -22,7 +22,6 @@ let router = trpc_rs::Router::<()>::new()
 
  - Export working Typescript bindings using `ts_rs`
  - Axum example
- - Provide arguments to resolvers
  - Msgpack support
  - Support for multiple queries in single request
  - [Merging servers](https://trpc.io/docs/merging-routers)
