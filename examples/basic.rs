@@ -1,11 +1,14 @@
+use std::path::Path;
+
 use crate::utils::User;
 use serde::Deserialize;
 use serde_json::json;
 use trpc_rs::Router;
+use ts_rs::TS;
 
 mod utils;
 
-#[derive(Deserialize)]
+#[derive(TS, Deserialize)]
 pub struct UpdateUserArgs {
     pub id: i32,
     pub new_user: User,
@@ -29,6 +32,8 @@ async fn main() {
             "deleteUser",
             |_, id: i32| async move { User::delete(id).await },
         );
+
+    router.export(Path::new("./ts")).unwrap();
 
     println!(
         "{:#?}",

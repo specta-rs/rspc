@@ -7,7 +7,6 @@ use ts_rs::TS;
 static USER_MOCK_DB: OnceCell<Mutex<Vec<User>>> = OnceCell::new();
 
 #[derive(Clone, Default, TS, Serialize, Deserialize)]
-#[ts(export)]
 pub struct User {
     pub id: i32,
     pub name: String,

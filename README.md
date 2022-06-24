@@ -20,7 +20,7 @@ let router = trpc_rs::Router::<()>::new()
 
 ## Planned Features:
 
- - Export working Typescript bindings using `ts_rs`
+ - Cleanup the codebase -> Currently their is a lot of duplicate code between `mutations` and `queries`.
  - Axum example
  - Msgpack support
  - Support for multiple queries in single request
@@ -30,3 +30,5 @@ let router = trpc_rs::Router::<()>::new()
  - [Subscriptions](https://trpc.io/docs/subscriptions)
  - Exporting `zod-rs` schema into `zod` for Typescript definitions
  - Maybe share input validation with frontend Typescript code?? - So your form input validation can match server validation without having to define it twice
+ - Fix types not being imported if not in `ts_rs` dependencies array -> which happens when using the type directly.
+ - Fix `ts-rs` [#70](https://github.com/Aleph-Alpha/ts-rs/issues/70)
