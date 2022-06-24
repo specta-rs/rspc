@@ -23,9 +23,11 @@ let router = trpc_rs::Router::<()>::new()
  - Export working Typescript bindings using `ts_rs`
  - Axum example
  - Provide arguments to resolvers
+ - Msgpack support
+ - Support for multiple queries in single request
  - [Merging servers](https://trpc.io/docs/merging-routers)
  - [Middleware](https://trpc.io/docs/middlewares) & [Route Meta](https://trpc.io/docs/metadata)
  - [Error Handling](https://trpc.io/docs/error-handling)
  - [Subscriptions](https://trpc.io/docs/subscriptions)
- - Validate arguments against schema (check length is correct, check formatting (Eg. is email?), etc)
+ - Exporting `zod-rs` schema into `zod` for Typescript definitions
  - Maybe share input validation with frontend Typescript code?? - So your form input validation can match server validation without having to define it twice

@@ -1,10 +1,28 @@
 use crate::utils::User;
-use trpc_rs::Router;
+use serde_json::json;
+use trpc_rs::{Router, ZData, Z};
 
 mod utils;
 
 #[tokio::main]
 async fn main() {
+    let x = Z::string();
+    println!("{:?}", x.parse(json!("Hello World")));
+    println!("{:?}", x.parse(json!(null)));
+
+    let x = Z::object()
+        .field("name", Z::string())
+        .field("email", Z::string())
+        .field("extra", Z::object().field("age", Z::number()));
+    println!(
+        "{:?}",
+        x.parse(json!({ "name": "Oscar Beaumont", "email": "oscar@otbeaumont.me" }))
+    );
+    println!("{:?}", x.parse(json!(null)));
+
+    // TODO: Make this work using a macro or trait on `User` type with some prevalidation step to ensure zod types match struct before runtime.
+    // let _ = Z::object_struct::<User>();
+
     let router = Router::<()>::new()
         .query("version", |_| env!("CARGO_PKG_VERSION"))
         .mutation("createUser", |_| async move {
