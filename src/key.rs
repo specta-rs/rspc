@@ -19,3 +19,15 @@ impl<TArg> Key<&'static str, TArg> for &'static str {
         self.to_string()
     }
 }
+
+impl KeyDefinition for u32 {
+    type Key = &'static str;
+}
+
+impl<TArg> Key<&'static str, TArg> for u32 {
+    type Arg = TArg;
+
+    fn to_val(&self) -> String {
+        self.to_string()
+    }
+}

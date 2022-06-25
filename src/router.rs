@@ -443,4 +443,17 @@ mod tests {
             .unwrap();
         assert_eq!(result, json!("mutation"));
     }
+
+    #[tokio::test]
+    async fn integer_key() {
+        let router = Router::<()>::new()
+            .query(1, |_, _: ()| "query")
+            .mutation(2, |_, _: ()| "mutation");
+
+        let result = router.exec_query((), 1, json!(null)).await.unwrap();
+        assert_eq!(result, json!("query"));
+
+        let result = router.exec_mutation((), 2, json!(null)).await.unwrap();
+        assert_eq!(result, json!("mutation"));
+    }
 }
