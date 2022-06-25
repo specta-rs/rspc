@@ -11,3 +11,6 @@ Cargo.lock
 
 # System Files
 .DS_Store
+
+# Typescript bindings exported by the examples
+/ts

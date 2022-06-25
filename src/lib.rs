@@ -8,3 +8,7 @@ pub use key::*;
 pub use resolver::*;
 pub use router::*;
 pub use trpc_rs_macros::*;
+
+pub mod internal {
+    pub use serde_json::Value;
+}

@@ -6,6 +6,12 @@ use ts_rs::TS;
 
 static USER_MOCK_DB: OnceCell<Mutex<Vec<User>>> = OnceCell::new();
 
+#[derive(TS, Deserialize)]
+pub struct UpdateUserArgs {
+    pub id: i32,
+    pub new_user: User,
+}
+
 #[derive(Clone, Default, TS, Serialize, Deserialize)]
 pub struct User {
     pub id: i32,
