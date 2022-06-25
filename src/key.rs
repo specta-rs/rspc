@@ -1,11 +1,11 @@
-pub trait KeyDefinition {
+pub trait KeyDefinition: Send + Sync + 'static {
     type Key;
 }
 
 pub trait Key<TKey, TArg> {
     type Arg;
 
-    fn to_val(&self) -> &'static str;
+    fn to_val(&self) -> String;
 }
 
 impl KeyDefinition for &'static str {
@@ -15,7 +15,7 @@ impl KeyDefinition for &'static str {
 impl<TArg> Key<&'static str, TArg> for &'static str {
     type Arg = TArg;
 
-    fn to_val(&self) -> &'static str {
-        self
+    fn to_val(&self) -> String {
+        self.to_string()
     }
 }

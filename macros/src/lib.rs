@@ -23,7 +23,7 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                variants.push(quote! { #ident::#variant_ident => #variant_string });
+                variants.push(quote! { #ident::#variant_ident => #variant_string.into() });
             }
         }
         _ => panic!("The 'Key' derive macro is only supported on enums!"),
@@ -37,7 +37,7 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
         impl<TArg> #crate_name::Key<#ident, TArg> for #ident {
             type Arg = TArg;
 
-            fn to_val(&self) -> &'static str {
+            fn to_val(&self) -> String {
                 match self {
                     #(#variants),*
                 }
@@ -107,8 +107,8 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
         impl<TArg> #crate_name::Key<#key_ident, TArg> for #key_wrapper<TArg> {
             type Arg = TArg;
 
-            fn to_val(&self) -> &'static str {
-                self.0
+            fn to_val(&self) -> String {
+                self.0.into()
             }
         }
 
@@ -174,8 +174,8 @@ pub fn derive_mutation(input: TokenStream) -> TokenStream {
         impl<TArg> #crate_name::Key<#key_ident, TArg> for #key_wrapper<TArg> {
             type Arg = TArg;
 
-            fn to_val(&self) -> &'static str {
-                self.0
+            fn to_val(&self) -> String {
+                self.0.into()
             }
         }
 

@@ -14,21 +14,21 @@ use ts_rs::{Dependency, ExportError, TS};
 use crate::{Context, Key, KeyDefinition, Resolver, ResolverResult};
 
 pub struct Router<
-    TCtx: 'static,
+    TCtx: Send + Sync + 'static,
     TQueryKey: KeyDefinition = &'static str,
     TMutationKey: KeyDefinition = &'static str,
 > {
-    query: BTreeMap<&'static str, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult>>,
+    query: BTreeMap<String, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult + Send + Sync>>,
     query_types: BTreeMap<
-        &'static str,
+        String,
         (
             fn(PathBuf) -> Result<(String, Vec<Dependency>), ExportError>,
             fn(PathBuf) -> Result<(String, Vec<Dependency>), ExportError>,
         ),
     >,
-    mutation: BTreeMap<&'static str, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult>>,
+    mutation: BTreeMap<String, Box<dyn Fn(Context<TCtx>, Value) -> ResolverResult + Send + Sync>>,
     mutation_types: BTreeMap<
-        &'static str,
+        String,
         (
             fn(PathBuf) -> Result<(String, Vec<Dependency>), ExportError>,
             fn(PathBuf) -> Result<(String, Vec<Dependency>), ExportError>,
@@ -37,7 +37,17 @@ pub struct Router<
     phantom: PhantomData<(TQueryKey, TMutationKey)>,
 }
 
-impl<TCtx, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
+unsafe impl<TCtx: Send + Sync, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition> Send
+    for Router<TCtx, TQueryKey, TMutationKey>
+{
+}
+
+unsafe impl<TCtx: Send + Sync, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition> Sync
+    for Router<TCtx, TQueryKey, TMutationKey>
+{
+}
+
+impl<TCtx: Send + Sync, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
     Router<TCtx, TQueryKey, TMutationKey>
 {
     pub fn new() -> Self {
@@ -61,13 +71,29 @@ impl<TCtx, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
         resolver: fn(Context<TCtx>, TArgs) -> TResolver,
     ) -> Self {
         let key = key.to_val();
-        if self.query.contains_key(key) {
+        if self.query.contains_key(&key) {
             panic!("trpc-rs error: query with name '{}' already exists", key);
         }
 
         self.query.insert(
-            key,
-            Box::new(move |ctx, args| {
+            key.clone(),
+            Box::new(move |ctx, mut args| {
+                // TODO: Only apply these mapping when the request comes from web.
+                if let Value::Object(obj) = &args {
+                    if obj.len() == 0 {
+                        args = Value::Null;
+                    }
+                }
+
+                if let Value::Object(obj) = &args {
+                    if obj.len() == 1 {
+                        if let Some(v) = obj.get("0") {
+                            args = v.clone();
+                        }
+                    }
+                }
+                // END TODO
+
                 resolver(ctx, serde_json::from_value(args).unwrap()).resolve()
             }),
         );
@@ -107,13 +133,29 @@ impl<TCtx, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
         resolver: fn(Context<TCtx>, TArgs) -> TResolver,
     ) -> Self {
         let key = key.to_val();
-        if self.mutation.contains_key(key) {
+        if self.mutation.contains_key(&key) {
             panic!("trpc-rs error: query with name '{}' already exists", key);
         }
 
         self.mutation.insert(
-            key,
-            Box::new(move |ctx, args| {
+            key.clone(),
+            Box::new(move |ctx, mut args| {
+                // TODO: Only apply these mapping when the request comes from web.
+                if let Value::Object(obj) = &args {
+                    if obj.len() == 0 {
+                        args = Value::Null;
+                    }
+                }
+
+                if let Value::Object(obj) = &args {
+                    if obj.len() == 1 {
+                        if let Some(v) = obj.get("0") {
+                            args = v.clone();
+                        }
+                    }
+                }
+                // END TODO
+
                 resolver(ctx, serde_json::from_value(args).unwrap()).resolve()
             }),
         );
@@ -222,10 +264,35 @@ impl<TCtx, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
         key: TKey,
         args: TArgs,
     ) -> Result<Value, ()> {
-        let result = self.query.get(key.to_val()).ok_or(())?(
+        let result = self.query.get(&key.to_val()).ok_or(())?(
             Context { ctx },
             serde_json::to_value(args).unwrap(),
         );
+
+        // TODO: Cleanup this up to support recursive resolving
+
+        let result = match result {
+            ResolverResult::Future(fut) => fut.await,
+            result => result,
+        };
+
+        match result {
+            ResolverResult::Value(value) => Ok(value),
+            ResolverResult::Future(_) => unimplemented!(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) async fn exec_query_unsafe(
+        &self,
+        ctx: TCtx,
+        key: String,
+        args: Value,
+    ) -> Result<Value, ()> {
+        let result = self.query.get(&key).ok_or({
+            println!("TODO: NotFound");
+            ()
+        })?(Context { ctx }, args);
 
         // TODO: Cleanup this up to support recursive resolving
 
@@ -246,10 +313,35 @@ impl<TCtx, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
         key: TKey,
         args: TArgs,
     ) -> Result<Value, ()> {
-        let result = self.mutation.get(key.to_val()).ok_or(())?(
+        let result = self.mutation.get(&key.to_val()).ok_or(())?(
             Context { ctx },
             serde_json::to_value(args).unwrap(),
         );
+
+        // TODO: Cleanup this up to support recursive resolving
+
+        let result = match result {
+            ResolverResult::Future(fut) => fut.await,
+            result => result,
+        };
+
+        match result {
+            ResolverResult::Value(value) => Ok(value),
+            ResolverResult::Future(_) => unimplemented!(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) async fn exec_mutation_unsafe(
+        &self,
+        ctx: TCtx,
+        key: String,
+        args: Value,
+    ) -> Result<Value, ()> {
+        let result = self.mutation.get(&key).ok_or({
+            println!("TODO: NotFound");
+            ()
+        })?(Context { ctx }, args);
 
         // TODO: Cleanup this up to support recursive resolving
 

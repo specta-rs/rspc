@@ -6,7 +6,7 @@ use ts_rs::{Dependency, ExportError, TS};
 
 pub enum ResolverResult {
     Value(Value),
-    Future(Pin<Box<dyn Future<Output = ResolverResult>>>),
+    Future(Pin<Box<dyn Future<Output = ResolverResult> + Send + Sync>>),
 }
 
 pub trait Resolver<TType> {
@@ -39,8 +39,11 @@ impl<TValue: Serialize + TS> Resolver<SerdeType> for TValue {
 }
 
 pub struct FutureType<TRetType>(TRetType);
-impl<TRetType: 'static, TRet: Resolver<TRetType>, TFut: Future<Output = TRet> + 'static>
-    Resolver<FutureType<TRetType>> for TFut
+impl<
+        TRetType: 'static,
+        TRet: Resolver<TRetType>,
+        TFut: Future<Output = TRet> + Send + Sync + 'static,
+    > Resolver<FutureType<TRetType>> for TFut
 {
     fn resolve(self) -> ResolverResult {
         ResolverResult::Future(Box::pin(async move { self.await.resolve() }))
