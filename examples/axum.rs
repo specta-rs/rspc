@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use axum::routing::get;
 use tower_http::cors::{Any, CorsLayer};
@@ -10,7 +10,7 @@ async fn main() {
         .query("getUser", |_, v: String| v);
     let router = Arc::new(router);
 
-    router.export(Path::new("./ts")).unwrap();
+    router.export("./ts").unwrap();
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
