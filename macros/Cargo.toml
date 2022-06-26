@@ -5,6 +5,7 @@ version = "0.0.1"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
+repository = "https://github.com/oscartbeaumont/trpc-rs"
 
 [lib]
 proc-macro = true

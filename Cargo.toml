@@ -6,6 +6,7 @@ authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
 exclude = ["/.github", "/examples"]
+repository = "https://github.com/oscartbeaumont/trpc-rs"
 
 [features]
 default = []
