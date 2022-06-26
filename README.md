@@ -44,7 +44,6 @@ let router = trpc_rs::Router::<()>::new()
 ## Planned Features:
 
  - [Batch queries](https://trpc.io/docs/links)
- - [Merging servers](https://trpc.io/docs/merging-routers)
  - [Middleware](https://trpc.io/docs/middlewares) & [Route Meta](https://trpc.io/docs/metadata)
  - [Error Handling](https://trpc.io/docs/error-handling)
  - Msgpack support

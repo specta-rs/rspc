@@ -258,6 +258,59 @@ impl<TCtx: Send + Sync, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
         Ok(())
     }
 
+    pub fn merge(
+        mut self,
+        prefix: &'static str,
+        router: Router<TCtx, TQueryKey, TMutationKey>,
+    ) -> Self {
+        self.query.append(
+            &mut router
+                .query
+                .into_iter()
+                .map(|(name, v)| {
+                    let mut new_name = prefix.to_string();
+                    new_name.push_str(&name);
+                    (new_name, v)
+                })
+                .collect(),
+        );
+        self.query_types.append(
+            &mut router
+                .query_types
+                .into_iter()
+                .map(|(name, v)| {
+                    let mut new_name = prefix.to_string();
+                    new_name.push_str(&name);
+                    (new_name, v)
+                })
+                .collect(),
+        );
+        self.mutation.append(
+            &mut router
+                .mutation
+                .into_iter()
+                .map(|(name, v)| {
+                    let mut new_name = prefix.to_string();
+                    new_name.push_str(&name);
+                    (new_name, v)
+                })
+                .collect(),
+        );
+        self.mutation_types.append(
+            &mut router
+                .mutation_types
+                .into_iter()
+                .map(|(name, v)| {
+                    let mut new_name = prefix.to_string();
+                    new_name.push_str(&name);
+                    (new_name, v)
+                })
+                .collect(),
+        );
+
+        self
+    }
+
     pub async fn exec_query<TArgs: Serialize, TKey: Key<TQueryKey::Key, TArgs>>(
         &self,
         ctx: TCtx,
