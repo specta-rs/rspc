@@ -15,7 +15,7 @@ let router = <Router>::new()
 
 ### Introduction
 
-**rspc** is a library which helps you built completely typesafe API's with a Rust backend and Typescript frontend.
+**rspc** is a library which helps you built completely typesafe APIs with a Rust backend and Typescript frontend.
 
 Your `rspc::Router` is converted into [Typescript](https://www.typescriptlang.org) types which can be used on the frontend to prevent simple mistakes from ending up in production!
 

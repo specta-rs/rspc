@@ -23,6 +23,8 @@ cargo add tokio --features full # rpsc requires an async runtime
 cargo add rspc
 ```
 
+You may need to install [cargo edit](https://github.com/killercup/cargo-edit) if your not running Rust `1.62.0` or later.
+
 ### Create router
 
 Go into `src/main.rs` and add the following code:
