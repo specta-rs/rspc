@@ -1,12 +1,12 @@
 [package]
-name = "trpc-rs-macros"
-description = "Macros for `trpc-rs`. You don't need to import this directly!"
+name = "rspc-macros"
+description = "Macros for `rspc`. You don't need to import this directly!"
 version = "0.0.2"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/oscartbeaumont/trpc-rs"
-documentation = "https://docs.rs/trpc-rs/latest/trpc_rs"
+repository = "https://github.com/oscartbeaumont/rspc"
+documentation = "https://docs.rs/rspc/latest/rspc"
 
 [lib]
 proc-macro = true

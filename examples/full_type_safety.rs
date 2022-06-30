@@ -1,7 +1,5 @@
-use std::path::Path;
-
 use crate::utils::{UpdateUserArgs, User};
-use trpc_rs::{Mutation, Query, Router};
+use rspc::{Mutation, Query, Router};
 
 mod utils;
 
@@ -23,7 +21,7 @@ pub enum Mutation {
 
 #[tokio::main]
 async fn main() {
-    let router = Router::<(), Query, Mutation>::new()
+    let router = Router::<(), (), Query, Mutation>::new()
         .query(QueryKey::Version, |_, _| env!("CARGO_PKG_VERSION"))
         .query(QueryKey::GetUsers, |_, _| async { User::read_all().await })
         .query(QueryKey::GetUser, |_, id| async move {
@@ -37,9 +35,10 @@ async fn main() {
         })
         .mutation(MutationKey::DeleteUser, |_, id| async move {
             User::delete(id).await
-        });
+        })
+        .build();
 
-    router.export(Path::new("./ts")).unwrap();
+    // router.export("./ts").unwrap(); // TODO
 
     println!(
         "{:#?}",

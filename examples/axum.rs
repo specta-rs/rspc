@@ -5,12 +5,10 @@ use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
-    let router = trpc_rs::Router::<()>::new()
+    let router = rspc::Router::<()>::new()
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .query("getUser", |_, v: String| v);
-    let router = Arc::new(router);
-
-    router.export("./ts").unwrap();
+    let router = Arc::new(router.build());
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -19,7 +17,7 @@ async fn main() {
         .allow_origin(Any);
 
     let app = axum::Router::new()
-        .route("/", get(|| async { "Hello 'trpc-rs'!" }))
+        .route("/", get(|| async { "Hello 'rspc'!" }))
         .route("/trpc/:id", router.axum_handler(|| ()))
         .layer(cors);
 

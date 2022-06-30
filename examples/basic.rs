@@ -1,14 +1,12 @@
-use std::path::Path;
-
 use crate::utils::{UpdateUserArgs, User};
+use rspc::Router;
 use serde_json::json;
-use trpc_rs::Router;
 
 mod utils;
 
 #[tokio::main]
 async fn main() {
-    let router = Router::<()>::new()
+    let router = <Router>::new()
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .mutation(
             "createUser",
@@ -22,9 +20,10 @@ async fn main() {
         .mutation("updateUser", |_, args: UpdateUserArgs| async move {
             User::update(args.id, args.new_user).await
         })
-        .mutation("deleteUser", |_, id| async move { User::delete(id).await });
+        .mutation("deleteUser", |_, id| async move { User::delete(id).await })
+        .build();
 
-    router.export(Path::new("./ts")).unwrap();
+    // router.export("./ts").unwrap(); // TODO
 
     println!(
         "{:#?}",

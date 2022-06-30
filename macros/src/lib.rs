@@ -6,7 +6,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 #[proc_macro_derive(Key)]
 pub fn derive_key(input: TokenStream) -> TokenStream {
-    let crate_name = format_ident!("trpc_rs");
+    let crate_name = format_ident!("rspc");
     let DeriveInput { ident, data, .. } = parse_macro_input!(input);
 
     let mut variants = Vec::new();
@@ -23,7 +23,7 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                variants.push(quote! { #ident::#variant_ident => #variant_string.into() });
+                variants.push(quote! { #variant_string => #ident::#variant_ident });
             }
         }
         _ => panic!("The 'Key' derive macro is only supported on enums!"),
@@ -31,16 +31,26 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
 
     quote! {
         impl #crate_name::KeyDefinition for #ident {
-           type Key = #ident;
+            type Key = #ident;
+            type KeyRaw = #ident;
+
+            fn add_prefix(_key_raw: Self::KeyRaw, _prefix: &'static str) -> Self::KeyRaw {
+                todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
+            }
+
+            fn from_str(key: String) -> Self::KeyRaw {
+                match key.as_str() {
+                    #(#variants,)*
+                    _ => panic!("No variant found for key '{}'", key),
+                }
+            }
         }
 
         impl<TArg> #crate_name::Key<#ident, TArg> for #ident {
             type Arg = TArg;
 
-            fn to_val(&self) -> String {
-                match self {
-                    #(#variants),*
-                }
+            fn to_val(self) -> #ident {
+                self
             }
         }
     }
@@ -55,7 +65,7 @@ struct Args {
 
 #[proc_macro_derive(Query, attributes(query))]
 pub fn derive_query(input: TokenStream) -> TokenStream {
-    let crate_name = format_ident!("trpc_rs");
+    let crate_name = format_ident!("rspc");
     let input: DeriveInput = parse_macro_input!(input);
     let args = match Args::from_derive_input(&input) {
         Ok(args) => args,
@@ -66,6 +76,7 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
     let key_wrapper = format_ident!("{}KeyWrapper", ident);
 
     let mut key_consts = Vec::new();
+    let mut key_variants = Vec::new();
     match data {
         Data::Enum(data) => {
             for variant in data.variants {
@@ -89,6 +100,7 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
                     Fields::Unit => quote! { () },
                 };
                 key_consts.push(quote! { const #variant_ident: #key_wrapper<#variant_ty> = #key_wrapper(#variant_string, std::marker::PhantomData); });
+                key_variants.push(quote! { #variant_string => #key_ident::#variant_ident });
             }
         }
         _ => panic!("The 'Key' derive macro is only supported on enums!"),
@@ -97,6 +109,15 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
     quote! {
         impl #crate_name::KeyDefinition for #ident {
             type Key = #key_ident;
+            type KeyRaw = String;
+
+            fn add_prefix(_key_raw: Self::KeyRaw, _prefix: &'static str) -> Self::KeyRaw {
+                todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
+            }
+
+            fn from_str(key: String) -> Self::KeyRaw {
+                key
+            }
         }
 
         #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -104,11 +125,11 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
 
         pub struct #key_wrapper<TArg>(&'static str, std::marker::PhantomData<TArg>);
 
-        impl<TArg> #crate_name::Key<#key_ident, TArg> for #key_wrapper<TArg> {
+        impl<TArg> #crate_name::Key<#ident, TArg> for #key_wrapper<TArg> {
             type Arg = TArg;
 
-            fn to_val(&self) -> String {
-                self.0.into()
+            fn to_val(self) -> String {
+                self.0.to_string()
             }
         }
 
@@ -122,7 +143,7 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Mutation, attributes(query))]
 pub fn derive_mutation(input: TokenStream) -> TokenStream {
-    let crate_name = format_ident!("trpc_rs");
+    let crate_name = format_ident!("rspc");
     let input: DeriveInput = parse_macro_input!(input);
     let args = match Args::from_derive_input(&input) {
         Ok(args) => args,
@@ -133,6 +154,7 @@ pub fn derive_mutation(input: TokenStream) -> TokenStream {
     let key_wrapper = format_ident!("{}KeyWrapper", ident);
 
     let mut key_consts = Vec::new();
+    let mut key_variants = Vec::new();
     match data {
         Data::Enum(data) => {
             for variant in data.variants {
@@ -156,6 +178,7 @@ pub fn derive_mutation(input: TokenStream) -> TokenStream {
                     Fields::Unit => quote! { () },
                 };
                 key_consts.push(quote! { const #variant_ident: #key_wrapper<#variant_ty> = #key_wrapper(#variant_string, std::marker::PhantomData); });
+                key_variants.push(quote! { #variant_string => #key_ident::#variant_ident });
             }
         }
         _ => panic!("The 'Key' derive macro is only supported on enums!"),
@@ -164,6 +187,15 @@ pub fn derive_mutation(input: TokenStream) -> TokenStream {
     quote! {
         impl #crate_name::KeyDefinition for #ident {
             type Key = #key_ident;
+            type KeyRaw = String;
+
+            fn add_prefix(_key_raw: Self::KeyRaw, _prefix: &'static str) -> Self::KeyRaw {
+                todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
+            }
+
+            fn from_str(key: String) -> Self::KeyRaw {
+                key
+            }
         }
 
         #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -171,11 +203,11 @@ pub fn derive_mutation(input: TokenStream) -> TokenStream {
 
         pub struct #key_wrapper<TArg>(&'static str, std::marker::PhantomData<TArg>);
 
-        impl<TArg> #crate_name::Key<#key_ident, TArg> for #key_wrapper<TArg> {
+        impl<TArg> #crate_name::Key<#ident, TArg> for #key_wrapper<TArg> {
             type Arg = TArg;
 
-            fn to_val(&self) -> String {
-                self.0.into()
+            fn to_val(self) -> String {
+                self.0.to_string()
             }
         }
 

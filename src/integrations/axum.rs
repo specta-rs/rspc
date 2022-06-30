@@ -8,7 +8,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{KeyDefinition, Router};
+use crate::{KeyDefinition, CompiledRouter};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -34,8 +34,14 @@ pub enum Response {
     Success { id: Option<String>, result: Result },
 }
 
-impl<TCtx: Send + Sync, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
-    Router<TCtx, TQueryKey, TMutationKey>
+impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+    CompiledRouter<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+where
+    TCtx: Send + Sync + 'static,
+    TMeta: Send + Sync + 'static,
+    TQueryKey: KeyDefinition,
+    TMutationKey: KeyDefinition,
+    TSubscriptionKey: KeyDefinition,
 {
     pub fn axum_handler(self: Arc<Self>, ctx_fn: fn() -> TCtx) -> MethodRouter {
         let get_this = self.clone();
@@ -55,8 +61,23 @@ impl<TCtx: Send + Sync, TQueryKey: KeyDefinition, TMutationKey: KeyDefinition>
         Path(key): Path<String>,
         Query(params): Query<GetParams>,
     ) -> Json<Vec<Response>> {
+        let mut arg = serde_json::from_str(&params.input).unwrap();
+        if let Value::Object(obj) = &arg {
+            if obj.len() == 0 {
+                arg = Value::Null;
+            }
+        }
+
+        if let Value::Object(obj) = &arg {
+            if obj.len() == 1 {
+                if let Some(v) = obj.get("0") {
+                    arg = v.clone();
+                }
+            }
+        }
+
         let result = self
-            .exec_query_unsafe(ctx_fn(), key, serde_json::from_str(&params.input).unwrap())
+            .exec_query_unsafe(ctx_fn(), key, arg)
             .await
             .unwrap();
 
