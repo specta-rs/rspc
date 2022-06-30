@@ -4,11 +4,11 @@ use std::{future::Future, marker::PhantomData};
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::MiddlewareResult;
+use crate::{ExecError, MiddlewareResult};
 
 /// TODO
 pub trait ResolverResult<TMarker> {
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ()>;
+    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError>;
 }
 
 pub struct SerdeTypeMarker(PhantomData<()>);
@@ -16,9 +16,9 @@ impl<TValue> ResolverResult<SerdeTypeMarker> for TValue
 where
     TValue: Serialize + TS,
 {
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ()> {
+    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
         Ok(MiddlewareResult::Sync(
-            serde_json::to_value(self).map_err(|err| ())?,
+            serde_json::to_value(self).map_err(ExecError::ErrSerialiseResult)?,
         ))
     }
 }
@@ -30,9 +30,9 @@ where
     TReturn: ResolverResult<TReturnMarker> + Send + Sync,
     TFut: Future<Output = TReturn> + Send + Sync + 'static,
 {
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ()> {
+    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
         Ok(MiddlewareResult::Future(Box::pin(async move {
-            self.await.into_middleware_result().unwrap().await
+            self.await.into_middleware_result()?.await
         })))
     }
 }

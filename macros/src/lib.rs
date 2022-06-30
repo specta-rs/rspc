@@ -23,7 +23,7 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                variants.push(quote! { #variant_string => #ident::#variant_ident });
+                variants.push(quote! { #variant_string => Ok(#ident::#variant_ident) });
             }
         }
         _ => panic!("The 'Key' derive macro is only supported on enums!"),
@@ -38,10 +38,10 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
                 todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
             }
 
-            fn from_str(key: String) -> Self::KeyRaw {
+            fn from_str(key: String) -> Result<Self::KeyRaw, #crate_name::ExecError> {
                 match key.as_str() {
                     #(#variants,)*
-                    _ => panic!("No variant found for key '{}'", key),
+                    _ => Err(#crate_name::ExecError::OperationNotFound),
                 }
             }
         }
@@ -115,8 +115,8 @@ pub fn derive_query(input: TokenStream) -> TokenStream {
                 todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
             }
 
-            fn from_str(key: String) -> Self::KeyRaw {
-                key
+            fn from_str(key: String) -> Result<Self::KeyRaw, #crate_name::ExecError> {
+                Ok(key)
             }
         }
 
@@ -193,8 +193,8 @@ pub fn derive_mutation(input: TokenStream) -> TokenStream {
                 todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
             }
 
-            fn from_str(key: String) -> Self::KeyRaw {
-                key
+            fn from_str(key: String) -> Result<Self::KeyRaw, #crate_name::ExecError> {
+                Ok(key)
             }
         }
 

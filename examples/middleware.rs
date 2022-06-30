@@ -6,7 +6,7 @@ async fn main() {
     let router = <Router>::new()
         .middleware(|_ctx, next| async move {
             println!("BEFORE");
-            let v = next(42).await; // The value passed into next will the the context for all future operations.
+            let v = next(42)?.await; // The value passed into next will the the context for all future operations.
             println!("AFTER");
             v
         })
@@ -17,7 +17,7 @@ async fn main() {
         // Middleware only apply to operations defined below them.
         .middleware(|_ctx, next| async move {
             println!("BEFORE ANOTHER");
-            let v = next("todo").await;
+            let v = next("todo")?.await;
             println!("AFTER ANOTHER");
             v
         })

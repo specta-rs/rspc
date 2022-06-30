@@ -5,8 +5,8 @@ use serde_json::Value;
 use ts_rs::TS;
 
 use crate::{
-    CompiledRouter, ConcreteArg, Context, Key, KeyDefinition, MiddlewareChain, MiddlewareResult,
-    Operation, ResolverResult,
+    CompiledRouter, ConcreteArg, Context, ExecError, Key, KeyDefinition, MiddlewareChain,
+    MiddlewareResult, Operation, ResolverResult,
 };
 
 /// TODO
@@ -67,12 +67,12 @@ where
         self,
         resolver: fn(
             TLayerCtx,
-            Box<dyn FnOnce(TNextLayerCtx) -> MiddlewareResult + Send + Sync>,
+            Box<dyn FnOnce(TNextLayerCtx) -> Result<MiddlewareResult, ExecError> + Send + Sync>,
         ) -> TFut,
     ) -> Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TNextLayerCtx>
     where
         TNextLayerCtx: Send + Sync + 'static,
-        TFut: Future<Output = Value> + Send + Sync + 'static,
+        TFut: Future<Output = Result<Value, ExecError>> + Send + Sync + 'static,
     {
         let Self {
             middleware,
@@ -88,7 +88,7 @@ where
 
                 (middleware)(Box::new(move |ctx, args| {
                     let y = resolver(ctx, Box::new(move |ctx| next(ctx, args)));
-                    MiddlewareResult::Future(Box::pin(y))
+                    Ok(MiddlewareResult::Future(Box::pin(y)))
                 }))
             }),
             query: query,
@@ -112,12 +112,14 @@ where
             key.to_val(),
             (self.middleware)(Box::new(move |ctx, arg| {
                 let arg = match arg {
-                    ConcreteArg::Value(v) => serde_json::from_value(v).unwrap(),
-                    ConcreteArg::Unknown(v) => *v.downcast::<TArg>().unwrap(),
+                    ConcreteArg::Value(v) => {
+                        serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
+                    }
+                    ConcreteArg::Unknown(v) => *v
+                        .downcast::<TArg>()
+                        .map_err(|_| ExecError::UnreachableInternalState)?,
                 };
-                resolver(Context { ctx }, arg)
-                    .into_middleware_result()
-                    .unwrap()
+                resolver(Context { ctx }, arg).into_middleware_result()
             })),
         );
         self
@@ -137,12 +139,14 @@ where
             key.to_val(),
             (self.middleware)(Box::new(move |ctx, arg| {
                 let arg = match arg {
-                    ConcreteArg::Value(v) => serde_json::from_value(v).unwrap(),
-                    ConcreteArg::Unknown(v) => *v.downcast::<TArg>().unwrap(),
+                    ConcreteArg::Value(v) => {
+                        serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
+                    }
+                    ConcreteArg::Unknown(v) => *v
+                        .downcast::<TArg>()
+                        .map_err(|_| ExecError::UnreachableInternalState)?,
                 };
-                resolver(Context { ctx }, arg)
-                    .into_middleware_result()
-                    .unwrap()
+                resolver(Context { ctx }, arg).into_middleware_result()
             })),
         );
         self
@@ -173,8 +177,8 @@ where
         }
 
         Router {
-            middleware: Box::new(move |next| {
-                (middleware)(Box::new(move |ctx, args| unimplemented!())) // TODO: This probs shouldn't be unimplemented
+            middleware: Box::new(move |_next| {
+                (middleware)(Box::new(move |_ctx, _args| unimplemented!())) // TODO: This probs shouldn't be unimplemented
             }),
             query: query,
             mutation: mutation,

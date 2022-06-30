@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use crate::ExecError;
+
 /// TODO
 pub trait KeyDefinition: Sized + Send + Sync + 'static {
     type Key: Send + Sync + 'static;
@@ -7,7 +9,7 @@ pub trait KeyDefinition: Sized + Send + Sync + 'static {
 
     fn add_prefix(key_raw: Self::KeyRaw, prefix: &'static str) -> Self::KeyRaw;
 
-    fn from_str(key: String) -> Self::KeyRaw;
+    fn from_str(key: String) -> Result<Self::KeyRaw, ExecError>;
 }
 
 /// TODO
@@ -25,8 +27,8 @@ impl KeyDefinition for &'static str {
         format!("{}{}", prefix, key_raw)
     }
 
-    fn from_str(key: String) -> Self::KeyRaw {
-        key
+    fn from_str(key: String) -> Result<Self::KeyRaw, ExecError> {
+        Ok(key)
     }
 }
 
@@ -46,8 +48,8 @@ impl KeyDefinition for u32 {
         todo!("Merging routes is currently only supported for `&'static str` keys! This will be supported in the future!");
     }
 
-    fn from_str(key: String) -> Self::KeyRaw {
-        key.parse().unwrap()
+    fn from_str(key: String) -> Result<Self::KeyRaw, ExecError> {
+        key.parse().map_err(|_| ExecError::OperationNotFound)
     }
 }
 

@@ -7,15 +7,15 @@ use std::{
 
 use serde_json::Value;
 
-use crate::ConcreteArg;
+use crate::{ConcreteArg, ExecError};
 
 /// TODO
 pub(crate) type MiddlewareChainBase<TCtx> =
-    Box<dyn Fn(TCtx, ConcreteArg) -> MiddlewareResult + Send + Sync>;
+    Box<dyn Fn(TCtx, ConcreteArg) -> Result<MiddlewareResult, ExecError> + Send + Sync>;
 
 /// TODO
 pub(crate) type OperationHandler<TLayerCtx> =
-    Box<dyn Fn(TLayerCtx, ConcreteArg) -> MiddlewareResult + Send + Sync>;
+    Box<dyn Fn(TLayerCtx, ConcreteArg) -> Result<MiddlewareResult, ExecError> + Send + Sync>;
 
 /// TODO
 pub(crate) type MiddlewareChain<TCtx, TLayerCtx> =
@@ -23,13 +23,13 @@ pub(crate) type MiddlewareChain<TCtx, TLayerCtx> =
 
 /// TODO
 pub enum MiddlewareResult {
-    Future(Pin<Box<dyn Future<Output = Value> + Send + Sync>>),
+    Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send + Sync>>),
     Sync(Value),
     Gone,
 }
 
 impl Future for MiddlewareResult {
-    type Output = Value;
+    type Output = Result<Value, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -41,7 +41,7 @@ impl Future for MiddlewareResult {
                     _ => unreachable!(),
                 };
 
-                Poll::Ready(v)
+                Poll::Ready(Ok(v))
             }
             MiddlewareResult::Gone => unreachable!(),
         }

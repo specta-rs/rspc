@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
 use axum::{
+    body::Body,
     extract::{Path, Query},
+    http::StatusCode,
+    response::IntoResponse,
     routing::{MethodFilter, MethodRouter},
     Json,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{KeyDefinition, CompiledRouter};
+use crate::{CompiledRouter, KeyDefinition};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -60,8 +63,49 @@ where
         ctx_fn: fn() -> TCtx,
         Path(key): Path<String>,
         Query(params): Query<GetParams>,
-    ) -> Json<Vec<Response>> {
-        let mut arg = serde_json::from_str(&params.input).unwrap();
+    ) -> impl IntoResponse {
+        match serde_json::from_str(&params.input) {
+            Ok(mut arg) => {
+                if let Value::Object(obj) = &arg {
+                    if obj.len() == 0 {
+                        arg = Value::Null;
+                    }
+                }
+
+                if let Value::Object(obj) = &arg {
+                    if obj.len() == 1 {
+                        if let Some(v) = obj.get("0") {
+                            arg = v.clone();
+                        }
+                    }
+                }
+
+                match self.exec_query_unsafe(ctx_fn(), key, arg).await {
+                    Ok(result) => (
+                        StatusCode::OK,
+                        Json(vec![Response::Success {
+                            id: None,
+                            result: Result::Data(result),
+                        }]),
+                    ),
+
+                    Err(e) => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(vec![Response::Error(())]),
+                    ),
+                }
+            }
+            Err(_) => (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())])),
+        }
+    }
+
+    async fn post(
+        self: Arc<Self>,
+        ctx_fn: fn() -> TCtx,
+        Path(key): Path<String>,
+        Query(_params): Query<PostParams>,
+        Json(mut arg): Json<Value>,
+    ) -> impl IntoResponse {
         if let Value::Object(obj) = &arg {
             if obj.len() == 0 {
                 arg = Value::Null;
@@ -76,32 +120,19 @@ where
             }
         }
 
-        let result = self
-            .exec_query_unsafe(ctx_fn(), key, arg)
-            .await
-            .unwrap();
+        match self.exec_mutation_unsafe(ctx_fn(), key, arg).await {
+            Ok(result) => (
+                StatusCode::OK,
+                Json(vec![Response::Success {
+                    id: None,
+                    result: Result::Data(result),
+                }]),
+            ),
 
-        Json(vec![Response::Success {
-            id: None,
-            result: Result::Data(result),
-        }])
-    }
-
-    async fn post(
-        self: Arc<Self>,
-        ctx_fn: fn() -> TCtx,
-        Path(key): Path<String>,
-        Query(_params): Query<PostParams>,
-        Json(input): Json<Value>,
-    ) -> Json<Vec<Response>> {
-        let result = self
-            .exec_mutation_unsafe(ctx_fn(), key, input)
-            .await
-            .unwrap();
-
-        Json(vec![Response::Success {
-            id: None,
-            result: Result::Data(result),
-        }])
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(vec![Response::Error(())]),
+            ),
+        }
     }
 }

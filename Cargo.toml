@@ -23,6 +23,7 @@ serde = "1.0.137"
 serde_json = "1.0.81"
 ts-rs = "6.2.0"
 axum = { version = "0.5.9", optional = true }
+thiserror = "1.0.31"
 
 [dev-dependencies]
 axum = "0.5.9"

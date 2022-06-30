@@ -22,7 +22,10 @@ async fn main() {
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
-    println!("listening on http://{}", addr);
+    println!(
+        "listening on http://{}/trpc/version?batch=1&input=%7B%7D",
+        addr
+    );
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

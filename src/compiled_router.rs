@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{ConcreteArg, Key, KeyDefinition, Operation};
+use crate::{ConcreteArg, ExecError, Key, KeyDefinition, Operation};
 
 /// TODO
 pub struct CompiledRouter<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
@@ -31,12 +31,20 @@ where
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
 {
-    pub async fn exec_query<TArg, TKey>(&self, ctx: TCtx, key: TKey, arg: TArg) -> Result<Value, ()>
+    pub async fn exec_query<TArg, TKey>(
+        &self,
+        ctx: TCtx,
+        key: TKey,
+        arg: TArg,
+    ) -> Result<Value, ExecError>
     where
         TArg: Send + Sync + 'static,
         TKey: Key<TQueryKey, TArg>,
     {
-        let definition = self.query.get(key.to_val()).unwrap();
+        let definition = self
+            .query
+            .get(key.to_val())
+            .ok_or(ExecError::OperationNotFound)?;
         let arg = match TypeId::of::<TArg>() == TypeId::of::<Value>() {
             // SAFETY: We check the TypeId's match before `transmute_copy`. We use this method as I couldn't implement a trait which wouldn't overlap to abstract this into.
             true => {
@@ -51,7 +59,7 @@ where
             false => ConcreteArg::Unknown(Box::new(arg)),
         };
 
-        Ok(definition(ctx, arg).await)
+        definition(ctx, arg)?.await
     }
 
     #[allow(dead_code)]
@@ -60,9 +68,12 @@ where
         ctx: TCtx,
         key: String,
         arg: Value,
-    ) -> Result<Value, ()> {
-        let definition = self.query.get(TQueryKey::from_str(key)).unwrap();
-        Ok(definition(ctx, ConcreteArg::Value(arg)).await)
+    ) -> Result<Value, ExecError> {
+        let definition = self
+            .query
+            .get(TQueryKey::from_str(key)?)
+            .ok_or(ExecError::OperationNotFound)?;
+        definition(ctx, ConcreteArg::Value(arg))?.await
     }
 
     pub async fn exec_mutation<TArg, TKey>(
@@ -70,12 +81,15 @@ where
         ctx: TCtx,
         key: TKey,
         arg: TArg,
-    ) -> Result<Value, ()>
+    ) -> Result<Value, ExecError>
     where
         TArg: Send + Sync + 'static,
         TKey: Key<TMutationKey, TArg>,
     {
-        let definition = self.mutation.get(key.to_val()).unwrap();
+        let definition = self
+            .mutation
+            .get(key.to_val())
+            .ok_or(ExecError::OperationNotFound)?;
         let arg = match TypeId::of::<TArg>() == TypeId::of::<Value>() {
             true => {
                 // We are using runtime specialization because I could not come up with a trait which wouldn't overlap to abstract this into.
@@ -89,7 +103,7 @@ where
             false => ConcreteArg::Unknown(Box::new(arg)),
         };
 
-        Ok(definition(ctx, arg).await)
+        definition(ctx, arg)?.await
     }
 
     #[allow(dead_code)]
@@ -98,8 +112,11 @@ where
         ctx: TCtx,
         key: String,
         arg: Value,
-    ) -> Result<Value, ()> {
-        let definition = self.mutation.get(TMutationKey::from_str(key)).unwrap();
-        Ok(definition(ctx, ConcreteArg::Value(arg)).await)
+    ) -> Result<Value, ExecError> {
+        let definition = self
+            .mutation
+            .get(TMutationKey::from_str(key)?)
+            .ok_or(ExecError::OperationNotFound)?;
+        definition(ctx, ConcreteArg::Value(arg))?.await
     }
 }

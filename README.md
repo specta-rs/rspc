@@ -2,7 +2,7 @@
 <p align="center">🚧 Work in progress 🚧</p>
 <div align="center">
  <strong>
-   A blazingly fast and easy to use TRPC server for Rust.
+   A blazing fast and easy to use TRPC-like server for Rust.
  </strong>
 </div>
 

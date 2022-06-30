@@ -5,14 +5,14 @@ use serde_json::json;
 #[tokio::main]
 async fn main() {
     let users_router = Router::<i32>::new()
-        .middleware(|_ctx, next| async { next("todo").await })
+        .middleware(|_ctx, next| async { next("todo")?.await })
         .query("list", |_ctx, _: ()| vec![] as Vec<()>);
 
     let router = <Router>::new()
-        .middleware(|_ctx, next| async { next(42).await })
+        .middleware(|_ctx, next| async { next(42)?.await })
         .query("version", |_ctx, _: ()| env!("CARGO_PKG_VERSION"))
         .merge("users.", users_router)
-        .middleware(|ctx, next| async move { next(ctx).await })
+        .middleware(|ctx, next| async move { next(ctx)?.await })
         .query("another", |_ctx, _: ()| "Hello World")
         .build();
 
