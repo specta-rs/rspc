@@ -1,0 +1,32 @@
+{
+  "name": "@rspc/docs",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@docsearch/css": "^3.1.0",
+    "preact": "^10.7.3"
+  },
+  "devDependencies": {
+    "@astrojs/preact": "^0.3.0",
+    "astro": "^1.0.0-beta.59"
+  },
+  "engines": {
+    "pnpm": ">=7.0.0",
+    "npm": "pnpm",
+    "yarn": "pnpm",
+    "node": ">=16.0.0"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@babel/*"
+      ]
+    }
+  }
+}
