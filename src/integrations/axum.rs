@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use axum::{
-    body::Body,
     extract::{Path, Query},
     http::StatusCode,
     response::IntoResponse,
@@ -89,7 +88,7 @@ where
                         }]),
                     ),
 
-                    Err(e) => (
+                    Err(_) => (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(vec![Response::Error(())]),
                     ),
@@ -129,7 +128,7 @@ where
                 }]),
             ),
 
-            Err(e) => (
+            Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(vec![Response::Error(())]),
             ),

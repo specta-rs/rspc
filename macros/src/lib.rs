@@ -10,6 +10,7 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
     let DeriveInput { ident, data, .. } = parse_macro_input!(input);
 
     let mut variants = Vec::new();
+    let mut to_string_variants = Vec::new();
     match data {
         Data::Enum(data) => {
             for variant in data.variants {
@@ -24,6 +25,8 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
                 }
 
                 variants.push(quote! { #variant_string => Ok(#ident::#variant_ident) });
+                to_string_variants
+                    .push(quote! { #ident::#variant_ident => #variant_string.into() });
             }
         }
         _ => panic!("The 'Key' derive macro is only supported on enums!"),
@@ -51,6 +54,14 @@ pub fn derive_key(input: TokenStream) -> TokenStream {
 
             fn to_val(self) -> #ident {
                 self
+            }
+        }
+
+        impl ToString for #ident {
+            fn to_string(&self) -> String {
+                match self {
+                    #(#to_string_variants,)*
+                }
             }
         }
     }

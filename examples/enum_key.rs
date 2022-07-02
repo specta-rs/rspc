@@ -18,6 +18,8 @@ async fn main() {
         .mutation(MutationKey::DemoMutation, |_, _: ()| "Hello Mutation")
         .build();
 
+    router.export("./ts").unwrap();
+
     println!(
         "{:#?}",
         router

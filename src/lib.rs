@@ -10,6 +10,7 @@ mod middleware;
 mod operation;
 mod resolver;
 mod router;
+mod type_def;
 
 pub use args::*;
 pub use compiled_router::*;
@@ -22,3 +23,4 @@ pub use operation::*;
 pub use resolver::*;
 pub use router::*;
 pub use rspc_macros::*;
+pub use type_def::*;

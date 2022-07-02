@@ -38,7 +38,7 @@ async fn main() {
         })
         .build();
 
-    // router.export("./ts").unwrap(); // TODO
+    router.export("./ts").unwrap();
 
     println!(
         "{:#?}",

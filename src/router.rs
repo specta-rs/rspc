@@ -108,7 +108,7 @@ where
         TArg: DeserializeOwned + TS + 'static,
         TResolverResult: ResolverResult<TResolverMarker> + 'static,
     {
-        self.query.insert(
+        self.query.insert::<TArg, TResolverMarker, TResolverResult>(
             key.to_val(),
             (self.middleware)(Box::new(move |ctx, arg| {
                 let arg = match arg {
@@ -135,20 +135,21 @@ where
         TArg: DeserializeOwned + TS + 'static,
         TResolverResult: ResolverResult<TResolverMarker> + 'static,
     {
-        self.mutation.insert(
-            key.to_val(),
-            (self.middleware)(Box::new(move |ctx, arg| {
-                let arg = match arg {
-                    ConcreteArg::Value(v) => {
-                        serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
-                    }
-                    ConcreteArg::Unknown(v) => *v
-                        .downcast::<TArg>()
-                        .map_err(|_| ExecError::UnreachableInternalState)?,
-                };
-                resolver(Context { ctx }, arg).into_middleware_result()
-            })),
-        );
+        self.mutation
+            .insert::<TArg, TResolverMarker, TResolverResult>(
+                key.to_val(),
+                (self.middleware)(Box::new(move |ctx, arg| {
+                    let arg = match arg {
+                        ConcreteArg::Value(v) => {
+                            serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
+                        }
+                        ConcreteArg::Unknown(v) => *v
+                            .downcast::<TArg>()
+                            .map_err(|_| ExecError::UnreachableInternalState)?,
+                    };
+                    resolver(Context { ctx }, arg).into_middleware_result()
+                })),
+            );
         self
     }
 
@@ -163,18 +164,38 @@ where
         let Self {
             middleware,
             mut query,
-            mutation,
+            mut mutation,
             subscription,
             ..
         } = self;
 
-        let operations = router.query.operations();
+        let (operations, type_defs) = router.query.consume();
         for (key, operation) in operations {
-            query.insert(
+            query.insert_internal(
                 TQueryKey::add_prefix(key, prefix),
                 (middleware)(Box::new(operation)),
             );
         }
+        query.insert_typedefs(
+            type_defs
+                .into_iter()
+                .map(|(key, value)| (TQueryKey::add_prefix(key, prefix), value))
+                .collect(),
+        );
+
+        let (operations, type_defs) = router.mutation.consume();
+        for (key, operation) in operations {
+            mutation.insert_internal(
+                TMutationKey::add_prefix(key, prefix),
+                (middleware)(Box::new(operation)),
+            );
+        }
+        mutation.insert_typedefs(
+            type_defs
+                .into_iter()
+                .map(|(key, value)| (TMutationKey::add_prefix(key, prefix), value))
+                .collect(),
+        );
 
         Router {
             middleware: Box::new(move |_next| {
@@ -195,14 +216,6 @@ where
             ..
         } = self;
 
-        Self::_build(query, mutation, subscription)
-    }
-
-    fn _build(
-        query: Operation<TQueryKey, TCtx>,
-        mutation: Operation<TMutationKey, TCtx>,
-        subscription: Operation<TSubscriptionKey, TCtx>,
-    ) -> CompiledRouter<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey> {
         // TODO: Validate all enum variants have been assigned a value
 
         CompiledRouter {

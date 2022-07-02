@@ -5,7 +5,7 @@ use crate::ExecError;
 /// TODO
 pub trait KeyDefinition: Sized + Send + Sync + 'static {
     type Key: Send + Sync + 'static;
-    type KeyRaw: Ord + Debug + Send + Sync + 'static; // TODO: Rename this type?
+    type KeyRaw: ToString + Clone + Ord + Debug + Send + Sync + 'static; // TODO: Rename this type?
 
     fn add_prefix(key_raw: Self::KeyRaw, prefix: &'static str) -> Self::KeyRaw;
 

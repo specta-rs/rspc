@@ -6,24 +6,21 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-    let router = <Router>::new()
+    let router = Router::<_, (), &'static str>::new()
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
-        .mutation(
-            "createUser",
-            |_, args| async move { User::create(args).await },
-        )
+        .mutation("createUser", |_, args| User::create(args))
         .query(
             "getUser",
             |_, id| async move { User::read(id).await.unwrap() },
         )
-        .query("getUsers", |_, _: ()| async { User::read_all().await })
-        .mutation("updateUser", |_, args: UpdateUserArgs| async move {
-            User::update(args.id, args.new_user).await
+        .query("getUsers", |_, _: ()| User::read_all())
+        .mutation("updateUser", |_, args: UpdateUserArgs| {
+            User::update(args.id, args.new_user)
         })
-        .mutation("deleteUser", |_, id| async move { User::delete(id).await })
+        .mutation("deleteUser", |_, id| User::delete(id))
         .build();
 
-    // router.export("./ts").unwrap(); // TODO
+    router.export("./ts").unwrap();
 
     println!(
         "{:#?}",
