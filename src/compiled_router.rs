@@ -9,7 +9,9 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{ConcreteArg, ExecError, Key, KeyDefinition, Operation, TSDependency};
+use crate::{
+    ConcreteArg, ExecError, Key, KeyDefinition, Operation, SubscriptionOperation, TSDependency,
+};
 
 /// TODO
 pub struct CompiledRouter<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
@@ -22,7 +24,7 @@ where
 {
     pub(crate) query: Operation<TQueryKey, TCtx>,
     pub(crate) mutation: Operation<TMutationKey, TCtx>,
-    pub(crate) subscription: Operation<TSubscriptionKey, TCtx>,
+    pub(crate) subscription: SubscriptionOperation<TSubscriptionKey, ()>,
     pub(crate) phantom: PhantomData<TMeta>,
 }
 
@@ -124,6 +126,15 @@ where
         definition(ctx, ConcreteArg::Value(arg))?.await
     }
 
+    #[allow(dead_code)]
+    pub(crate) async fn exec_subscription_unsafe(&self, key: String) -> Result<(), ExecError> {
+        let definition = self
+            .subscription
+            .get(TSubscriptionKey::from_str(key)?)
+            .ok_or(ExecError::OperationNotFound)?;
+        Ok(definition(()))
+    }
+
     // TODO: Don't use `Box<Error>` as return type.
     pub fn export<TPath: AsRef<Path>>(
         &self,
@@ -156,7 +167,7 @@ where
 
         writeln!(
             file,
-            "\nexport interface Operations {{ queries: Queries, mutations: Mutations }}"
+            "\nexport interface Operations {{ queries: Queries, mutations: Mutations, subscriptions: Subscriptions }}"
         )?;
 
         write!(file, "\nexport type Queries =")?;
@@ -166,6 +177,9 @@ where
         write!(file, "\nexport type Mutations =")?;
         file.write_all(&mutation_buf)?;
         writeln!(file, ";")?;
+
+        // TODO
+        write!(file, "\nexport type Subscriptions = never;")?;
 
         Ok(())
     }

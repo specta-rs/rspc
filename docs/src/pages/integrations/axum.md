@@ -25,7 +25,8 @@ let router = Arc::new(router.build());
 
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
-    .route("/rspc/:id", router.axum_handler(|| ()))
+    .route("/rspc/:id", router.clone().axum_handler(|| ()))
+    .route("/rspcws", router.axum_ws_handler(|| ()))
     .layer(cors);
 ```
 

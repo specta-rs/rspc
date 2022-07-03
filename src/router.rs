@@ -1,4 +1,4 @@
-use std::{any::type_name, future::Future, marker::PhantomData};
+use std::{future::Future, marker::PhantomData};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 use crate::{
     CompiledRouter, ConcreteArg, Context, ExecError, Key, KeyDefinition, MiddlewareChain,
-    MiddlewareResult, Operation, ResolverResult,
+    MiddlewareResult, Operation, ResolverResult, SubscriptionContext, SubscriptionOperation,
 };
 
 /// TODO
@@ -28,7 +28,7 @@ pub struct Router<
     middleware: MiddlewareChain<TCtx, TLayerCtx>,
     query: Operation<TQueryKey, TCtx>,
     mutation: Operation<TMutationKey, TCtx>,
-    subscription: Operation<TSubscriptionKey, TCtx>,
+    subscription: SubscriptionOperation<TSubscriptionKey, ()>,
     phantom: PhantomData<TMeta>,
 }
 
@@ -47,7 +47,7 @@ where
             middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
             query: Operation::new("query"),
             mutation: Operation::new("mutation"),
-            subscription: Operation::new("subscription"),
+            subscription: SubscriptionOperation::new("subscription"),
             phantom: PhantomData,
         }
     }
@@ -153,6 +153,29 @@ where
         self
     }
 
+    pub fn subscription<TKey, TArg, TResolverMarker, TResolverResult>(
+        mut self,
+        key: TKey,
+        resolver: fn(SubscriptionContext<() /* TODO: TLayerCtx */, TResolverResult>),
+    ) -> Self
+    where
+        TKey: Key<TSubscriptionKey, TArg>,
+        TArg: DeserializeOwned + TS + 'static,
+        TResolverResult: ResolverResult<TResolverMarker> + 'static,
+    {
+        self.subscription
+            .insert::<TResolverMarker, TResolverResult>(
+                key.to_val(),
+                Box::new(move |ctx| {
+                    resolver(SubscriptionContext {
+                        ctx,
+                        phantom: PhantomData,
+                    });
+                }),
+            );
+        self
+    }
+
     pub fn merge<TLayerCtx2>(
         self,
         prefix: &'static str,
@@ -165,7 +188,7 @@ where
             middleware,
             mut query,
             mut mutation,
-            subscription,
+            mut subscription,
             ..
         } = self;
 
@@ -194,6 +217,17 @@ where
             type_defs
                 .into_iter()
                 .map(|(key, value)| (TMutationKey::add_prefix(key, prefix), value))
+                .collect(),
+        );
+
+        let (operations, type_defs) = router.subscription.consume();
+        for (key, operation) in operations {
+            subscription.insert_internal(TSubscriptionKey::add_prefix(key, prefix), operation);
+        }
+        subscription.insert_typedefs(
+            type_defs
+                .into_iter()
+                .map(|(key, value)| (TSubscriptionKey::add_prefix(key, prefix), value))
                 .collect(),
         );
 

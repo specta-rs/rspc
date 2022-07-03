@@ -3,6 +3,7 @@ import { Transport } from "./transport";
 export type OperationsDef = {
   queries: { key: string; arg: any; result: any };
   mutations: { key: string; arg: any; result: any };
+  subscriptions: { key: string; result: any };
 };
 
 export interface ClientArgs {
@@ -26,13 +27,23 @@ export class Client<T extends OperationsDef> {
     key: K,
     arg?: Extract<T["queries"], { key: K }>["arg"]
   ): Promise<Extract<T["queries"], { key: K }>["result"]> {
-    return await this.transport.doRequest(key, arg);
+    return await this.transport.doRequest("query", key, arg);
   }
 
   async mutation<K extends T["mutations"]["key"]>(
     key: K,
     arg?: Extract<T["mutations"], { key: K }>["arg"]
   ): Promise<Extract<T["mutations"], { key: K }>["result"]> {
-    return await this.transport.doRequest(key, arg);
+    return await this.transport.doRequest("mutation", key, arg);
+  }
+
+  async subscription<K extends T["subscriptions"]["key"]>(
+    key: K,
+    args: {
+      onNext(msg: T["subscriptions"]["result"]);
+      onError(err: any); // TODO: Error type??
+    }
+  ) {
+    this.transport.doRequest("subscriptionAdd", key, undefined);
   }
 }
