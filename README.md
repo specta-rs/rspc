@@ -27,6 +27,9 @@
     <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs" />
   </a>
+  <a href="https://www.npmjs.com/package/@rspc/client">
+    <img alt="npm (scoped)" src="https://img.shields.io/npm/v/@rspc/client">
+  </a>
 </div>
 <br/>
 

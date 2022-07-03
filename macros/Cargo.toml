@@ -1,7 +1,7 @@
 [package]
 name = "rspc-macros"
 description = "Macros for `rspc`. You don't need to import this directly!"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
