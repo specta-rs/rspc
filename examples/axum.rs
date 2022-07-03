@@ -7,8 +7,10 @@ use tower_http::cors::{Any, CorsLayer};
 async fn main() {
     let router = rspc::Router::<()>::new()
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
-        .query("getUser", |_, v: String| v);
+        .query("getUser", |_, v: i32| v);
     let router = Arc::new(router.build());
+
+    router.export("./examples/solid/src/ts").unwrap();
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -18,12 +20,12 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
-        .route("/trpc/:id", router.axum_handler(|| ()))
+        .route("/rspc/:id", router.axum_handler(|| ()))
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!(
-        "listening on http://{}/trpc/version?batch=1&input=%7B%7D",
+        "listening on http://{}/rspc/version?batch=1&input=%7B%7D",
         addr
     );
     axum::Server::bind(&addr)

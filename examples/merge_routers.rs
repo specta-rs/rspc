@@ -6,7 +6,8 @@ use serde_json::json;
 async fn main() {
     let users_router = Router::<i32>::new()
         .middleware(|_ctx, next| async { next("todo")?.await })
-        .query("list", |_ctx, _: ()| vec![] as Vec<()>);
+        .query("list", |_ctx, _: ()| vec![] as Vec<()>)
+        .mutation("create", |_ctx, _: ()| todo!());
 
     let router = <Router>::new()
         .middleware(|_ctx, next| async { next(42)?.await })
@@ -16,7 +17,7 @@ async fn main() {
         .query("another", |_ctx, _: ()| "Hello World")
         .build();
 
-    // router.export("./ts").unwrap(); // TODO
+    router.export("./ts").unwrap();
 
     println!(
         "{:#?}",
@@ -28,5 +29,9 @@ async fn main() {
             .exec_query((), "users.list", json!(null))
             .await
             .unwrap()
+    );
+    println!(
+        "{:#?}",
+        router.exec_query((), "another", json!(null)).await.unwrap()
     );
 }

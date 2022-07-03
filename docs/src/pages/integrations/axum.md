@@ -7,12 +7,14 @@ layout: ../../layouts/MainLayout.astro
 
 ### Enable feature
 
-For the integration to work you use enable the `axum` feature of **rspc**.
+For the integration to work you must enable the `axum` feature of **rspc**. Ensure the rspc line in your `Cargo.toml` file looks like the following:
 
 ```toml
 [dependencies]
 rspc = { version = "0.0.0", features = ["axum"] } # Ensure you put the latest version!
 ```
+
+Read more about Rust features [here](https://doc.rust-lang.org/cargo/reference/features.html#dependency-features)
 
 ### Usage
 
@@ -23,7 +25,7 @@ let router = Arc::new(router.build());
 
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
-    .route("/trpc/:id", router.axum_handler(|| ()))
+    .route("/rspc/:id", router.axum_handler(|| ()))
     .layer(cors);
 ```
 

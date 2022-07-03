@@ -22,6 +22,7 @@ export const SIDEBAR = [
   { text: "Error handling", link: "server/error-handling" },
 
   { text: "Client", header: true },
+  { text: "Create client", link: "client/create-client" },
 
   { text: "Integrations", header: true },
   { text: "Axum", link: "integrations/axum" },

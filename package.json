@@ -1,0 +1,13 @@
+{
+  "name": "rspc",
+  "version": "1.0.0",
+  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel exec pnpm dev",
+    "build": "pnpm -r --parallel exec pnpm build"
+  }
+}

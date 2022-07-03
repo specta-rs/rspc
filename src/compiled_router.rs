@@ -159,13 +159,13 @@ where
             "\nexport interface Operations {{ queries: Queries, mutations: Mutations }}"
         )?;
 
-        write!(file, "\nexport interface Queries {{ ")?;
+        write!(file, "\nexport type Queries =")?;
         file.write_all(&query_buf)?;
-        writeln!(file, "}}")?;
+        writeln!(file, ";")?;
 
-        write!(file, "\nexport interface Mutations {{ ")?;
+        write!(file, "\nexport type Mutations =")?;
         file.write_all(&mutation_buf)?;
-        writeln!(file, "}}")?;
+        writeln!(file, ";")?;
 
         Ok(())
     }

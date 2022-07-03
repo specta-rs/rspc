@@ -14,3 +14,10 @@ Cargo.lock
 
 # Typescript bindings exported by the examples
 /ts
+/examples/solid/src/ts
+
+# Node
+node_modules
+.pnpm-debug.log*
+*.tsbuildinfo
+/packages/*/dist

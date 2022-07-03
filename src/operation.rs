@@ -87,6 +87,10 @@ where
         buf: &mut Vec<u8>,
         export_path: PathBuf,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        if self.type_defs.len() == 0 {
+            write!(buf, "never")?;
+        }
+
         for (key, type_def) in self.type_defs.iter() {
             // TODO: Handle errors
             (type_def.arg_export)(export_path.join(format!("{}.ts", type_def.arg_ty_name)));
@@ -96,7 +100,7 @@ where
 
             write!(
                 buf,
-                "\"{}\": {{ arg: {}, result: {} }}, ",
+                " | {{ key: \"{}\"; arg: {}; result: {}; }}",
                 key.to_string(),
                 type_def.arg_ty_name,
                 type_def.result_ty_name
