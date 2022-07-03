@@ -38,7 +38,7 @@
 You define a `trpc` router and attach resolvers to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
 
 ```rust
-let router = rspc::Router::<()>::new()
+let router = <rspc::Router>::new()
     .query("version", |_| "0.0.1")
     .mutation("helloWorld", |_| async { "Hello World!" });
 ```
