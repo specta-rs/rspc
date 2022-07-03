@@ -1,4 +1,4 @@
-use std::{future::Future, marker::PhantomData};
+use std::{any::type_name, future::Future, marker::PhantomData};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -197,10 +197,9 @@ where
                 .collect(),
         );
 
+        let router_middleware: &'static _ = Box::leak(router.middleware); // TODO: Cleanup memory
         Router {
-            middleware: Box::new(move |_next| {
-                (middleware)(Box::new(move |_ctx, _args| unimplemented!())) // TODO: This probs shouldn't be unimplemented
-            }),
+            middleware: Box::new(move |next| middleware((router_middleware)(next))),
             query: query,
             mutation: mutation,
             subscription: subscription,
