@@ -31,4 +31,4 @@ This library fits a use case between REST and [GraphQL](https://graphql.org). It
 
 ### Inspiration
 
-This project is based off [trpc](https://trpc.io). A huge thanks goes to the team behind it!
+This project is based off [trpc](https://trpc.io) and was inspired by the bridge system [Jamie Pine](https://github.com/jamiepine) designed for [Spacedrive](https://www.spacedrive.com). A huge thanks to everyone who helped inspire this project!
