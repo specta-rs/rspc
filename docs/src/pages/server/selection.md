@@ -34,3 +34,5 @@ let router = <Router>::new()
     })
     .build();
 ```
+
+[View full example](https://github.com/oscartbeaumont/rspc/blob/main/examples/selection.rs)
