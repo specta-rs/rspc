@@ -13,7 +13,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{CompiledRouter, KeyDefinition};
+use crate::{KeyDefinition, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -70,7 +70,7 @@ pub enum WsResponseBody {
 }
 
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
-    CompiledRouter<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,

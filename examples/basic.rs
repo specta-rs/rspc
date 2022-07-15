@@ -6,7 +6,7 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-    let router = Router::<_, (), &'static str>::new()
+    let router = <Router>::new()
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .mutation("createUser", |_, args| User::create(args))
         .query(

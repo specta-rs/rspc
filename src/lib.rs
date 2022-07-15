@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 mod args;
-mod compiled_router;
 mod context;
 mod error;
 mod integrations;
@@ -10,11 +9,12 @@ mod middleware;
 mod operation;
 mod resolver;
 mod router;
+mod router_builder;
+mod selection;
 mod subscription_operation;
 mod type_def;
 
 pub use args::*;
-pub use compiled_router::*;
 pub use context::*;
 pub use error::*;
 pub use integrations::*;
@@ -23,6 +23,8 @@ pub use middleware::*;
 pub use operation::*;
 pub use resolver::*;
 pub use router::*;
+pub use router_builder::*;
 pub use rspc_macros::*;
+pub use selection::*;
 pub use subscription_operation::*;
 pub use type_def::*;
