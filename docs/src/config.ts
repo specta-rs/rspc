@@ -19,6 +19,7 @@ export const SIDEBAR = [
   { text: "Request context", link: "server/request-context" },
   { text: "Middleware", link: "server/middleware" },
   { text: "Route metadata", link: "server/router-metadata" },
+  { text: "Selection", link: "server/selection" },
   { text: "Error handling", link: "server/error-handling" },
 
   { text: "Client", header: true },
