@@ -24,6 +24,7 @@ let router = <Router>::new()
     .query("me", |_, _: ()| {
         // This struct would be returned from your database!
         let user = User {
+            id: 1,
             name: "Monty Beaumont".into(),
             email: "monty@otbeaumont.me".into(),
             age: 7,
@@ -31,6 +32,20 @@ let router = <Router>::new()
         };
 
         selection!(user, { name, age }) // We select only the name and age fields to return
+    })
+    .query("users", |_, _: ()| {
+        let user = User {
+            name: "Monty Beaumont".into(),
+            email: "monty@otbeaumont.me".into(),
+            age: 7,
+            password: "password123".into(),
+        };
+
+        // We have a vector of data which contains information but we only want to return some of it the user.
+        // Eg. We don't want to expose the password field.
+        let users = vec![user.clone(), user.clone(), user];
+        
+        selection_vec!(users, { name, age }) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
     })
     .build();
 ```
