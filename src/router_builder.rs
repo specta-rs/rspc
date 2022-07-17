@@ -269,7 +269,7 @@ where
 
         #[cfg(debug_assertions)]
         if let Some(export_path) = self.config.export_bindings_on_build {
-            router.export(export_path).unwrap();
+            router.export_ts(export_path).unwrap();
         }
 
         router

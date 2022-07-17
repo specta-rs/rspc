@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use axum::{extract::Path, routing::get};
-use rspc::SerdeTypeMarker;
+use rspc::{Config, SerdeTypeMarker};
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
     let router = rspc::Router::<()>::new()
+        .config(Config::new().export_ts_bindings("./examples/solid/src/ts"))
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .query("getUser", |_, v: i32| v)
         .mutation("sayHi", |_, v: String| println!("{}", v))
@@ -16,8 +17,6 @@ async fn main() {
             // TODO: Implement system for listening and sending messages to client
         });
     let router = Arc::new(router.build());
-
-    router.export("./examples/solid/src/ts").unwrap();
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()

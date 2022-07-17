@@ -23,7 +23,7 @@ async fn main() {
         .build();
 
     // You can also export the bindings yourself
-    // router.export("./ts").unwrap();
+    // router.export_ts("./ts").unwrap();
 
     println!(
         "{:#?}",

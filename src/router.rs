@@ -141,7 +141,7 @@ where
     }
 
     // TODO: Don't use `Box<Error>` as return type.
-    pub fn export<TPath: AsRef<Path>>(
+    pub fn export_ts<TPath: AsRef<Path>>(
         &self,
         export_path: TPath,
         // TODO: New error type
@@ -155,11 +155,11 @@ where
 
         let mut query_buf = Vec::new();
         self.query
-            .export(&mut dependencies, &mut query_buf, export_path.clone())?;
+            .export_ts(&mut dependencies, &mut query_buf, export_path.clone())?;
 
         let mut mutation_buf = Vec::new();
         self.mutation
-            .export(&mut dependencies, &mut mutation_buf, export_path)?;
+            .export_ts(&mut dependencies, &mut mutation_buf, export_path)?;
 
         for dep in dependencies.into_iter() {
             writeln!(

@@ -81,7 +81,7 @@ where
     }
 
     // TODO: Don't use `Box<Error>` as return type.
-    pub(crate) fn export(
+    pub(crate) fn export_ts(
         &self,
         dependencies: &mut BTreeSet<TSDependency>,
         buf: &mut Vec<u8>,
