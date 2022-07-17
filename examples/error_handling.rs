@@ -18,7 +18,7 @@ impl Into<Error> for MyCustomError {
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
-        .config(Config::new().export_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./ts"))
         .query("ok", |_, args: ()| {
             Ok("Hello World".into()) as Result<String, Error>
         })

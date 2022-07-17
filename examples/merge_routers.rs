@@ -10,7 +10,7 @@ async fn main() {
         .mutation("create", |_ctx, _: ()| todo!());
 
     let router = <Router>::new()
-        .config(Config::new().export_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./ts"))
         .middleware(|_ctx, next| async { next(42)?.await })
         .query("version", |_ctx, _: ()| env!("CARGO_PKG_VERSION"))
         .merge("users.", users_router)

@@ -11,7 +11,7 @@ pub struct User {
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
-        .config(Config::new().export_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./ts"))
         .query("me", |_, _: ()| {
             // We have some data which contains information but we only want to return some of it the user.
             // Eg. We don't want to expose the password field.

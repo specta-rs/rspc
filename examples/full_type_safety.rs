@@ -22,7 +22,7 @@ pub enum Mutation {
 #[tokio::main]
 async fn main() {
     let router = Router::<(), (), Query, Mutation>::new()
-        .config(Config::new().export_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./ts"))
         .query(QueryKey::Version, |_, _| env!("CARGO_PKG_VERSION"))
         .query(QueryKey::GetUsers, |_, _| async { User::read_all().await })
         .query(QueryKey::GetUser, |_, id| async move {

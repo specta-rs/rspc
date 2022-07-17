@@ -14,7 +14,7 @@ pub enum MutationKey {
 #[tokio::main]
 async fn main() {
     let router = Router::<(), (), QueryKey, MutationKey>::new()
-        .config(Config::new().export_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./ts"))
         .query(QueryKey::DemoQuery, |_, _: ()| "Hello Query")
         .mutation(MutationKey::DemoMutation, |_, _: ()| "Hello Mutation")
         .build();

@@ -7,7 +7,7 @@ mod utils;
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
-        .config(Config::new().export_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./ts"))
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .mutation("createUser", |_, args| User::create(args))
         .query(
