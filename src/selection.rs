@@ -1,8 +1,8 @@
 #[macro_export]
 macro_rules! selection {
-    ( $s:expr, { $($n:ident),+ } ) => {{
-        #[allow(non_camel_case_types)]
+    ( $s:expr, [{ $($n:ident),+ }] ) => {{
         #[derive(serde::Serialize)]
+        #[allow(non_camel_case_types)]
         struct Selection<$($n,)*> {
             $($n: $n,)*
         }
@@ -36,57 +36,51 @@ macro_rules! selection {
                         .join(" ")
                 )
             }
-
-
         }
 
-        Selection { $($n: $s.$n,)* }
-    }};
-}
-
-#[macro_export]
-macro_rules! selection_vec {
-    ( $s:ident, { $($n:ident),+ } ) => {{
         #[allow(non_camel_case_types)]
-        #[derive(serde::Serialize)]
-        struct Selection<$($n,)*> {
-            $($n: $n,)*
-        }
-
-        impl<$($n: ts_rs::TS + 'static,)*> ts_rs::TS for Selection<$($n,)*> {
-            const EXPORT_TO: Option<&'static str> = None;
-
-            fn name() -> String {
-                format!("Selection")
-            }
-            fn dependencies() -> Vec<ts_rs::Dependency> {
-                vec![
-                    $(ts_rs::Dependency::from_ty::<$n>()),*
-                ]
-                    .into_iter()
-                    .filter_map(|v| v)
-                    .collect()
-            }
-
-            fn transparent() -> bool {
-                true
-            }
-
-            fn inline() -> String {
-                format!(
-                    "{{ {} }}",
-                    vec![$((stringify!($n), $n::name())),*]
-                        .into_iter()
-                        .map(|(name, kind)| { format!("{}: {};", name, kind) })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                )
-            }
-
-
-        }
-
         $s.into_iter().map(|v| Selection { $($n: v.$n,)* }).collect::<Vec<_>>()
+    }};
+    ( $s:expr, { $($n:ident),+ } ) => {{
+        #[derive(serde::Serialize)]
+        #[allow(non_camel_case_types)]
+        struct Selection<$($n,)*> {
+            $($n: $n,)*
+        }
+
+        impl<$($n: ts_rs::TS + 'static,)*> ts_rs::TS for Selection<$($n,)*> {
+            const EXPORT_TO: Option<&'static str> = None;
+
+            fn name() -> String {
+                format!("Selection")
+            }
+            fn dependencies() -> Vec<ts_rs::Dependency> {
+                vec![
+                    $(ts_rs::Dependency::from_ty::<$n>()),*
+                ]
+                    .into_iter()
+                    .filter_map(|v| v)
+                    .collect()
+            }
+
+            fn transparent() -> bool {
+                true
+            }
+
+            fn inline() -> String {
+                format!(
+                    "{{ {} }}",
+                    vec![$((stringify!($n), $n::name())),*]
+                        .into_iter()
+                        .map(|(name, kind)| { format!("{}: {};", name, kind) })
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                )
+            }
+        }
+
+        #[allow(non_camel_case_types)]
+        Selection { $($n: $s.$n,)* }
     }};
 }
 
@@ -118,7 +112,7 @@ mod tests {
         assert_eq!(s1.age, 7);
 
         let users = vec![user; 3];
-        let s2 = selection_vec!(users, { name, age });
+        let s2 = selection!(users, [{ name, age }]);
         assert_eq!(s2[0].name, "Monty Beaumont".to_string());
         assert_eq!(s2[0].age, 7);
     }

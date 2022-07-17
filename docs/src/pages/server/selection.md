@@ -45,7 +45,7 @@ let router = <Router>::new()
         // Eg. We don't want to expose the password field.
         let users = vec![user.clone(), user.clone(), user];
         
-        selection_vec!(users, { name, age }) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
+        selection!(users, [{ name, age }]) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
     })
     .build();
 ```

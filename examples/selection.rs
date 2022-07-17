@@ -1,4 +1,4 @@
-use rspc::{selection, selection_vec, Config, Router};
+use rspc::{selection, Config, Router};
 
 #[derive(Clone)]
 pub struct User {
@@ -10,7 +10,7 @@ pub struct User {
 
 #[tokio::main]
 async fn main() {
-    let router = <Router>::new()
+    let _router = <Router>::new()
         .config(Config::new().export_ts_bindings("./ts"))
         .query("me", |_, _: ()| {
             // We have some data which contains information but we only want to return some of it the user.
@@ -37,7 +37,7 @@ async fn main() {
             let users = vec![user.clone(), user.clone(), user];
 
             // TODO: Fix the Rust compile warning here
-            selection_vec!(users, { name, age }) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
+            selection!(users, [{ name, age }]) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
         })
         .build();
 }
