@@ -5,7 +5,7 @@ use serde_json::Value;
 use ts_rs::TS;
 
 use crate::{
-    ConcreteArg, Context, ExecError, Key, KeyDefinition, MiddlewareChain, MiddlewareResult,
+    ConcreteArg, Config, Context, ExecError, Key, KeyDefinition, MiddlewareChain, MiddlewareResult,
     Operation, ResolverResult, Router, SubscriptionContext, SubscriptionOperation,
 };
 
@@ -18,6 +18,7 @@ where
     TSubscriptionKey: KeyDefinition,
     TLayerCtx: Send + Sync + 'static,
 {
+    config: Config,
     middleware: MiddlewareChain<TCtx, TLayerCtx>,
     query: Operation<TQueryKey, TCtx>,
     mutation: Operation<TMutationKey, TCtx>,
@@ -36,6 +37,7 @@ where
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TCtx> {
         RouterBuilder {
+            config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
             query: Operation::new("query"),
             mutation: Operation::new("mutation"),
@@ -55,6 +57,12 @@ where
     TSubscriptionKey: KeyDefinition,
     TLayerCtx: Send + Sync + 'static,
 {
+    /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = config;
+        self
+    }
+
     pub fn middleware<TNextLayerCtx, TFut>(
         self,
         resolver: fn(
@@ -75,6 +83,7 @@ where
         } = self;
 
         RouterBuilder {
+            config: self.config,
             middleware: Box::new(move |next| {
                 let next: &'static _ = Box::leak(next); // TODO: Cleanup memory
 
@@ -232,6 +241,7 @@ where
 
         let router_middleware: &'static _ = Box::leak(router.middleware); // TODO: Cleanup memory
         RouterBuilder {
+            config: self.config,
             middleware: Box::new(move |next| middleware((router_middleware)(next))),
             query: query,
             mutation: mutation,
@@ -250,11 +260,18 @@ where
 
         // TODO: Validate all enum variants have been assigned a value
 
-        Router {
+        let router = Router {
             query: query,
             mutation: mutation,
             subscription: subscription,
             phantom: PhantomData,
+        };
+
+        #[cfg(debug_assertions)]
+        if let Some(export_path) = self.config.export_bindings_on_build {
+            router.export(export_path).unwrap();
         }
+
+        router
     }
 }

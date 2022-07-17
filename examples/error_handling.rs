@@ -1,4 +1,4 @@
-use rspc::{Error, ErrorCode, Router};
+use rspc::{Config, Error, ErrorCode, Router};
 use serde_json::json;
 
 pub enum MyCustomError {
@@ -18,6 +18,7 @@ impl Into<Error> for MyCustomError {
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
+        .config(Config::new().export_bindings("./ts"))
         .query("ok", |_, args: ()| {
             Ok("Hello World".into()) as Result<String, Error>
         })
@@ -31,8 +32,6 @@ async fn main() {
             Err(MyCustomError::IAmBroke) as Result<String, MyCustomError>
         })
         .build();
-
-    router.export("./ts").unwrap();
 
     println!(
         "{:#?}",

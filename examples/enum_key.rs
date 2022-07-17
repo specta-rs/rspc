@@ -1,4 +1,4 @@
-use rspc::{Key, Router};
+use rspc::{Config, Key, Router};
 use serde_json::json;
 
 #[derive(Key, Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -14,11 +14,10 @@ pub enum MutationKey {
 #[tokio::main]
 async fn main() {
     let router = Router::<(), (), QueryKey, MutationKey>::new()
+        .config(Config::new().export_bindings("./ts"))
         .query(QueryKey::DemoQuery, |_, _: ()| "Hello Query")
         .mutation(MutationKey::DemoMutation, |_, _: ()| "Hello Mutation")
         .build();
-
-    router.export("./ts").unwrap();
 
     println!(
         "{:#?}",

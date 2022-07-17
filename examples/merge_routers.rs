@@ -1,5 +1,5 @@
 /// This example show how to merge routers. It also demonstrates how they work with middleware context switching.
-use rspc::Router;
+use rspc::{Config, Router};
 use serde_json::json;
 
 #[tokio::main]
@@ -10,14 +10,13 @@ async fn main() {
         .mutation("create", |_ctx, _: ()| todo!());
 
     let router = <Router>::new()
+        .config(Config::new().export_bindings("./ts"))
         .middleware(|_ctx, next| async { next(42)?.await })
         .query("version", |_ctx, _: ()| env!("CARGO_PKG_VERSION"))
         .merge("users.", users_router)
         .middleware(|ctx, next| async move { next(ctx)?.await })
         .query("another", |_ctx, _: ()| "Hello World")
         .build();
-
-    router.export("./ts").unwrap();
 
     println!(
         "{:#?}",

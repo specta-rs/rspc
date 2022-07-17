@@ -1,5 +1,5 @@
 use crate::utils::{UpdateUserArgs, User};
-use rspc::Router;
+use rspc::{Config, Router};
 use serde_json::json;
 
 mod utils;
@@ -7,6 +7,7 @@ mod utils;
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
+        .config(Config::new().export_bindings("./ts"))
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .mutation("createUser", |_, args| User::create(args))
         .query(
@@ -21,7 +22,8 @@ async fn main() {
         .query("optional", |_, _: ()| None as Option<String>)
         .build();
 
-    router.export("./ts").unwrap();
+    // You can also export the bindings yourself
+    // router.export("./ts").unwrap();
 
     println!(
         "{:#?}",

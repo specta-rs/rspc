@@ -1,4 +1,4 @@
-use rspc::{selection, selection_vec, Router};
+use rspc::{selection, selection_vec, Config, Router};
 
 #[derive(Clone)]
 pub struct User {
@@ -11,6 +11,7 @@ pub struct User {
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
+        .config(Config::new().export_bindings("./ts"))
         .query("me", |_, _: ()| {
             // We have some data which contains information but we only want to return some of it the user.
             // Eg. We don't want to expose the password field.
@@ -39,6 +40,4 @@ async fn main() {
             selection_vec!(users, { name, age }) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
         })
         .build();
-
-    router.export("./ts").unwrap();
 }

@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod args;
+mod config;
 mod context;
 mod error;
 mod integrations;
@@ -15,6 +16,7 @@ mod subscription_operation;
 mod type_def;
 
 pub use args::*;
+pub use config::*;
 pub use context::*;
 pub use error::*;
 pub use integrations::*;
