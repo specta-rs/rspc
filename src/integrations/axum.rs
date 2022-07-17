@@ -76,16 +76,7 @@ pub enum WsResponseBody {
 
 pub enum TCtxFuncResult<TCtx> {
     Value(TCtx),
-    Future(
-        Pin<
-            Box<
-                dyn Future<Output = Result<Result<TCtx, axum::response::Response>, ExecError>>
-                    + Send
-                    + Sync
-                    + 'static,
-            >,
-        >,
-    ),
+    Future(Pin<Box<dyn Future<Output = Result<TCtx, axum::response::Response>> + Send + 'static>>),
 }
 
 pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
@@ -115,15 +106,11 @@ where
 {
     fn exec(&self, mut request: RequestParts<Body>) -> TCtxFuncResult<TCtx> {
         let this = self.clone();
-        let handle = spawn_local(async move {
+        TCtxFuncResult::Future(Box::pin(async move {
             match T1::from_request(&mut request).await {
                 Ok(t1) => Ok(this(t1)),
                 Err(e) => Err(e.into_response()),
             }
-        });
-
-        TCtxFuncResult::Future(Box::pin(async move {
-            handle.await.map_err(|_| ExecError::InternalServerError)
         }))
     }
 }
@@ -188,10 +175,7 @@ where
                 let ctx = match ctx_fn.exec(request_parts) {
                     TCtxFuncResult::Value(ctx) => ctx,
                     TCtxFuncResult::Future(future) => match future.await {
-                        Ok(Ok(ctx)) => ctx,
-                        Ok(Err(_)) => {
-                            return (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())]));
-                        }
+                        Ok(ctx) => ctx,
                         Err(_) => {
                             return (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())]));
                         }
@@ -243,10 +227,7 @@ where
         let ctx = match ctx_fn.exec(request_parts) {
             TCtxFuncResult::Value(ctx) => ctx,
             TCtxFuncResult::Future(future) => match future.await {
-                Ok(Ok(ctx)) => ctx,
-                Ok(Err(_)) => {
-                    return (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())]));
-                }
+                Ok(ctx) => ctx,
                 Err(_) => {
                     return (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())]));
                 }

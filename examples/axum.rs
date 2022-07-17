@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{extract::Path, routing::get};
-use rspc::{Config, SerdeTypeMarker};
+use rspc::Config;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -10,12 +10,7 @@ async fn main() {
         .config(Config::new().export_ts_bindings("./examples/solid/src/ts"))
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .query("getUser", |_, v: i32| v)
-        .mutation("sayHi", |_, v: String| println!("{}", v))
-        // TODO: Make it so you don't have to specify all these generics
-        .subscription::<&'static str, (), SerdeTypeMarker, String>("pings", |_ctx| {
-            println!("Client subscribed to 'pings'");
-            // TODO: Implement system for listening and sending messages to client
-        });
+        .mutation("sayHi", |_, v: String| println!("{}", v));
     let router = Arc::new(router.build());
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
@@ -28,7 +23,10 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .route(
             "/rspc/:id",
-            router.clone().axum_handler(|Path(_key): Path<String>| ()),
+            router.clone().axum_handler(|Path(path): Path<String>| {
+                println!("Requested: '{}'", path);
+                ()
+            }),
         )
         .route("/rspcws", router.axum_ws_handler(|| ()))
         .layer(cors);
