@@ -31,3 +31,22 @@ let app = axum::Router::new()
 ```
 
 [View full example](https://github.com/oscartbeaumont/rspc/blob/main/examples/axum.rs)
+
+### Extracting Context from Request
+
+**Warning: Current we only support a single extractor. We will fix this soon.**
+
+You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extractors" target="_blank">Axum extractors</a> to get data from the request such as cookies and put them on the request context. The `axum_handler` function takes a closure that can take up to 16 valid Axum extractors as arguments and then returns the context (of type `TCtx`).
+
+```rust
+let router = rspc::Router::<String>::new()
+    .query("currentPath", |ctx, _: ()| ctx);
+let router = Arc::new(router.build());
+
+let app = axum::Router::new()
+    .route("/", get(|| async { "Hello 'rspc'!" }))
+    // We use Axum `Path` extractor. The `rspc::Router` has `TCtx` set to `String` so we return the path string as the context.
+    .route("/rspc/:id", router.clone().axum_handler(|Path(path): Path<String>| path))
+    .route("/rspcws", router.axum_ws_handler(|Path(path): Path<String>| path))
+    .layer(cors);
+```

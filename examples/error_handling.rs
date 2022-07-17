@@ -36,20 +36,11 @@ async fn main() {
 
     println!(
         "{:#?}",
-        router
-            .exec_query((), "ok", json!("Hello World"))
-            .await
-            .unwrap()
+        router.exec_query((), "ok", json!(null)).await.unwrap()
     );
-    // println!(
-    //     "{:#?}",
-    //     router.exec_query((), "err", json!(null)).await.unwrap()
-    // );
-    // println!(
-    //     "{:#?}",
-    //     router
-    //         .exec_query((), "customErr", json!(null))
-    //         .await
-    //         .unwrap()
-    // );
+    println!("{:#?}", router.exec_query((), "err", json!(null)).await);
+    println!(
+        "{:#?}",
+        router.exec_query((), "customErr", json!(null)).await
+    );
 }

@@ -11,7 +11,7 @@ documentation = "https://docs.rs/rspc/latest/rspc"
 
 [features]
 default = []
-axum = ["dep:axum"]
+axum = ["dep:axum", "dep:tokio"]
 
 [[example]]
 name = "axum"
@@ -24,6 +24,7 @@ serde_json = "1.0.81"
 ts-rs = "6.2.0"
 axum = { version = "0.5.9", optional = true, features = ["ws"] }
 thiserror = "1.0.31"
+tokio = { version = "1.19.2", optional = true }
 
 [dev-dependencies]
 axum = "0.5.9"

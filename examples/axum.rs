@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::routing::get;
+use axum::{extract::Path, routing::get};
 use rspc::SerdeTypeMarker;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -27,7 +27,10 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
-        .route("/rspc/:id", router.clone().axum_handler(|| ()))
+        .route(
+            "/rspc/:id",
+            router.clone().axum_handler(|Path(_key): Path<String>| ()),
+        )
         .route("/rspcws", router.axum_ws_handler(|| ()))
         .layer(cors);
 

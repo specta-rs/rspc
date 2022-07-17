@@ -1,4 +1,4 @@
-use std::{error, fmt, sync::Arc};
+use std::{error, fmt};
 
 use thiserror::Error;
 
@@ -13,6 +13,8 @@ pub enum ExecError {
     ErrDeserialiseArg(serde_json::Error),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
+    #[error("an internal `rspc` error occurred.")]
+    InternalServerError,
     #[error("error `rspc` got into an unreachable state. Please report this issue to developers!")]
     UnreachableInternalState,
 }
