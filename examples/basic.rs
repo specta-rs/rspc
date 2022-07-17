@@ -18,6 +18,7 @@ async fn main() {
             User::update(args.id, args.new_user)
         })
         .mutation("deleteUser", |_, id| User::delete(id))
+        .query("optional", |_, _: ()| None as Option<String>)
         .build();
 
     router.export("./ts").unwrap();

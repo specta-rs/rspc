@@ -35,11 +35,8 @@ importers:
 
   packages/client:
     specifiers:
-      solid-js: ^1.4.2
       tsup: ^6.1.3
       typescript: ^4.7.4
-    dependencies:
-      solid-js: 1.4.6
     devDependencies:
       tsup: 6.1.3_typescript@4.7.4
       typescript: 4.7.4

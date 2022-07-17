@@ -4,7 +4,7 @@ use std::{future::Future, marker::PhantomData};
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::{ExecError, MiddlewareResult, TypeDef};
+use crate::{Error, ExecError, MiddlewareResult, TypeDef};
 
 /// TODO
 pub trait ResolverResult<TMarker> {
@@ -44,5 +44,25 @@ where
 
     fn type_def<TArg: TS>() -> TypeDef {
         TReturn::type_def::<TArg>()
+    }
+}
+
+pub struct ResultTypeMarker<TReturnMarker>(PhantomData<TReturnMarker>);
+impl<TValue, TErr> ResolverResult<ResultTypeMarker<TErr>> for Result<TValue, TErr>
+where
+    TValue: Serialize + TS,
+    TErr: Into<Error>,
+{
+    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
+        match self {
+            Ok(value) => Ok(MiddlewareResult::Sync(
+                serde_json::to_value(value).map_err(ExecError::ErrSerialiseResult)?,
+            )),
+            Err(err) => Err(ExecError::ErrResolverError(err.into())),
+        }
+    }
+
+    fn type_def<TArg: TS>() -> TypeDef {
+        TypeDef::new::<TArg, TValue>()
     }
 }
