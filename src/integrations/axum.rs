@@ -38,7 +38,7 @@ pub enum ResponseResult {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum Response {
-    Error(()),
+    Error, // TODO: Error type
     Success {
         id: Option<String>,
         result: ResponseResult,
@@ -72,7 +72,7 @@ pub enum WsResponse {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum WsResponseBody {
-    Error(()),
+    Error, // TODO: Error type
     Success(Value),
 }
 
@@ -189,7 +189,7 @@ where
                     TCtxFuncResult::Future(future) => match future.await {
                         Ok(ctx) => ctx,
                         Err(_) => {
-                            return (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())]));
+                            return (StatusCode::BAD_REQUEST, Json(vec![Response::Error]));
                         }
                     },
                 };
@@ -205,11 +205,11 @@ where
 
                     Err(_) => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(vec![Response::Error(())]),
+                        Json(vec![Response::Error]),
                     ),
                 }
             }
-            Err(_) => (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())])),
+            Err(_) => (StatusCode::BAD_REQUEST, Json(vec![Response::Error])),
         }
     }
 
@@ -241,7 +241,7 @@ where
             TCtxFuncResult::Future(future) => match future.await {
                 Ok(ctx) => ctx,
                 Err(_) => {
-                    return (StatusCode::BAD_REQUEST, Json(vec![Response::Error(())]));
+                    return (StatusCode::BAD_REQUEST, Json(vec![Response::Error]));
                 }
             },
         };
@@ -257,7 +257,7 @@ where
 
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(vec![Response::Error(())]),
+                Json(vec![Response::Error]),
             ),
         }
     }
@@ -382,13 +382,13 @@ where
                                                 id: msg.id,
                                                 result: match result {
                                                     Ok(result) => WsResponseBody::Success(result),
-                                                    Err(_) => WsResponseBody::Error(()),
+                                                    Err(_) => WsResponseBody::Error,
                                                 },
                                             }
                                         }
                                         Err(_) => WsResponse::Response {
                                             id: "_".into(), // TODO: Is this a good idea? What does TRPC do in this case?
-                                            result: WsResponseBody::Error(()),
+                                            result: WsResponseBody::Error,
                                         },
                                     };
 

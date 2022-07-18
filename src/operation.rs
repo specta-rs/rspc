@@ -44,10 +44,8 @@ where
         }
 
         self.operations.insert(key.clone(), Box::new(handler));
-        if TArg::EXPORT_TO.is_some() {
-            self.type_defs
-                .insert(key, TResolverResult::type_def::<TArg>());
-        }
+        self.type_defs
+            .insert(key, TResolverResult::type_def::<TArg>());
     }
 
     pub(crate) fn insert_internal(

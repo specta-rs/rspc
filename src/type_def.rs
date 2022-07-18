@@ -51,7 +51,12 @@ impl<T: TS> TSType for T {
     }
 
     fn export_to(path: PathBuf) -> Result<(), ExportError> {
-        T::export_to(path)
+        // TODO: Suboptiomal workaround for detecting primitive types
+        if T::EXPORT_TO.is_some() {
+            T::export_to(path)
+        } else {
+            Ok(())
+        }
     }
 }
 

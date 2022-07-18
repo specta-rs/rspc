@@ -35,7 +35,7 @@ export class FetchTransport implements Transport {
     let headers = new Headers();
 
     if (operation === "query") {
-      url += `?batch=1&input=${encodeURIComponent(arg || "{}")}`;
+      url += `?batch=1&input=${encodeURIComponent(JSON.stringify(arg || {}))}`;
     } else if (operation === "mutation") {
       url += `?batch=1`;
       method = "POST";
