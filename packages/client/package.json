@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "dev": "tsup --watch",
-    "build": "tsup"
+    "build": "tsup",
+    "prepare": "tsup"
   },
   "devDependencies": {
     "tsup": "^6.1.3",
