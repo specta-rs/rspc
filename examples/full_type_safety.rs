@@ -53,6 +53,7 @@ async fn main() {
                     id: 1,
                     name: "Monty Beaumont".into(),
                     email: "monty@otbeaumont.me".into(),
+                    pets: vec![]
                 }
             )
             .await

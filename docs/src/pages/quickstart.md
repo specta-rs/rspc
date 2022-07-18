@@ -17,10 +17,12 @@ cargo add tokio --features full # rpsc requires an async runtime
 
 ### Install rspc
 
-`rspc` is distributed through a Rust crate hosted on [crates.io](https://crates.io/rspc). Add it to your project using the following command:
+~~`rspc` is distributed through a Rust crate hosted on [crates.io](https://crates.io/rspc). Add it to your project using the following command:~~
+
+**Currently installation has to be done through Git as we are using a fork of [`ts_rs`](https://github.com/oscartbeaumont/ts-rs/tree/rspc) which isn't on [crates.io](https://crates.io/rspc). This is a temporary workaround and will be fixed in the near future.**
 
 ```bash
-cargo add rspc
+cargo add rspc --git https://github.com/oscartbeaumont/rspc.git
 ```
 
 You may need to install [cargo edit](https://github.com/killercup/cargo-edit) if your not running Rust `1.62.0` or later.

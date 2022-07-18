@@ -105,9 +105,8 @@ where
         }
 
         for (key, type_def) in self.type_defs.iter() {
-            // TODO: Handle errors
-            (type_def.arg_export)(export_path.join(format!("{}.ts", type_def.arg_ty_name)));
-            (type_def.result_export)(export_path.join(format!("{}.ts", type_def.result_ty_name)));
+            (type_def.arg_export)(export_path.join(format!("{}.ts", type_def.arg_ty_name)))?;
+            (type_def.result_export)(export_path.join(format!("{}.ts", type_def.result_ty_name)))?;
 
             dependencies.extend(type_def.dependencies.clone());
 

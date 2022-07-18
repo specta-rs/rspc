@@ -11,7 +11,7 @@ async fn main() {
 
     let router = <Router>::new()
         .config(Config::new().export_ts_bindings("./ts"))
-        .middleware(|_ctx, next| async { next(42)?.await })
+        .middleware(|_ctx, next| async { next(42i32)?.await })
         .query("version", |_ctx, _: ()| env!("CARGO_PKG_VERSION"))
         .merge("users.", users_router)
         .middleware(|ctx, next| async move { next(ctx)?.await })

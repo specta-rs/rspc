@@ -21,7 +21,7 @@ required-features = ["axum"]
 rspc-macros = { path = "./macros", version = "0.0.3" }
 serde = "1.0.137"
 serde_json = "1.0.81"
-ts-rs = "6.2.0"
+ts-rs = { git = "https://github.com/oscartbeaumont/ts-rs.git", branch = "rspc" }
 axum = { version = "0.5.9", optional = true, features = ["ws"] }
 thiserror = "1.0.31"
 futures = "0.3.21"

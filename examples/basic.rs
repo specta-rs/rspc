@@ -35,7 +35,7 @@ async fn main() {
             .exec_mutation(
                 (),
                 "createUser",
-                json!({ "id": 1, "name": "Monty Beaumont", "email": "monty@otbeaumont.me" })
+                json!({ "id": 1, "name": "Monty Beaumont", "email": "monty@otbeaumont.me", "pets": [] })
             )
             .await
             .unwrap()

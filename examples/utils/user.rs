@@ -13,10 +13,17 @@ pub struct UpdateUserArgs {
 }
 
 #[derive(Clone, Default, TS, Serialize, Deserialize)]
+pub struct Pet {
+    pub id: i32,
+    pub name: String,
+}
+
+#[derive(Clone, Default, TS, Serialize, Deserialize)]
 pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
+    pub pets: Vec<Pet>,
 }
 
 impl User {
