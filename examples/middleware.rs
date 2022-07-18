@@ -1,4 +1,4 @@
-use rspc::Router;
+use rspc::{ActualMiddlewareResult, MiddlewareResult, Router};
 use serde_json::json;
 
 #[tokio::main]
@@ -6,9 +6,15 @@ async fn main() {
     let router = <Router>::new()
         .middleware(|_ctx, next| async move {
             println!("BEFORE");
-            let v = next(42)?.await; // The value passed into next will the the context for all future operations.
-            println!("AFTER");
-            v
+            // The value passed into next will the the context for all future operations.
+            match next(42)? {
+                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
+                result => {
+                    let v = result.await?;
+                    println!("AFTER");
+                    Ok(v.into_middleware_result())
+                }
+            }
         })
         .query("version", |_ctx, _: ()| {
             println!("VERSION");
@@ -17,9 +23,14 @@ async fn main() {
         // Middleware only apply to operations defined below them.
         .middleware(|_ctx, next| async move {
             println!("BEFORE ANOTHER");
-            let v = next("todo")?.await;
-            println!("AFTER ANOTHER");
-            v
+            match next("todo")? {
+                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
+                result => {
+                    let v = result.await?;
+                    println!("AFTER ANOTHER");
+                    Ok(v.into_middleware_result())
+                }
+            }
         })
         .query("another", |_ctx, _: ()| {
             println!("ANOTHER HANDLER");

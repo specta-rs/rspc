@@ -10,7 +10,7 @@ use tokio::time::sleep;
 async fn main() {
     let router = <Router>::new()
         .config(Config::new().export_ts_bindings("./ts"))
-        .subscription("pings", |ctx, args: ()| {
+        .subscription("pings", |_ctx, _args: ()| {
             stream! {
                 println!("Client subscribed to 'pings'");
                 for i in 0..5 {

@@ -12,7 +12,6 @@ mod resolver;
 mod router;
 mod router_builder;
 mod selection;
-mod subscription_operation;
 mod type_def;
 
 pub use args::*;
@@ -28,5 +27,4 @@ pub use router::*;
 pub use router_builder::*;
 pub use rspc_macros::*;
 pub use selection::*;
-pub(crate) use subscription_operation::*;
 pub use type_def::*;

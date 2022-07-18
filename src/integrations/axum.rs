@@ -119,15 +119,14 @@ where
 
 // TODO: Build macro so we can support up to 16 different extractor arguments like Axum
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
-    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
+impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
-    TRootCtx: Send + Sync + 'static,
 {
     pub fn axum_handler<TMarker>(
         self: Arc<Self>,
@@ -148,14 +147,11 @@ where
     pub fn axum_ws_handler<TMarker>(
         self: Arc<Self>,
         ctx_fn: impl TCtxFunc<TCtx, TMarker>,
-        ctx_root_ctx_fn: impl TCtxFunc<TRootCtx, NoArgMarker>,
     ) -> MethodRouter {
         MethodRouter::new().on(
             MethodFilter::GET,
             move |ws: WebSocketUpgrade, request| async move {
-                ws.on_upgrade(move |socket| async move {
-                    self.ws(ctx_fn, ctx_root_ctx_fn, socket, request).await
-                })
+                ws.on_upgrade(move |socket| async move { self.ws(ctx_fn, socket, request).await })
             },
         )
     }
@@ -262,10 +258,9 @@ where
         }
     }
 
-    async fn ws<TMarker, TMarker2>(
+    async fn ws<TMarker>(
         self: Arc<Self>,
         ctx_fn: impl TCtxFunc<TCtx, TMarker>,
-        ctx_root_ctx_fn: impl TCtxFunc<TRootCtx, TMarker2>, // TODO: Remove this when subscriptions support middleware
         mut socket: WebSocket,
         request: Request<Body>,
     ) {
@@ -294,47 +289,25 @@ where
                                                 }
                                             }
 
+                                            let ctx = match ctx_fn.exec(&mut request_parts) {
+                                                TCtxFuncResult::Value(ctx) => ctx,
+                                                TCtxFuncResult::Future(future) => match future.await {
+                                                    Ok(ctx) => ctx,
+                                                    Err(_) => {
+                                                        println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
+                                                        return;
+                                                    }
+                                                },
+                                            };
+
                                             let result = match msg.method {
                                                 MessageMethod::Query => {
-                                                    let ctx = match ctx_fn.exec(&mut request_parts) {
-                                                        TCtxFuncResult::Value(ctx) => ctx,
-                                                        TCtxFuncResult::Future(future) => match future.await {
-                                                            Ok(ctx) => ctx,
-                                                            Err(_) => {
-                                                                println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
-                                                                return;
-                                                            }
-                                                        },
-                                                    };
-
                                                     self.exec_query_unsafe(ctx, msg.operation, msg.arg).await
                                                 }
                                                 MessageMethod::Mutation => {
-                                                    let ctx = match ctx_fn.exec(&mut request_parts) {
-                                                        TCtxFuncResult::Value(ctx) => ctx,
-                                                        TCtxFuncResult::Future(future) => match future.await {
-                                                            Ok(ctx) => ctx,
-                                                            Err(_) => {
-                                                                println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
-                                                                return;
-                                                            }
-                                                        },
-                                                    };
-
                                                     self.exec_mutation_unsafe(ctx, msg.operation, msg.arg).await
                                                 }
                                                 MessageMethod::SubscriptionAdd => {
-                                                    let ctx = match ctx_root_ctx_fn.exec(&mut request_parts) {
-                                                        TCtxFuncResult::Value(ctx) => ctx,
-                                                        TCtxFuncResult::Future(future) => match future.await {
-                                                            Ok(ctx) => ctx,
-                                                            Err(_) => {
-                                                                println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
-                                                                return;
-                                                            }
-                                                        },
-                                                    };
-
                                                     let operation = msg.operation.clone();
                                                     let tx = tx.clone();
                                                     match self

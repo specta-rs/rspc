@@ -26,6 +26,7 @@ axum = { version = "0.5.9", optional = true, features = ["ws"] }
 thiserror = "1.0.31"
 futures = "0.3.21"
 tokio = { version = "1.19.2", optional = true }
+async-recursion = "1.0.0"
 
 [dev-dependencies]
 async-stream = "0.3.3"

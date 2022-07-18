@@ -11,9 +11,7 @@ use std::{
 use futures::Stream;
 use serde_json::Value;
 
-use crate::{
-    ConcreteArg, ExecError, Key, KeyDefinition, Operation, SubscriptionOperation, TSDependency,
-};
+use crate::{ConcreteArg, ExecError, Key, KeyDefinition, Operation, StreamOrValue, TSDependency};
 
 /// TODO
 pub struct Router<
@@ -22,30 +20,27 @@ pub struct Router<
     TQueryKey = &'static str,
     TMutationKey = &'static str,
     TSubscriptionKey = &'static str,
-    TRootCtx = (),
 > where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
-    TRootCtx: Send + Sync + 'static,
 {
     pub(crate) query: Operation<TQueryKey, TCtx>,
     pub(crate) mutation: Operation<TMutationKey, TCtx>,
-    pub(crate) subscription: SubscriptionOperation<TSubscriptionKey, TRootCtx>,
+    pub(crate) subscription: Operation<TSubscriptionKey, TCtx>,
     pub(crate) phantom: PhantomData<TMeta>,
 }
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
-    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
+impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
-    TRootCtx: Send + Sync + 'static,
 {
     pub async fn exec_query<TArg, TKey>(
         &self,
@@ -122,9 +117,23 @@ where
         definition(ctx, arg)?.await
     }
 
+    #[allow(dead_code)]
+    pub(crate) async fn exec_mutation_unsafe(
+        &self,
+        ctx: TCtx,
+        key: String,
+        arg: Value,
+    ) -> Result<Value, ExecError> {
+        let definition = self
+            .mutation
+            .get(TMutationKey::from_str(key)?)
+            .ok_or(ExecError::OperationNotFound)?;
+        definition(ctx, ConcreteArg::Value(arg))?.await
+    }
+
     pub async fn exec_subscription<TArg, TKey>(
         &self,
-        ctx: TRootCtx,
+        ctx: TCtx,
         key: TKey,
         arg: TArg,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError>
@@ -149,27 +158,16 @@ where
             false => ConcreteArg::Unknown(Box::new(arg)),
         };
 
-        Ok(definition(ctx, arg)?)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) async fn exec_mutation_unsafe(
-        &self,
-        ctx: TCtx,
-        key: String,
-        arg: Value,
-    ) -> Result<Value, ExecError> {
-        let definition = self
-            .mutation
-            .get(TMutationKey::from_str(key)?)
-            .ok_or(ExecError::OperationNotFound)?;
-        definition(ctx, ConcreteArg::Value(arg))?.await
+        match definition(ctx, arg)?.to_stream_or_value().await? {
+            StreamOrValue::Stream(stream) => Ok(stream),
+            StreamOrValue::Value(_) => unreachable!(),
+        }
     }
 
     #[allow(dead_code)]
     pub(crate) async fn exec_subscription_unsafe(
         &self,
-        ctx: TRootCtx,
+        ctx: TCtx,
         key: String,
         arg: Value,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
@@ -178,7 +176,13 @@ where
             .get(TSubscriptionKey::from_str(key)?)
             .ok_or(ExecError::OperationNotFound)?;
 
-        Ok(definition(ctx, ConcreteArg::Value(arg))?)
+        match definition(ctx, ConcreteArg::Value(arg))?
+            .to_stream_or_value()
+            .await?
+        {
+            StreamOrValue::Stream(stream) => Ok(stream),
+            StreamOrValue::Value(_) => unreachable!(),
+        }
     }
 
     // TODO: Don't use `Box<Error>` as return type.

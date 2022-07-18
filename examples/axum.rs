@@ -41,7 +41,7 @@ async fn main() {
                 ()
             }),
         )
-        .route("/rspcws", router.axum_ws_handler(|| (), || ()))
+        .route("/rspcws", router.axum_ws_handler(|| ()))
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4

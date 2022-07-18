@@ -19,16 +19,16 @@ impl Into<Error> for MyCustomError {
 async fn main() {
     let router = <Router>::new()
         .config(Config::new().export_ts_bindings("./ts"))
-        .query("ok", |_, args: ()| {
+        .query("ok", |_, _args: ()| {
             Ok("Hello World".into()) as Result<String, Error>
         })
-        .query("err", |_, args: ()| {
+        .query("err", |_, _args: ()| {
             Err(Error::new(
                 ErrorCode::BadRequest,
                 "This is a custom error!".into(),
             )) as Result<String, Error>
         })
-        .query("customErr", |_, args: ()| {
+        .query("customErr", |_, _args: ()| {
             Err(MyCustomError::IAmBroke) as Result<String, MyCustomError>
         })
         .build();
