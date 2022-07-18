@@ -11,11 +11,12 @@ use axum::{
     routing::{MethodFilter, MethodRouter},
     Json,
 };
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::task::spawn_local;
+use tokio::{spawn, sync::mpsc};
 
-use crate::{ExecError, KeyDefinition, Router};
+use crate::{KeyDefinition, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -62,9 +63,10 @@ pub struct WsRequest {
 }
 
 #[derive(Debug, Serialize)]
-pub struct WsResponse {
-    pub id: String,
-    pub result: WsResponseBody,
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum WsResponse {
+    Event { key: String, result: Value },
+    Response { id: String, result: WsResponseBody },
 }
 
 #[derive(Debug, Serialize)]
@@ -74,16 +76,16 @@ pub enum WsResponseBody {
     Success(Value),
 }
 
-pub enum TCtxFuncResult<TCtx> {
+pub enum TCtxFuncResult<'a, TCtx> {
     Value(TCtx),
-    Future(Pin<Box<dyn Future<Output = Result<TCtx, axum::response::Response>> + Send + 'static>>),
+    Future(Pin<Box<dyn Future<Output = Result<TCtx, axum::response::Response>> + Send + 'a>>),
 }
 
 pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
 where
     TCtx: Send + 'static,
 {
-    fn exec(&self, request: RequestParts<Body>) -> TCtxFuncResult<TCtx>;
+    fn exec<'a>(&self, request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx>;
 }
 
 pub struct NoArgMarker(PhantomData<()>);
@@ -92,7 +94,7 @@ where
     TCtx: Send + 'static,
     TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
 {
-    fn exec(&self, _request: RequestParts<Body>) -> TCtxFuncResult<TCtx> {
+    fn exec<'a>(&self, _request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx> {
         TCtxFuncResult::Value(self.clone()())
     }
 }
@@ -104,10 +106,10 @@ where
     TCtx: Send + 'static,
     TFunc: FnOnce(T1) -> TCtx + Clone + Send + Sync + 'static,
 {
-    fn exec(&self, mut request: RequestParts<Body>) -> TCtxFuncResult<TCtx> {
+    fn exec<'a>(&self, request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx> {
         let this = self.clone();
         TCtxFuncResult::Future(Box::pin(async move {
-            match T1::from_request(&mut request).await {
+            match T1::from_request(request).await {
                 Ok(t1) => Ok(this(t1)),
                 Err(e) => Err(e.into_response()),
             }
@@ -117,14 +119,15 @@ where
 
 // TODO: Build macro so we can support up to 16 different extractor arguments like Axum
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
-    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
+    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
+    TRootCtx: Send + Sync + 'static,
 {
     pub fn axum_handler<TMarker>(
         self: Arc<Self>,
@@ -142,10 +145,19 @@ where
             })
     }
 
-    pub fn axum_ws_handler(self: Arc<Self>, ctx_fn: fn() -> TCtx) -> MethodRouter {
-        MethodRouter::new().on(MethodFilter::GET, move |ws: WebSocketUpgrade| async move {
-            ws.on_upgrade(move |socket| async move { self.ws(ctx_fn, socket).await })
-        })
+    pub fn axum_ws_handler<TMarker>(
+        self: Arc<Self>,
+        ctx_fn: impl TCtxFunc<TCtx, TMarker>,
+        ctx_root_ctx_fn: impl TCtxFunc<TRootCtx, NoArgMarker>,
+    ) -> MethodRouter {
+        MethodRouter::new().on(
+            MethodFilter::GET,
+            move |ws: WebSocketUpgrade, request| async move {
+                ws.on_upgrade(move |socket| async move {
+                    self.ws(ctx_fn, ctx_root_ctx_fn, socket, request).await
+                })
+            },
+        )
     }
 
     async fn get<TMarker>(
@@ -155,7 +167,7 @@ where
         Query(params): Query<GetParams>,
         request: Request<Body>,
     ) -> impl IntoResponse {
-        let request_parts = RequestParts::new(request);
+        let mut request_parts = RequestParts::new(request);
         match serde_json::from_str(&params.input) {
             Ok(mut arg) => {
                 if let Value::Object(obj) = &arg {
@@ -172,7 +184,7 @@ where
                     }
                 }
 
-                let ctx = match ctx_fn.exec(request_parts) {
+                let ctx = match ctx_fn.exec(&mut request_parts) {
                     TCtxFuncResult::Value(ctx) => ctx,
                     TCtxFuncResult::Future(future) => match future.await {
                         Ok(ctx) => ctx,
@@ -209,7 +221,7 @@ where
         Json(mut arg): Json<Value>,
         request: Request<Body>,
     ) -> impl IntoResponse {
-        let request_parts = RequestParts::new(request);
+        let mut request_parts = RequestParts::new(request);
         if let Value::Object(obj) = &arg {
             if obj.len() == 0 {
                 arg = Value::Null;
@@ -224,7 +236,7 @@ where
             }
         }
 
-        let ctx = match ctx_fn.exec(request_parts) {
+        let ctx = match ctx_fn.exec(&mut request_parts) {
             TCtxFuncResult::Value(ctx) => ctx,
             TCtxFuncResult::Future(future) => match future.await {
                 Ok(ctx) => ctx,
@@ -250,87 +262,178 @@ where
         }
     }
 
-    async fn ws(self: Arc<Self>, ctx_fn: fn() -> TCtx, mut socket: WebSocket) {
-        while let Some(msg) = socket.recv().await {
-            if let Ok(msg) = msg {
-                match msg {
-                    Message::Text(msg) => {
-                        let result = match serde_json::from_str::<WsRequest>(&msg) {
-                            Ok(mut msg) => {
-                                if let Value::Object(obj) = &msg.arg {
-                                    if obj.len() == 0 {
-                                        msg.arg = Value::Null;
-                                    }
-                                }
+    async fn ws<TMarker, TMarker2>(
+        self: Arc<Self>,
+        ctx_fn: impl TCtxFunc<TCtx, TMarker>,
+        ctx_root_ctx_fn: impl TCtxFunc<TRootCtx, TMarker2>, // TODO: Remove this when subscriptions support middleware
+        mut socket: WebSocket,
+        request: Request<Body>,
+    ) {
+        let mut request_parts = RequestParts::new(request);
+        let (tx, mut rx) = mpsc::unbounded_channel::<WsResponse>();
+        loop {
+            tokio::select! {
+                msg = socket.recv() => {
+                    match msg {
+                        Some(Ok(msg)) => {
+                            match msg {
+                                Message::Text(msg) => {
+                                    let result = match serde_json::from_str::<WsRequest>(&msg) {
+                                        Ok(mut msg) => {
+                                            if let Value::Object(obj) = &msg.arg {
+                                                if obj.len() == 0 {
+                                                    msg.arg = Value::Null;
+                                                }
+                                            }
 
-                                if let Value::Object(obj) = &msg.arg {
-                                    if obj.len() == 1 {
-                                        if let Some(v) = obj.get("0") {
-                                            msg.arg = v.clone();
+                                            if let Value::Object(obj) = &msg.arg {
+                                                if obj.len() == 1 {
+                                                    if let Some(v) = obj.get("0") {
+                                                        msg.arg = v.clone();
+                                                    }
+                                                }
+                                            }
+
+                                            let result = match msg.method {
+                                                MessageMethod::Query => {
+                                                    let ctx = match ctx_fn.exec(&mut request_parts) {
+                                                        TCtxFuncResult::Value(ctx) => ctx,
+                                                        TCtxFuncResult::Future(future) => match future.await {
+                                                            Ok(ctx) => ctx,
+                                                            Err(_) => {
+                                                                println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
+                                                                return;
+                                                            }
+                                                        },
+                                                    };
+
+                                                    self.exec_query_unsafe(ctx, msg.operation, msg.arg).await
+                                                }
+                                                MessageMethod::Mutation => {
+                                                    let ctx = match ctx_fn.exec(&mut request_parts) {
+                                                        TCtxFuncResult::Value(ctx) => ctx,
+                                                        TCtxFuncResult::Future(future) => match future.await {
+                                                            Ok(ctx) => ctx,
+                                                            Err(_) => {
+                                                                println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
+                                                                return;
+                                                            }
+                                                        },
+                                                    };
+
+                                                    self.exec_mutation_unsafe(ctx, msg.operation, msg.arg).await
+                                                }
+                                                MessageMethod::SubscriptionAdd => {
+                                                    let ctx = match ctx_root_ctx_fn.exec(&mut request_parts) {
+                                                        TCtxFuncResult::Value(ctx) => ctx,
+                                                        TCtxFuncResult::Future(future) => match future.await {
+                                                            Ok(ctx) => ctx,
+                                                            Err(_) => {
+                                                                println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
+                                                                return;
+                                                            }
+                                                        },
+                                                    };
+
+                                                    let operation = msg.operation.clone();
+                                                    let tx = tx.clone();
+                                                    match self
+                                                        .exec_subscription_unsafe(ctx, msg.operation, msg.arg)
+                                                        .await
+                                                    {
+                                                        Ok(mut result) => {
+                                                            spawn(async move {
+                                                                while let Some(msg) = result.next().await {
+                                                                    match msg {
+                                                                        Ok(msg) => {
+                                                                            if let Err(e) = tx
+                                                                                .send(WsResponse::Event {
+                                                                                    key: operation.clone(),
+                                                                                    result: msg,
+                                                                                }) {
+                                                                                println!(
+                                                                                    "ERROR SENDING MESSAGE!"
+                                                                                ); // TODO: Error handling here
+                                                                                return;
+                                                                            }
+                                                                        }
+                                                                        Err(_) => {
+                                                                            println!("ERROR GETTING MESSAGE!"); // TODO: Error handling here
+                                                                            return;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            });
+
+                                                            Ok(Value::Null)
+                                                        }
+                                                        Err(_) => {
+                                                            println!("ERROR GETTING CONTEXT!"); // TODO: Error handling here
+                                                            return;
+                                                        }
+                                                    }
+                                                }
+                                                MessageMethod::SubscriptionRemove => {
+                                                    unimplemented!(); // TODO: Make this work
+                                                }
+                                            };
+
+                                            WsResponse::Response {
+                                                id: msg.id,
+                                                result: match result {
+                                                    Ok(result) => WsResponseBody::Success(result),
+                                                    Err(_) => WsResponseBody::Error(()),
+                                                },
+                                            }
                                         }
+                                        Err(_) => WsResponse::Response {
+                                            id: "_".into(), // TODO: Is this a good idea? What does TRPC do in this case?
+                                            result: WsResponseBody::Error(()),
+                                        },
+                                    };
+
+                                    if socket
+                                        .send(Message::Text(serde_json::to_string(&result).unwrap()))
+                                        .await
+                                        .is_err()
+                                    {
+                                        // client disconnected
+                                        return;
                                     }
                                 }
-
-                                let result = match msg.method {
-                                    MessageMethod::Query => {
-                                        self.exec_query_unsafe(ctx_fn(), msg.operation, msg.arg)
-                                            .await
-                                    }
-                                    MessageMethod::Mutation => {
-                                        self.exec_mutation_unsafe(ctx_fn(), msg.operation, msg.arg)
-                                            .await
-                                    }
-                                    MessageMethod::SubscriptionAdd => {
-                                        self.exec_subscription_unsafe(msg.operation)
-                                            .await
-                                            .map(|_| Value::Null) // TODO: This doesn't need a response
-                                    }
-                                    MessageMethod::SubscriptionRemove => {
-                                        unimplemented!(); // TODO: Make this work
-                                    }
-                                };
-
-                                WsResponse {
-                                    id: msg.id,
-                                    result: match result {
-                                        Ok(result) => WsResponseBody::Success(result),
-                                        Err(_) => WsResponseBody::Error(()),
-                                    },
+                                Message::Binary(_) => {
+                                    // TODO
+                                    println!("CLIENT SENT UNSUPPORTED WEBSOCKET OPERATION 'Binary'!");
                                 }
+                                Message::Ping(_) => {
+                                    // TODO
+                                    println!("CLIENT SENT UNSUPPORTED WEBSOCKET OPERATION 'Ping'!");
+                                }
+                                Message::Pong(_) => {
+                                    // TODO
+                                    println!("CLIENT SENT UNSUPPORTED WEBSOCKET OPERATION 'Pong'!");
+                                }
+                                Message::Close(_) => {}
                             }
-                            Err(_) => WsResponse {
-                                id: "_".into(), // TODO: Is this a good idea? What does TRPC do in this case?
-                                result: WsResponseBody::Error(()),
-                            },
-                        };
-
-                        if socket
-                            .send(Message::Text(serde_json::to_string(&result).unwrap()))
-                            .await
-                            .is_err()
-                        {
-                            // client disconnected
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+                msg = rx.recv() => {
+                    match socket
+                        .send(Message::Text(serde_json::to_string(&msg).unwrap()))
+                        .await
+                    {
+                        Ok(_) => {},
+                        Err(_) => {
+                            println!("ERROR SENDING MESSAGE!"); // TODO: Error handling here
                             return;
                         }
                     }
-                    Message::Binary(_) => {
-                        // TODO
-                        println!("CLIENT SENT UNSUPPORTED WEBSOCKET OPERATION 'Binary'!");
-                    }
-                    Message::Ping(_) => {
-                        // TODO
-                        println!("CLIENT SENT UNSUPPORTED WEBSOCKET OPERATION 'Ping'!");
-                    }
-                    Message::Pong(_) => {
-                        // TODO
-                        println!("CLIENT SENT UNSUPPORTED WEBSOCKET OPERATION 'Pong'!");
-                    }
-                    Message::Close(_) => {}
                 }
-            } else {
-                // client disconnected
-                return;
-            };
+            }
         }
     }
 }

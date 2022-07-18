@@ -8,6 +8,13 @@ export type OperationType =
 
 export interface Transport {
   doRequest(operation: OperationType, key: string, arg: any): Promise<any>;
+  subscribe(
+    operation: OperationType,
+    key: string,
+    arg: any,
+    onMessage: (msg: any) => void,
+    onError: (msg: any) => void
+  ): Promise<void>;
 }
 
 export class FetchTransport implements Transport {
@@ -44,6 +51,18 @@ export class FetchTransport implements Transport {
     // TODO: Error handling
     return (await resp.json())[0].result.data;
   }
+
+  async subscribe(
+    operation: OperationType,
+    key: string,
+    arg: any,
+    onMessage: (msg: any) => void,
+    onError: (msg: any) => void
+  ): Promise<void> {
+    console.error(
+      `Subscribing to '{}' failed as the HTTP transport does not support subscriptions. Maybe try using Websockets?`
+    );
+  }
 }
 
 const randomId = () => Math.random().toString(36).slice(2);
@@ -52,17 +71,26 @@ export class WebsocketTransport implements Transport {
   private url: string;
   private ws: WebSocket;
   private requestMap = new Map<string, (data: any) => void>();
+  private subscriptionMap = new Map<string, Set<(data: any) => void>>();
 
   constructor(url: string) {
     this.url = url;
     this.ws = new WebSocket(url);
 
     this.ws.addEventListener("message", (event) => {
-      const { id, result } = JSON.parse(event.data);
-
-      if (this.requestMap.has(id)) {
-        this.requestMap.get(id)?.(result);
-        this.requestMap.delete(id);
+      const body = JSON.parse(event.data);
+      if (body.type === "event") {
+        const { key, result } = body;
+        this.subscriptionMap.get(key)?.forEach((func) => {
+          func(result);
+        });
+      } else if (body.type === "response") {
+        const { id, result } = body;
+        if (this.requestMap.has(id)) {
+          this.requestMap.get(id)?.(result);
+          this.requestMap.delete(id);
+        }
+      } else {
       }
     });
   }
@@ -101,5 +129,51 @@ export class WebsocketTransport implements Transport {
     );
 
     return await promise;
+  }
+
+  async subscribe(
+    operation: OperationType,
+    key: string,
+    arg: any,
+    onMessage?: (msg: any) => void,
+    onError?: (msg: any) => void
+  ): Promise<void> {
+    if (this.ws.readyState == 0) {
+      let resolve: () => void;
+      const promise = new Promise((res) => {
+        resolve = () => res(undefined);
+      });
+      // @ts-ignore
+      this.ws.addEventListener("open", resolve);
+      await promise;
+    }
+
+    if (!this.subscriptionMap.has(key)) {
+      this.subscriptionMap.set(key, new Set());
+    }
+
+    if (onMessage) {
+      this.subscriptionMap.get(key)?.add(onMessage);
+    }
+
+    const id = randomId();
+    let resolve: (data: any) => void;
+    const promise = new Promise((res) => {
+      resolve = res;
+    });
+
+    // @ts-ignore
+    this.requestMap.set(id, resolve);
+
+    this.ws.send(
+      JSON.stringify({
+        id,
+        method: operation,
+        operation: key,
+        arg: arg || {},
+      })
+    );
+
+    await promise;
   }
 }

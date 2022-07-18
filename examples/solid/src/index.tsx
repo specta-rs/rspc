@@ -24,11 +24,12 @@ const App: Component = () => {
   wsClient.mutation("sayHi", "Hello Server World - Via Websockets!");
 
   // TODO: This feature is a work in progress
-  wsClient.subscription("pings", {
+  wsClient.subscription("pings", undefined, {
     onNext(msg) {
       console.log("PING Subscription Message", msg);
     },
     onError(err) {
+      // TODO: Currently onError is never called. It still needs to be hooked up with the Rust backend.
       console.log("PING Subscription Error", err);
     },
   });

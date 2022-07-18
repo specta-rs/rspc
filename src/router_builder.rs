@@ -1,29 +1,38 @@
 use std::{future::Future, marker::PhantomData};
 
-use serde::de::DeserializeOwned;
+use futures::{Stream, StreamExt};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
 use crate::{
     ConcreteArg, Config, Context, ExecError, Key, KeyDefinition, MiddlewareChain, MiddlewareResult,
-    Operation, ResolverResult, Router, SubscriptionContext, SubscriptionOperation,
+    Operation, ResolverResult, Router, SubscriptionOperation,
 };
 
-pub struct RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
-where
+pub struct RouterBuilder<
+    TCtx = (), // The is the context the current router was initialised with
+    TMeta = (),
+    TQueryKey = &'static str,
+    TMutationKey = &'static str,
+    TSubscriptionKey = &'static str,
+    TLayerCtx = TCtx, // This is the context of the current layer -> Whatever the last middleware returned
+    TRootCtx = (), // This is the first context of the top most router (when joining routers). This is used for middleware currently and will be removed.
+> where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
     TLayerCtx: Send + Sync + 'static,
+    TRootCtx: Send + Sync + 'static,
 {
     config: Config,
     middleware: MiddlewareChain<TCtx, TLayerCtx>,
     query: Operation<TQueryKey, TCtx>,
     mutation: Operation<TMutationKey, TCtx>,
-    subscription: SubscriptionOperation<TSubscriptionKey, ()>,
-    phantom: PhantomData<TMeta>,
+    subscription: SubscriptionOperation<TSubscriptionKey, TRootCtx>,
+    phantom: PhantomData<(TRootCtx, TMeta)>,
 }
 
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
@@ -35,7 +44,8 @@ where
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TCtx> {
+    pub fn new() -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TCtx, TCtx>
+    {
         RouterBuilder {
             config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
@@ -47,9 +57,10 @@ where
     }
 }
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
-    RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
+impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx, TRootCtx>
+    RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx, TRootCtx>
 where
+    TRootCtx: Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
@@ -69,7 +80,15 @@ where
             TLayerCtx,
             Box<dyn FnOnce(TNextLayerCtx) -> Result<MiddlewareResult, ExecError> + Send + Sync>,
         ) -> TFut,
-    ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TNextLayerCtx>
+    ) -> RouterBuilder<
+        TCtx,
+        TMeta,
+        TQueryKey,
+        TMutationKey,
+        TSubscriptionKey,
+        TNextLayerCtx,
+        TRootCtx,
+    >
     where
         TNextLayerCtx: Send + Sync + 'static,
         TFut: Future<Output = Result<Value, ExecError>> + Send + Sync + 'static,
@@ -154,24 +173,36 @@ where
         self
     }
 
-    pub fn subscription<TKey, TArg, TResolverMarker, TResolverResult>(
+    pub fn subscription<TKey, TArg, TResolverMarker, TStream>(
         mut self,
         key: TKey,
-        resolver: fn(SubscriptionContext<() /* TODO: TLayerCtx */, TResolverResult>),
+        resolver: fn(
+            Context<TRootCtx>, // TODO: Should be TLayerCtx when middleware support added
+            TArg,
+        ) -> TStream,
     ) -> Self
     where
         TKey: Key<TSubscriptionKey, TArg>,
-        TArg: DeserializeOwned + TS + 'static,
-        TResolverResult: ResolverResult<TResolverMarker> + 'static,
+        TArg: DeserializeOwned + TS + Send + Sync + 'static,
+        TStream: Stream + Send + Sync + 'static,
+        <TStream as Stream>::Item: ResolverResult<TResolverMarker> + Serialize + 'static,
     {
         self.subscription
-            .insert::<TResolverMarker, TResolverResult>(
+            .insert::<TArg, TResolverMarker, <TStream as Stream>::Item>(
                 key.to_val(),
-                Box::new(move |ctx| {
-                    resolver(SubscriptionContext {
-                        ctx,
-                        phantom: PhantomData,
-                    });
+                Box::new(move |ctx, arg| {
+                    let arg = match arg {
+                        ConcreteArg::Value(v) => {
+                            serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
+                        }
+                        ConcreteArg::Unknown(v) => *v
+                            .downcast::<TArg>()
+                            .map_err(|_| ExecError::UnreachableInternalState)?,
+                    };
+
+                    Ok(resolver(Context { ctx }, arg)
+                        .map(|v| serde_json::to_value(v).map_err(ExecError::ErrSerialiseResult))
+                        .boxed())
                 }),
             );
         self
@@ -187,8 +218,9 @@ where
             TMutationKey,
             TSubscriptionKey,
             TLayerCtx2,
+            TRootCtx,
         >,
-    ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx2>
+    ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx2, TRootCtx>
     where
         TLayerCtx2: Send + Sync + 'static,
     {
@@ -250,7 +282,7 @@ where
         }
     }
 
-    pub fn build(self) -> Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey> {
+    pub fn build(self) -> Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx> {
         let Self {
             query,
             mutation,

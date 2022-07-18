@@ -5,8 +5,10 @@ use std::{
     io::Write,
     marker::PhantomData,
     path::{Path, PathBuf},
+    pin::Pin,
 };
 
+use futures::Stream;
 use serde_json::Value;
 
 use crate::{
@@ -20,27 +22,30 @@ pub struct Router<
     TQueryKey = &'static str,
     TMutationKey = &'static str,
     TSubscriptionKey = &'static str,
+    TRootCtx = (),
 > where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
+    TRootCtx: Send + Sync + 'static,
 {
     pub(crate) query: Operation<TQueryKey, TCtx>,
     pub(crate) mutation: Operation<TMutationKey, TCtx>,
-    pub(crate) subscription: SubscriptionOperation<TSubscriptionKey, ()>,
+    pub(crate) subscription: SubscriptionOperation<TSubscriptionKey, TRootCtx>,
     pub(crate) phantom: PhantomData<TMeta>,
 }
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
-    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
+    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TRootCtx>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
+    TRootCtx: Send + Sync + 'static,
 {
     pub async fn exec_query<TArg, TKey>(
         &self,
@@ -117,6 +122,36 @@ where
         definition(ctx, arg)?.await
     }
 
+    pub async fn exec_subscription<TArg, TKey>(
+        &self,
+        ctx: TRootCtx,
+        key: TKey,
+        arg: TArg,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError>
+    where
+        TArg: Send + Sync + 'static,
+        TKey: Key<TSubscriptionKey, TArg>,
+    {
+        let definition = self
+            .subscription
+            .get(key.to_val())
+            .ok_or(ExecError::OperationNotFound)?;
+        let arg = match TypeId::of::<TArg>() == TypeId::of::<Value>() {
+            true => {
+                // We are using runtime specialization because I could not come up with a trait which wouldn't overlap to abstract this into.
+                let v = (&mut Some(arg) as &mut dyn Any)
+                    .downcast_mut::<Option<Value>>()
+                    .unwrap()
+                    .take()
+                    .unwrap();
+                ConcreteArg::Value(v)
+            }
+            false => ConcreteArg::Unknown(Box::new(arg)),
+        };
+
+        Ok(definition(ctx, arg)?)
+    }
+
     #[allow(dead_code)]
     pub(crate) async fn exec_mutation_unsafe(
         &self,
@@ -132,12 +167,18 @@ where
     }
 
     #[allow(dead_code)]
-    pub(crate) async fn exec_subscription_unsafe(&self, key: String) -> Result<(), ExecError> {
+    pub(crate) async fn exec_subscription_unsafe(
+        &self,
+        ctx: TRootCtx,
+        key: String,
+        arg: Value,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
         let definition = self
             .subscription
             .get(TSubscriptionKey::from_str(key)?)
             .ok_or(ExecError::OperationNotFound)?;
-        Ok(definition(()))
+
+        Ok(definition(ctx, ConcreteArg::Value(arg))?)
     }
 
     // TODO: Don't use `Box<Error>` as return type.
@@ -159,7 +200,11 @@ where
 
         let mut mutation_buf = Vec::new();
         self.mutation
-            .export_ts(&mut dependencies, &mut mutation_buf, export_path)?;
+            .export_ts(&mut dependencies, &mut mutation_buf, export_path.clone())?;
+
+        let mut subscription_buf = Vec::new();
+        self.subscription
+            .export_ts(&mut dependencies, &mut subscription_buf, export_path)?;
 
         for dep in dependencies.into_iter() {
             writeln!(
@@ -183,8 +228,9 @@ where
         file.write_all(&mutation_buf)?;
         writeln!(file, ";")?;
 
-        // TODO
-        write!(file, "\nexport type Subscriptions = never;")?;
+        write!(file, "\nexport type Subscriptions =")?;
+        file.write_all(&subscription_buf)?;
+        writeln!(file, ";")?;
 
         Ok(())
     }

@@ -1,11 +1,26 @@
-// TODO: Maybe merge this with `operation.rs`???
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io::Write,
+    path::PathBuf,
+    pin::Pin,
+};
 
-use std::{collections::BTreeMap, marker::PhantomData};
+use futures::Stream;
+use serde_json::Value;
+use ts_rs::TS;
 
-use crate::{KeyDefinition, ResolverResult, TypeDef};
+use crate::{ConcreteArg, ExecError, KeyDefinition, ResolverResult, TSDependency, TypeDef};
 
 /// TODO
-pub(crate) type SubscriptionMiddlewareChainBase<TCtx> = Box<dyn Fn(TCtx) -> () + Send + Sync>;
+type MiddlewareChainBase<TCtx> = Box<
+    dyn Fn(
+            TCtx,
+            ConcreteArg,
+        )
+            -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError>
+        + Send
+        + Sync,
+>;
 
 /// TODO
 pub(crate) struct SubscriptionOperation<TOperationKey, TCtx>
@@ -13,9 +28,8 @@ where
     TOperationKey: KeyDefinition,
 {
     name: &'static str, // TODO: move this to a const generic when support for that is added
-    operations: BTreeMap<TOperationKey::KeyRaw, SubscriptionMiddlewareChainBase<TCtx>>,
+    operations: BTreeMap<TOperationKey::KeyRaw, MiddlewareChainBase<TCtx>>,
     type_defs: BTreeMap<TOperationKey::KeyRaw, TypeDef>,
-    phantom: PhantomData<TCtx>,
 }
 
 impl<TOperationKey, TCtx> SubscriptionOperation<TOperationKey, TCtx>
@@ -28,14 +42,13 @@ where
             name,
             operations: BTreeMap::new(),
             type_defs: BTreeMap::new(),
-            phantom: PhantomData,
         }
     }
 
-    pub fn insert<TResolverMarker, TResolverResult: ResolverResult<TResolverMarker>>(
+    pub fn insert<TArg: TS, TResolverMarker, TStreamItem: ResolverResult<TResolverMarker>>(
         &mut self,
         key: TOperationKey::KeyRaw,
-        handler: SubscriptionMiddlewareChainBase<TCtx>,
+        handler: MiddlewareChainBase<TCtx>,
     ) {
         if self.operations.contains_key(&key) {
             panic!(
@@ -45,14 +58,13 @@ where
         }
 
         self.operations.insert(key.clone(), Box::new(handler));
-        // self.type_defs
-        //     .insert(key, TResolverResult::type_def::<TArg>()); // TODO: Export types for subscriptions
+        self.type_defs.insert(key, TStreamItem::type_def::<TArg>());
     }
 
     pub(crate) fn insert_internal(
         &mut self,
         key: TOperationKey::KeyRaw,
-        handler: SubscriptionMiddlewareChainBase<TCtx>,
+        handler: MiddlewareChainBase<TCtx>,
     ) {
         if self.operations.contains_key(&key) {
             panic!(
@@ -68,50 +80,46 @@ where
         self.type_defs.extend(type_defs);
     }
 
-    pub fn get(
-        &self,
-        key: TOperationKey::KeyRaw,
-    ) -> Option<&SubscriptionMiddlewareChainBase<TCtx>> {
+    pub fn get(&self, key: TOperationKey::KeyRaw) -> Option<&MiddlewareChainBase<TCtx>> {
         self.operations.get(&key)
     }
 
     pub(crate) fn consume(
         self,
     ) -> (
-        BTreeMap<TOperationKey::KeyRaw, SubscriptionMiddlewareChainBase<TCtx>>,
+        BTreeMap<TOperationKey::KeyRaw, MiddlewareChainBase<TCtx>>,
         BTreeMap<TOperationKey::KeyRaw, TypeDef>,
     ) {
         (self.operations, self.type_defs)
     }
 
-    // TODO: Export types for subscriptions
-    // // TODO: Don't use `Box<Error>` as return type.
-    // pub(crate) fn export_ts(
-    //     &self,
-    //     dependencies: &mut BTreeSet<TSDependency>,
-    //     buf: &mut Vec<u8>,
-    //     export_path: PathBuf,
-    // ) -> Result<(), Box<dyn std::error::Error>> {
-    //     if self.type_defs.len() == 0 {
-    //         write!(buf, "never")?;
-    //     }
+    // TODO: Don't use `Box<Error>` as return type.
+    pub(crate) fn export_ts(
+        &self,
+        dependencies: &mut BTreeSet<TSDependency>,
+        buf: &mut Vec<u8>,
+        export_path: PathBuf,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if self.type_defs.len() == 0 {
+            write!(buf, " never")?;
+        }
 
-    //     for (key, type_def) in self.type_defs.iter() {
-    //         // TODO: Handle errors
-    //         (type_def.arg_export)(export_path.join(format!("{}.ts", type_def.arg_ty_name)));
-    //         (type_def.result_export)(export_path.join(format!("{}.ts", type_def.result_ty_name)));
+        for (key, type_def) in self.type_defs.iter() {
+            // TODO: Handle errors
+            (type_def.arg_export)(export_path.join(format!("{}.ts", type_def.arg_ty_name)));
+            (type_def.result_export)(export_path.join(format!("{}.ts", type_def.result_ty_name)));
 
-    //         dependencies.extend(type_def.dependencies.clone());
+            dependencies.extend(type_def.dependencies.clone());
 
-    //         write!(
-    //             buf,
-    //             " | {{ key: \"{}\"; arg: {}; result: {}; }}",
-    //             key.to_string(),
-    //             type_def.arg_ty_name,
-    //             type_def.result_ty_name
-    //         )?;
-    //     }
+            write!(
+                buf,
+                " | {{ key: \"{}\"; arg: {}; result: {}; }}",
+                key.to_string(),
+                type_def.arg_ty_name,
+                type_def.result_ty_name
+            )?;
+        }
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
 }

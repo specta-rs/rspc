@@ -39,11 +39,18 @@ export class Client<T extends OperationsDef> {
 
   async subscription<K extends T["subscriptions"]["key"]>(
     key: K,
-    args: {
-      onNext(msg: T["subscriptions"]["result"]);
-      onError(err: any); // TODO: Error type??
+    arg?: Extract<T["queries"], { key: K }>["arg"],
+    options?: {
+      onNext(msg: Extract<T["queries"], { key: K }>["result"]);
+      onError(err: never); // TODO: Error type??
     }
   ) {
-    this.transport.doRequest("subscriptionAdd", key, undefined);
+    this.transport.subscribe(
+      "subscriptionAdd",
+      key,
+      arg,
+      options?.onNext as any,
+      options?.onError as any
+    );
   }
 }

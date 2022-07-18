@@ -48,7 +48,19 @@ let router = <Router>::new()
 
 ### Add Subscription Operation
 
-Feature coming soon!
+Use the `.subscription` method to attach a subscription operation to the router.
+
+```rust
+let router = <Router>::new()
+    .subscription("pings", |ctx, arg: ()| async_stream::stream! {
+                println!("Client subscribed to 'pings'");
+                for i in 0..5 {
+                    yield "ping".to_string();
+                    sleep(Duration::from_secs(1)).await;
+                }
+            })
+    .build(); // Ensure you build once you have added all your operations.
+```
 
 ### Method chaining
 

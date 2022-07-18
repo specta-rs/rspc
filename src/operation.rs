@@ -88,7 +88,7 @@ where
         export_path: PathBuf,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.type_defs.len() == 0 {
-            write!(buf, "never")?;
+            write!(buf, " never")?;
         }
 
         for (key, type_def) in self.type_defs.iter() {
