@@ -238,6 +238,7 @@ where
 
         let mut buf = vec![];
 
+        writeln!(buf, "\nimport * as rspc from '@rspc/client'")?;
 
         let mut dependencies = BTreeSet::<TSDependency>::new();
 
@@ -278,6 +279,37 @@ where
         write!(buf, "\nexport type Subscriptions =")?;
         buf.write_all(&subscription_buf)?;
         writeln!(buf, ";")?;
+
+        writeln!(
+            buf,
+            "\nexport type TransportKind = \"fetch\" | \"websocket\";"
+        )?;
+
+        writeln!(
+            buf,
+            "\n\n{}",
+            vec![
+                "/** create new rspc client with address and kind",
+                " * @param {string} address - rspc enspoint address",
+                " * @param {TransportKind} kind - {@link TransportKind} to use",
+                " * */"
+            ]
+            .join("\n")
+        )?;
+        writeln!(
+            buf,
+            "{}",
+            vec![
+                "export const createClient = (kind: TransportKind, address: string) =>",
+                "  rspc.createClient<Operations>({",
+                "    transport:",
+                "      kind === \"fetch\"",
+                "        ? new rspc.FetchTransport(address)",
+                "        : new rspc.WebsocketTransport(address)",
+                "  });"
+            ]
+            .join("\n")
+        )?;
 
         if let Some(marker) = begin_marker {
             lines.insert(marker, header);
