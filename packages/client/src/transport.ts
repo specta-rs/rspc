@@ -1,3 +1,8 @@
+// @ts-ignore // TODO: Fix this
+import { invoke } from "@tauri-apps/api";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { appWindow } from "@tauri-apps/api/window";
+
 // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
 
 export type OperationType =
@@ -91,6 +96,7 @@ export class WebsocketTransport implements Transport {
           this.requestMap.delete(id);
         }
       } else {
+        console.error(`Received event of unknown type '${body.type}'`);
       }
     });
   }
@@ -175,5 +181,75 @@ export class WebsocketTransport implements Transport {
     );
 
     await promise;
+  }
+}
+
+export class TauriTransport implements Transport {
+  private requestMap = new Map<string, (data: any) => void>();
+  private subscriptionMap = new Map<string, Set<(data: any) => void>>();
+  private listener?: Promise<UnlistenFn>;
+
+  constructor() {
+    this.listener = listen("plugin:rspc:transport:resp", (event) => {
+      const body = event.payload as any;
+      if (body.type === "event") {
+        // const { key, result } = body;
+        // this.subscriptionMap.get(key)?.forEach((func) => {
+        //   func(result);
+        // });
+      } else if (body.type === "response") {
+        const { id, kind, result } = body;
+        if (kind === "success") {
+          if (this.requestMap.has(id)) {
+            this.requestMap.get(id)?.(result);
+            this.requestMap.delete(id);
+          } else {
+            console.error(`Missing handler for request with id '${id}'`);
+          }
+        } else {
+          console.error(`Received event of unknown kind '${kind}'`);
+        }
+      } else {
+        console.error(`Received event of unknown method '${body.type}'`);
+      }
+    });
+  }
+
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    arg: any
+  ): Promise<any> {
+    if (!this.listener) {
+      await this.listener;
+    }
+
+    const id = randomId();
+    let resolve: (data: any) => void;
+    const promise = new Promise((res) => {
+      resolve = res;
+    });
+
+    // @ts-ignore
+    this.requestMap.set(id, resolve);
+
+    await appWindow.emit("plugin:rspc:transport", {
+      id,
+      method: operation,
+      operation: key,
+      arg,
+    });
+
+    return await promise;
+  }
+
+  async subscribe(
+    operation: OperationType,
+    key: string,
+    arg: any,
+    onMessage: (msg: any) => void,
+    onError: (msg: any) => void
+  ): Promise<void> {
+    // TODO
   }
 }
