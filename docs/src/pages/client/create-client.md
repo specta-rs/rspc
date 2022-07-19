@@ -6,7 +6,7 @@ layout: ../../layouts/MainLayout.astro
 To use consume your API from Typescript, first install the minimal runtime package.
 
 ```bash
-npm i @rspc/client
+npm i --save git+https://github.com/oscartbeaumont/rspc.git # npm i @rspc/client # Refer to quickstart guide about why we are currently only doing Git releases.
 ```
 
 Next you need to export the Typescript bindings from your `rspc::Router` in Rust by using the following line of code.

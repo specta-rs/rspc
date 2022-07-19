@@ -26,17 +26,17 @@ pub(crate) type MiddlewareChain<TCtx, TLayerCtx> =
 
 /// TODO
 pub enum MiddlewareResult {
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + Sync>>),
-    Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send + Sync>>),
+    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+    Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     FutureMiddlewareResult(
-        Pin<Box<dyn Future<Output = Result<MiddlewareResult, ExecError>> + Send + Sync>>,
+        Pin<Box<dyn Future<Output = Result<MiddlewareResult, ExecError>> + Send>>,
     ),
     Sync(Value),
     Gone,
 }
 
 pub enum StreamOrValue {
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + Sync>>),
+    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
     Value(Value),
 }
 
@@ -91,7 +91,7 @@ impl ActualMiddlewareResult<ActualMiddlewareResultValueMarker> for Value {
 }
 
 pub struct ActualMiddlewareResultStreamMarker(PhantomData<()>);
-impl<TFut: Stream<Item = Result<Value, ExecError>> + Send + Sync + 'static>
+impl<TFut: Stream<Item = Result<Value, ExecError>> + Send + 'static>
     ActualMiddlewareResult<ActualMiddlewareResultStreamMarker> for TFut
 {
     fn into_middleware_result(self) -> MiddlewareResult {

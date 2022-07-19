@@ -1,4 +1,8 @@
-use std::{any::TypeId, collections::BTreeSet, path::PathBuf};
+use std::{
+    any::TypeId,
+    collections::{BTreeSet, HashMap, HashSet},
+    path::PathBuf,
+};
 
 use ts_rs::{ExportError, TS};
 
@@ -37,26 +41,28 @@ impl<T: TS> TSType for T {
     }
 
     fn dependencies() -> Vec<TSDependency> {
-        let mut dependencies = T::dependencies()
+        let mut dependencies = HashMap::new();
+        T::dependencies(&mut dependencies);
+        let mut dependencies: Vec<TSDependency> = dependencies
             .into_iter()
-            .map(|v| v.into())
+            .map(|v| v.1.into())
             .collect::<Vec<_>>();
-        if T::EXPORT_TO != None {
+
+        // TODO: Idk if this check is gonna be reliable enough.
+        if T::EXPORT_TO != None && &T::name() != "Option" {
             dependencies.push(TSDependency {
                 type_id: TypeId::of::<T>(),
                 ts_name: T::name(),
             });
         }
+
         dependencies
     }
 
     fn export_to(path: PathBuf) -> Result<(), ExportError> {
-        // TODO: Suboptiomal workaround for detecting primitive types
-        if T::EXPORT_TO.is_some() {
-            T::export_to(path)
-        } else {
-            Ok(())
-        }
+        // TODO: Handle this error. Currently it throws when T is a primitive type but there is no good way to check this.
+        T::export_to(path, &mut HashSet::new());
+        Ok(())
     }
 }
 

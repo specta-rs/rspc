@@ -33,8 +33,8 @@ pub struct FutureTypeMarker<TReturnMarker>(PhantomData<TReturnMarker>);
 impl<TReturnMarker, TReturn, TFut> ResolverResult<FutureTypeMarker<TReturnMarker>> for TFut
 where
     TReturnMarker: 'static,
-    TReturn: ResolverResult<TReturnMarker> + Send + Sync,
-    TFut: Future<Output = TReturn> + Send + Sync + 'static,
+    TReturn: ResolverResult<TReturnMarker> + Send,
+    TFut: Future<Output = TReturn> + Send + 'static,
 {
     fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
         Ok(MiddlewareResult::Future(Box::pin(async move {

@@ -17,12 +17,12 @@ pub struct RouterBuilder<
     TSubscriptionKey = &'static str,
     TLayerCtx = TCtx, // This is the context of the current layer -> Whatever the last middleware returned
 > where
-    TCtx: Send + Sync + 'static,
+    TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
-    TLayerCtx: Send + Sync + 'static,
+    TLayerCtx: Send + 'static,
 {
     config: Config,
     middleware: MiddlewareChain<TCtx, TLayerCtx>,
@@ -35,7 +35,7 @@ pub struct RouterBuilder<
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
     Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
@@ -56,12 +56,12 @@ where
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
     RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
-    TLayerCtx: Send + Sync + 'static,
+    TLayerCtx: Send + 'static,
 {
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
@@ -73,12 +73,12 @@ where
         self,
         resolver: fn(
             TLayerCtx,
-            Box<dyn FnOnce(TNextLayerCtx) -> Result<MiddlewareResult, ExecError> + Send + Sync>,
+            Box<dyn FnOnce(TNextLayerCtx) -> Result<MiddlewareResult, ExecError> + Send>,
         ) -> TFut,
     ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TNextLayerCtx>
     where
-        TNextLayerCtx: Send + Sync + 'static,
-        TFut: Future<Output = Result<MiddlewareResult, ExecError>> + Send + Sync + 'static,
+        TNextLayerCtx: Send + 'static,
+        TFut: Future<Output = Result<MiddlewareResult, ExecError>> + Send + 'static,
     {
         let Self {
             middleware,
@@ -95,7 +95,7 @@ where
 
                 (middleware)(Box::new(move |ctx, args| {
                     Ok(MiddlewareResult::FutureMiddlewareResult(Box::pin(
-                        resolver(ctx, Box::new(move |ctx| next(ctx, args))),
+                        resolver(ctx, Box::new(|ctx| next(ctx, args))),
                     )))
                 }))
             }),
@@ -168,10 +168,9 @@ where
     ) -> Self
     where
         TKey: Key<TSubscriptionKey, TArg>,
-        TArg: DeserializeOwned + TS + Send + Sync + 'static,
-        TStream: Stream + Send + Sync + 'static,
-        <TStream as Stream>::Item:
-            ResolverResult<TResolverMarker> + Serialize + Send + Sync + 'static,
+        TArg: DeserializeOwned + TS + Send + 'static,
+        TStream: Stream + Send + 'static,
+        <TStream as Stream>::Item: ResolverResult<TResolverMarker> + Serialize + Send + 'static,
     {
         self.subscription
             .insert::<TArg, TResolverMarker, <TStream as Stream>::Item>(
@@ -209,7 +208,7 @@ where
         >,
     ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx2>
     where
-        TLayerCtx2: Send + Sync + 'static,
+        TLayerCtx2: Send + 'static,
     {
         let Self {
             middleware,

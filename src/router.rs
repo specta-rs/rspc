@@ -6,6 +6,7 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
     pin::Pin,
+    sync::Arc,
 };
 
 use futures::Stream;
@@ -21,7 +22,7 @@ pub struct Router<
     TMutationKey = &'static str,
     TSubscriptionKey = &'static str,
 > where
-    TCtx: Send + Sync + 'static,
+    TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
@@ -36,7 +37,7 @@ pub struct Router<
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
     Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
@@ -49,7 +50,7 @@ where
         arg: TArg,
     ) -> Result<Value, ExecError>
     where
-        TArg: Send + Sync + 'static,
+        TArg: Send + 'static,
         TKey: Key<TQueryKey, TArg>,
     {
         let definition = self
@@ -94,7 +95,7 @@ where
         arg: TArg,
     ) -> Result<Value, ExecError>
     where
-        TArg: Send + Sync + 'static,
+        TArg: Send + 'static,
         TKey: Key<TMutationKey, TArg>,
     {
         let definition = self
@@ -138,7 +139,7 @@ where
         arg: TArg,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError>
     where
-        TArg: Send + Sync + 'static,
+        TArg: Send + 'static,
         TKey: Key<TSubscriptionKey, TArg>,
     {
         let definition = self
@@ -183,6 +184,10 @@ where
             StreamOrValue::Stream(stream) => Ok(stream),
             StreamOrValue::Value(_) => unreachable!(),
         }
+    }
+
+    pub fn arced(self) -> Arc<Self> {
+        Arc::new(self)
     }
 
     // TODO: Don't use `Box<Error>` as return type.

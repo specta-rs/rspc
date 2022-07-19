@@ -23,8 +23,9 @@ async fn main() {
                 }
                 println!("Client unsubscribed from 'pings'"); // TODO: This is not going to be run if client triggers shutdown cause we are doing a fixed loop
             }
-        });
-    let router = Arc::new(router.build());
+        })
+        .build()
+        .arced(); // This function is a shortcut to wrap the router in an `Arc`.
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()

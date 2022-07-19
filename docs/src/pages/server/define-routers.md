@@ -81,3 +81,17 @@ let router = router
     .mutation("deleteUser", |ctx, arg: ()| todo!());
 let router = router.build();
 ```
+
+### Router configuration
+
+It is possible to provide configuration to your router by using the `.configure` method. Be aware `.configure` can only be called once as it will replace the existing configuration.
+
+`export_ts_bindings` will automatically export your Typescript bindings when you build the router as long as Rust debug_assertions are enabled.
+
+
+```rust
+let router = <Router>::new()
+    .config(Config::new().export_ts_bindings("./ts"))
+    .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
+    .build();
+```

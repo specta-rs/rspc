@@ -91,7 +91,7 @@ where
 pub struct NoArgMarker(PhantomData<()>);
 impl<TCtx, TFunc> TCtxFunc<TCtx, NoArgMarker> for TFunc
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
     TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
 {
     fn exec<'a>(&self, _request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx> {
@@ -100,10 +100,9 @@ where
 }
 
 pub struct OneArgMarker<T1>(PhantomData<T1>);
-impl<T1: FromRequest<Body> + Sync + Send + 'static, TCtx, TFunc> TCtxFunc<TCtx, OneArgMarker<T1>>
-    for TFunc
+impl<T1: FromRequest<Body> + Send + 'static, TCtx, TFunc> TCtxFunc<TCtx, OneArgMarker<T1>> for TFunc
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
     TFunc: FnOnce(T1) -> TCtx + Clone + Send + Sync + 'static,
 {
     fn exec<'a>(&self, request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx> {
@@ -122,7 +121,7 @@ where
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
     Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,

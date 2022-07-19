@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::ExecError;
 
 /// TODO
-pub trait KeyDefinition: Sized + Send + Sync + 'static {
+pub trait KeyDefinition: Sized + Send + 'static {
     type Key: Send + Sync + 'static;
     type KeyRaw: ToString + Clone + Ord + Debug + Send + Sync + 'static; // TODO: Rename this type?
 
