@@ -13,13 +13,15 @@ macro_rules! selection {
             fn name() -> String {
                 format!("Selection")
             }
-            fn dependencies() -> Vec<ts_rs::Dependency> {
-                vec![
-                    $(ts_rs::Dependency::from_ty::<$n>()),*
-                ]
-                    .into_iter()
-                    .filter_map(|v| v)
-                    .collect()
+
+            fn dependencies(deps: &mut std::collections::HashMap<std::any::TypeId, ts_rs::Dependency>) {
+                $(if !deps.contains_key(&std::any::TypeId::of::<$n>()) {
+                    if let Some(dep) = ts_rs::Dependency::from_ty::<$n>() {
+                        deps.insert(dep.type_id, dep);
+                    }
+
+                    $n::dependencies(deps);
+                })*
             }
 
             fn transparent() -> bool {
@@ -54,13 +56,15 @@ macro_rules! selection {
             fn name() -> String {
                 format!("Selection")
             }
-            fn dependencies() -> Vec<ts_rs::Dependency> {
-                vec![
-                    $(ts_rs::Dependency::from_ty::<$n>()),*
-                ]
-                    .into_iter()
-                    .filter_map(|v| v)
-                    .collect()
+
+            fn dependencies(deps: &mut std::collections::HashMap<std::any::TypeId, ts_rs::Dependency>) {
+                $(if !deps.contains_key(&std::any::TypeId::of::<$n>()) {
+                    if let Some(dep) = ts_rs::Dependency::from_ty::<$n>() {
+                        deps.insert(dep.type_id, dep);
+                    }
+
+                    $n::dependencies(deps);
+                })*
             }
 
             fn transparent() -> bool {
