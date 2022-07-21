@@ -23,6 +23,7 @@
     "prepare": "tsup"
   },
   "devDependencies": {
+    "@types/react": "^18.0.15",
     "react": "^18.2.0",
     "tsup": "^6.1.3",
     "typescript": "^4.7.4"
@@ -42,8 +43,9 @@
     "clean": true
   },
   "dependencies": {
-    "@tauri-apps/api": "^1.0.2",
-    "react-query": "^3.39.2"
+    "@rspc/client": "^0.0.3",
+    "@tanstack/react-query": "^4.0.5",
+    "@tauri-apps/api": "^1.0.2"
   },
   "peerDependencies": {
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0"

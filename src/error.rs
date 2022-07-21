@@ -5,11 +5,11 @@ use thiserror::Error;
 /// TODO
 #[derive(Error, Debug)]
 pub enum ExecError {
-    #[error("the requested operation is not supported by this server")]
-    OperationNotFound,
+    #[error("the requested operation '{0}' is not supported by this server")]
+    OperationNotFound(String),
     #[error("error serialising the result of the operation")]
     ErrSerialiseResult(serde_json::Error),
-    #[error("error deserialising the argument for the operation")]
+    #[error("error deserialising the argument for the operation: {0}")]
     ErrDeserialiseArg(serde_json::Error),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),

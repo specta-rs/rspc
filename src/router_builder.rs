@@ -12,6 +12,7 @@ use crate::{
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
     TMeta = (),
+    TLayerArgs = (), // This is the args defined by the current middleware
     TQueryKey = &'static str,
     TMutationKey = &'static str,
     TSubscriptionKey = &'static str,
@@ -19,6 +20,7 @@ pub struct RouterBuilder<
 > where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
+    TLayerArgs: TS + Send + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
@@ -29,7 +31,7 @@ pub struct RouterBuilder<
     query: Operation<TQueryKey, TCtx>,
     mutation: Operation<TMutationKey, TCtx>,
     subscription: Operation<TSubscriptionKey, TCtx>,
-    phantom: PhantomData<TMeta>,
+    phantom: PhantomData<(TMeta, TLayerArgs)>,
 }
 
 impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
@@ -41,7 +43,8 @@ where
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TCtx> {
+    pub fn new() -> RouterBuilder<TCtx, TMeta, (), TQueryKey, TMutationKey, TSubscriptionKey, TCtx>
+    {
         RouterBuilder {
             config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
@@ -53,11 +56,36 @@ where
     }
 }
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
-    RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
+impl<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey>
+    RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey>
 where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
+    TLayerArgs: TS + Send + 'static,
+    TQueryKey: KeyDefinition,
+    TMutationKey: KeyDefinition,
+    TSubscriptionKey: KeyDefinition,
+{
+    pub fn new(
+    ) -> RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TCtx>
+    {
+        RouterBuilder {
+            config: Config::new(),
+            middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
+            query: Operation::new("query"),
+            mutation: Operation::new("mutation"),
+            subscription: Operation::new("subscription"),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
+    RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
+where
+    TCtx: Send + 'static,
+    TMeta: Send + Sync + 'static,
+    TLayerArgs: TS + Send + 'static,
     TQueryKey: KeyDefinition,
     TMutationKey: KeyDefinition,
     TSubscriptionKey: KeyDefinition,
@@ -69,15 +97,25 @@ where
         self
     }
 
-    pub fn middleware<TNextLayerCtx, TFut>(
+    pub fn middleware<TNextLayerCtx, TMiddlewareArgs, TFut>(
         self,
         resolver: fn(
             TLayerCtx,
+            TMiddlewareArgs,
             Box<dyn FnOnce(TNextLayerCtx) -> Result<MiddlewareResult, ExecError> + Send>,
         ) -> TFut,
-    ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TNextLayerCtx>
+    ) -> RouterBuilder<
+        TCtx,
+        TMeta,
+        TMiddlewareArgs,
+        TQueryKey,
+        TMutationKey,
+        TSubscriptionKey,
+        TNextLayerCtx,
+    >
     where
         TNextLayerCtx: Send + 'static,
+        TMiddlewareArgs: TS + DeserializeOwned + Send + 'static,
         TFut: Future<Output = Result<MiddlewareResult, ExecError>> + Send + 'static,
     {
         let Self {
@@ -94,8 +132,15 @@ where
                 let next: &'static _ = Box::leak(next); // TODO: Cleanup memory
 
                 (middleware)(Box::new(move |ctx, args| {
+                    let marg = match &args {
+                        ConcreteArg::Value(val) => serde_json::from_value(val.clone()).unwrap(),
+                        ConcreteArg::Unknown(_) => {
+                            panic!("'ConcreteArg::Unknown' is not supported with middleware args!")
+                        }
+                    };
+
                     Ok(MiddlewareResult::FutureMiddlewareResult(Box::pin(
-                        resolver(ctx, Box::new(|ctx| next(ctx, args))),
+                        resolver(ctx, marg, Box::new(|ctx| next(ctx, args))),
                     )))
                 }))
             }),
@@ -116,20 +161,21 @@ where
         TArg: DeserializeOwned + TS + 'static,
         TResolverResult: ResolverResult<TResolverMarker> + 'static,
     {
-        self.query.insert::<TArg, TResolverMarker, TResolverResult>(
-            key.to_val(),
-            (self.middleware)(Box::new(move |ctx, arg| {
-                let arg = match arg {
-                    ConcreteArg::Value(v) => {
-                        serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
-                    }
-                    ConcreteArg::Unknown(v) => *v
-                        .downcast::<TArg>()
-                        .map_err(|_| ExecError::UnreachableInternalState)?,
-                };
-                resolver(Context { ctx }, arg).into_middleware_result()
-            })),
-        );
+        self.query
+            .insert::<TArg, TResolverMarker, TResolverResult, TLayerArgs>(
+                key.to_val(),
+                (self.middleware)(Box::new(move |ctx, arg| {
+                    let arg = match arg {
+                        ConcreteArg::Value(v) => {
+                            serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
+                        }
+                        ConcreteArg::Unknown(v) => *v
+                            .downcast::<TArg>()
+                            .map_err(|_| ExecError::UnreachableInternalState)?,
+                    };
+                    resolver(Context { ctx }, arg).into_middleware_result()
+                })),
+            );
         self
     }
 
@@ -144,7 +190,7 @@ where
         TResolverResult: ResolverResult<TResolverMarker> + 'static,
     {
         self.mutation
-            .insert::<TArg, TResolverMarker, TResolverResult>(
+            .insert::<TArg, TResolverMarker, TResolverResult, TLayerArgs>(
                 key.to_val(),
                 (self.middleware)(Box::new(move |ctx, arg| {
                     let arg = match arg {
@@ -173,7 +219,7 @@ where
         <TStream as Stream>::Item: ResolverResult<TResolverMarker> + Serialize + Send + 'static,
     {
         self.subscription
-            .insert::<TArg, TResolverMarker, <TStream as Stream>::Item>(
+            .insert::<TArg, TResolverMarker, <TStream as Stream>::Item, TLayerArgs>(
                 key.to_val(),
                 (self.middleware)(Box::new(move |ctx, arg| {
                     let arg = match arg {
@@ -201,12 +247,13 @@ where
         router: RouterBuilder<
             TLayerCtx,
             TMeta,
+            TLayerArgs,
             TQueryKey,
             TMutationKey,
             TSubscriptionKey,
             TLayerCtx2,
         >,
-    ) -> RouterBuilder<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx2>
+    ) -> RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx2>
     where
         TLayerCtx2: Send + 'static,
     {

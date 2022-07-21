@@ -34,21 +34,21 @@ export class FetchTransport implements Transport {
     key: string,
     arg: any
   ): Promise<any> {
-    let url = `${this.url}/${key}`;
     let method = "GET";
     let body = undefined as any;
     let headers = new Headers();
 
+    const params = new URLSearchParams();
     if (operation === "query") {
-      url += `?batch=1&input=${encodeURIComponent(JSON.stringify(arg || {}))}`;
+      if (arg !== undefined) {
+        params.append("arg", JSON.stringify(arg));
+      }
     } else if (operation === "mutation") {
-      url += `?batch=1`;
       method = "POST";
       body = arg || {};
       headers.set("Content-Type", "application/json");
     }
-
-    const resp = await fetch(url, {
+    const resp = await fetch(`${this.url}/${key}?${params.toString()}`, {
       method,
       body: body ? JSON.stringify(body) : undefined,
       headers,
@@ -130,7 +130,7 @@ export class WebsocketTransport implements Transport {
         id,
         method: operation,
         operation: key,
-        arg: arg || {},
+        arg,
       })
     );
 
@@ -176,7 +176,7 @@ export class WebsocketTransport implements Transport {
         id,
         method: operation,
         operation: key,
-        arg: arg || {},
+        arg,
       })
     );
 

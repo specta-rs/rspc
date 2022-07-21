@@ -1,0 +1,24 @@
+// APPLICATION CODE
+
+// const rspc = createReactQueryHooks<any>();
+
+// const client = createClient<any>({
+//   transport: undefined as any,
+// });
+
+// function Demo() {
+//   const demo = rspc.useQuery("demo");
+
+//   return (
+//     <rspc.Provider client={client}>
+//       <h1>Bruh</h1>
+//     </rspc.Provider>
+//   );
+// }
+
+
+ - When using jump to definition in example it should go to `.ts` and not `.d.ts`
+ - Make `solid` example simpliar
+ - React integration docs for rspc
+ - Tauri integration docs for rspc
+ - Serverless deployment docs for rspc

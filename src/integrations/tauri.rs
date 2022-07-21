@@ -6,7 +6,10 @@ use tauri::{
 };
 use tokio::sync::mpsc;
 
-use crate::{utils::Request, KeyDefinition, Router};
+use crate::{
+    utils::{Request, Response},
+    KeyDefinition, Router,
+};
 
 pub fn plugin<R: Runtime, TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>(
     router: Arc<Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>>,
@@ -22,15 +25,26 @@ where
     Builder::new("rspc")
         .setup(|app_handle| {
             let (tx, mut rx) = mpsc::unbounded_channel::<Request>();
+            let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<Response>();
 
             let app_handle2 = app_handle.clone();
             tokio::spawn(async move {
                 while let Some(event) = rx.recv().await {
-                    app_handle2
-                        .emit_all(
-                            "plugin:rspc:transport:resp",
-                            event.handle(ctx_fn(), &router).await,
-                        )
+                    let result = event.handle(ctx_fn(), &router, Some(&resp_tx)).await;
+
+                    if !matches!(result, Response::None) {
+                        app_handle2
+                            .emit_all("plugin:rspc:transport:resp", result)
+                            .unwrap();
+                    }
+                }
+            });
+
+            let app_handle3 = app_handle.clone();
+            tokio::spawn(async move {
+                while let Some(event) = resp_rx.recv().await {
+                    app_handle3
+                        .emit_all("plugin:rspc:transport:resp", event)
                         .unwrap();
                 }
             });

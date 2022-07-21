@@ -1,19 +1,31 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use async_stream::stream;
 use axum::{extract::Path, routing::get};
 use rspc::Config;
+use serde::Deserialize;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
+struct Ctx {
+    library_id: String,
+}
+
+// This could be the same struct as `Ctx` here but in a real world application you will always wanna separate them.
+#[derive(Deserialize)]
+struct RequestCtx {
+    library_id: String,
+}
+
 #[tokio::main]
 async fn main() {
-    let router = rspc::Router::<()>::new()
-        .config(Config::new().export_ts_bindings("./examples/solid/src/ts"))
+    let router = rspc::Router::<Ctx>::new()
+        .config(Config::new().export_ts_bindings("./examples/ts"))
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .query("getUser", |_, v: i32| v)
+        .query("getCurrentLibrary", |ctx, _: ()| ctx.library_id.clone())
         .mutation("sayHi", |_, v: String| println!("{}", v))
-        .subscription("pings", |ctx, args: ()| {
+        .subscription("pings", |_ctx, _args: ()| {
             stream! {
                 println!("Client subscribed to 'pings'");
                 for i in 0..5 {
@@ -38,18 +50,22 @@ async fn main() {
         .route(
             "/rspc/:id",
             router.clone().axum_handler(|Path(path): Path<String>| {
-                println!("Requested: '{}'", path);
-                ()
+                println!("Client requested operation '{}'", path);
+                Ctx {
+                    library_id: "todo".into(),
+                }
             }),
         )
-        .route("/rspcws", router.axum_ws_handler(|| ()))
+        .route(
+            "/rspcws",
+            router.axum_ws_handler(|| Ctx {
+                library_id: "todo".into(),
+            }),
+        )
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
-    println!(
-        "listening on http://{}/rspc/version?batch=1&input=%7B%7D",
-        addr
-    );
+    println!("listening on http://{}/rspc/version", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

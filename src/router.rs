@@ -53,10 +53,11 @@ where
         TArg: Send + 'static,
         TKey: Key<TQueryKey, TArg>,
     {
+        let key = key.to_val();
         let definition = self
             .query
-            .get(key.to_val())
-            .ok_or(ExecError::OperationNotFound)?;
+            .get(key.clone())
+            .ok_or(ExecError::OperationNotFound(key.to_string()))?;
         let arg = match TypeId::of::<TArg>() == TypeId::of::<Value>() {
             // SAFETY: We check the TypeId's match before `transmute_copy`. We use this method as I couldn't implement a trait which wouldn't overlap to abstract this into.
             true => {
@@ -83,8 +84,8 @@ where
     ) -> Result<Value, ExecError> {
         let definition = self
             .query
-            .get(TQueryKey::from_str(key)?)
-            .ok_or(ExecError::OperationNotFound)?;
+            .get(TQueryKey::from_str(key.clone())?)
+            .ok_or(ExecError::OperationNotFound(key))?;
         definition(ctx, ConcreteArg::Value(arg))?.await
     }
 
@@ -98,10 +99,11 @@ where
         TArg: Send + 'static,
         TKey: Key<TMutationKey, TArg>,
     {
+        let key = key.to_val();
         let definition = self
             .mutation
-            .get(key.to_val())
-            .ok_or(ExecError::OperationNotFound)?;
+            .get(key.clone())
+            .ok_or(ExecError::OperationNotFound(key.to_string()))?;
         let arg = match TypeId::of::<TArg>() == TypeId::of::<Value>() {
             true => {
                 // We are using runtime specialization because I could not come up with a trait which wouldn't overlap to abstract this into.
@@ -127,8 +129,8 @@ where
     ) -> Result<Value, ExecError> {
         let definition = self
             .mutation
-            .get(TMutationKey::from_str(key)?)
-            .ok_or(ExecError::OperationNotFound)?;
+            .get(TMutationKey::from_str(key.clone())?)
+            .ok_or(ExecError::OperationNotFound(key))?;
         definition(ctx, ConcreteArg::Value(arg))?.await
     }
 
@@ -142,10 +144,11 @@ where
         TArg: Send + 'static,
         TKey: Key<TSubscriptionKey, TArg>,
     {
+        let key = key.to_val();
         let definition = self
             .subscription
-            .get(key.to_val())
-            .ok_or(ExecError::OperationNotFound)?;
+            .get(key.clone())
+            .ok_or(ExecError::OperationNotFound(key.to_string()))?;
         let arg = match TypeId::of::<TArg>() == TypeId::of::<Value>() {
             true => {
                 // We are using runtime specialization because I could not come up with a trait which wouldn't overlap to abstract this into.
@@ -174,8 +177,8 @@ where
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
         let definition = self
             .subscription
-            .get(TSubscriptionKey::from_str(key)?)
-            .ok_or(ExecError::OperationNotFound)?;
+            .get(TSubscriptionKey::from_str(key.clone())?)
+            .ok_or(ExecError::OperationNotFound(key))?;
 
         match definition(ctx, ConcreteArg::Value(arg))?
             .to_stream_or_value()

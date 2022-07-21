@@ -45,6 +45,7 @@ export class Client<T extends OperationsDef> {
       onError(err: never); // TODO: Error type??
     }
   ) {
+    // TODO: Handle unsubscribe
     this.transport.subscribe(
       "subscriptionAdd",
       key,

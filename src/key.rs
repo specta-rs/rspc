@@ -49,7 +49,7 @@ impl KeyDefinition for u32 {
     }
 
     fn from_str(key: String) -> Result<Self::KeyRaw, ExecError> {
-        key.parse().map_err(|_| ExecError::OperationNotFound)
+        key.parse().map_err(|_| ExecError::OperationNotFound(key))
     }
 }
 

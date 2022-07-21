@@ -24,6 +24,11 @@ pub(crate) type OperationHandler<TLayerCtx> =
 pub(crate) type MiddlewareChain<TCtx, TLayerCtx> =
     Box<dyn Fn(OperationHandler<TLayerCtx>) -> MiddlewareChainBase<TCtx> + Send + Sync>;
 
+pub enum MaybeDone<T> {
+    Poll(T),
+    Gone,
+}
+
 /// TODO
 pub enum MiddlewareResult {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
@@ -32,6 +37,10 @@ pub enum MiddlewareResult {
         Pin<Box<dyn Future<Output = Result<MiddlewareResult, ExecError>> + Send>>,
     ),
     Sync(Value),
+    // I hate this
+    // PollFuture(
+    //     MaybeDone<Pin<Box<dyn Future<Output = Result<MiddlewareResult, ExecError>> + Send>>>,
+    // ),
     Gone,
 }
 
@@ -60,20 +69,58 @@ impl Future for MiddlewareResult {
     type Output = Result<Value, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-        match this {
-            MiddlewareResult::Stream(_) => unimplemented!(), // TODO: Make this conditional impossible in type system or handle it.
-            MiddlewareResult::Future(fut) => Pin::new(fut).poll(cx),
-            MiddlewareResult::Sync(_) => {
-                let v = match mem::replace(this, MiddlewareResult::Gone) {
-                    MiddlewareResult::Sync(v) => v,
-                    _ => unreachable!(),
-                };
+        let mut this = self.get_mut();
+        loop {
+            break match this {
+                MiddlewareResult::Stream(_) => unimplemented!(), // TODO: Make this conditional impossible in type system or handle it.
+                MiddlewareResult::Future(fut) => Pin::new(fut).poll(cx),
+                MiddlewareResult::Sync(_) => {
+                    let v = match mem::replace(this, MiddlewareResult::Gone) {
+                        MiddlewareResult::Sync(v) => v,
+                        _ => unreachable!(),
+                    };
 
-                Poll::Ready(Ok(v))
-            }
-            MiddlewareResult::FutureMiddlewareResult(_) => unimplemented!(), // TODO: Make this conditional impossible in type system or handle it.
-            MiddlewareResult::Gone => unreachable!(),
+                    Poll::Ready(Ok(v))
+                }
+                MiddlewareResult::FutureMiddlewareResult(fut) => {
+                    match Pin::new(fut).poll(cx) {
+                        Poll::Ready(value) => {
+                            let _ = mem::replace(this, value?);
+                            continue;
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+
+                    // let x = match mem::replace(this, MiddlewareResult::Gone) {
+                    //     MiddlewareResult::FutureMiddlewareResult(x) => x,
+                    //     _ => unreachable!(),
+                    // };
+                    // println!("BRUH");
+                    // mem::replace(this, MiddlewareResult::PollFuture(MaybeDone::Poll(x)));
+                    // continue;
+
+                    // let fut = Pin::new(future);
+                    // let fut = fut.get_mut();
+                    // this = fut;
+
+                    // let y = Pin::new(fut).poll(cx);
+
+                    // unimplemented!();
+                }
+                // MiddlewareResult::PollFuture(fut) => {
+                //     // Pin::new(fut).poll(cx)
+
+                //     // let fut = match mem::replace(this, MiddlewareResult::Gone) {
+                //     //     MiddlewareResult::PollFuture(fut) => fut,
+                //     //     _ => unreachable!(),
+                //     // };
+                //     // let fut = Pin::new(fut);
+                //     // let fut = fut.get_mut();
+                //     // this = fut;
+                //     // continue;
+                // }
+                MiddlewareResult::Gone => unreachable!(),
+            };
         }
     }
 }

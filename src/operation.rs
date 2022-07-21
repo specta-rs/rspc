@@ -1,4 +1,5 @@
 use std::{
+    any::type_name,
     collections::{BTreeMap, BTreeSet},
     io::Write,
     path::PathBuf,
@@ -6,7 +7,9 @@ use std::{
 
 use ts_rs::TS;
 
-use crate::{KeyDefinition, MiddlewareChainBase, ResolverResult, TSDependency, TypeDef};
+use crate::{
+    ExtendTypeDef, KeyDefinition, MiddlewareChainBase, ResolverResult, TSDependency, TypeDef,
+};
 
 /// TODO
 pub(crate) struct Operation<TOperationKey, TCtx>
@@ -31,11 +34,15 @@ where
         }
     }
 
-    pub fn insert<TArg: TS, TResolverMarker, TResolverResult: ResolverResult<TResolverMarker>>(
+    pub fn insert<TArg, TResolverMarker, TResolverResult, TLayerArgs>(
         &mut self,
         key: TOperationKey::KeyRaw,
         handler: MiddlewareChainBase<TCtx>,
-    ) {
+    ) where
+        TArg: TS,
+        TResolverResult: ResolverResult<TResolverMarker>,
+        TLayerArgs: TS,
+    {
         if self.operations.contains_key(&key) {
             panic!(
                 "rspc error: operation '{}' already has resolver with name {:?}",
@@ -44,8 +51,10 @@ where
         }
 
         self.operations.insert(key.clone(), Box::new(handler));
-        self.type_defs
-            .insert(key, TResolverResult::type_def::<TArg>());
+        self.type_defs.insert(
+            key,
+            TResolverResult::type_def::<ExtendTypeDef<TArg, TLayerArgs>>(),
+        );
     }
 
     pub(crate) fn insert_internal(
