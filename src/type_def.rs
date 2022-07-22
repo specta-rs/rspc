@@ -71,19 +71,28 @@ impl<T: TS> TSType for T {
 pub struct TypeDef {
     pub(crate) arg_ty_name: String,
     pub(crate) arg_export: fn(PathBuf) -> Result<(), ExportError>,
+    pub(crate) middleware_arg_ty_name: String,
+    pub(crate) middleware_arg_export: fn(PathBuf) -> Result<(), ExportError>,
     pub(crate) result_ty_name: String,
     pub(crate) result_export: fn(PathBuf) -> Result<(), ExportError>,
     pub(crate) dependencies: BTreeSet<TSDependency>,
 }
 
 impl TypeDef {
-    pub(crate) fn new<TArg: TSType + 'static, TResolverResult: TSType + 'static>() -> Self {
+    pub(crate) fn new<
+        TArg: TSType + 'static,
+        TLayerArg: TSType + 'static,
+        TResolverResult: TSType + 'static,
+    >() -> Self {
         let mut dependencies = TArg::dependencies();
+        dependencies.extend(TLayerArg::dependencies());
         dependencies.extend(TResolverResult::dependencies());
 
         Self {
             arg_ty_name: TArg::name(),
             arg_export: TArg::export_to,
+            middleware_arg_ty_name: TLayerArg::name(),
+            middleware_arg_export: TLayerArg::export_to,
             result_ty_name: TResolverResult::name(),
             result_export: TResolverResult::export_to,
             dependencies: BTreeSet::from_iter(dependencies),

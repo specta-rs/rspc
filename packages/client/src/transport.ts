@@ -1,7 +1,7 @@
-// @ts-ignore // TODO: Fix this
 import { invoke } from "@tauri-apps/api";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
+import { OperationKey } from ".";
 
 // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
 
@@ -12,11 +12,10 @@ export type OperationType =
   | "subscriptionRemove";
 
 export interface Transport {
-  doRequest(operation: OperationType, key: string, arg: any): Promise<any>;
+  doRequest(operation: OperationType, key: OperationKey): Promise<any>;
   subscribe(
     operation: OperationType,
-    key: string,
-    arg: any,
+    key: OperationKey,
     onMessage: (msg: any) => void,
     onError: (msg: any) => void
   ): Promise<void>;
@@ -29,11 +28,7 @@ export class FetchTransport implements Transport {
     this.url = url;
   }
 
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    arg: any
-  ): Promise<any> {
+  async doRequest(operation: OperationType, key: OperationKey): Promise<any> {
     let method = "GET";
     let body = undefined as any;
     let headers = new Headers();
@@ -59,8 +54,7 @@ export class FetchTransport implements Transport {
 
   async subscribe(
     operation: OperationType,
-    key: string,
-    arg: any,
+    key: OperationKey,
     onMessage: (msg: any) => void,
     onError: (msg: any) => void
   ): Promise<void> {
@@ -101,11 +95,7 @@ export class WebsocketTransport implements Transport {
     });
   }
 
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    arg: any
-  ): Promise<any> {
+  async doRequest(operation: OperationType, key: OperationKey): Promise<any> {
     if (this.ws.readyState == 0) {
       let resolve: () => void;
       const promise = new Promise((res) => {
@@ -128,9 +118,8 @@ export class WebsocketTransport implements Transport {
     this.ws.send(
       JSON.stringify({
         id,
-        method: operation,
-        operation: key,
-        arg,
+        operation,
+        key,
       })
     );
 
@@ -139,8 +128,7 @@ export class WebsocketTransport implements Transport {
 
   async subscribe(
     operation: OperationType,
-    key: string,
-    arg: any,
+    key: OperationKey,
     onMessage?: (msg: any) => void,
     onError?: (msg: any) => void
   ): Promise<void> {
@@ -174,9 +162,8 @@ export class WebsocketTransport implements Transport {
     this.ws.send(
       JSON.stringify({
         id,
-        method: operation,
-        operation: key,
-        arg,
+        operation,
+        key,
       })
     );
 
@@ -215,11 +202,7 @@ export class TauriTransport implements Transport {
     });
   }
 
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    arg: any
-  ): Promise<any> {
+  async doRequest(operation: OperationType, key: OperationKey): Promise<any> {
     if (!this.listener) {
       await this.listener;
     }
@@ -237,7 +220,6 @@ export class TauriTransport implements Transport {
       id,
       method: operation,
       operation: key,
-      arg,
     });
 
     return await promise;
@@ -245,8 +227,7 @@ export class TauriTransport implements Transport {
 
   async subscribe(
     operation: OperationType,
-    key: string,
-    arg: any,
+    key: OperationKey,
     onMessage: (msg: any) => void,
     onError: (msg: any) => void
   ): Promise<void> {

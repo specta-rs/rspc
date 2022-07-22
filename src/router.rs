@@ -48,6 +48,7 @@ where
         ctx: TCtx,
         key: TKey,
         arg: TArg,
+        middleware_arg: Value,
     ) -> Result<Value, ExecError>
     where
         TArg: Send + 'static,
@@ -67,9 +68,9 @@ where
                     .unwrap()
                     .take()
                     .unwrap();
-                ConcreteArg::Value(v)
+                ConcreteArg::Value(v, middleware_arg)
             }
-            false => ConcreteArg::Unknown(Box::new(arg)),
+            false => ConcreteArg::Unknown(Box::new(arg), middleware_arg),
         };
 
         definition(ctx, arg)?.await
@@ -81,12 +82,13 @@ where
         ctx: TCtx,
         key: String,
         arg: Value,
+        middleware_arg: Value,
     ) -> Result<Value, ExecError> {
         let definition = self
             .query
             .get(TQueryKey::from_str(key.clone())?)
             .ok_or(ExecError::OperationNotFound(key))?;
-        definition(ctx, ConcreteArg::Value(arg))?.await
+        definition(ctx, ConcreteArg::Value(arg, middleware_arg))?.await
     }
 
     pub async fn exec_mutation<TArg, TKey>(
@@ -94,6 +96,7 @@ where
         ctx: TCtx,
         key: TKey,
         arg: TArg,
+        middleware_arg: Value,
     ) -> Result<Value, ExecError>
     where
         TArg: Send + 'static,
@@ -112,9 +115,9 @@ where
                     .unwrap()
                     .take()
                     .unwrap();
-                ConcreteArg::Value(v)
+                ConcreteArg::Value(v, middleware_arg)
             }
-            false => ConcreteArg::Unknown(Box::new(arg)),
+            false => ConcreteArg::Unknown(Box::new(arg), middleware_arg),
         };
 
         definition(ctx, arg)?.await
@@ -126,12 +129,13 @@ where
         ctx: TCtx,
         key: String,
         arg: Value,
+        middleware_arg: Value,
     ) -> Result<Value, ExecError> {
         let definition = self
             .mutation
             .get(TMutationKey::from_str(key.clone())?)
             .ok_or(ExecError::OperationNotFound(key))?;
-        definition(ctx, ConcreteArg::Value(arg))?.await
+        definition(ctx, ConcreteArg::Value(arg, middleware_arg))?.await
     }
 
     pub async fn exec_subscription<TArg, TKey>(
@@ -139,6 +143,7 @@ where
         ctx: TCtx,
         key: TKey,
         arg: TArg,
+        middleware_arg: Value,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError>
     where
         TArg: Send + 'static,
@@ -157,9 +162,9 @@ where
                     .unwrap()
                     .take()
                     .unwrap();
-                ConcreteArg::Value(v)
+                ConcreteArg::Value(v, middleware_arg)
             }
-            false => ConcreteArg::Unknown(Box::new(arg)),
+            false => ConcreteArg::Unknown(Box::new(arg), middleware_arg),
         };
 
         match definition(ctx, arg)?.to_stream_or_value().await? {
@@ -174,13 +179,14 @@ where
         ctx: TCtx,
         key: String,
         arg: Value,
+        middleware_arg: Value,
     ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
         let definition = self
             .subscription
             .get(TSubscriptionKey::from_str(key.clone())?)
             .ok_or(ExecError::OperationNotFound(key))?;
 
-        match definition(ctx, ConcreteArg::Value(arg))?
+        match definition(ctx, ConcreteArg::Value(arg, middleware_arg))?
             .to_stream_or_value()
             .await?
         {

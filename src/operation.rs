@@ -1,5 +1,4 @@
 use std::{
-    any::type_name,
     collections::{BTreeMap, BTreeSet},
     io::Write,
     path::PathBuf,
@@ -7,9 +6,7 @@ use std::{
 
 use ts_rs::TS;
 
-use crate::{
-    ExtendTypeDef, KeyDefinition, MiddlewareChainBase, ResolverResult, TSDependency, TypeDef,
-};
+use crate::{KeyDefinition, MiddlewareChainBase, ResolverResult, TSDependency, TypeDef};
 
 /// TODO
 pub(crate) struct Operation<TOperationKey, TCtx>
@@ -51,10 +48,8 @@ where
         }
 
         self.operations.insert(key.clone(), Box::new(handler));
-        self.type_defs.insert(
-            key,
-            TResolverResult::type_def::<ExtendTypeDef<TArg, TLayerArgs>>(),
-        );
+        self.type_defs
+            .insert(key, TResolverResult::type_def::<TArg, TLayerArgs>());
     }
 
     pub(crate) fn insert_internal(
@@ -102,16 +97,41 @@ where
 
         for (key, type_def) in self.type_defs.iter() {
             (type_def.arg_export)(export_path.join(format!("{}.ts", type_def.arg_ty_name)))?;
+            (type_def.middleware_arg_export)(
+                export_path.join(format!("{}.ts", type_def.middleware_arg_ty_name)),
+            )?;
             (type_def.result_export)(export_path.join(format!("{}.ts", type_def.result_ty_name)))?;
 
             dependencies.extend(type_def.dependencies.clone());
 
+            // write!(
+            //     buf,
+            //     " | {{ key: [\"{}\", {}, {}]; result: {}; }}",
+            //     key.to_string(),
+            //     type_def.arg_ty_name,
+            //     type_def.middleware_arg_ty_name,
+            //     type_def.result_ty_name
+            // )?;
+
+            write!(buf, " | {{ key: [\"{}\"", key.to_string(),)?;
+
+            if type_def.arg_ty_name != "null" {
+                write!(buf, ", {}", type_def.arg_ty_name)?;
+
+                // if type_def.middleware_arg_ty_name != "null" {
+                //     write!(buf, ", {}", type_def.middleware_arg_ty_name)?;
+                // }
+            }
+            // else {
+            //     if type_def.middleware_arg_ty_name != "null" {
+            //         write!(buf, ", undefined, {}", type_def.middleware_arg_ty_name)?;
+            //     }
+            // }
+
             write!(
                 buf,
-                " | {{ key: \"{}\"; arg: {}; result: {}; }}",
-                key.to_string(),
-                type_def.arg_ty_name,
-                type_def.result_ty_name
+                "]; margs: {}; result: {}; }}",
+                type_def.middleware_arg_ty_name, type_def.result_ty_name
             )?;
         }
 

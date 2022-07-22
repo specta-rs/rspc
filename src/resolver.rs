@@ -10,7 +10,7 @@ use crate::{Error, ExecError, MiddlewareResult, TypeDef};
 pub trait ResolverResult<TMarker> {
     fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError>;
 
-    fn type_def<TArg: TS>() -> TypeDef;
+    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef;
 }
 
 pub struct SerdeTypeMarker(PhantomData<()>);
@@ -24,8 +24,8 @@ where
         ))
     }
 
-    fn type_def<TArg: TS>() -> TypeDef {
-        TypeDef::new::<TArg, TValue>()
+    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef {
+        TypeDef::new::<TArg, TLayerArg, TValue>()
     }
 }
 
@@ -42,8 +42,8 @@ where
         })))
     }
 
-    fn type_def<TArg: TS>() -> TypeDef {
-        TReturn::type_def::<TArg>()
+    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef {
+        TReturn::type_def::<TArg, TLayerArg>()
     }
 }
 
@@ -62,7 +62,7 @@ where
         }
     }
 
-    fn type_def<TArg: TS>() -> TypeDef {
-        TypeDef::new::<TArg, TValue>()
+    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef {
+        TypeDef::new::<TArg, TLayerArg, TValue>()
     }
 }

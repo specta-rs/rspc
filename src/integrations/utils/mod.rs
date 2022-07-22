@@ -7,6 +7,14 @@ use tokio::{spawn, sync::mpsc::UnboundedSender};
 
 use crate::{KeyDefinition, Router};
 
+/// TODO
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OperationKey(
+    pub String,
+    #[serde(default, skip_serializing_if = "Option::is_none")] pub Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] pub Option<Value>,
+);
+
 // TODO: Rename this type
 // TODO: Export this and use on frontend?
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,12 +26,12 @@ pub enum MessageMethod {
     SubscriptionRemove,
 }
 
+/// TODO
 #[derive(Debug, Deserialize)]
 pub struct Request {
     pub id: Option<String>,
-    pub method: MessageMethod,
-    pub operation: String,
-    pub arg: Option<Value>,
+    pub operation: MessageMethod,
+    pub key: OperationKey,
 }
 
 impl Request {
@@ -40,16 +48,21 @@ impl Request {
         TMutationKey: KeyDefinition,
         TSubscriptionKey: KeyDefinition,
     {
-        if let Some(Value::Object(obj)) = &self.arg {
+        if let Some(Value::Object(obj)) = &self.key.1 {
             if obj.len() == 0 {
-                self.arg = Some(Value::Null);
+                self.key.1 = Some(Value::Null);
             }
         }
 
-        match self.method {
+        match self.operation {
             MessageMethod::Query => {
                 match router
-                    .exec_query_unsafe(ctx, self.operation, self.arg.unwrap_or(Value::Null))
+                    .exec_query_unsafe(
+                        ctx,
+                        self.key.0,
+                        self.key.1.unwrap_or(Value::Null),
+                        self.key.2.unwrap_or(Value::Null),
+                    )
                     .await
                 {
                     Ok(result) => Response::Response(ResponseResult::Success {
@@ -64,7 +77,12 @@ impl Request {
             }
             MessageMethod::Mutation => {
                 match router
-                    .exec_mutation_unsafe(ctx, self.operation, self.arg.unwrap_or(Value::Null))
+                    .exec_mutation_unsafe(
+                        ctx,
+                        self.key.0,
+                        self.key.1.unwrap_or(Value::Null),
+                        self.key.2.unwrap_or(Value::Null),
+                    )
                     .await
                 {
                     Ok(result) => Response::Response(ResponseResult::Success {
@@ -83,8 +101,9 @@ impl Request {
                         match router
                             .exec_subscription_unsafe(
                                 ctx,
-                                self.operation.clone(),
-                                self.arg.unwrap_or(Value::Null),
+                                self.key.0.clone(),
+                                self.key.1.unwrap_or(Value::Null),
+                                self.key.2.unwrap_or(Value::Null),
                             )
                             .await
                         {
@@ -96,7 +115,7 @@ impl Request {
                                             Ok(msg) => {
                                                 if let Err(_) = event_sender.send(Response::Event(
                                                     EventResult {
-                                                        key: self.operation.clone(),
+                                                        key: self.key.0.clone(),
                                                         result: msg,
                                                     },
                                                 )) {

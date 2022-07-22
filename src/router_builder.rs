@@ -1,13 +1,22 @@
 use std::{future::Future, marker::PhantomData};
 
 use futures::{Stream, StreamExt};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::{Map, Value};
 use ts_rs::TS;
 
 use crate::{
     ConcreteArg, Config, Context, ExecError, Key, KeyDefinition, MiddlewareChain, MiddlewareResult,
     Operation, ResolverResult, Router,
 };
+
+// #[derive(Debug, Serialize, Deserialize)]
+// struct ArgExtractor<T> {
+//     #[serde(flatten)]
+//     arg: T,
+//     #[serde(flatten)]
+//     other: Map<String, Value>,
+// }
 
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
@@ -131,13 +140,12 @@ where
             middleware: Box::new(move |next| {
                 let next: &'static _ = Box::leak(next); // TODO: Cleanup memory
 
-                (middleware)(Box::new(move |ctx, args| {
+                (middleware)(Box::new(move |ctx, mut args| {
                     let marg = match &args {
-                        ConcreteArg::Value(val) => serde_json::from_value(val.clone()).unwrap(),
-                        ConcreteArg::Unknown(_) => {
-                            panic!("'ConcreteArg::Unknown' is not supported with middleware args!")
-                        }
+                        ConcreteArg::Value(_, val) => val,
+                        ConcreteArg::Unknown(_, val) => val,
                     };
+                    let marg: TMiddlewareArgs = serde_json::from_value(marg.clone()).unwrap();
 
                     Ok(MiddlewareResult::FutureMiddlewareResult(Box::pin(
                         resolver(ctx, marg, Box::new(|ctx| next(ctx, args))),
@@ -166,10 +174,10 @@ where
                 key.to_val(),
                 (self.middleware)(Box::new(move |ctx, arg| {
                     let arg = match arg {
-                        ConcreteArg::Value(v) => {
+                        ConcreteArg::Value(v, _) => {
                             serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
                         }
-                        ConcreteArg::Unknown(v) => *v
+                        ConcreteArg::Unknown(v, _) => *v
                             .downcast::<TArg>()
                             .map_err(|_| ExecError::UnreachableInternalState)?,
                     };
@@ -194,10 +202,10 @@ where
                 key.to_val(),
                 (self.middleware)(Box::new(move |ctx, arg| {
                     let arg = match arg {
-                        ConcreteArg::Value(v) => {
+                        ConcreteArg::Value(v, _) => {
                             serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
                         }
-                        ConcreteArg::Unknown(v) => *v
+                        ConcreteArg::Unknown(v, _) => *v
                             .downcast::<TArg>()
                             .map_err(|_| ExecError::UnreachableInternalState)?,
                     };
@@ -223,10 +231,10 @@ where
                 key.to_val(),
                 (self.middleware)(Box::new(move |ctx, arg| {
                     let arg = match arg {
-                        ConcreteArg::Value(v) => {
+                        ConcreteArg::Value(v, _) => {
                             serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
                         }
-                        ConcreteArg::Unknown(v) => *v
+                        ConcreteArg::Unknown(v, _) => *v
                             .downcast::<TArg>()
                             .map_err(|_| ExecError::UnreachableInternalState)?,
                     };

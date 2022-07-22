@@ -17,7 +17,7 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 
 use crate::{
-    utils::{self, MessageMethod, Response, ResponseResult},
+    utils::{self, MessageMethod, OperationKey, Response, ResponseResult},
     KeyDefinition, Router,
 };
 
@@ -25,11 +25,13 @@ use crate::{
 pub struct GetParams {
     pub batch: Option<i32>, // TODO: is this correct number type?
     pub input: Option<String>,
+    pub margs: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PostParams {
     pub batch: i32, // TODO: is this correct number type?
+    pub margs: Option<String>,
 }
 
 pub enum TCtxFuncResult<'a, TCtx> {
@@ -141,14 +143,18 @@ where
                     },
                 };
 
+                let margs = match params.margs {
+                    Some(margs) => Some(serde_json::from_str(&margs).unwrap()),
+                    None => None,
+                };
+
                 (
                     StatusCode::OK, // TODO: Make status code correct based on `Response`
                     Json(vec![
                         utils::Request {
                             id: None,
-                            method: MessageMethod::Query,
-                            operation: key,
-                            arg: Some(arg),
+                            operation: MessageMethod::Query,
+                            key: OperationKey(key, Some(arg), margs),
                         }
                         .handle(ctx, &self, None)
                         .await,
@@ -185,14 +191,18 @@ where
             },
         };
 
+        let margs = match params.margs {
+            Some(margs) => Some(serde_json::from_str(&margs).unwrap()),
+            None => None,
+        };
+
         (
             StatusCode::OK, // TODO: Make status code correct based on `Response`
             Json(vec![
                 utils::Request {
                     id: None,
-                    method: MessageMethod::Mutation,
-                    operation: key,
-                    arg,
+                    operation: MessageMethod::Mutation,
+                    key: OperationKey(key, arg, margs),
                 }
                 .handle(ctx, &self, None)
                 .await,
@@ -230,7 +240,10 @@ where
 
                                             result.handle(ctx, &self, Some(&tx)).await
                                         },
-                                        Err(_) => utils::Response::Response (ResponseResult::Error),
+                                        Err(err) =>{
+                                            println!("ERROR PARSING MESSAGE! {:?}", err); // TODO: Error handling here
+                                            utils::Response::Response (ResponseResult::Error)
+                                        },
                                     };
 
                                     if !matches!(result, utils::Response::None) && socket

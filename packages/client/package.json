@@ -40,7 +40,8 @@
       "resolve": true
     },
     "splitting": true,
-    "clean": true
+    "clean": true,
+    "sourcemap": true
   },
   "dependencies": {
     "@rspc/client": "^0.0.3",

@@ -1,9 +1,11 @@
 import { Transport } from "./transport";
 
+export type OperationKey = [string] | [string, /* args */ any];
+
 export type OperationsDef = {
-  queries: { key: string; arg: any; result: any };
-  mutations: { key: string; arg: any; result: any };
-  subscriptions: { key: string; result: any };
+  queries: { key: OperationKey; margs: any; arg: any; result: any };
+  mutations: { key: OperationKey; margs: any; arg: any; result: any };
+  subscriptions: { key: OperationKey; margs: any; arg: any; result: any };
 };
 
 export interface ClientArgs {
@@ -25,21 +27,19 @@ export class Client<T extends OperationsDef> {
 
   async query<K extends T["queries"]["key"]>(
     key: K,
-    arg?: Extract<T["queries"], { key: K }>["arg"]
+    margs: Extract<T["queries"], { key: K }>["margs"]
   ): Promise<Extract<T["queries"], { key: K }>["result"]> {
-    return await this.transport.doRequest("query", key, arg);
+    return await this.transport.doRequest("query", key, margs);
   }
 
   async mutation<K extends T["mutations"]["key"]>(
-    key: K,
-    arg?: Extract<T["mutations"], { key: K }>["arg"]
+    key: K
   ): Promise<Extract<T["mutations"], { key: K }>["result"]> {
-    return await this.transport.doRequest("mutation", key, arg);
+    return await this.transport.doRequest("mutation", key);
   }
 
   async subscription<K extends T["subscriptions"]["key"]>(
     key: K,
-    arg?: Extract<T["queries"], { key: K }>["arg"],
     options?: {
       onNext(msg: Extract<T["queries"], { key: K }>["result"]);
       onError(err: never); // TODO: Error type??
@@ -49,7 +49,6 @@ export class Client<T extends OperationsDef> {
     this.transport.subscribe(
       "subscriptionAdd",
       key,
-      arg,
       options?.onNext as any,
       options?.onError as any
     );

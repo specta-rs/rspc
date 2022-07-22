@@ -20,7 +20,7 @@ importers:
 
   examples/react:
     specifiers:
-      '@rspc/client': workspace:^0.0.3
+      '@rspc/client': workspace:*
       '@tanstack/react-query': ^4.0.5
       '@types/react': ^18.0.15
       '@types/react-dom': ^18.0.6
@@ -64,7 +64,7 @@ importers:
       tsup: ^6.1.3
       typescript: ^4.7.4
     dependencies:
-      '@rspc/client': 0.0.3
+      '@rspc/client': 'link:'
       '@tanstack/react-query': 4.0.5_react@18.2.0
       '@tauri-apps/api': 1.0.2
     devDependencies:
@@ -646,10 +646,6 @@ packages:
       '@proload/core': 0.3.2
       tsm: 2.2.1
     dev: true
-
-  /@rspc/client/0.0.3:
-    resolution: {integrity: sha512-YXkbHhqMPs92w5BmQsKP3eG8m/OVvVLUtIxvpwX0uLSfZZ68CQSXBx80UoVmxZk/cB+jZ+FxzFshDZy8hXwQnA==}
-    dev: false
 
   /@tanstack/query-core/4.0.5:
     resolution: {integrity: sha512-QOJ2gLbwlf8p0487pMey6vv8EF5X2ib1zINayaD7mb9/LibUtXmZ12uJgTqcnjgNY/4tWZn5qJnEk2ePG5AVGA==}
