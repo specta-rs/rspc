@@ -1,50 +1,13 @@
-use crate::utils::{UpdateUserArgs, User};
-use rspc::{Config, Router};
-use serde_json::json;
+use rspc::Router;
 
-mod utils;
-
-#[tokio::main]
-async fn main() {
-    let router = <Router>::new()
-        .config(Config::new().export_ts_bindings("./ts"))
-        .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
-        .mutation("createUser", |_, args| User::create(args))
-        .query(
-            "getUser",
-            |_, id| async move { User::read(id).await.unwrap() },
-        )
-        .query("getUsers", |_, _: ()| User::read_all())
-        .mutation("updateUser", |_, args: UpdateUserArgs| {
-            User::update(args.id, args.new_user)
-        })
-        .mutation("deleteUser", |_, id| User::delete(id))
-        .query("optional", |_, _: ()| None as Option<String>)
-        .build();
-
-    // You can also export the bindings yourself
-    // router.export_ts("./ts").unwrap();
-
-    println!(
-        "{:#?}",
-        router.exec_query((), "version", json!(null)).await.unwrap()
-    );
-    println!(
-        "{:#?}",
-        router
-            .exec_mutation(
-                (),
-                "createUser",
-                json!({ "id": 1, "name": "Monty Beaumont", "email": "monty@otbeaumont.me", "pets": [] })
-            )
-            .await
-            .unwrap()
-    );
-    println!(
-        "{:#?}",
-        router
-            .exec_query((), "getUsers", json!(null))
-            .await
-            .unwrap()
-    );
+fn main() {
+    Router::<String>::new()
+        .middleware()
+        .query("a", || "0.1.0")
+        .query("b", |ctx| "0.1.0")
+        .query("c", |ctx, arg: ()| "Hello World")
+        .query("d", |ctx, arg: String| async move {
+            println!("{:?} {:?}", ctx, arg);
+            "Hello World"
+        });
 }
