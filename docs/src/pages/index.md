@@ -5,6 +5,8 @@ layout: ../layouts/MainLayout.astro
 
 **A blazing fast and easy to use TRPC-like server for Rust.**
 
+🚧 Work in progress 🚧
+
 ```rust
 let router = <Router>::new()
     .query("version", |ctx, args: ()| "1.0.0")
