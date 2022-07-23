@@ -5,11 +5,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use bind_rs::{get_ts_type, Type};
+use specta::{get_ts_type, Type};
 
 macro_rules! assert_ts_type {
     ($t:ty, $e:expr) => {
-        assert_eq!(get_ts_type(&<$t as Type>::def()).unwrap(), $e);
+        assert_eq!(get_ts_type(&<$t as Type>::def(&mut Default::default())).unwrap(), $e);
     };
 }
 
@@ -65,6 +65,7 @@ fn typescript_types() {
     assert_ts_type!(TupleStruct1, "number");
     assert_ts_type!(TupleStruct3, "number | boolean | string");
 
+    assert_eq!(&<RenamedStruct as Type>::def(&mut Default::default()).name, "HasBeenRenamed");
     // assert_ts_type!(Wrapper<String>, "string");
 
     // assert_ts_type!(SimpleEnum, "A | B | C");
@@ -93,6 +94,10 @@ struct TupleStruct1(i32);
 
 #[derive(Type)]
 struct TupleStruct3(i32, bool, String);
+
+#[derive(Type)]
+#[specta(rename = "HasBeenRenamed")]
+struct RenamedStruct;
 
 // #[derive(Type)]
 // struct Wrapper<T>(T);
