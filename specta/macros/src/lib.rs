@@ -4,7 +4,7 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Ident};
 
 #[proc_macro_derive(Type)]
 pub fn derive_type(input: TokenStream) -> TokenStream {
-    let crate_name = format_ident!("bind_rs");
+    let crate_name = format_ident!("specta");
     let DeriveInput {
         ident,
         generics,
