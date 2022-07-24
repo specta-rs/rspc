@@ -26,27 +26,18 @@ pub fn to_ts(def: Typedef) -> Result<String, String> {
     }
 }
 
+macro_rules! primitive_def {
+    ($($t:ident)+) => {
+        $(BodyDefinition::Primitive(stringify!($t)))|+
+    }
+}
+
 pub fn get_ts_type(def: &Typedef) -> Result<String, String> {
     match &def.body {
-        BodyDefinition::Primitive(stringify!(i8))
-        | BodyDefinition::Primitive(stringify!(u8))
-        | BodyDefinition::Primitive(stringify!(i16))
-        | BodyDefinition::Primitive(stringify!(u16))
-        | BodyDefinition::Primitive(stringify!(i32))
-        | BodyDefinition::Primitive(stringify!(u32))
-        | BodyDefinition::Primitive(stringify!(f32))
-        | BodyDefinition::Primitive(stringify!(f64))
-        | BodyDefinition::Primitive(stringify!(usize))
-        | BodyDefinition::Primitive(stringify!(isize)) => Ok("number".into()),
-        BodyDefinition::Primitive(stringify!(i64))
-        | BodyDefinition::Primitive(stringify!(u64))
-        | BodyDefinition::Primitive(stringify!(i128))
-        | BodyDefinition::Primitive(stringify!(u128)) => Ok("bigint".into()),
-        BodyDefinition::Primitive(stringify!(bool)) => Ok("boolean".into()),
-        BodyDefinition::Primitive(stringify!(String))
-        | BodyDefinition::Primitive(stringify!(char))
-        | BodyDefinition::Primitive(stringify!(Path))
-        | BodyDefinition::Primitive(stringify!(PathBuf)) => Ok("string".into()),
+        primitive_def!(i8 i16 u16 i32 u32 f32 f64 usize isize) => Ok("number".into()),
+        primitive_def!(i64 u64 i128 u128) => Ok("bigint".into()),
+        primitive_def!(String char Path PathBuf) => Ok("string".into()),
+        primitive_def!(bool) => Ok("boolean".into()),
         BodyDefinition::UnitTuple => Ok("null".into()),
         BodyDefinition::Tuple(def) => Ok(format!(
             "[{}]",
