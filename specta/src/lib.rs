@@ -22,19 +22,19 @@ pub trait Type {
     fn def(defs: &mut TypeDefs) -> Typedef;
 }
 
-macro_rules! impl_primitive {
-    ($i:ident) => {
+macro_rules! impl_primitives {
+    ($($i:ident)+) => {$(
         impl Type for $i {
             fn def(defs: &mut TypeDefs) -> Typedef {
                 Typedef {
                     name: stringify!($i).into(),
                     primitive: true,
                     type_id: std::any::TypeId::of::<$i>(),
-                    body: BodyDefinition::Primitive(stringify!($i)),
+                    body: BodyDefinition::Primitive(PrimitiveType::$i),
                 }
             }
         }
-    };
+    )+};
 }
 
 macro_rules! impl_tuple {
@@ -45,7 +45,7 @@ macro_rules! impl_tuple {
                     name: stringify!(()).into(),
                     primitive: true,
                     type_id: std::any::TypeId::of::<()>(),
-                    body: BodyDefinition::UnitTuple,
+                    body: BodyDefinition::Tuple(vec![]),
                 }
             }
         }
@@ -54,47 +54,44 @@ macro_rules! impl_tuple {
         impl<$($i: Type + 'static),+> Type for ($($i),+) {
             fn def(defs: &mut TypeDefs) -> Typedef {
                 Typedef {
-                    name: format!("({})", vec![$(if let Some(def) = defs.get(&TypeId::of::<$i>()) {
-                        def.clone()
-                    } else {
-                        let def = <$i as Type>::def(defs);
-                        defs.insert(TypeId::of::<$i>(), def.clone());
-                        def
-                    }.name),*].join(", ")),
+                    name: format!(
+                        "({})",
+                        vec![$(
+                            if let Some(def) = defs.get(&TypeId::of::<$i>()) {
+                                def.clone()
+                            } else {
+                                let def = <$i as Type>::def(defs);
+                                defs.insert(TypeId::of::<$i>(), def.clone());
+                                def
+                            }.name
+                        ),*].join(", ")
+                    ),
                     primitive: true,
                     type_id: std::any::TypeId::of::<($($i),+)>(),
-                    body: BodyDefinition::Tuple(vec![$(if let Some(def) = defs.get(&TypeId::of::<$i>()) {
-                        def.clone()
-                    } else {
-                        let def = <$i as Type>::def(defs);
-                        defs.insert(TypeId::of::<$i>(), def.clone());
-                        def
-                    }),+]),
+                    body: BodyDefinition::Tuple(vec![$(
+                        if let Some(def) = defs.get(&TypeId::of::<$i>()) {
+                            def.clone()
+                        } else {
+                            let def = <$i as Type>::def(defs);
+                            defs.insert(TypeId::of::<$i>(), def.clone());
+                            def
+                        }
+                    ),+]),
                 }
             }
         }
     };
 }
 
-impl_primitive!(i8);
-impl_primitive!(u8);
-impl_primitive!(i16);
-impl_primitive!(u16);
-impl_primitive!(i32);
-impl_primitive!(u32);
-impl_primitive!(i64);
-impl_primitive!(u64);
-impl_primitive!(i128);
-impl_primitive!(u128);
-impl_primitive!(isize);
-impl_primitive!(usize);
-
-impl_primitive!(f32);
-impl_primitive!(f64);
-
-impl_primitive!(bool);
-
-impl_primitive!(char);
+impl_primitives!(
+    i8 i16 i32 i64 i128 isize
+    u8 u16 u32 u64 u128 usize
+    f32 f64
+    bool char
+    String
+    Path
+    PathBuf
+);
 
 impl_tuple!(());
 // T = (T1)
@@ -109,10 +106,6 @@ impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9));
 impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10));
 impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11));
 impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12));
-
-impl_primitive!(String);
-impl_primitive!(Path);
-impl_primitive!(PathBuf);
 
 impl<'a> Type for &'a str {
     fn def(defs: &mut TypeDefs) -> Typedef {

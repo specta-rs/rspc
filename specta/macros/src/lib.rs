@@ -1,12 +1,12 @@
 use darling::FromDeriveInput;
 use proc_macro::TokenStream;
 use quote::{__private::TokenStream as TokenStream2, format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Ident};
+use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Ident};
 
 #[derive(FromDeriveInput)]
 #[darling(attributes(specta))]
 struct DeriveTypeArgs {
-    rename: Option<String>
+    rename: Option<String>,
 }
 
 #[proc_macro_derive(Type, attributes(specta))]
@@ -28,7 +28,7 @@ pub fn derive_type(input: TokenStream) -> TokenStream {
 
     let body = match data {
         Data::Struct(data) => parse_struct(&crate_name, data),
-        Data::Enum(data) => unimplemented!(),
+        Data::Enum(data) => parse_enum(&crate_name, &ident, data),
         Data::Union(_) => panic!("Type 'Union' is not supported by specta!"),
     };
 
@@ -49,45 +49,91 @@ pub fn derive_type(input: TokenStream) -> TokenStream {
     .into()
 }
 
+fn to_specta_field(f: &Field, crate_name: &Ident) -> TokenStream2 {
+    let ident = f.ident.as_ref().unwrap();
+    let ty = &f.ty;
+
+    quote! {
+        #crate_name::Field {
+            name: stringify!(#ident).into(),
+            ty: if let Some(def) =
+               defs.get(&std::any::TypeId::of::<#ty>()) {
+                def.clone()
+            } else {
+                let def = <#ty as #crate_name::Type>::def(defs);
+                defs.insert(std::any::TypeId::of::<#ty>(), def.clone());
+                def
+            },
+        }
+    }
+}
+
+fn get_specta_typedef(f: &Field, crate_name: &Ident) -> TokenStream2 {
+    let ty = &f.ty;
+    quote! {
+        if let Some(def) = defs.get(&std::any::TypeId::of::<#ty>()) {
+            def.clone()
+        } else {
+            let def = <#ty as #crate_name::Type>::def(defs);
+            defs.insert(std::any::TypeId::of::<#ty>(), def.clone());
+            def
+        }
+    }
+}
+
 fn parse_struct(crate_name: &Ident, data: &DataStruct) -> TokenStream2 {
-    if data.fields.len() == 0 {
-        return quote! { #crate_name::BodyDefinition::UnitTuple };
+    match &data.fields {
+        Fields::Unit => quote!(#crate_name::BodyDefinition::Tuple(vec![])),
+        Fields::Unnamed(fields) => {
+            let fields = fields
+                .unnamed
+                .iter()
+                .map(|f| get_specta_typedef(f, crate_name));
+
+            quote!(#crate_name::BodyDefinition::Tuple(vec![#(#fields),*]))
+        }
+        Fields::Named(fields) => {
+            let fields = fields.named.iter().map(|f| to_specta_field(f, crate_name));
+
+            quote!(#crate_name::BodyDefinition::Object(vec![#(#fields),*]))
+        }
+    }
+}
+
+fn parse_enum(crate_name: &Ident, enum_name: &Ident, data: &DataEnum) -> TokenStream2 {
+    if data.variants.len() == 0 {
+        panic!("Enum {} has 0 fields!", enum_name.to_string());
     }
 
-    let mut fields = Vec::new();
-    if data.fields.iter().next().unwrap().ident.is_some() {
-        for field in &data.fields {
-            let ident = field.ident.as_ref().unwrap();
-            let ty = &field.ty;
-            fields.push(quote! {
-                   #crate_name::Field {
-                   name: stringify!(#ident).into(),
-                   ty: if let Some(def) = defs.get(&std::any::TypeId::of::<#ty>()) {
-                    def.clone()
-                } else {
-                    let def = <#ty as #crate_name::Type>::def(defs);
-                    defs.insert(std::any::TypeId::of::<#ty>(), def.clone());
-                    def
-                },
-               }
-            });
-        }
+    let variants = data.variants.iter().map(|variant| {
+        let variant_name = &variant.ident;
+        let variant_name_str = quote!(stringify!(#variant_name).to_string());
 
-        quote! { #crate_name::BodyDefinition::Object(vec![#(#fields),*]) }
-    } else {
-        for field in &data.fields {
-            let ty = &field.ty;
-            fields.push(
-                quote! { if let Some(def) = defs.get(&std::any::TypeId::of::<#ty>()) {
-                    def.clone()
-                } else {
-                    let def = <#ty as #crate_name::Type>::def(defs);
-                    defs.insert(std::any::TypeId::of::<#ty>(), def.clone());
-                    def
-                } },
-            );
-        }
+        match &variant.fields {
+            Fields::Unit => {
+                quote!(#crate_name::EnumVariant::Unit(#variant_name_str))
+            }
+            Fields::Unnamed(fields) => {
+                let fields = fields
+                    .unnamed
+                    .iter()
+                    .map(|f| get_specta_typedef(f, crate_name));
 
-        quote! { #crate_name::BodyDefinition::Enum(vec![#(#fields),*]) }
-    }
+                quote!(::#crate_name::EnumVariant::Unnamed(
+                    #variant_name_str,
+                    ::#crate_name::BodyDefinition::Tuple(vec![#(#fields),*])
+                ))
+            }
+            Fields::Named(fields) => {
+                let fields = fields.named.iter().map(|f| to_specta_field(f, crate_name));
+
+                quote!(::#crate_name::EnumVariant::Named(
+                    #variant_name_str,
+                    ::#crate_name::BodyDefinition::Object(vec![#(#fields),*])
+                ))
+            }
+        }
+    });
+
+    quote!(#crate_name::BodyDefinition::Enum(vec![#(#variants),*]))
 }
