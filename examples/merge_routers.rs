@@ -5,24 +5,24 @@ use serde_json::json;
 
 #[tokio::main]
 async fn main() {
+    let r1 = Router::<i32>::new().query("demo", || "Merging Routers!");
+
     let r = <Router>::new()
         .config(
             Config::new()
                 .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
         )
-        .query("myQuery", || "My Query Result!")
-        .mutation("myMutation", |_ctx, arg: i32| arg)
+        .middleware(|ctx| async move { ctx.next(42).await })
+        .query("version", || "0.1.0")
+        .merge("r1.", r1)
         .build();
-
-    // You can also export the bindings yourself
-    // router.export_ts("./ts").unwrap();
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
     match r
         .exec(
             (),
             OperationKind::Query,
-            OperationKey("myQuery".into(), None),
+            OperationKey("version".into(), None),
         )
         .await
         .unwrap()
@@ -30,15 +30,15 @@ async fn main() {
         StreamOrValue::Stream(_) => unreachable!(),
         StreamOrValue::Value(v) => {
             println!("{:?}", v);
-            assert_eq!(v, json!("My Query Result!"));
+            assert_eq!(v, json!("0.1.0"));
         }
     }
 
     match r
         .exec(
             (),
-            OperationKind::Mutation,
-            OperationKey("myMutation".into(), Some(json!(5))),
+            OperationKind::Query,
+            OperationKey("r1.demo".into(), None),
         )
         .await
         .unwrap()
@@ -46,7 +46,7 @@ async fn main() {
         StreamOrValue::Stream(_) => unreachable!(),
         StreamOrValue::Value(v) => {
             println!("{:?}", v);
-            assert_eq!(v, json!(5));
+            assert_eq!(v, json!("Merging Routers!"));
         }
     }
 }

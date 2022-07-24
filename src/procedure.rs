@@ -1,8 +1,13 @@
-use serde_json::Value;
+use specta::Typedef;
 
-use crate::{Error, ResolverResult};
+use crate::FirstMiddleware;
+
+pub struct ProcedureTypedef {
+    pub arg_ty: Typedef,
+    pub result_ty: Typedef,
+}
 
 pub struct Procedure<TCtx> {
-    pub name: String,
-    pub exec: Box<dyn Fn(TCtx, Value) -> Result<ResolverResult, Error>>,
+    pub exec: FirstMiddleware<TCtx>,
+    pub ty: ProcedureTypedef,
 }
