@@ -1,18 +1,12 @@
 #![allow(dead_code)]
 
-use std::{
-    cell::RefCell,
-    path::{Path, PathBuf},
-};
+use std::{cell::RefCell, path::PathBuf};
 
-use specta::{get_ts_type, Type};
+use specta::{ts_definition, Type};
 
 macro_rules! assert_ts_type {
     ($t:ty, $e:expr) => {
-        assert_eq!(
-            get_ts_type(&<$t as Type>::def(&mut Default::default()).body),
-            $e
-        );
+        assert_eq!(ts_definition::<$t>(), $e)
     };
 }
 
@@ -43,7 +37,8 @@ fn typescript_types() {
     assert_ts_type!((bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool), "[boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean, boolean]");
 
     assert_ts_type!(String, "string");
-    assert_ts_type!(Path, "string");
+    // impossible since Path as a generic is unsized lol
+    // assert_ts_type!(Path, "string");
     assert_ts_type!(PathBuf, "string");
     assert_ts_type!(char, "string");
     assert_ts_type!(&'static str, "string");
@@ -68,16 +63,13 @@ fn typescript_types() {
     assert_ts_type!(TupleStruct1, "number");
     assert_ts_type!(TupleStruct3, "[number, boolean, string]");
 
-    assert_eq!(
-        &<RenamedStruct as Type>::def(&mut Default::default()).name,
-        "HasBeenRenamed"
-    );
     // assert_ts_type!(Wrapper<String>, "string");
 
     assert_ts_type!(
         TestEnum,
         r#""Unit" | { Single: number } | { Multiple: [number, number] } | { Struct: { a: number } }"#
     );
+    assert_ts_type!(RefStruct, "TestEnum")
 }
 
 #[derive(Type)]
@@ -114,6 +106,15 @@ enum TestEnum {
     Single(i32),
     Multiple(i32, i32),
     Struct { a: i32 },
+}
+
+#[derive(Type)]
+struct RefStruct(TestEnum);
+
+#[derive(Type)]
+#[specta(inline)]
+struct InlineStruct {
+    ref_struct: SimpleStruct,
 }
 
 // #[derive(Type)]

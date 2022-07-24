@@ -2,27 +2,42 @@ use crate::{BodyDefinition, EnumVariant, PrimitiveType, TypeDefs, Typedef};
 
 use super::Type;
 
-pub fn typescript_export<T: Type>() -> Result<String, String> {
-    to_ts(T::def(&mut TypeDefs::default()))
+pub fn ts_definition<T: Type>() -> String {
+    let def = T::def(&mut TypeDefs::default()).body;
+    to_ts_definition(&def)
 }
 
-pub fn to_ts(def: Typedef) -> Result<String, String> {
-    if matches!(def.body, BodyDefinition::Primitive(_)) {
-        return Err("Primitive types can't be exported!".to_string());
-    }
+pub fn ts_export<T: Type>() -> Result<String, String> {
+    to_ts_export(T::def(&mut TypeDefs::default()))
+}
 
-    if matches!(def.body, BodyDefinition::Object(_)) {
-        Ok(format!(
-            "export interface {} {};",
-            def.name,
-            get_ts_type(&def.body)
-        ))
-    } else {
-        Ok(format!(
-            "export type {} = {};",
-            def.name,
-            get_ts_type(&def.body)
-        ))
+fn to_ts_export(def: Typedef) -> Result<String, String> {
+    let anon_typ = to_ts_definition(&def.body);
+
+    Ok(match &def.body {
+        body if body.is_inline() => return Err(format!("Cannot export inline type {:?}", def)),
+        BodyDefinition::Object { name, .. } => {
+            format!("export interface {name} {anon_typ}")
+        }
+        BodyDefinition::Enum { name, .. } => {
+            format!("export type {name} = {anon_typ}")
+        }
+        BodyDefinition::Tuple { name, .. } => match name {
+            Some(name) => format!("export type {name} = {anon_typ}"),
+            None => return Err(format!("Cannot export anonymous tuple: {:?}", def)),
+        },
+        _ => return Err(format!("Type cannot be exported: {:?}", def)),
+    })
+}
+
+fn to_ts_reference(body: &BodyDefinition) -> String {
+    match &body {
+        BodyDefinition::Enum { name, inline, .. } | BodyDefinition::Object { name, inline, .. }
+            if !inline =>
+        {
+            name.to_string()
+        }
+        body => to_ts_definition(body),
     }
 }
 
@@ -32,38 +47,38 @@ macro_rules! primitive_def {
     }
 }
 
-pub fn get_ts_type(body: &BodyDefinition) -> String {
+fn to_ts_definition(body: &BodyDefinition) -> String {
     match &body {
         primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
         primitive_def!(i64 u64 i128 u128) => "bigint".into(),
         primitive_def!(String char Path PathBuf) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
-        BodyDefinition::Tuple(def) => match &def[..] {
+        BodyDefinition::Tuple { fields, .. } => match &fields[..] {
             [] => "null".to_string(),
-            [item] => get_ts_type(&item.body),
+            [item] => to_ts_reference(&item.body),
             items => format!(
                 "[{}]",
                 items
                     .iter()
-                    .map(|v| get_ts_type(&v.body))
+                    .map(|v| to_ts_reference(&v.body))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
         },
-        BodyDefinition::List(def) => format!("{}[]", get_ts_type(&def.body)),
-        BodyDefinition::Nullable(def) => format!("{} | null", get_ts_type(&def.body)),
-        BodyDefinition::Object(def) => match &def[..] {
+        BodyDefinition::List(def) => format!("{}[]", to_ts_reference(&def.body)),
+        BodyDefinition::Nullable(def) => format!("{} | null", to_ts_reference(&def.body)),
+        BodyDefinition::Object { fields, .. } => match &fields[..] {
             [] => "null".to_string(),
             items => format!(
                 "{{ {} }}",
                 items
                     .iter()
-                    .map(|field| format!("{}: {}", field.name, get_ts_type(&field.ty.body)))
+                    .map(|field| format!("{}: {}", field.name, to_ts_reference(&field.ty.body)))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
         },
-        BodyDefinition::Enum(def) => def
+        BodyDefinition::Enum { variants, .. } => variants
             .iter()
             .map(|v| get_enum_ts_type(v))
             .collect::<Vec<_>>()
@@ -78,7 +93,7 @@ pub fn get_enum_ts_type(def: &EnumVariant) -> String {
         EnumVariant::Named(name, object) => (name, object),
     };
 
-    let values_ts = get_ts_type(values);
+    let values_ts = to_ts_reference(values);
 
     format!("{{ {name}: {values_ts} }}")
 }

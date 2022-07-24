@@ -7,7 +7,7 @@ use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 pub use specta_macros::*;
@@ -25,9 +25,8 @@ pub trait Type {
 macro_rules! impl_primitives {
     ($($i:ident)+) => {$(
         impl Type for $i {
-            fn def(defs: &mut TypeDefs) -> Typedef {
+            fn def(_: &mut TypeDefs) -> Typedef {
                 Typedef {
-                    name: stringify!($i).into(),
                     type_id: std::any::TypeId::of::<$i>(),
                     body: BodyDefinition::Primitive(PrimitiveType::$i),
                 }
@@ -36,44 +35,32 @@ macro_rules! impl_primitives {
     )+};
 }
 
-macro_rules! impl_tuple {
-    (()) => {
-        impl Type for () {
-            fn def(defs: &mut TypeDefs) -> Typedef {
-                Typedef {
-                    name: stringify!(()).into(),
-                    type_id: std::any::TypeId::of::<()>(),
-                    body: BodyDefinition::Tuple(vec![]),
-                }
-            }
+#[macro_export]
+macro_rules! upsert_def {
+    ($defs:ident, $generic:ident) => {
+        if let Some(def) = $defs.get(&TypeId::of::<$generic>()) {
+            def.clone()
+        } else {
+            let def = <$generic as Type>::def($defs);
+            $defs.insert(TypeId::of::<$generic>(), def.clone());
+            def
         }
     };
-    (($($i:ident),+)) => {
-        impl<$($i: Type + 'static),+> Type for ($($i),+) {
+    ($defs:ident) => {
+        $crate::upsert_def!($defs, T)
+    };
+}
+
+macro_rules! impl_tuple {
+    (($($i:ident),*)) => {
+        impl<$($i: Type + 'static),*> Type for ($($i),*) {
             fn def(defs: &mut TypeDefs) -> Typedef {
                 Typedef {
-                    name: format!(
-                        "({})",
-                        vec![$(
-                            if let Some(def) = defs.get(&TypeId::of::<$i>()) {
-                                def.clone()
-                            } else {
-                                let def = <$i as Type>::def(defs);
-                                defs.insert(TypeId::of::<$i>(), def.clone());
-                                def
-                            }.name
-                        ),*].join(", ")
-                    ),
-                    type_id: std::any::TypeId::of::<($($i),+)>(),
-                    body: BodyDefinition::Tuple(vec![$(
-                        if let Some(def) = defs.get(&TypeId::of::<$i>()) {
-                            def.clone()
-                        } else {
-                            let def = <$i as Type>::def(defs);
-                            defs.insert(TypeId::of::<$i>(), def.clone());
-                            def
-                        }
-                    ),+]),
+                    type_id: std::any::TypeId::of::<($($i),*)>(),
+                    body: BodyDefinition::Tuple {
+                        name: None,
+                        fields: vec![$($crate::upsert_def!(defs, $i)),*],
+                    }
                 }
             }
         }
@@ -118,134 +105,52 @@ impl<'a, T: Type + 'static> Type for &'a T {
 
 impl<T: Type + 'static> Type for Vec<T> {
     fn def(defs: &mut TypeDefs) -> Typedef {
-        let def = if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        };
-
         Typedef {
-            name: format!("Vec<{}>", def.name),
             type_id: std::any::TypeId::of::<Vec<T>>(),
-            body: BodyDefinition::List(Box::new(def)),
+            body: BodyDefinition::List(Box::new(upsert_def!(defs))),
         }
     }
 }
 
 impl<'a, T: Type + 'static> Type for &'a [T] {
     fn def(defs: &mut TypeDefs) -> Typedef {
-        let def = if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        };
-
         Typedef {
-            name: format!("[{}]", def.name),
             type_id: std::any::TypeId::of::<&[T]>(),
-            body: BodyDefinition::List(Box::new(def)),
+            body: BodyDefinition::List(Box::new(upsert_def!(defs))),
         }
     }
 }
 
 impl<'a, const N: usize, T: Type + 'static> Type for [T; N] {
     fn def(defs: &mut TypeDefs) -> Typedef {
-        let def = if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        };
+        upsert_def!(defs);
 
         Typedef {
-            name: format!("[{}; {}]", def.name, N),
             type_id: std::any::TypeId::of::<[T; N]>(),
-            body: BodyDefinition::List(Box::new(def)),
+            body: BodyDefinition::List(Box::new(upsert_def!(defs))),
         }
     }
 }
 
 impl<T: Type + 'static> Type for Option<T> {
     fn def(defs: &mut TypeDefs) -> Typedef {
-        let def = if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        };
-
         Typedef {
-            name: format!("Option<{}>", def.name),
             type_id: std::any::TypeId::of::<Option<T>>(),
-            body: BodyDefinition::Nullable(Box::new(def)),
+            body: BodyDefinition::Nullable(Box::new(upsert_def!(defs))),
         }
     }
 }
 
-impl<T: Type + 'static> Type for Box<T> {
-    fn def(defs: &mut TypeDefs) -> Typedef {
-        if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
+macro_rules! impl_containers {
+    ($($container:ident)+) => {$(
+        impl<T: Type + 'static> Type for $container<T> {
+            fn def(defs: &mut TypeDefs) -> Typedef {
+                upsert_def!(defs)
+            }
         }
-    }
+    )+}
 }
 
-impl<T: Type + 'static> Type for RefCell<T> {
-    fn def(defs: &mut TypeDefs) -> Typedef {
-        if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        }
-    }
-}
-
-impl<T: Type + 'static> Type for Arc<T> {
-    fn def(defs: &mut TypeDefs) -> Typedef {
-        if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        }
-    }
-}
-
-impl<T: Type + 'static> Type for Rc<T> {
-    fn def(defs: &mut TypeDefs) -> Typedef {
-        if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        }
-    }
-}
-
-impl<T: Type + 'static> Type for Cell<T> {
-    fn def(defs: &mut TypeDefs) -> Typedef {
-        if let Some(def) = defs.get(&TypeId::of::<T>()) {
-            def.clone()
-        } else {
-            let def = <T as Type>::def(defs);
-            defs.insert(TypeId::of::<T>(), def.clone());
-            def
-        }
-    }
-}
+impl_containers!(Box Rc Arc Cell RefCell Mutex);
 
 // TODO: UUID & chrono types
