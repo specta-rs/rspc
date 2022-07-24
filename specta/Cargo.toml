@@ -10,4 +10,5 @@ repository = "https://github.com/oscartbeaumont/rspc/tree/main/specta"
 documentation = "https://docs.rs/specta/latest/specta"
 
 [dependencies]
+convert_case = "0.5.0"
 specta-macros = { version = "0.0.1", path = "./macros" }

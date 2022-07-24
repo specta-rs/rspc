@@ -23,7 +23,8 @@ pub enum BodyDefinition {
     Nullable(Box<Typedef>),
     // Can be exported
     Tuple {
-        name: Option<String>,
+        name: String,
+        inline: bool,
         fields: Vec<Typedef>,
     },
     Object {
@@ -35,23 +36,33 @@ pub enum BodyDefinition {
         name: String,
         variants: Vec<EnumVariant>,
         inline: bool,
+        repr: EnumRepr
     },
 }
 
 impl BodyDefinition {
     pub fn is_inline(&self) -> bool {
         match self {
-            Self::Object { inline, .. }
-            | Self::Enum { inline, .. } => *inline,
+            Self::Object { inline, .. } | Self::Enum { inline, .. } => *inline,
             _ => false,
+        }
+    }
+
+    pub fn force_inline(&mut self) {
+        match self {
+            Self::Object { inline, .. } | Self::Enum { inline, .. } | Self::Tuple { inline, .. } => *inline = true,
+            Self::Nullable(def) | Self::List(def) => def.body.force_inline(),
+            _ => {}
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum RefType {
-    Object,
-    Enum,
+pub enum EnumRepr {
+    External,
+    Internal { tag: String },
+    Adjacent { tag: String, content: String },
+    Untagged
 }
 
 #[derive(Debug, Clone)]

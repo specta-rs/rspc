@@ -46,9 +46,9 @@ fn typescript_types() {
     assert_ts_type!(&'static bool, "boolean");
     assert_ts_type!(&'static i32, "number");
 
-    assert_ts_type!(Vec<i32>, "number[]");
-    assert_ts_type!(&[i32], "number[]");
-    assert_ts_type!(&[i32; 5], "number[]");
+    assert_ts_type!(Vec<i32>, "Array<number>");
+    assert_ts_type!(&[i32], "Array<number>");
+    assert_ts_type!(&[i32; 5], "Array<number>");
 
     assert_ts_type!(Option<i32>, "number | null");
 
@@ -58,7 +58,7 @@ fn typescript_types() {
 
     assert_ts_type!(
         SimpleStruct,
-        "{ a: number, b: string, c: [number, string, number], d: string[], e: string | null }"
+        "{ a: number, b: string, c: [number, string, number], d: Array<string>, e: string | null }"
     );
     assert_ts_type!(TupleStruct1, "number");
     assert_ts_type!(TupleStruct3, "[number, boolean, string]");
@@ -69,7 +69,9 @@ fn typescript_types() {
         TestEnum,
         r#""Unit" | { Single: number } | { Multiple: [number, number] } | { Struct: { a: number } }"#
     );
-    assert_ts_type!(RefStruct, "TestEnum")
+    assert_ts_type!(RefStruct, "TestEnum");
+
+    assert_ts_type!(InlinerStruct, "{ inline_this: { ref_struct: SimpleStruct, val: number }, dont_inline_this: TestEnum }");
 }
 
 #[derive(Type)]
@@ -112,9 +114,16 @@ enum TestEnum {
 struct RefStruct(TestEnum);
 
 #[derive(Type)]
-#[specta(inline)]
 struct InlineStruct {
     ref_struct: SimpleStruct,
+    val: i32
+}
+
+#[derive(Type)]
+struct InlinerStruct {
+    #[specta(inline)]
+    inline_this: InlineStruct,
+    dont_inline_this: RefStruct
 }
 
 // #[derive(Type)]

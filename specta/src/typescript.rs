@@ -11,7 +11,7 @@ pub fn ts_export<T: Type>() -> Result<String, String> {
     to_ts_export(T::def(&mut TypeDefs::default()))
 }
 
-fn to_ts_export(def: Typedef) -> Result<String, String> {
+pub fn to_ts_export(def: Typedef) -> Result<String, String> {
     let anon_typ = to_ts_definition(&def.body);
 
     Ok(match &def.body {
@@ -22,21 +22,21 @@ fn to_ts_export(def: Typedef) -> Result<String, String> {
         BodyDefinition::Enum { name, .. } => {
             format!("export type {name} = {anon_typ}")
         }
-        BodyDefinition::Tuple { name, .. } => match name {
-            Some(name) => format!("export type {name} = {anon_typ}"),
-            None => return Err(format!("Cannot export anonymous tuple: {:?}", def)),
+        BodyDefinition::Tuple { name, .. } => {
+            format!("export type {name} = {anon_typ}")
         },
         _ => return Err(format!("Type cannot be exported: {:?}", def)),
     })
 }
 
-fn to_ts_reference(body: &BodyDefinition) -> String {
+pub fn to_ts_reference(body: &BodyDefinition) -> String {
     match &body {
         BodyDefinition::Enum { name, inline, .. } | BodyDefinition::Object { name, inline, .. }
             if !inline =>
         {
             name.to_string()
         }
+        BodyDefinition::Tuple { fields, .. } if fields.len() == 1 => to_ts_reference(&fields[0].body),
         body => to_ts_definition(body),
     }
 }
@@ -47,7 +47,7 @@ macro_rules! primitive_def {
     }
 }
 
-fn to_ts_definition(body: &BodyDefinition) -> String {
+pub fn to_ts_definition(body: &BodyDefinition) -> String {
     match &body {
         primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
         primitive_def!(i64 u64 i128 u128) => "bigint".into(),
@@ -65,7 +65,7 @@ fn to_ts_definition(body: &BodyDefinition) -> String {
                     .join(", ")
             ),
         },
-        BodyDefinition::List(def) => format!("{}[]", to_ts_reference(&def.body)),
+        BodyDefinition::List(def) => format!("Array<{}>", to_ts_reference(&def.body)),
         BodyDefinition::Nullable(def) => format!("{} | null", to_ts_reference(&def.body)),
         BodyDefinition::Object { fields, .. } => match &fields[..] {
             [] => "null".to_string(),

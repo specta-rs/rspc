@@ -58,7 +58,8 @@ macro_rules! impl_tuple {
                 Typedef {
                     type_id: std::any::TypeId::of::<($($i),*)>(),
                     body: BodyDefinition::Tuple {
-                        name: None,
+                        name: stringify!($($i),*).to_string(),
+                        inline: true,
                         fields: vec![$($crate::upsert_def!(defs, $i)),*],
                     }
                 }
@@ -152,5 +153,6 @@ macro_rules! impl_containers {
 }
 
 impl_containers!(Box Rc Arc Cell RefCell Mutex);
+
 
 // TODO: UUID & chrono types
