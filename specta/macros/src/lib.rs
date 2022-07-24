@@ -39,7 +39,6 @@ pub fn derive_type(input: TokenStream) -> TokenStream {
             fn def(defs: &mut #crate_name::TypeDefs) -> #crate_name::Typedef {
                 #crate_name::Typedef {
                     name: #name_str.to_string(),
-                    primitive: false,
                     type_id: std::any::TypeId::of::<#ident>(),
                     body: #body,
                 }

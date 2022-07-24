@@ -28,7 +28,6 @@ macro_rules! impl_primitives {
             fn def(defs: &mut TypeDefs) -> Typedef {
                 Typedef {
                     name: stringify!($i).into(),
-                    primitive: true,
                     type_id: std::any::TypeId::of::<$i>(),
                     body: BodyDefinition::Primitive(PrimitiveType::$i),
                 }
@@ -43,7 +42,6 @@ macro_rules! impl_tuple {
             fn def(defs: &mut TypeDefs) -> Typedef {
                 Typedef {
                     name: stringify!(()).into(),
-                    primitive: true,
                     type_id: std::any::TypeId::of::<()>(),
                     body: BodyDefinition::Tuple(vec![]),
                 }
@@ -66,7 +64,6 @@ macro_rules! impl_tuple {
                             }.name
                         ),*].join(", ")
                     ),
-                    primitive: true,
                     type_id: std::any::TypeId::of::<($($i),+)>(),
                     body: BodyDefinition::Tuple(vec![$(
                         if let Some(def) = defs.get(&TypeId::of::<$i>()) {
@@ -131,7 +128,6 @@ impl<T: Type + 'static> Type for Vec<T> {
 
         Typedef {
             name: format!("Vec<{}>", def.name),
-            primitive: true,
             type_id: std::any::TypeId::of::<Vec<T>>(),
             body: BodyDefinition::List(Box::new(def)),
         }
@@ -150,7 +146,6 @@ impl<'a, T: Type + 'static> Type for &'a [T] {
 
         Typedef {
             name: format!("[{}]", def.name),
-            primitive: true,
             type_id: std::any::TypeId::of::<&[T]>(),
             body: BodyDefinition::List(Box::new(def)),
         }
@@ -169,7 +164,6 @@ impl<'a, const N: usize, T: Type + 'static> Type for [T; N] {
 
         Typedef {
             name: format!("[{}; {}]", def.name, N),
-            primitive: true,
             type_id: std::any::TypeId::of::<[T; N]>(),
             body: BodyDefinition::List(Box::new(def)),
         }
@@ -188,7 +182,6 @@ impl<T: Type + 'static> Type for Option<T> {
 
         Typedef {
             name: format!("Option<{}>", def.name),
-            primitive: true,
             type_id: std::any::TypeId::of::<Option<T>>(),
             body: BodyDefinition::Nullable(Box::new(def)),
         }

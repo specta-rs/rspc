@@ -4,7 +4,6 @@ use std::any::TypeId;
 #[derive(Debug, Clone)]
 pub struct Typedef {
     pub name: String,
-    pub primitive: bool,
     pub type_id: TypeId,
     pub body: BodyDefinition,
 }

@@ -7,8 +7,8 @@ pub fn typescript_export<T: Type>() -> Result<String, String> {
 }
 
 pub fn to_ts(def: Typedef) -> Result<String, String> {
-    if def.primitive {
-        return Err("Primitive types can be exported!".to_string());
+    if matches!(def.body, BodyDefinition::Primitive(_)) {
+        return Err("Primitive types can't be exported!".to_string());
     }
 
     if matches!(def.body, BodyDefinition::Object(_)) {
