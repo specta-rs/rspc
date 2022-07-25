@@ -28,7 +28,7 @@
       alt="docs.rs" />
   </a>
   <a href="https://www.npmjs.com/package/@rspc/client">
-    <img alt="npm (scoped)" src="https://img.shields.io/npm/v/@rspc/client">
+    <img alt="npm (scoped)" src="https://img.shields.io/npm/v/@rspc/client?style=flat-square">
   </a>
 </div>
 <br/>
