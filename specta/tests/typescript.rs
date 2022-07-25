@@ -71,7 +71,10 @@ fn typescript_types() {
     );
     assert_ts_type!(RefStruct, "TestEnum");
 
-    assert_ts_type!(InlinerStruct, "{ inline_this: { ref_struct: SimpleStruct, val: number }, dont_inline_this: TestEnum }");
+    assert_ts_type!(
+        InlinerStruct,
+        "{ inline_this: { ref_struct: SimpleStruct, val: number }, dont_inline_this: RefStruct }"
+    );
 }
 
 #[derive(Type)]
@@ -116,14 +119,14 @@ struct RefStruct(TestEnum);
 #[derive(Type)]
 struct InlineStruct {
     ref_struct: SimpleStruct,
-    val: i32
+    val: i32,
 }
 
 #[derive(Type)]
 struct InlinerStruct {
     #[specta(inline)]
     inline_this: InlineStruct,
-    dont_inline_this: RefStruct
+    dont_inline_this: RefStruct,
 }
 
 // #[derive(Type)]

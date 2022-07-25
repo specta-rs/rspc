@@ -13,17 +13,18 @@ macro_rules! selection {
                     $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         id: std::any::TypeId::of::<Selection<$($n,)*>>(),
                         name: "Selection".to_string(),
-                        inline: true,
                         tag: None,
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
                                 ty: <$n as $crate::internal::specta::Type>::def(defs),
                                 optional: false,
-                                inline: false
                             }
                         ),*],
                     })
+                }
+                fn name() -> Option<String> {
+                    None
                 }
             }
         }
@@ -44,17 +45,18 @@ macro_rules! selection {
                     $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         id: std::any::TypeId::of::<Selection<$($n,)*>>(),
                         name: "Selection".to_string(),
-                        inline: true,
                         tag: None,
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
                                 ty: <$n as $crate::internal::specta::Type>::def(defs),
                                 optional: false,
-                                inline: false,
                             }
                         ),*],
                     })
+                }
+                fn name() -> Option<String> {
+                    None
                 }
             }
         }

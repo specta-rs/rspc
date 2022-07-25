@@ -34,16 +34,35 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let name_str = container_attrs.rename.clone().unwrap_or(ident.to_string());
 
+    let name = match container_attrs.inline {
+        true => quote!(None),
+        false => quote!(Some(#name_str.to_string())),
+    };
+
     let ty = match data {
         Data::Struct(data) => {
             let struct_attrs = StructAttr::from_attrs(attrs).unwrap();
 
-            parse_struct(&name_str, &ident, &struct_attrs, &container_attrs, &crate_ref, data)
+            parse_struct(
+                &name_str,
+                &ident,
+                &struct_attrs,
+                &container_attrs,
+                &crate_ref,
+                data,
+            )
         }
         Data::Enum(data) => {
             let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
 
-            parse_enum(&name_str, &ident, &enum_attrs, &container_attrs, &crate_ref, data)
+            parse_enum(
+                &name_str,
+                &ident,
+                &enum_attrs,
+                &container_attrs,
+                &crate_ref,
+                data,
+            )
         }
         Data::Union(_) => panic!("Type 'Union' is not supported by specta!"),
     };
@@ -52,6 +71,10 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         impl #crate_ref::Type for #ident {
             fn def(defs: &mut #crate_ref::TypeDefs) -> #crate_ref::DataType {
                 #ty
+            }
+
+            fn name() -> Option<String> {
+                #name
             }
         }
     }
@@ -82,7 +105,6 @@ fn parse_struct(
         Fields::Unit => quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
             name: #struct_name_str.to_string(),
             id: std::any::TypeId::of::<#struct_ident>(),
-            inline: true,
             fields: vec![],
         })),
         Fields::Unnamed(_) => {
@@ -96,7 +118,6 @@ fn parse_struct(
             quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
                 name: #struct_name_str.to_string(),
                 id: std::any::TypeId::of::<#struct_ident>(),
-                inline: #inline,
                 fields: (vec![#(#fields),*] as Vec<Vec<_>>)
                     .into_iter()
                     .flatten()
@@ -120,7 +141,6 @@ fn parse_struct(
             quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
                 name: #struct_name_str.to_string(),
                 id: std::any::TypeId::of::<#struct_ident>(),
-                inline: #inline,
                 fields: (vec![#(#fields),*] as Vec<Vec<_>>)
                     .into_iter()
                     .flatten()
@@ -160,14 +180,27 @@ fn parse_named_struct_field(
     };
 
     let optional = field_attrs.optional;
-    let inline = field_attrs.inline;
+
+    let ty = match field_attrs.inline {
+        true => upsert,
+        false => {
+            let ty_ident = &field.ty;
+            quote!(
+                match <#ty_ident>::name() {
+                    Some(name) => #crate_ref::DataType::Reference(
+                        name.to_string()
+                    ),
+                    None => #upsert
+                }
+            )
+        }
+    };
 
     quote! {
         vec![#crate_ref::ObjectField {
             name: #name_str.to_string(),
-            ty: #upsert,
+            ty: #ty,
             optional: #optional,
-            inline: #inline
         }]
     }
 }
@@ -199,14 +232,25 @@ fn parse_tuple_struct_field(
         }
     });
 
-    let inline = field_attrs.inline.then(|| quote!(ty.force_inline();));
+    let upsert = match field_attrs.inline {
+        true => upsert,
+        false => {
+            let ty_ident = &field.ty;
+            quote!(
+                match <#ty_ident>::name() {
+                    Some(name) => #crate_ref::DataType::Reference(
+                        name.to_string()
+                    ),
+                    None => #upsert
+                }
+            )
+        }
+    };
 
     quote! {{
         let mut ty = #upsert;
 
         #optional
-
-        #inline
 
         vec![ty]
     }}
@@ -228,7 +272,7 @@ fn parse_enum(
         .variants
         .iter()
         .map(|v| {
-            let attrs = VariantAttr::from_attrs(&v.attrs).unwrap();
+            let attrs = VariantAttr::from_attrs(&v.attrs).expect("Failed to parse enum attributes");
 
             (v, attrs)
         })
@@ -250,14 +294,25 @@ fn parse_enum(
                     let fields = fields
                         .unnamed
                         .iter()
-                        .map(|f| upsert_def(f, crate_ref))
+                        .map(|field| {
+                            let upsert = upsert_def(field, crate_ref);
+                            let ty_ident = &field.ty;
+
+                            quote!(
+                                match <#ty_ident>::name() {
+                                    Some(name) => #crate_ref::DataType::Reference(
+                                        name.to_string()
+                                    ),
+                                    None => #upsert
+                                }
+                            )
+                        })
                         .collect::<Vec<_>>();
 
                     quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
                         name: #variant_name_str.to_string(),
                         id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
-                        inline: true,
                     }))
                 }
                 Fields::Named(fields) => {
@@ -265,16 +320,25 @@ fn parse_enum(
                         .named
                         .iter()
                         .map(|f| {
-                            let ident = f.ident.as_ref().unwrap();
-                            let ty = upsert_def(f, crate_ref);
+                            let ident = f.ident.as_ref().expect("Named field has no ident");
+                            let upsert = upsert_def(f, crate_ref);
 
                             let name = sanitise_raw_ident(ident);
+
+                            let ty = &f.ty;
+                            let ty = quote!(
+                                match <#ty as #crate_ref::Type>::name() {
+                                    Some(name) => #crate_ref::DataType::Reference(
+                                        name.to_string()
+                                    ),
+                                    None => #upsert
+                                }
+                            );
 
                             quote!(#crate_ref::ObjectField {
                                 name: #name.into(),
                                 ty: #ty,
                                 optional: false,
-                                inline: false,
                             })
                         })
                         .collect::<Vec<_>>();
@@ -283,7 +347,6 @@ fn parse_enum(
                         name: #variant_name_str.to_string(),
                         id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
-                        inline: true,
                         tag: None
                     }))
                 }
@@ -291,7 +354,10 @@ fn parse_enum(
         })
         .collect::<Vec<_>>();
 
-    let repr = match enum_attrs.tagged().unwrap() {
+    let repr = match enum_attrs
+        .tagged()
+        .expect("Invalid tag/content combination")
+    {
         Tagged::Externally => quote!(External),
         Tagged::Untagged => quote!(Untagged),
         Tagged::Adjacently { tag, content } => {
@@ -304,8 +370,7 @@ fn parse_enum(
 
     quote!(#crate_ref::DataType::Enum(#crate_ref::EnumType {
         name: #enum_name_str.to_string(),
-        id: std::any::TypeId::of::<#enum_ident>(), 
-        inline: false,
+        id: std::any::TypeId::of::<#enum_ident>(),
         variants: vec![#(#variants),*],
         repr: #crate_ref::EnumRepr::#repr,
     }))
@@ -315,12 +380,17 @@ fn upsert_def(f: &Field, crate_ref: &TokenStream) -> TokenStream {
     let ty = &f.ty;
 
     quote! {
-        if let Some(def) = defs.get(&std::any::TypeId::of::<#ty>()) {
-            def.clone()
-        } else {
-            let def = <#ty as #crate_ref::Type>::def(defs);
-            defs.insert(std::any::TypeId::of::<#ty>(), def.clone());
-            def
+        match <#ty as #crate_ref::Type>::name() {
+            Some(name) => {
+                if let Some(def) = defs.get(&name) {
+                    def.clone()
+                } else {
+                    let def = <#ty as #crate_ref::Type>::def(defs);
+                    defs.insert(name.to_string(), def.clone());
+                    def
+                }
+            },
+            None => <#ty as #crate_ref::Type>::def(defs),
         }
     }
 }

@@ -34,9 +34,10 @@ struct InlinesDependsOnPrimitives {
 #[test]
 fn test_deps() {
     let def = Primitives::def(&mut TypeDefs::new());
-    assert!(ts_dependencies(&def).is_empty());
+    assert_eq!(ts_dependencies(&def), HashSet::new());
 
     let def = DependsOnPrimitives::def(&mut TypeDefs::new());
+    println!("{:?}", def);
     assert_eq!(ts_dependencies(&def), vec!["Primitives"].into_iter().collect());
 
     let def = DependsOnPrimitives2::def(&mut TypeDefs::new());

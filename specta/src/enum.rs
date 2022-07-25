@@ -7,7 +7,6 @@ pub struct EnumType {
     pub name: String,
     pub id: TypeId,
     pub variants: Vec<EnumVariant>,
-    pub inline: bool,
     pub repr: EnumRepr,
 }
 

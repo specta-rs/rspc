@@ -5,7 +5,6 @@ mod datatype;
 mod typescript;
 
 use std::{
-    any::TypeId,
     cell::{Cell, RefCell},
     collections::HashMap,
     path::{Path, PathBuf},
@@ -21,11 +20,12 @@ pub use datatype::*;
 pub use typescript::*;
 
 /// TODO
-pub type TypeDefs = HashMap<TypeId, DataType>;
+pub type TypeDefs = HashMap<String, DataType>;
 
 /// TODO
 pub trait Type {
     fn def(defs: &mut TypeDefs) -> DataType;
+    fn name() -> Option<String>;
 }
 
 macro_rules! impl_primitives {
@@ -34,6 +34,10 @@ macro_rules! impl_primitives {
             fn def(_: &mut TypeDefs) -> DataType {
                 DataType::Primitive(PrimitiveType::$i)
             }
+
+            fn name() -> Option<String> {
+                None
+            }
         }
     )+};
 }
@@ -41,11 +45,11 @@ macro_rules! impl_primitives {
 #[macro_export]
 macro_rules! upsert_def {
     ($defs:ident, $generic:ident) => {
-        if let Some(def) = $defs.get(&TypeId::of::<$generic>()) {
+        if let Some(def) = $defs.get(stringify!($defs)) {
             def.clone()
         } else {
             let def = <$generic as Type>::def($defs);
-            $defs.insert(TypeId::of::<$generic>(), def.clone());
+            $defs.insert(stringify!($generic).to_string(), def.clone());
             def
         }
     };
@@ -59,11 +63,14 @@ macro_rules! impl_tuple {
         impl<$($i: Type + 'static),*> Type for ($($i),*) {
             fn def(_defs: &mut TypeDefs) -> DataType {
                 DataType::Tuple(TupleType {
-                    name: stringify!($($i),*).to_string(),
+                    name: stringify!(($($i),*)).to_string(),
                     id: std::any::TypeId::of::<($($i),*)>(), 
-                    inline: true,
                     fields: vec![$($crate::upsert_def!(_defs, $i)),*],
                 })
+            }
+
+            fn name() -> Option<String> {
+                None
             }
         }
     };
@@ -97,11 +104,19 @@ impl<'a> Type for &'a str {
     fn def(defs: &mut TypeDefs) -> DataType {
         String::def(defs)
     }
+
+    fn name() -> Option<String> {
+        String::name()
+    }
 }
 
 impl<'a, T: Type + 'static> Type for &'a T {
     fn def(defs: &mut TypeDefs) -> DataType {
         T::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        T::name()
     }
 }
 
@@ -109,11 +124,19 @@ impl<T: Type + 'static> Type for Vec<T> {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::List(Box::new(upsert_def!(defs)))
     }
+
+    fn name() -> Option<String> {
+        T::name()
+    }
 }
 
 impl<'a, T: Type + 'static> Type for &'a [T] {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::List(Box::new(upsert_def!(defs)))
+    }
+
+    fn name() -> Option<String> {
+        T::name()
     }
 }
 
@@ -123,11 +146,19 @@ impl<'a, const N: usize, T: Type + 'static> Type for [T; N] {
 
         DataType::List(Box::new(upsert_def!(defs)))
     }
+
+    fn name() -> Option<String> {
+        T::name()
+    }
 }
 
 impl<T: Type + 'static> Type for Option<T> {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::Nullable(Box::new(upsert_def!(defs)))
+    }
+
+    fn name() -> Option<String> {
+        T::name()
     }
 }
 
@@ -136,6 +167,10 @@ macro_rules! impl_containers {
         impl<T: Type + 'static> Type for $container<T> {
             fn def(defs: &mut TypeDefs) -> DataType {
                 upsert_def!(defs)
+            }
+
+            fn name() -> Option<String> {
+                T::name()
             }
         }
     )+}

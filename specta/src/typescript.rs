@@ -12,7 +12,7 @@ pub fn ts_inline<T: Type>() -> String {
 }
 
 pub fn ts_ref<T: Type>() -> String {
-    to_ts(&T::def(&mut TypeDefs::default()), false)
+    to_ts(&T::def(&mut TypeDefs::default()))
 }
 
 pub fn ts_export<T: Type>() -> Result<String, String> {
@@ -23,7 +23,6 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     let inline = to_ts_inline(&def);
 
     Ok(match &def {
-        def if def.is_inline() => return Err(format!("Cannot export inline type {:?}", def)),
         DataType::Object(ObjectType { name, .. }) => {
             format!("export interface {name} {inline}")
         }
@@ -40,17 +39,11 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
 /// Prints the type definition of the given type.
 /// `field_inline` is necessary since the type may have been
 /// made inline outside of the type definition.
-pub fn to_ts(typ: &DataType, field_inline: bool) -> String {
+pub fn to_ts(typ: &DataType)  -> String {
     match &typ {
-        DataType::Enum(EnumType { name, inline, .. })
-        | DataType::Object(ObjectType { name, inline, .. })
-            if !inline && !field_inline =>
-        {
-            name.to_string()
-        }
-        DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0], false),
-        DataType::Nullable(def) => format!("{} | null", to_ts(&def, field_inline)),
-        DataType::List(def) => format!("Array<{}>", to_ts(&def, field_inline)),
+        DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0]),
+        DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
+        DataType::List(def) => format!("Array<{}>", to_ts(&def)),
         body => to_ts_inline(body),
     }
 }
@@ -74,11 +67,11 @@ pub fn to_ts_inline(typ: &DataType) -> String {
         DataType::List(def) => format!("Array<{}>", to_ts_inline(&def)),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
-            [ty] => to_ts(&ty, false),
+            [ty] => to_ts(&ty),
             tys => format!(
                 "[{}]",
                 tys.iter()
-                    .map(|ty| to_ts(&ty, false))
+                    .map(to_ts)
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -110,7 +103,7 @@ pub fn to_ts_inline(typ: &DataType) -> String {
                         format!("{{ {tag}: \"{sanitised_name}\" }}")
                     }
                     (EnumRepr::Internal { tag }, EnumVariant::Unnamed(tuple)) => {
-                        let typ = to_ts(&DataType::Tuple(tuple.clone()), false);
+                        let typ = to_ts(&DataType::Tuple(tuple.clone()));
 
                         format!("{{ {tag}: \"{sanitised_name}\" }} & {typ}")
                     }
@@ -123,17 +116,17 @@ pub fn to_ts_inline(typ: &DataType) -> String {
                     }
                     (EnumRepr::External, EnumVariant::Unit(_)) => format!("\"{sanitised_name}\""),
                     (EnumRepr::External, v) => {
-                        let ts_values = to_ts(&v.data_type(), false);
+                        let ts_values = to_ts(&v.data_type());
 
                         format!("{{ {sanitised_name}: {ts_values} }}")
                     }
                     (EnumRepr::Untagged, EnumVariant::Unit(_)) => "null".to_string(),
-                    (EnumRepr::Untagged, v) => to_ts(&v.data_type(), false),
+                    (EnumRepr::Untagged, v) => to_ts(&v.data_type()),
                     (EnumRepr::Adjacent { tag, .. }, EnumVariant::Unit(_)) => {
                         format!("{{ {tag}: \"{sanitised_name}\" }}")
                     }
                     (EnumRepr::Adjacent { tag, content }, v) => {
-                        let ts_values = to_ts(&v.data_type(), false);
+                        let ts_values = to_ts(&v.data_type());
 
                         format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
                     }
@@ -141,6 +134,7 @@ pub fn to_ts_inline(typ: &DataType) -> String {
             })
             .collect::<Vec<_>>()
             .join(" | "),
+        DataType::Reference(name) => name.to_string(),
     }
 }
 
@@ -161,7 +155,7 @@ pub fn object_fields(fields: &[ObjectField]) -> Vec<String> {
                 false => (field_name_safe, &field.ty),
             };
 
-            format!("{key}: {}", to_ts(&ty, field.inline))
+            format!("{key}: {}", to_ts(&ty))
         })
         .collect::<Vec<_>>()
 }
@@ -191,44 +185,37 @@ pub fn ts_dependencies(ty: &DataType) -> HashSet<&str> {
         DataType::Object(obj) => obj
             .fields
             .iter()
-            .flat_map(|field| ts_field_dependencies(&field.ty, field.inline))
+            .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty))
             .collect(),
         DataType::Enum(e) => ts_enum_dependencies(e).into_iter().collect(),
         DataType::Tuple(tuple) => tuple
             .fields
             .iter()
-            .flat_map(|f| ts_field_dependencies(&f, false))
+            .flat_map(ts_field_dependencies)
             .collect(),
+        DataType::Reference(name) => [name.as_str()].into_iter().collect(),
     }
 }
 
 /// Resolves dependencies of a type as if it is a dependency of some parent type.
 /// Similar to ts_dependencies, but if the type is inlineable and inline is false
 /// it will itself be a dependency, indicating that the parent type depends on it.
-fn ts_field_dependencies(ty: &DataType, field_inline: bool) -> Vec<&str> {
+fn ts_field_dependencies(ty: &DataType) -> Vec<&str> {
     match &ty {
         DataType::Primitive(_) => vec![],
-        DataType::Nullable(def) | DataType::List(def) => ts_field_dependencies(&def, field_inline),
-        DataType::Object(obj) => match field_inline || obj.inline {
-            true => obj
-                .fields
-                .iter()
-                .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty, obj_field.inline))
-                .collect(),
-            false => vec![obj.name.as_str()],
-        },
-        DataType::Enum(e) => match field_inline || e.inline {
-            true => ts_enum_dependencies(e),
-            false => vec![e.name.as_str()],
-        },
-        DataType::Tuple(tuple) => match field_inline || tuple.inline {
-            true => tuple
-                .fields
-                .iter()
-                .flat_map(|field| ts_field_dependencies(&field, field.is_inline()))
-                .collect(),
-            false => vec![tuple.name.as_str()],
-        },
+        DataType::Nullable(ty) | DataType::List(ty) => ts_field_dependencies(&ty),
+        DataType::Object(obj) => obj
+            .fields
+            .iter()
+            .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty))
+            .collect(),
+        DataType::Enum(e) => ts_enum_dependencies(e),
+        DataType::Tuple(tuple) => tuple
+            .fields
+            .iter()
+            .flat_map(|field| ts_field_dependencies(&field))
+            .collect(),
+        DataType::Reference(name) => vec![name.as_str()],
     }
 }
 
@@ -240,12 +227,12 @@ fn ts_enum_dependencies(e: &EnumType) -> Vec<&str> {
             EnumVariant::Unnamed(tuple) => tuple
                 .fields
                 .iter()
-                .flat_map(|f| ts_field_dependencies(&f, false))
+                .flat_map(ts_field_dependencies)
                 .collect(),
             EnumVariant::Named(obj) => obj
                 .fields
                 .iter()
-                .flat_map(|f| ts_field_dependencies(&f.ty, false))
+                .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty))
                 .collect(),
         })
         .collect()
