@@ -1,56 +1,66 @@
 use std::any::TypeId;
 
-/// TODO
 #[derive(Debug, Clone)]
 pub struct Typedef {
     pub type_id: TypeId,
-    pub body: BodyDefinition,
+    pub body: DataType,
 }
 
-/// TODO
 #[derive(Debug, Clone)]
 pub struct ObjectField {
     pub name: String,
     pub ty: Typedef,
+    pub optional: bool,
 }
 
-/// TODO
 #[derive(Debug, Clone)]
-pub enum BodyDefinition {
+pub enum DataType {
     // Always inlined
     Primitive(PrimitiveType),
     List(Box<Typedef>),
     Nullable(Box<Typedef>),
     // Can be exported
-    Tuple {
-        name: String,
-        inline: bool,
-        fields: Vec<Typedef>,
-    },
-    Object {
-        name: String,
-        fields: Vec<ObjectField>,
-        inline: bool,
-    },
-    Enum {
-        name: String,
-        variants: Vec<EnumVariant>,
-        inline: bool,
-        repr: EnumRepr
-    },
+    Tuple(TupleType),
+    Object(ObjectType),
+    Enum(EnumType),
 }
 
-impl BodyDefinition {
+#[derive(Debug, Clone)]
+pub struct EnumType {
+    pub name: String,
+    pub variants: Vec<EnumVariant>,
+    pub inline: bool,
+    pub repr: EnumRepr,
+}
+#[derive(Debug, Clone)]
+pub struct ObjectType {
+    pub name: String,
+    pub fields: Vec<ObjectField>,
+    pub inline: bool,
+    pub tag: Option<String>,
+}
+#[derive(Debug, Clone)]
+pub struct TupleType {
+    pub name: String,
+    pub inline: bool,
+    pub fields: Vec<Typedef>,
+}
+
+impl DataType {
     pub fn is_inline(&self) -> bool {
         match self {
-            Self::Object { inline, .. } | Self::Enum { inline, .. } => *inline,
+            Self::Object(ObjectType { inline, .. }) | Self::Enum(EnumType { inline, .. }) => {
+                *inline
+            }
             _ => false,
         }
     }
 
     pub fn force_inline(&mut self) {
         match self {
-            Self::Object { inline, .. } | Self::Enum { inline, .. } | Self::Tuple { inline, .. } => *inline = true,
+            Self::Object(ObjectType { inline, .. })
+            | Self::Enum(EnumType { inline, .. })
+            | Self::Tuple(TupleType { inline, .. }) => *inline = true,
             Self::Nullable(def) | Self::List(def) => def.body.force_inline(),
             _ => {}
         }
@@ -62,19 +72,38 @@ pub enum EnumRepr {
     External,
     Internal { tag: String },
     Adjacent { tag: String, content: String },
-    Untagged
+    Untagged,
 }
 
 #[derive(Debug, Clone)]
 pub enum EnumVariant {
     Unit(String),
-    Unnamed(String, BodyDefinition), // Tuple
-    Named(String, BodyDefinition),   // Object
+    Unnamed(TupleType),
+    Named(ObjectType),
+}
+
+impl EnumVariant {
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Unit(name) => name,
+            Self::Unnamed(tuple_type) => &tuple_type.name,
+            Self::Named(object_type) => &object_type.name,
+        }
+    }
+
+    pub fn data_type(&self) -> DataType {
+        match self {
+            Self::Unit(_) => DataType::Primitive(PrimitiveType::Never),
+            Self::Unnamed(tuple_type) => DataType::Tuple(tuple_type.clone()),
+            Self::Named(object_type) => DataType::Object(object_type.clone()),
+        }
+    }
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
 pub enum PrimitiveType {
+    Never,
     i8,
     i16,
     i32,

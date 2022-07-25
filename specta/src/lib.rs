@@ -28,7 +28,7 @@ macro_rules! impl_primitives {
             fn def(_: &mut TypeDefs) -> Typedef {
                 Typedef {
                     type_id: std::any::TypeId::of::<$i>(),
-                    body: BodyDefinition::Primitive(PrimitiveType::$i),
+                    body: DataType::Primitive(PrimitiveType::$i),
                 }
             }
         }
@@ -57,11 +57,11 @@ macro_rules! impl_tuple {
             fn def(defs: &mut TypeDefs) -> Typedef {
                 Typedef {
                     type_id: std::any::TypeId::of::<($($i),*)>(),
-                    body: BodyDefinition::Tuple {
+                    body: DataType::Tuple(TupleType {
                         name: stringify!($($i),*).to_string(),
                         inline: true,
                         fields: vec![$($crate::upsert_def!(defs, $i)),*],
-                    }
+                    })
                 }
             }
         }
@@ -108,7 +108,7 @@ impl<T: Type + 'static> Type for Vec<T> {
     fn def(defs: &mut TypeDefs) -> Typedef {
         Typedef {
             type_id: std::any::TypeId::of::<Vec<T>>(),
-            body: BodyDefinition::List(Box::new(upsert_def!(defs))),
+            body: DataType::List(Box::new(upsert_def!(defs))),
         }
     }
 }
@@ -117,7 +117,7 @@ impl<'a, T: Type + 'static> Type for &'a [T] {
     fn def(defs: &mut TypeDefs) -> Typedef {
         Typedef {
             type_id: std::any::TypeId::of::<&[T]>(),
-            body: BodyDefinition::List(Box::new(upsert_def!(defs))),
+            body: DataType::List(Box::new(upsert_def!(defs))),
         }
     }
 }
@@ -128,7 +128,7 @@ impl<'a, const N: usize, T: Type + 'static> Type for [T; N] {
 
         Typedef {
             type_id: std::any::TypeId::of::<[T; N]>(),
-            body: BodyDefinition::List(Box::new(upsert_def!(defs))),
+            body: DataType::List(Box::new(upsert_def!(defs))),
         }
     }
 }
@@ -137,7 +137,7 @@ impl<T: Type + 'static> Type for Option<T> {
     fn def(defs: &mut TypeDefs) -> Typedef {
         Typedef {
             type_id: std::any::TypeId::of::<Option<T>>(),
-            body: BodyDefinition::Nullable(Box::new(upsert_def!(defs))),
+            body: DataType::Nullable(Box::new(upsert_def!(defs))),
         }
     }
 }
