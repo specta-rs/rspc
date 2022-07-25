@@ -5,11 +5,17 @@ pub struct Config {
     pub(crate) export_bindings_on_build: Option<PathBuf>,
 }
 
-impl Config {
-    pub fn new() -> Self {
+impl Default for Config {
+    fn default() -> Self {
         Config {
             export_bindings_on_build: None,
         }
+    }
+}
+
+impl Config {
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// export_bindings will export the bindings of the generated router to a folder every time the router is built.

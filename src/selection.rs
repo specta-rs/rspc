@@ -1,90 +1,64 @@
 #[macro_export]
 macro_rules! selection {
-    ( $s:expr, [{ $($n:ident),+ }] ) => {{
-        #[derive(serde::Serialize)]
-        #[allow(non_camel_case_types)]
-        struct Selection<$($n,)*> {
-            $($n: $n,)*
-        }
-
-        impl<$($n: ts_rs::TS + 'static,)*> ts_rs::TS for Selection<$($n,)*> {
-            const EXPORT_TO: Option<&'static str> = None;
-
-            fn name() -> String {
-                format!("Selection")
-            }
-
-            fn dependencies(deps: &mut std::collections::HashMap<std::any::TypeId, ts_rs::Dependency>) {
-                $(if !deps.contains_key(&std::any::TypeId::of::<$n>()) {
-                    if let Some(dep) = ts_rs::Dependency::from_ty::<$n>() {
-                        deps.insert(dep.type_id, dep);
-                    }
-
-                    $n::dependencies(deps);
-                })*
-            }
-
-            fn transparent() -> bool {
-                true
-            }
-
-            fn inline() -> String {
-                format!(
-                    "{{ {} }}",
-                    vec![$((stringify!($n), $n::name())),*]
-                        .into_iter()
-                        .map(|(name, kind)| { format!("{}: {};", name, kind) })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                )
-            }
-        }
-
-        #[allow(non_camel_case_types)]
-        $s.into_iter().map(|v| Selection { $($n: v.$n,)* }).collect::<Vec<_>>()
-    }};
     ( $s:expr, { $($n:ident),+ } ) => {{
-        #[derive(serde::Serialize)]
         #[allow(non_camel_case_types)]
-        struct Selection<$($n,)*> {
-            $($n: $n,)*
-        }
-
-        impl<$($n: ts_rs::TS + 'static,)*> ts_rs::TS for Selection<$($n,)*> {
-            const EXPORT_TO: Option<&'static str> = None;
-
-            fn name() -> String {
-                format!("Selection")
+        mod selection {
+            #[derive(serde::Serialize)]
+            pub struct Selection<$($n,)*> {
+                $(pub $n: $n,)*
             }
 
-            fn dependencies(deps: &mut std::collections::HashMap<std::any::TypeId, ts_rs::Dependency>) {
-                $(if !deps.contains_key(&std::any::TypeId::of::<$n>()) {
-                    if let Some(dep) = ts_rs::Dependency::from_ty::<$n>() {
-                        deps.insert(dep.type_id, dep);
+            impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
+                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::Typedef {
+                    $crate::internal::specta::Typedef {
+                        type_id: std::any::TypeId::of::<Selection<$($n,)*>>(),
+                        body: $crate::internal::specta::BodyDefinition::Object {
+                            name: "Selection".to_string(),
+                            inline: true,
+                            fields: vec![$(
+                                $crate::internal::specta::ObjectField {
+                                    name: stringify!($n).to_string(),
+                                    ty: <$n as $crate::internal::specta::Type>::def(defs),
+                                }
+                            ),*],
+                        },
                     }
-
-                    $n::dependencies(deps);
-                })*
-            }
-
-            fn transparent() -> bool {
-                true
-            }
-
-            fn inline() -> String {
-                format!(
-                    "{{ {} }}",
-                    vec![$((stringify!($n), $n::name())),*]
-                        .into_iter()
-                        .map(|(name, kind)| { format!("{}: {};", name, kind) })
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                )
+                }
             }
         }
-
+        use selection::Selection;
         #[allow(non_camel_case_types)]
         Selection { $($n: $s.$n,)* }
+    }};
+    ( $s:expr, [{ $($n:ident),+ }] ) => {{
+        #[allow(non_camel_case_types)]
+        mod selection {
+            #[derive(serde::Serialize)]
+            pub struct Selection<$($n,)*> {
+                $(pub $n: $n,)*
+            }
+
+            impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
+                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::Typedef {
+                    $crate::internal::specta::Typedef {
+                        type_id: std::any::TypeId::of::<Selection<$($n,)*>>(),
+                        body: $crate::internal::specta::BodyDefinition::Object {
+                            name: "Selection".to_string(),
+                            inline: true,
+                            fields: vec![$(
+                                $crate::internal::specta::ObjectField {
+                                    name: stringify!($n).to_string(),
+                                    ty: <$n as $crate::internal::specta::Type>::def(defs),
+                                }
+                            ),*],
+                        },
+                    }
+                }
+            }
+        }
+        use selection::Selection;
+        #[allow(non_camel_case_types)]
+        $s.into_iter().map(|v| Selection { $($n: v.$n,)* }).collect::<Vec<_>>()
     }};
 }
 

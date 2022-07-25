@@ -1,50 +1,29 @@
-use rspc::{ActualMiddlewareResult, MiddlewareResult, Router};
-use serde_json::json;
+use std::path::PathBuf;
+
+use rspc::{Config, Router};
 
 #[tokio::main]
 async fn main() {
-    let router = <Router>::new()
-        .middleware(|_ctx, next| async move {
-            println!("BEFORE");
-            // The value passed into next will the the context for all future operations.
-            match next(42)? {
-                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
-                result => {
-                    let v = result.await?;
-                    println!("AFTER");
-                    Ok(v.into_middleware_result())
-                }
-            }
+    let _r = <Router>::new()
+        .config(
+            Config::new()
+                .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
+        )
+        .middleware(|ctx| async move {
+            println!("MIDDLEWARE ONE");
+            ctx.next(42).await
         })
-        .query("version", |_ctx, _: ()| {
-            println!("VERSION");
+        .query("version", |_ctx| {
+            println!("ANOTHER QUERY");
             env!("CARGO_PKG_VERSION")
         })
-        // Middleware only apply to operations defined below them.
-        .middleware(|_ctx, next| async move {
-            println!("BEFORE ANOTHER");
-            match next("todo")? {
-                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
-                result => {
-                    let v = result.await?;
-                    println!("AFTER ANOTHER");
-                    Ok(v.into_middleware_result())
-                }
-            }
+        .middleware(|ctx| async move {
+            println!("MIDDLEWARE TWO");
+            ctx.next("hello").await
         })
-        .query("another", |_ctx, _: ()| {
-            println!("ANOTHER HANDLER");
-            "Another Handler"
+        .query("another", |_ctx| {
+            println!("ANOTHER QUERY");
+            "Another Result!"
         })
         .build();
-
-    println!(
-        "{:#?}",
-        router.exec_query((), "version", json!(null)).await.unwrap()
-    );
-    println!("");
-    println!(
-        "{:#?}",
-        router.exec_query((), "another", json!(null)).await.unwrap()
-    );
 }

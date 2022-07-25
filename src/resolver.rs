@@ -1,68 +1,105 @@
-/// Marker types (`SerdeTypeMarker` and `FutureTypeMarker`) hold a `PhantomData` to prevent them being constructed by consumers of this crate.
-use std::{future::Future, marker::PhantomData};
+use std::marker::PhantomData;
 
-use serde::Serialize;
-use ts_rs::TS;
+use futures::{Stream, StreamExt};
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
+use specta::{Type, TypeDefs};
 
-use crate::{Error, ExecError, MiddlewareResult, TypeDef};
+use crate::{ExecError, IntoLayerResult, LayerResult, ProcedureTypedef};
 
-/// TODO
-pub trait ResolverResult<TMarker> {
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError>;
+pub trait Resolver<TCtx, TMarker> {
+    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
 
-    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef;
+    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef;
 }
 
-pub struct SerdeTypeMarker(PhantomData<()>);
-impl<TValue> ResolverResult<SerdeTypeMarker> for TValue
+pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
+impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, NoArgMarker<TResultMarker>> for TFunc
 where
-    TValue: Serialize + TS,
+    TFunc: Fn() -> TResult,
+    TResult: IntoLayerResult<TResultMarker> + Type,
 {
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
-        Ok(MiddlewareResult::Sync(
-            serde_json::to_value(self).map_err(ExecError::ErrSerialiseResult)?,
-        ))
+    fn exec(&self, _ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
+        self().into_layer_result()
     }
 
-    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef {
-        TypeDef::new::<TArg, TLayerArg, TValue>()
-    }
-}
-
-pub struct FutureTypeMarker<TReturnMarker>(PhantomData<TReturnMarker>);
-impl<TReturnMarker, TReturn, TFut> ResolverResult<FutureTypeMarker<TReturnMarker>> for TFut
-where
-    TReturnMarker: 'static,
-    TReturn: ResolverResult<TReturnMarker> + Send,
-    TFut: Future<Output = TReturn> + Send + 'static,
-{
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
-        Ok(MiddlewareResult::Future(Box::pin(async move {
-            self.await.into_middleware_result()?.await
-        })))
-    }
-
-    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef {
-        TReturn::type_def::<TArg, TLayerArg>()
-    }
-}
-
-pub struct ResultTypeMarker<TReturnMarker>(PhantomData<TReturnMarker>);
-impl<TValue, TErr> ResolverResult<ResultTypeMarker<TErr>> for Result<TValue, TErr>
-where
-    TValue: Serialize + TS,
-    TErr: Into<Error>,
-{
-    fn into_middleware_result(self) -> Result<MiddlewareResult, ExecError> {
-        match self {
-            Ok(value) => Ok(MiddlewareResult::Sync(
-                serde_json::to_value(value).map_err(ExecError::ErrSerialiseResult)?,
-            )),
-            Err(err) => Err(ExecError::ErrResolverError(err.into())),
+    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
+        ProcedureTypedef {
+            arg_ty: <() as Type>::def(defs),
+            result_ty: <TResult as Type>::def(defs),
         }
     }
+}
 
-    fn type_def<TArg: TS, TLayerArg: TS>() -> TypeDef {
-        TypeDef::new::<TArg, TLayerArg, TValue>()
+pub struct SingleArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
+impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, SingleArgMarker<TResultMarker>> for TFunc
+where
+    TFunc: Fn(TCtx) -> TResult,
+    TResult: IntoLayerResult<TResultMarker>,
+{
+    fn exec(&self, ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
+        self(ctx).into_layer_result()
+    }
+
+    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
+        ProcedureTypedef {
+            arg_ty: <() as Type>::def(defs),
+            result_ty: <TResult::Result as Type>::def(defs),
+        }
+    }
+}
+
+pub struct DoubleArgMarker<TArg, TResultMarker>(
+    /* private */ PhantomData<(TArg, TResultMarker)>,
+);
+impl<TFunc, TCtx, TArg, TResult, TResultMarker> Resolver<TCtx, DoubleArgMarker<TArg, TResultMarker>>
+    for TFunc
+where
+    TArg: DeserializeOwned + Type,
+    TFunc: Fn(TCtx, TArg) -> TResult,
+    TResult: IntoLayerResult<TResultMarker>,
+{
+    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
+        let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
+        self(ctx, arg).into_layer_result()
+    }
+
+    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
+        ProcedureTypedef {
+            arg_ty: <TArg as Type>::def(defs),
+            result_ty: <TResult::Result as Type>::def(defs),
+        }
+    }
+}
+
+pub trait StreamResolver<TCtx, TMarker> {
+    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
+
+    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef;
+}
+
+pub struct DoubleArgStreamMarker<TArg, TResult, TStream>(
+    /* private */ PhantomData<(TArg, TResult, TStream)>,
+);
+impl<TFunc, TCtx, TArg, TResult, TStream>
+    StreamResolver<TCtx, DoubleArgStreamMarker<TArg, TResult, TStream>> for TFunc
+where
+    TArg: DeserializeOwned + Type,
+    TFunc: Fn(TCtx, TArg) -> TStream,
+    TStream: Stream<Item = TResult> + Send + 'static,
+    TResult: Serialize + Type,
+{
+    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
+        let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
+        Ok(LayerResult::Stream(Box::pin(self(ctx, arg).map(|v| {
+            serde_json::to_value(&v).map_err(|err| ExecError::SerializingResultErr(err))
+        }))))
+    }
+
+    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
+        ProcedureTypedef {
+            arg_ty: <TArg as Type>::def(defs),
+            result_ty: <TResult as Type>::def(defs),
+        }
     }
 }

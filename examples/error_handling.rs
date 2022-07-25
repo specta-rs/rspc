@@ -1,4 +1,6 @@
-use rspc::{Config, Error, ErrorCode, Router};
+use rspc::{
+    Config, Error, ErrorCode, ExecError, OperationKey, OperationKind, Router, StreamOrValue,
+};
 use serde_json::json;
 
 pub enum MyCustomError {
@@ -17,7 +19,7 @@ impl Into<Error> for MyCustomError {
 
 #[tokio::main]
 async fn main() {
-    let router = <Router>::new()
+    let r = <Router>::new()
         .config(Config::new().export_ts_bindings("./ts"))
         .query("ok", |_, _args: ()| {
             Ok("Hello World".into()) as Result<String, Error>
@@ -31,15 +33,27 @@ async fn main() {
         .query("customErr", |_, _args: ()| {
             Err(MyCustomError::IAmBroke) as Result<String, MyCustomError>
         })
+        .query("asyncCustomError", |_, _args: ()| async move {
+            Err(MyCustomError::IAmBroke) as Result<String, MyCustomError>
+        })
         .build();
 
-    println!(
-        "{:#?}",
-        router.exec_query((), "ok", json!(null)).await.unwrap()
-    );
-    println!("{:#?}", router.exec_query((), "err", json!(null)).await);
-    println!(
-        "{:#?}",
-        router.exec_query((), "customErr", json!(null)).await
-    );
+    // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
+    match r
+        .exec((), OperationKind::Query, OperationKey("ok".into(), None))
+        .await
+        .unwrap()
+    {
+        StreamOrValue::Stream(_) => unreachable!(),
+        StreamOrValue::Value(v) => {
+            println!("{:?}", v);
+            assert_eq!(v, json!("Hello World"));
+        }
+    }
+
+    let v = r
+        .exec((), OperationKind::Query, OperationKey("err".into(), None))
+        .await;
+    println!("{:?}", v);
+    assert!(matches!(v, Err(ExecError::ErrResolverError(_))));
 }

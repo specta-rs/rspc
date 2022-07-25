@@ -6,21 +6,15 @@ use tauri::{
 };
 use tokio::sync::mpsc;
 
-use crate::{
-    utils::{Request, Response},
-    KeyDefinition, Router,
-};
+use crate::{Request, Response, Router};
 
-pub fn plugin<R: Runtime, TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>(
-    router: Arc<Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>>,
+pub fn plugin<R: Runtime, TCtx, TMeta>(
+    router: Arc<Router<TCtx, TMeta>>,
     ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
-    TQueryKey: KeyDefinition,
-    TMutationKey: KeyDefinition,
-    TSubscriptionKey: KeyDefinition,
 {
     Builder::new("rspc")
         .setup(|app_handle| {
@@ -50,7 +44,8 @@ where
             });
 
             app_handle.listen_global("plugin:rspc:transport", move |event| {
-                tx.send(serde_json::from_str(event.payload().unwrap()).unwrap());
+                tx.send(serde_json::from_str(event.payload().unwrap()).unwrap())
+                    .unwrap();
             });
 
             Ok(())

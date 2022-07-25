@@ -1,50 +1,52 @@
-use crate::utils::{UpdateUserArgs, User};
-use rspc::{Config, Router};
-use serde_json::json;
+use std::path::PathBuf;
 
-mod utils;
+use rspc::{Config, OperationKey, OperationKind, Router, StreamOrValue};
+use serde_json::json;
 
 #[tokio::main]
 async fn main() {
-    let router = <Router>::new()
-        .config(Config::new().export_ts_bindings("./ts"))
-        .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
-        .mutation("createUser", |_, args| User::create(args))
-        .query(
-            "getUser",
-            |_, id| async move { User::read(id).await.unwrap() },
+    let r = <Router>::new()
+        .config(
+            Config::new()
+                .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
         )
-        .query("getUsers", |_, _: ()| User::read_all())
-        .mutation("updateUser", |_, args: UpdateUserArgs| {
-            User::update(args.id, args.new_user)
-        })
-        .mutation("deleteUser", |_, id| User::delete(id))
-        .query("optional", |_, _: ()| None as Option<String>)
+        .query("myQuery", || "My Query Result!")
+        .mutation("myMutation", |_ctx, arg: i32| arg)
         .build();
 
     // You can also export the bindings yourself
     // router.export_ts("./ts").unwrap();
 
-    println!(
-        "{:#?}",
-        router.exec_query((), "version", json!(null)).await.unwrap()
-    );
-    println!(
-        "{:#?}",
-        router
-            .exec_mutation(
-                (),
-                "createUser",
-                json!({ "id": 1, "name": "Monty Beaumont", "email": "monty@otbeaumont.me", "pets": [] })
-            )
-            .await
-            .unwrap()
-    );
-    println!(
-        "{:#?}",
-        router
-            .exec_query((), "getUsers", json!(null))
-            .await
-            .unwrap()
-    );
+    // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
+    match r
+        .exec(
+            (),
+            OperationKind::Query,
+            OperationKey("myQuery".into(), None),
+        )
+        .await
+        .unwrap()
+    {
+        StreamOrValue::Stream(_) => unreachable!(),
+        StreamOrValue::Value(v) => {
+            println!("{:?}", v);
+            assert_eq!(v, json!("My Query Result!"));
+        }
+    }
+
+    match r
+        .exec(
+            (),
+            OperationKind::Mutation,
+            OperationKey("myMutation".into(), Some(json!(5))),
+        )
+        .await
+        .unwrap()
+    {
+        StreamOrValue::Stream(_) => unreachable!(),
+        StreamOrValue::Value(v) => {
+            println!("{:?}", v);
+            assert_eq!(v, json!(5));
+        }
+    }
 }

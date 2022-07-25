@@ -1,43 +1,43 @@
-use rspc::{selection, Config, Router};
+use std::path::PathBuf;
 
-#[derive(Clone)]
+use rspc::{selection, Config, Router};
+use specta::Type;
+
+#[derive(Type)]
 pub struct User {
+    pub id: i32,
     pub name: String,
-    pub email: String,
-    pub age: u8,
+    pub age: i32,
     pub password: String,
 }
 
 #[tokio::main]
 async fn main() {
-    let _router = <Router>::new()
-        .config(Config::new().export_ts_bindings("./ts"))
-        .query("me", |_, _: ()| {
-            // We have some data which contains information but we only want to return some of it the user.
-            // Eg. We don't want to expose the password field.
+    let _r = <Router>::new()
+        .config(
+            Config::new()
+                .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
+        )
+        .query("customSelection", || {
+            // The user come from your database.
             let user = User {
-                name: "Monty Beaumont".into(),
-                email: "monty@otbeaumont.me".into(),
+                id: 1,
+                name: "Monty Beaumont".to_string(),
                 age: 7,
-                password: "password123".into(),
+                password: "password".to_string(),
             };
 
-            // TODO: Fix the Rust compile warning here
-            selection!(user, { name, age }) // Here we are selecting the fields we want to expose from the user. This is completely type safe!
+            selection!(user, { id, name, age })
         })
-        .query("users", |_, _: ()| {
-            // We have some data which contains information but we only want to return some of it the user.
-            // Eg. We don't want to expose the password field.
-            let user = User {
-                name: "Monty Beaumont".into(),
-                email: "monty@otbeaumont.me".into(),
+        .query("customSelectionOnList", || {
+            // The users come from your database.
+            let users = vec![User {
+                id: 1,
+                name: "Monty Beaumont".to_string(),
                 age: 7,
-                password: "password123".into(),
-            };
-            let users = vec![user.clone(), user.clone(), user];
-
-            // TODO: Fix the Rust compile warning here
-            selection!(users, [{ name, age }]) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
+                password: "password".to_string(),
+            }];
+            selection!(users, [{ id, name, age }])
         })
         .build();
 }

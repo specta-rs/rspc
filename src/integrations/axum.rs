@@ -16,21 +16,18 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use crate::{
-    utils::{self, MessageMethod, OperationKey, Response, ResponseResult},
-    KeyDefinition, Router,
-};
+use crate::{OperationKey, OperationKind, Response, ResponseResult, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
-    pub batch: Option<i32>, // TODO: is this correct number type?
+    pub batch: Option<i32>,
     pub input: Option<String>,
     pub margs: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct PostParams {
-    pub batch: i32, // TODO: is this correct number type?
+    pub batch: i32,
     pub margs: Option<String>,
 }
 
@@ -79,14 +76,10 @@ where
 
 // TODO: Build macro so we can support up to 16 different extractor arguments like Axum
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
-    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
-    TQueryKey: KeyDefinition,
-    TMutationKey: KeyDefinition,
-    TSubscriptionKey: KeyDefinition,
 {
     pub fn axum_handler<TMarker>(
         self: Arc<Self>,
@@ -143,18 +136,13 @@ where
                     },
                 };
 
-                let margs = match params.margs {
-                    Some(margs) => Some(serde_json::from_str(&margs).unwrap()),
-                    None => None,
-                };
-
                 (
                     StatusCode::OK, // TODO: Make status code correct based on `Response`
                     Json(vec![
-                        utils::Request {
+                        crate::Request {
                             id: None,
-                            operation: MessageMethod::Query,
-                            key: OperationKey(key, Some(arg), margs),
+                            operation: OperationKind::Query,
+                            key: OperationKey(key, Some(arg)),
                         }
                         .handle(ctx, &self, None)
                         .await,
@@ -191,18 +179,13 @@ where
             },
         };
 
-        let margs = match params.margs {
-            Some(margs) => Some(serde_json::from_str(&margs).unwrap()),
-            None => None,
-        };
-
         (
             StatusCode::OK, // TODO: Make status code correct based on `Response`
             Json(vec![
-                utils::Request {
+                crate::Request {
                     id: None,
-                    operation: MessageMethod::Mutation,
-                    key: OperationKey(key, arg, margs),
+                    operation: OperationKind::Mutation,
+                    key: OperationKey(key, arg),
                 }
                 .handle(ctx, &self, None)
                 .await,
@@ -217,7 +200,7 @@ where
         request: Request<Body>,
     ) {
         let mut request_parts = RequestParts::new(request);
-        let (tx, mut rx) = mpsc::unbounded_channel::<utils::Response>();
+        let (tx, mut rx) = mpsc::unbounded_channel::<crate::Response>();
         loop {
             tokio::select! {
             msg = socket.recv() => {
@@ -225,7 +208,7 @@ where
                         Some(Ok(msg)) => {
                             match msg {
                                 Message::Text(msg) => {
-                                    let result = match serde_json::from_str::<utils::Request>(&msg) {
+                                    let result = match serde_json::from_str::<crate::Request>(&msg) {
                                         Ok(result) => {
                                             let ctx = match ctx_fn.exec(&mut request_parts) {
                                                 TCtxFuncResult::Value(ctx) => ctx,
@@ -242,11 +225,11 @@ where
                                         },
                                         Err(err) =>{
                                             println!("ERROR PARSING MESSAGE! {:?}", err); // TODO: Error handling here
-                                            utils::Response::Response (ResponseResult::Error)
+                                            crate::Response::Response (ResponseResult::Error)
                                         },
                                     };
 
-                                    if !matches!(result, utils::Response::None) && socket
+                                    if !matches!(result, crate::Response::None) && socket
                                         .send(Message::Text(serde_json::to_string(&result).unwrap())) // TODO: Error handling
                                         .await
                                         .is_err()

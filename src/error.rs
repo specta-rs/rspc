@@ -1,22 +1,21 @@
 use std::{error, fmt};
 
-use thiserror::Error;
-
-/// TODO
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ExecError {
     #[error("the requested operation '{0}' is not supported by this server")]
     OperationNotFound(String),
-    #[error("error serialising the result of the operation")]
-    ErrSerialiseResult(serde_json::Error),
-    #[error("error deserialising the argument for the operation: {0}")]
-    ErrDeserialiseArg(serde_json::Error),
+    #[error("error deserializing procedure arguments: {0}")]
+    DeserializingArgErr(serde_json::Error),
+    #[error("error serializing procedure result: {0}")]
+    SerializingResultErr(serde_json::Error),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
-    #[error("an internal `rspc` error occurred.")]
-    InternalServerError,
-    #[error("error `rspc` got into an unreachable state. Please report this issue to developers!")]
-    UnreachableInternalState,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ExportError {
+    #[error("IO error exporting bindings: {0}")]
+    IOErr(#[from] std::io::Error),
 }
 
 #[derive(Debug, Clone)]

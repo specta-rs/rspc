@@ -1,345 +1,264 @@
-use std::{future::Future, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-use futures::{Stream, StreamExt};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{Map, Value};
-use ts_rs::TS;
+use futures::Future;
+use specta::TypeDefs;
 
 use crate::{
-    ConcreteArg, Config, Context, ExecError, Key, KeyDefinition, MiddlewareChain, MiddlewareResult,
-    Operation, ResolverResult, Router,
+    Config, ExecError, FirstMiddleware, LayerResult, MiddlewareContext, NextMiddleware, Procedure,
+    Resolver, Router, StreamOrValue, StreamResolver,
 };
-
-// #[derive(Debug, Serialize, Deserialize)]
-// struct ArgExtractor<T> {
-//     #[serde(flatten)]
-//     arg: T,
-//     #[serde(flatten)]
-//     other: Map<String, Value>,
-// }
 
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
     TMeta = (),
-    TLayerArgs = (), // This is the args defined by the current middleware
-    TQueryKey = &'static str,
-    TMutationKey = &'static str,
-    TSubscriptionKey = &'static str,
     TLayerCtx = TCtx, // This is the context of the current layer -> Whatever the last middleware returned
 > where
-    TCtx: Send + 'static,
-    TMeta: Send + Sync + 'static,
-    TLayerArgs: TS + Send + 'static,
-    TQueryKey: KeyDefinition,
-    TMutationKey: KeyDefinition,
-    TSubscriptionKey: KeyDefinition,
-    TLayerCtx: Send + 'static,
+    TCtx: 'static,
+    TLayerCtx: 'static,
 {
     config: Config,
-    middleware: MiddlewareChain<TCtx, TLayerCtx>,
-    query: Operation<TQueryKey, TCtx>,
-    mutation: Operation<TMutationKey, TCtx>,
-    subscription: Operation<TSubscriptionKey, TCtx>,
-    phantom: PhantomData<(TMeta, TLayerArgs)>,
+    middleware: Box<dyn Fn(NextMiddleware<TLayerCtx>) -> FirstMiddleware<TCtx>>,
+    queries: HashMap<String, Procedure<TCtx>>,
+    mutations: HashMap<String, Procedure<TCtx>>,
+    subscriptions: HashMap<String, Procedure<TCtx>>,
+    phantom: PhantomData<TMeta>,
 }
 
-impl<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
-    Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey>
+impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
-    TQueryKey: KeyDefinition,
-    TMutationKey: KeyDefinition,
-    TSubscriptionKey: KeyDefinition,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, (), TQueryKey, TMutationKey, TSubscriptionKey, TCtx>
-    {
+    pub fn new() -> RouterBuilder<TCtx, TMeta, TCtx> {
         RouterBuilder {
             config: Config::new(),
-            middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
-            query: Operation::new("query"),
-            mutation: Operation::new("mutation"),
-            subscription: Operation::new("subscription"),
+            middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
+            queries: HashMap::new(),
+            mutations: HashMap::new(),
+            subscriptions: HashMap::new(),
             phantom: PhantomData,
         }
     }
 }
 
-impl<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey>
-    RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey>
+impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta>
 where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
-    TLayerArgs: TS + Send + 'static,
-    TQueryKey: KeyDefinition,
-    TMutationKey: KeyDefinition,
-    TSubscriptionKey: KeyDefinition,
 {
-    pub fn new(
-    ) -> RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TCtx>
-    {
+    pub fn new() -> RouterBuilder<TCtx, TMeta, TCtx> {
         RouterBuilder {
             config: Config::new(),
-            middleware: Box::new(|next| Box::new(move |ctx, args| next(ctx, args))),
-            query: Operation::new("query"),
-            mutation: Operation::new("mutation"),
-            subscription: Operation::new("subscription"),
+            middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
+            queries: HashMap::new(),
+            mutations: HashMap::new(),
+            subscriptions: HashMap::new(),
             phantom: PhantomData,
         }
     }
 }
 
-impl<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
-    RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx>
-where
-    TCtx: Send + 'static,
-    TMeta: Send + Sync + 'static,
-    TLayerArgs: TS + Send + 'static,
-    TQueryKey: KeyDefinition,
-    TMutationKey: KeyDefinition,
-    TSubscriptionKey: KeyDefinition,
-    TLayerCtx: Send + 'static,
-{
+impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
         self.config = config;
         self
     }
 
-    pub fn middleware<TNextLayerCtx, TMiddlewareArgs, TFut>(
+    pub fn middleware<TNewLayerCtx, TFut>(
         self,
-        resolver: fn(
-            TLayerCtx,
-            TMiddlewareArgs,
-            Box<dyn FnOnce(TNextLayerCtx) -> Result<MiddlewareResult, ExecError> + Send>,
-        ) -> TFut,
-    ) -> RouterBuilder<
-        TCtx,
-        TMeta,
-        TMiddlewareArgs,
-        TQueryKey,
-        TMutationKey,
-        TSubscriptionKey,
-        TNextLayerCtx,
-    >
+        func: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
+    ) -> RouterBuilder<TCtx, TMeta, TNewLayerCtx>
     where
-        TNextLayerCtx: Send + 'static,
-        TMiddlewareArgs: TS + DeserializeOwned + Send + 'static,
-        TFut: Future<Output = Result<MiddlewareResult, ExecError>> + Send + 'static,
+        TNewLayerCtx: Send + 'static,
+        TFut: Future<Output = Result<StreamOrValue, ExecError>> + Send + 'static,
     {
         let Self {
+            config,
             middleware,
-            query,
-            mutation,
-            subscription,
+            queries,
+            mutations,
+            subscriptions,
             ..
         } = self;
 
         RouterBuilder {
-            config: self.config,
-            middleware: Box::new(move |next| {
-                let next: &'static _ = Box::leak(next); // TODO: Cleanup memory
+            config,
+            middleware: Box::new(move |nextmw| {
+                // TODO: An `Arc` is more avoid than should be need but it's probs better than leaking memory.
+                // I can't work out lifetimes to avoid this but would be great to try again!
+                let nextmw = Arc::new(nextmw);
 
-                (middleware)(Box::new(move |ctx, mut args| {
-                    let marg = match &args {
-                        ConcreteArg::Value(_, val) => val,
-                        ConcreteArg::Unknown(_, val) => val,
-                    };
-                    let marg: TMiddlewareArgs = serde_json::from_value(marg.clone()).unwrap();
-
-                    Ok(MiddlewareResult::FutureMiddlewareResult(Box::pin(
-                        resolver(ctx, marg, Box::new(|ctx| next(ctx, args))),
-                    )))
+                (middleware)(Box::new(move |ctx, arg, (kind, key)| {
+                    Ok(LayerResult::FutureStreamOrValue(Box::pin(func(
+                        MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
+                            key,
+                            kind,
+                            ctx,
+                            arg,
+                            nextmw: nextmw.clone(),
+                        },
+                    ))))
                 }))
             }),
-            query: query,
-            mutation: mutation,
-            subscription: subscription,
+            queries,
+            mutations,
+            subscriptions,
             phantom: PhantomData,
         }
     }
 
-    pub fn query<TKey, TArg, TResolverMarker, TResolverResult>(
-        mut self,
-        key: TKey,
-        resolver: fn(Context<TLayerCtx>, TArg) -> TResolverResult,
-    ) -> Self
+    pub fn query<TResolver, TMarker>(mut self, key: &'static str, resolver: TResolver) -> Self
     where
-        TKey: Key<TQueryKey, TArg>,
-        TArg: DeserializeOwned + TS + 'static,
-        TResolverResult: ResolverResult<TResolverMarker> + 'static,
+        TResolver: Resolver<TLayerCtx, TMarker> + Send + Sync + 'static,
     {
-        self.query
-            .insert::<TArg, TResolverMarker, TResolverResult, TLayerArgs>(
-                key.to_val(),
-                (self.middleware)(Box::new(move |ctx, arg| {
-                    let arg = match arg {
-                        ConcreteArg::Value(v, _) => {
-                            serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
-                        }
-                        ConcreteArg::Unknown(v, _) => *v
-                            .downcast::<TArg>()
-                            .map_err(|_| ExecError::UnreachableInternalState)?,
-                    };
-                    resolver(Context { ctx }, arg).into_middleware_result()
-                })),
+        let key = key.to_string();
+        if self.queries.contains_key(&key) {
+            panic!(
+                "rspc error: query operation already has resolver with name '{}'",
+                key
             );
+        }
+
+        self.queries.insert(
+            key,
+            Procedure {
+                exec: (self.middleware)(Box::new(move |nextmw, arg, _| {
+                    resolver.exec(
+                        nextmw,
+                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                })),
+                ty: TResolver::typedef(&mut TypeDefs::default()),
+            },
+        );
         self
     }
 
-    pub fn mutation<TKey, TArg, TResolverMarker, TResolverResult>(
-        mut self,
-        key: TKey,
-        resolver: fn(Context<TLayerCtx>, TArg) -> TResolverResult,
-    ) -> Self
+    pub fn mutation<TResolver, TMarker>(mut self, key: &'static str, resolver: TResolver) -> Self
     where
-        TKey: Key<TMutationKey, TArg>,
-        TArg: DeserializeOwned + TS + 'static,
-        TResolverResult: ResolverResult<TResolverMarker> + 'static,
+        TResolver: Resolver<TLayerCtx, TMarker> + Send + Sync + 'static,
     {
-        self.mutation
-            .insert::<TArg, TResolverMarker, TResolverResult, TLayerArgs>(
-                key.to_val(),
-                (self.middleware)(Box::new(move |ctx, arg| {
-                    let arg = match arg {
-                        ConcreteArg::Value(v, _) => {
-                            serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
-                        }
-                        ConcreteArg::Unknown(v, _) => *v
-                            .downcast::<TArg>()
-                            .map_err(|_| ExecError::UnreachableInternalState)?,
-                    };
-                    resolver(Context { ctx }, arg).into_middleware_result()
-                })),
+        let key = key.to_string();
+        if self.mutations.contains_key(&key) {
+            panic!(
+                "rspc error: mutation operation already has resolver with name '{}'",
+                key
             );
+        }
+
+        self.mutations.insert(
+            key,
+            Procedure {
+                exec: (self.middleware)(Box::new(move |nextmw, arg, _| {
+                    resolver.exec(
+                        nextmw,
+                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                })),
+                ty: TResolver::typedef(&mut TypeDefs::default()),
+            },
+        );
         self
     }
 
-    pub fn subscription<TKey, TArg, TResolverMarker, TStream>(
+    pub fn subscription<TResolver, TMarker>(
         mut self,
-        key: TKey,
-        resolver: fn(Context<TLayerCtx>, TArg) -> TStream,
+        key: &'static str,
+        resolver: TResolver,
     ) -> Self
     where
-        TKey: Key<TSubscriptionKey, TArg>,
-        TArg: DeserializeOwned + TS + Send + 'static,
-        TStream: Stream + Send + 'static,
-        <TStream as Stream>::Item: ResolverResult<TResolverMarker> + Serialize + Send + 'static,
+        TResolver: StreamResolver<TLayerCtx, TMarker> + Send + Sync + 'static,
     {
-        self.subscription
-            .insert::<TArg, TResolverMarker, <TStream as Stream>::Item, TLayerArgs>(
-                key.to_val(),
-                (self.middleware)(Box::new(move |ctx, arg| {
-                    let arg = match arg {
-                        ConcreteArg::Value(v, _) => {
-                            serde_json::from_value(v).map_err(ExecError::ErrDeserialiseArg)?
-                        }
-                        ConcreteArg::Unknown(v, _) => *v
-                            .downcast::<TArg>()
-                            .map_err(|_| ExecError::UnreachableInternalState)?,
-                    };
-
-                    Ok(MiddlewareResult::Stream(Box::pin(
-                        resolver(Context { ctx }, arg).map(|v| {
-                            serde_json::to_value(v).map_err(ExecError::ErrSerialiseResult)
-                        }),
-                    )))
-                })),
+        let key = key.to_string();
+        if self.subscriptions.contains_key(&key) {
+            panic!(
+                "rspc error: subscription operation already has resolver with name '{}'",
+                key
             );
+        }
+
+        self.subscriptions.insert(
+            key,
+            Procedure {
+                exec: (self.middleware)(Box::new(move |nextmw, arg, _| {
+                    resolver.exec(
+                        nextmw,
+                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                })),
+                ty: TResolver::typedef(&mut TypeDefs::default()),
+            },
+        );
         self
     }
 
-    pub fn merge<TLayerCtx2>(
+    pub fn merge<TNewLayerCtx>(
         self,
         prefix: &'static str,
-        router: RouterBuilder<
-            TLayerCtx,
-            TMeta,
-            TLayerArgs,
-            TQueryKey,
-            TMutationKey,
-            TSubscriptionKey,
-            TLayerCtx2,
-        >,
-    ) -> RouterBuilder<TCtx, TMeta, TLayerArgs, TQueryKey, TMutationKey, TSubscriptionKey, TLayerCtx2>
-    where
-        TLayerCtx2: Send + 'static,
-    {
+        router: RouterBuilder<TLayerCtx, TMeta, TNewLayerCtx>,
+    ) -> RouterBuilder<TCtx, TMeta, TNewLayerCtx> {
         let Self {
+            config,
             middleware,
-            mut query,
-            mut mutation,
-            mut subscription,
+            mut queries,
+            mut mutations,
+            mut subscriptions,
             ..
         } = self;
 
-        let (operations, type_defs) = router.query.consume();
-        for (key, operation) in operations {
-            query.insert_internal(
-                TQueryKey::add_prefix(key, prefix),
-                (middleware)(Box::new(operation)),
+        for (key, query) in router.queries {
+            queries.insert(
+                format!("{}{}", prefix, key),
+                Procedure {
+                    exec: (middleware)(Box::new(query.exec)),
+                    ty: query.ty,
+                },
             );
         }
-        query.insert_typedefs(
-            type_defs
-                .into_iter()
-                .map(|(key, value)| (TQueryKey::add_prefix(key, prefix), value))
-                .collect(),
-        );
 
-        let (operations, type_defs) = router.mutation.consume();
-        for (key, operation) in operations {
-            mutation.insert_internal(
-                TMutationKey::add_prefix(key, prefix),
-                (middleware)(Box::new(operation)),
+        for (key, mutation) in router.mutations {
+            mutations.insert(
+                format!("{}{}", prefix, key),
+                Procedure {
+                    exec: (middleware)(Box::new(mutation.exec)),
+                    ty: mutation.ty,
+                },
             );
         }
-        mutation.insert_typedefs(
-            type_defs
-                .into_iter()
-                .map(|(key, value)| (TMutationKey::add_prefix(key, prefix), value))
-                .collect(),
-        );
 
-        let (operations, type_defs) = router.subscription.consume();
-        for (key, operation) in operations {
-            subscription.insert_internal(
-                TSubscriptionKey::add_prefix(key, prefix),
-                (middleware)(Box::new(operation)),
+        for (key, subscription) in router.subscriptions {
+            subscriptions.insert(
+                format!("{}{}", prefix, key),
+                Procedure {
+                    exec: (middleware)(Box::new(subscription.exec)),
+                    ty: subscription.ty,
+                },
             );
         }
-        subscription.insert_typedefs(
-            type_defs
-                .into_iter()
-                .map(|(key, value)| (TSubscriptionKey::add_prefix(key, prefix), value))
-                .collect(),
-        );
 
-        let router_middleware: &'static _ = Box::leak(router.middleware); // TODO: Cleanup memory
         RouterBuilder {
-            config: self.config,
-            middleware: Box::new(move |next| middleware((router_middleware)(next))),
-            query: query,
-            mutation: mutation,
-            subscription: subscription,
+            config,
+            middleware: Box::new(move |next| middleware((router.middleware)(next))),
+            queries,
+            mutations,
+            subscriptions,
             phantom: PhantomData,
         }
     }
 
-    pub fn build(self) -> Router<TCtx, TMeta, TQueryKey, TMutationKey, TSubscriptionKey> {
+    pub fn build(self) -> Router<TCtx, TMeta> {
         let Self {
-            query,
-            mutation,
-            subscription,
+            queries,
+            mutations,
+            subscriptions,
             ..
         } = self;
 
-        // TODO: Validate all enum variants have been assigned a value
-
         let router = Router {
-            query: query,
-            mutation: mutation,
-            subscription: subscription,
+            queries,
+            mutations,
+            subscriptions,
             phantom: PhantomData,
         };
 

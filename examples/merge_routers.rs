@@ -1,60 +1,52 @@
-/// This example show how to merge routers. It also demonstrates how they work with middleware context switching.
-use rspc::{ActualMiddlewareResult, Config, MiddlewareResult, Router};
+use std::path::PathBuf;
+
+use rspc::{Config, OperationKey, OperationKind, Router, StreamOrValue};
 use serde_json::json;
 
 #[tokio::main]
 async fn main() {
-    let users_router = Router::<i32>::new()
-        .middleware(|_ctx, next| async {
-            match next("todo")? {
-                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
-                result => {
-                    let v = result.await?;
-                    Ok(v.into_middleware_result())
-                }
-            }
-        })
-        .query("list", |_ctx, _: ()| vec![] as Vec<()>)
-        .mutation("create", |_ctx, _: ()| todo!());
+    let r1 = Router::<i32>::new().query("demo", || "Merging Routers!");
 
-    let router = <Router>::new()
-        .config(Config::new().export_ts_bindings("./ts"))
-        .middleware(|_ctx, next| async {
-            match next(42i32)? {
-                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
-                result => {
-                    let v = result.await?;
-                    Ok(v.into_middleware_result())
-                }
-            }
-        })
-        .query("version", |_ctx, _: ()| env!("CARGO_PKG_VERSION"))
-        .merge("users.", users_router)
-        .middleware(|ctx, next| async move {
-            match next(ctx)? {
-                MiddlewareResult::Stream(stream) => Ok(stream.into_middleware_result()),
-                result => {
-                    let v = result.await?;
-                    Ok(v.into_middleware_result())
-                }
-            }
-        })
-        .query("another", |_ctx, _: ()| "Hello World")
+    let r = <Router>::new()
+        .config(
+            Config::new()
+                .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
+        )
+        .middleware(|ctx| async move { ctx.next(42).await })
+        .query("version", || "0.1.0")
+        .merge("r1.", r1)
         .build();
 
-    println!(
-        "{:#?}",
-        router.exec_query((), "version", json!(null)).await.unwrap()
-    );
-    println!(
-        "{:#?}",
-        router
-            .exec_query((), "users.list", json!(null))
-            .await
-            .unwrap()
-    );
-    println!(
-        "{:#?}",
-        router.exec_query((), "another", json!(null)).await.unwrap()
-    );
+    // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
+    match r
+        .exec(
+            (),
+            OperationKind::Query,
+            OperationKey("version".into(), None),
+        )
+        .await
+        .unwrap()
+    {
+        StreamOrValue::Stream(_) => unreachable!(),
+        StreamOrValue::Value(v) => {
+            println!("{:?}", v);
+            assert_eq!(v, json!("0.1.0"));
+        }
+    }
+
+    match r
+        .exec(
+            (),
+            OperationKind::Query,
+            OperationKey("r1.demo".into(), None),
+        )
+        .await
+        .unwrap()
+    {
+        StreamOrValue::Stream(_) => unreachable!(),
+        StreamOrValue::Value(v) => {
+            println!("{:?}", v);
+            assert_eq!(v, json!("Merging Routers!"));
+        }
+    }
 }
