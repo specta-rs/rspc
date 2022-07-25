@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition, ts_export};
+use specta::{Type, ts_inline, ts_export};
 
 #[derive(Type)]
 enum SimpleEnum {
@@ -13,7 +13,7 @@ fn test_empty() {
     #[derive(Type)]
     enum Empty {}
 
-    assert_eq!(ts_definition::<Empty>(), "never");
+    assert_eq!(ts_inline::<Empty>(), "never");
 }
 
 #[test]

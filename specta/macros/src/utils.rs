@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 
-use proc_macro2::Ident;
 use syn::{Attribute, Error, Result};
 
 macro_rules! syn_err {

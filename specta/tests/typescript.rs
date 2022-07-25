@@ -2,11 +2,11 @@
 
 use std::{cell::RefCell, path::PathBuf};
 
-use specta::{ts_definition, Type};
+use specta::{ts_inline, Type};
 
 macro_rules! assert_ts_type {
     ($t:ty, $e:expr) => {
-        assert_eq!(ts_definition::<$t>(), $e)
+        assert_eq!(ts_inline::<$t>(), $e)
     };
 }
 

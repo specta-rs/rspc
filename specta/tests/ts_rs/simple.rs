@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[derive(Type)]
 struct Simple {
@@ -14,7 +14,7 @@ struct Simple {
 #[test]
 fn test_def() {
     assert_eq!(
-        ts_definition::<Simple>(),
+        ts_inline::<Simple>(),
         "{ a: number, b: string, c: [number, string, number], d: Array<string>, e: string | null }"
     )
 }

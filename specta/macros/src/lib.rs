@@ -13,7 +13,7 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let DeriveInput {
         ident,
-        generics,
+        // generics,
         data,
         attrs,
         ..
@@ -34,27 +34,24 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let name_str = container_attrs.rename.clone().unwrap_or(ident.to_string());
 
-    let body = match data {
+    let ty = match data {
         Data::Struct(data) => {
             let struct_attrs = StructAttr::from_attrs(attrs).unwrap();
 
-            parse_struct(&name_str, &struct_attrs, &container_attrs, &crate_ref, data)
+            parse_struct(&name_str, &ident, &struct_attrs, &container_attrs, &crate_ref, data)
         }
         Data::Enum(data) => {
             let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
 
-            parse_enum(&name_str, &enum_attrs, &container_attrs, &crate_ref, data)
+            parse_enum(&name_str, &ident, &enum_attrs, &container_attrs, &crate_ref, data)
         }
         Data::Union(_) => panic!("Type 'Union' is not supported by specta!"),
     };
 
     quote! {
         impl #crate_ref::Type for #ident {
-            fn def(defs: &mut #crate_ref::TypeDefs) -> #crate_ref::Typedef {
-                #crate_ref::Typedef {
-                    type_id: std::any::TypeId::of::<#ident>(),
-                    body: #body,
-                }
+            fn def(defs: &mut #crate_ref::TypeDefs) -> #crate_ref::DataType {
+                #ty
             }
         }
     }
@@ -63,6 +60,7 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 fn parse_struct(
     struct_name_str: &str,
+    struct_ident: &Ident,
     _struct_attrs: &StructAttr,
     container_attrs: &ContainerAttr,
     crate_ref: &TokenStream,
@@ -83,6 +81,7 @@ fn parse_struct(
     match &data.fields {
         Fields::Unit => quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
             name: #struct_name_str.to_string(),
+            id: std::any::TypeId::of::<#struct_ident>(),
             inline: true,
             fields: vec![],
         })),
@@ -96,11 +95,12 @@ fn parse_struct(
 
             quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
                 name: #struct_name_str.to_string(),
+                id: std::any::TypeId::of::<#struct_ident>(),
                 inline: #inline,
                 fields: (vec![#(#fields),*] as Vec<Vec<_>>)
                     .into_iter()
                     .flatten()
-                    .collect::<Vec<#crate_ref::Typedef>>(),
+                    .collect::<Vec<#crate_ref::DataType>>(),
             }))
         }
         Fields::Named(_) => {
@@ -119,6 +119,7 @@ fn parse_struct(
 
             quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
                 name: #struct_name_str.to_string(),
+                id: std::any::TypeId::of::<#struct_ident>(),
                 inline: #inline,
                 fields: (vec![#(#fields),*] as Vec<Vec<_>>)
                     .into_iter()
@@ -141,16 +142,14 @@ fn parse_named_struct_field(
     // TODO: flatten + optional
     if field_attrs.flatten {
         return quote! {{
-            let def = #upsert;
+            let ty = #upsert;
 
-            match def.body {
+            match ty {
                 #crate_ref::DataType::Object(#crate_ref::ObjectType { fields, .. }) => fields,
                 _ => panic!("Attempted to flatten non-object field")
             }
         }};
     }
-
-    let inline = field_attrs.inline.then(|| quote!(def.body.force_inline();));
 
     let name_str = sanitise_raw_ident(field.ident.as_ref().unwrap());
 
@@ -161,14 +160,16 @@ fn parse_named_struct_field(
     };
 
     let optional = field_attrs.optional;
+    let inline = field_attrs.inline;
 
-    quote! {{
-        let mut def = #upsert;
-
-        #inline
-
-        vec![#crate_ref::ObjectField { name: #name_str.to_string(), ty: def, optional: #optional }]
-    }}
+    quote! {
+        vec![#crate_ref::ObjectField {
+            name: #name_str.to_string(),
+            ty: #upsert,
+            optional: #optional,
+            inline: #inline
+        }]
+    }
 }
 
 fn parse_tuple_struct_field(
@@ -182,11 +183,11 @@ fn parse_tuple_struct_field(
     // TODO: flatten + optional
     if field_attrs.flatten {
         return quote! {{
-            match def.body {
+            match ty {
                 #crate_ref::DataType::Object(ObjectType { fields, .. }) => fields
                     .into_iter()
                     .map(|of| of.ty)
-                    .collect::<Vec<#crate_ref::Typedef>>(),
+                    .collect::<Vec<#crate_ref::DataType>>(),
                 _ => panic!("Attempted to flatten non-object field"),
             }
         }};
@@ -194,25 +195,26 @@ fn parse_tuple_struct_field(
 
     let optional = field_attrs.optional.then(|| {
         quote! {
-            def.body = #crate_ref::DataType::Nullable(Box::new(def.clone()));
+            ty = #crate_ref::DataType::Nullable(Box::new(def.clone()));
         }
     });
 
-    let inline = field_attrs.inline.then(|| quote!(def.body.force_inline();));
+    let inline = field_attrs.inline.then(|| quote!(ty.force_inline();));
 
     quote! {{
-        let mut def = #upsert;
+        let mut ty = #upsert;
 
         #optional
 
         #inline
 
-        vec![def]
+        vec![ty]
     }}
 }
 
 fn parse_enum(
     enum_name_str: &str,
+    enum_ident: &Ident,
     enum_attrs: &EnumAttr,
     _container_attrs: &ContainerAttr,
     crate_ref: &TokenStream,
@@ -253,6 +255,7 @@ fn parse_enum(
 
                     quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
                         name: #variant_name_str.to_string(),
+                        id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
                         inline: true,
                     }))
@@ -261,11 +264,24 @@ fn parse_enum(
                     let fields = fields
                         .named
                         .iter()
-                        .map(|f| to_object_field(f, crate_ref))
+                        .map(|f| {
+                            let ident = f.ident.as_ref().unwrap();
+                            let ty = upsert_def(f, crate_ref);
+
+                            let name = sanitise_raw_ident(ident);
+
+                            quote!(#crate_ref::ObjectField {
+                                name: #name.into(),
+                                ty: #ty,
+                                optional: false,
+                                inline: false,
+                            })
+                        })
                         .collect::<Vec<_>>();
 
                     quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
                         name: #variant_name_str.to_string(),
+                        id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
                         inline: true,
                         tag: None
@@ -288,25 +304,11 @@ fn parse_enum(
 
     quote!(#crate_ref::DataType::Enum(#crate_ref::EnumType {
         name: #enum_name_str.to_string(),
+        id: std::any::TypeId::of::<#enum_ident>(), 
         inline: false,
         variants: vec![#(#variants),*],
         repr: #crate_ref::EnumRepr::#repr,
     }))
-}
-
-fn to_object_field(f: &Field, crate_ref: &TokenStream) -> TokenStream {
-    let ident = f.ident.as_ref().unwrap();
-    let ty = upsert_def(f, crate_ref);
-
-    let name = sanitise_raw_ident(ident);
-
-    quote! {
-        #crate_ref::ObjectField {
-            name: #name.into(),
-            ty: #ty,
-            optional: false
-        }
-    }
 }
 
 fn upsert_def(f: &Field, crate_ref: &TokenStream) -> TokenStream {

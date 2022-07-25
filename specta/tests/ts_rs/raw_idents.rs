@@ -1,4 +1,4 @@
-use specta::{ts_definition, Type};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
 struct r#enum {
@@ -12,7 +12,7 @@ struct r#enum {
 #[test]
 fn raw_idents() {
     assert_eq!(
-        ts_definition::<r#enum>(),
+        ts_inline::<r#enum>(),
         "{ type: number, use: number, struct: number, let: number, enum: number }"
     )
 }

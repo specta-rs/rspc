@@ -1,6 +1,6 @@
 use std::{sync::Arc, cell::Cell, rc::Rc};
 
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[derive(Type)]
 struct A {
@@ -25,7 +25,7 @@ struct C {
 #[test]
 fn test_nested() {
     assert_eq!(
-        ts_definition::<C>(),
+        ts_inline::<C>(),
         "{ b1: B, b2: { a1: A, a2: { x1: number, y1: number } } }"
     );
 }

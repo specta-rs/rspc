@@ -1,4 +1,4 @@
-use specta::{ts_definition, Type};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
 struct A {
@@ -23,7 +23,7 @@ struct C {
 #[test]
 fn test() {
     assert_eq!(
-        ts_definition::<C>(),
+        ts_inline::<C>(),
         "{ b: { a: number, b: number, c: number }, d: number }"
     )
 }

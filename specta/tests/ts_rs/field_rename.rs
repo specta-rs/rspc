@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[derive(Type)]
 struct Rename{
@@ -9,5 +9,5 @@ struct Rename{
 
 #[test]
 fn test() {
-    assert_eq!(ts_definition::<Rename>(), "{ a: number, bb: number }")
+    assert_eq!(ts_inline::<Rename>(), "{ a: number, bb: number }")
 }

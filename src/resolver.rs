@@ -5,12 +5,12 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::{Type, TypeDefs};
 
-use crate::{ExecError, IntoLayerResult, LayerResult, ProcedureTypedef};
+use crate::{ExecError, IntoLayerResult, LayerResult, ProcedureDataType};
 
 pub trait Resolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef;
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
 
 pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
@@ -23,8 +23,8 @@ where
         self().into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
-        ProcedureTypedef {
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
+        ProcedureDataType{
             arg_ty: <() as Type>::def(defs),
             result_ty: <TResult as Type>::def(defs),
         }
@@ -41,8 +41,8 @@ where
         self(ctx).into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
-        ProcedureTypedef {
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
+        ProcedureDataType{
             arg_ty: <() as Type>::def(defs),
             result_ty: <TResult::Result as Type>::def(defs),
         }
@@ -64,8 +64,8 @@ where
         self(ctx, arg).into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
-        ProcedureTypedef {
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
+        ProcedureDataType{
             arg_ty: <TArg as Type>::def(defs),
             result_ty: <TResult::Result as Type>::def(defs),
         }
@@ -75,7 +75,7 @@ where
 pub trait StreamResolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef;
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
 
 pub struct DoubleArgStreamMarker<TArg, TResult, TStream>(
@@ -96,8 +96,8 @@ where
         }))))
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureTypedef {
-        ProcedureTypedef {
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
+        ProcedureDataType{
             arg_ty: <TArg as Type>::def(defs),
             result_ty: <TResult as Type>::def(defs),
         }

@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[derive(Type)]
 #[serde(tag = "kind", content = "d")]
@@ -29,15 +29,15 @@ enum Untagged {
 #[test]
 fn test_serde_enum() {
     assert_eq!(
-        ts_definition::<SimpleEnum>(),
+        ts_inline::<SimpleEnum>(),
         r#"{ kind: "A" } | { kind: "B" }"#
     );
     assert_eq!(
-        ts_definition::<ComplexEnum>(),
+        ts_inline::<ComplexEnum>(),
         r#"{ kind: "A" } | { kind: "B", data: { foo: string, bar: number } } | { kind: "W", data: SimpleEnum } | { kind: "F", data: { nested: SimpleEnum } } | { kind: "T", data: [number, SimpleEnum] }"#
     );
     assert_eq!(
-        ts_definition::<Untagged>(),
+        ts_inline::<Untagged>(),
         r#"string | number | null"#
     );
 }

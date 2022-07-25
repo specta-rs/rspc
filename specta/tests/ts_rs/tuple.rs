@@ -1,9 +1,9 @@
-use specta::{Type, ts_definition, ts_export};
+use specta::{Type, ts_inline, ts_export};
 
 #[test]
 fn test_tuple() {
     type Tuple = (String, i32, (i32, i32));
-    assert_eq!("[string, number, [number, number]]", ts_definition::<Tuple>());
+    assert_eq!("[string, number, [number, number]]", ts_inline::<Tuple>());
 }
 
 #[test]

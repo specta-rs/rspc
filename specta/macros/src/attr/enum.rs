@@ -1,6 +1,6 @@
 use syn::{Attribute, Ident, Result};
 
-use crate::{attr::parse_assign_str, utils::parse_attrs};
+use crate::attr::parse_assign_str;
 
 #[derive(Debug, Default)]
 pub struct EnumAttr {

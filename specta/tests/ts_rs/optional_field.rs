@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[derive(Type)]
 struct Optional {
@@ -11,8 +11,8 @@ struct Optional {
 #[test]
 fn test() {
     #[cfg(not(feature = "serde"))]
-    assert_eq!(ts_definition::<Optional>(), "{ a?: number, b: string | null }");
+    assert_eq!(ts_inline::<Optional>(), "{ a?: number, b: string | null }");
 
     #[cfg(feature = "serde")]
-    assert_eq!(ts_definition::<Optional>(), "{ a?: number, b?: string }");
+    assert_eq!(ts_inline::<Optional>(), "{ a?: number, b?: string }");
 }

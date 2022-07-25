@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[test]
 fn rename_all() {
@@ -9,7 +9,7 @@ fn rename_all() {
         b: i32,
     }
 
-    assert_eq!(ts_definition::<Rename>(), "{ A: number, B: number }");
+    assert_eq!(ts_inline::<Rename>(), "{ A: number, B: number }");
 }
 
 #[cfg(feature = "serde")]
@@ -21,5 +21,5 @@ fn serde_rename_special_char() {
         b: i32,
     }
 
-    assert_eq!(ts_definition::<RenameSerdeSpecialChar>(), r#"{ "a/b": number }"#);
+    assert_eq!(ts_inline::<RenameSerdeSpecialChar>(), r#"{ "a/b": number }"#);
 }

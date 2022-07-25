@@ -9,20 +9,21 @@ macro_rules! selection {
             }
 
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
-                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::Typedef {
-                    $crate::internal::specta::Typedef {
-                        type_id: std::any::TypeId::of::<Selection<$($n,)*>>(),
-                        body: $crate::internal::specta::BodyDefinition::Object {
-                            name: "Selection".to_string(),
-                            inline: true,
-                            fields: vec![$(
-                                $crate::internal::specta::ObjectField {
-                                    name: stringify!($n).to_string(),
-                                    ty: <$n as $crate::internal::specta::Type>::def(defs),
-                                }
-                            ),*],
-                        },
-                    }
+                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType{
+                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
+                        id: std::any::TypeId::of::<Selection<$($n,)*>>(),
+                        name: "Selection".to_string(),
+                        inline: true,
+                        tag: None,
+                        fields: vec![$(
+                            $crate::internal::specta::ObjectField {
+                                name: stringify!($n).to_string(),
+                                ty: <$n as $crate::internal::specta::Type>::def(defs),
+                                optional: false,
+                                inline: false
+                            }
+                        ),*],
+                    })
                 }
             }
         }
@@ -39,20 +40,21 @@ macro_rules! selection {
             }
 
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
-                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::Typedef {
-                    $crate::internal::specta::Typedef {
-                        type_id: std::any::TypeId::of::<Selection<$($n,)*>>(),
-                        body: $crate::internal::specta::BodyDefinition::Object {
-                            name: "Selection".to_string(),
-                            inline: true,
-                            fields: vec![$(
-                                $crate::internal::specta::ObjectField {
-                                    name: stringify!($n).to_string(),
-                                    ty: <$n as $crate::internal::specta::Type>::def(defs),
-                                }
-                            ),*],
-                        },
-                    }
+                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType{
+                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
+                        id: std::any::TypeId::of::<Selection<$($n,)*>>(),
+                        name: "Selection".to_string(),
+                        inline: true,
+                        tag: None,
+                        fields: vec![$(
+                            $crate::internal::specta::ObjectField {
+                                name: stringify!($n).to_string(),
+                                ty: <$n as $crate::internal::specta::Type>::def(defs),
+                                optional: false,
+                                inline: false,
+                            }
+                        ),*],
+                    })
                 }
             }
         }

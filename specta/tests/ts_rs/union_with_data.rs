@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition, ts_export};
+use specta::{Type, ts_inline, ts_export};
 use serde::Serialize;
 
 #[derive(Type, Serialize)]

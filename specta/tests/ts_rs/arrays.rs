@@ -1,8 +1,8 @@
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[test]
 fn free() {
-    assert_eq!(ts_definition::<[String; 10]>(), "Array<string>")
+    assert_eq!(ts_inline::<[String; 10]>(), "Array<string>")
 }
 
 #[test]
@@ -13,7 +13,7 @@ fn interface() {
         a: [i32; 10],
     }
 
-    assert_eq!(ts_definition::<Interface>(), "{ a: Array<number> }")
+    assert_eq!(ts_inline::<Interface>(), "{ a: Array<number> }")
 }
 
 #[test]
@@ -21,5 +21,5 @@ fn newtype() {
     #[derive(Type)]
     struct Newtype(#[allow(dead_code)] [i32; 10]);
 
-    assert_eq!(ts_definition::<Newtype>(), "Array<number>")
+    assert_eq!(ts_inline::<Newtype>(), "Array<number>")
 }

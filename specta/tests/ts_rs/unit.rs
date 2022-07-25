@@ -1,4 +1,4 @@
-use specta::{Type, ts_definition};
+use specta::{Type, ts_inline};
 
 #[derive(Type)]
 struct Unit;
@@ -11,7 +11,7 @@ struct Unit3();
 
 #[test]
 fn test() {
-    assert_eq!("null", ts_definition::<Unit>());
-    assert_eq!("null", ts_definition::<Unit2>());
-    assert_eq!("null", ts_definition::<Unit3>());
+    assert_eq!("null", ts_inline::<Unit>());
+    assert_eq!("null", ts_inline::<Unit2>());
+    assert_eq!("null", ts_inline::<Unit3>());
 }
