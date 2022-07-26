@@ -26,17 +26,16 @@ where
 }
 
 pub struct ResultMarker(PhantomData<()>);
-impl<T, TErr> IntoLayerResult<ResultMarker> for Result<T, TErr>
+impl<T> IntoLayerResult<ResultMarker> for Result<T, Error>
 where
     T: Serialize + Type,
-    TErr: Into<Error>,
 {
     type Result = T;
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Ready(Ok(serde_json::to_value(self.map_err(
-            |err| ExecError::ErrResolverError(err.into()),
-        )?)
+        Ok(LayerResult::Ready(Ok(serde_json::to_value(
+            self.map_err(|err| ExecError::ErrResolverError(err))?,
+        )
         .map_err(ExecError::SerializingResultErr)?)))
     }
 }

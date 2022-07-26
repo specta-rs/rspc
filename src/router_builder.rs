@@ -1,7 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
-use futures::Future;
-use serde::de::DeserializeOwned;
+use futures::{Future, Stream};
+use serde::{de::DeserializeOwned, Serialize};
 use specta::{Type, TypeDefs};
 
 use crate::{
@@ -188,13 +188,17 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         self
     }
 
-    pub fn subscription<TResolver, TMarker>(
+    pub fn subscription<TArg, TResolver, TStream, TResult, TMarker>(
         mut self,
         key: &'static str,
         resolver: TResolver,
     ) -> Self
     where
-        TResolver: StreamResolver<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TArg: DeserializeOwned + Type,
+        TResolver:
+            Fn(TCtx, TArg) -> TStream + StreamResolver<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TStream: Stream<Item = TResult> + Send + 'static,
+        TResult: Serialize + Type,
     {
         let key = key.to_string();
         if self.subscriptions.contains_key(&key) {

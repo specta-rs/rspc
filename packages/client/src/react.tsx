@@ -30,59 +30,42 @@ export function createReactQueryHooks<T extends OperationsDef>() {
     return React.useContext(Context);
   }
 
-  function demo() {
-    useQuery(["version", "string"]);
-  }
-
   function useQuery<K extends T["queries"]["key"]>(
-    key: [
-      ...K,
-      ...(Extract<T["queries"], { key: K }>["margs"] extends null ? [] : [K])
-    ],
+    key: K,
     options?: UseQueryOptions<Extract<T["queries"], { key: K }>["result"]>
   ): UseQueryResult<Extract<T["queries"], { key: K }>["result"], unknown> {
     const ctx = useContext();
-    return _useQuery(
-      key,
-      async () => ctx.client.query([key[0], key[1]], key[2]),
-      {
-        ...options,
-        context: ReactQueryContext,
-      }
-    );
+    return _useQuery(key, async () => ctx.client.query(key), {
+      ...options,
+      context: ReactQueryContext,
+    });
   }
 
   function useMutation<K extends T["mutations"]["key"]>(
     key: K[0],
     options?: UseMutationOptions<Extract<T["mutations"], { key: K }>["result"]>
-  ): UseMutationResult<Extract<T["mutations"], { key: K }>["result"], unknown> {
+  ): UseMutationResult<
+    Extract<T["mutations"], { key: K }>["result"],
+    unknown,
+    K[1]
+  > {
     const ctx = useContext();
-    return _useMutation(
-      async (data: K[2] extends undefined ? [K[1]] : [K[1], K[2]]) =>
-        ctx.client.mutation([key, data[0], data[1]]),
-      {
-        ...options,
-        context: ReactQueryContext,
-      }
-    );
+    return _useMutation(async (data) => ctx.client.mutation([key, data]), {
+      ...options,
+      context: ReactQueryContext,
+    });
   }
 
   function useSubscription<K extends T["subscriptions"]["key"]>(
     key: K,
-    arg?: Extract<T["queries"], { key: K }>["arg"],
     options?: {
-      onNext(msg: Extract<T["queries"], { key: K }>["result"]);
+      onNext(msg: Extract<T["subscriptions"], { key: K }>["result"]);
       onError(err: never); // TODO: Error type??
     }
   ) {
+    const ctx = useContext();
     useEffect(() => {
-      this.transport.subscribe(
-        "subscriptionAdd",
-        key,
-        arg,
-        options?.onNext as any,
-        options?.onError as any
-      );
+      ctx.client.addSubscription(key, options);
 
       return () => {
         // TODO: Handle unsubscribe

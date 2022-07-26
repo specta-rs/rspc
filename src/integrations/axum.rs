@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use crate::{OperationKey, OperationKind, Response, ResponseResult, Router};
+use crate::{ClientContext, OperationKey, OperationKind, Response, ResponseResult, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -28,7 +28,6 @@ pub struct GetParams {
 #[derive(Debug, Deserialize)]
 pub struct PostParams {
     pub batch: i32,
-    pub margs: Option<String>,
 }
 
 pub enum TCtxFuncResult<'a, TCtx> {
@@ -87,13 +86,16 @@ where
     ) -> MethodRouter {
         let get_this = self.clone();
         let post_this = self;
-        let ctx_fn2 = ctx_fn.clone();
+        let client_ctx = ClientContext::new();
+
         MethodRouter::new()
-            .on(MethodFilter::GET, move |path, query, request| {
-                get_this.get(ctx_fn, path, query, request)
+            .on(MethodFilter::GET, {
+                let ctx_fn = ctx_fn.clone();
+                let client_ctx = client_ctx.clone();
+                move |path, query, request| get_this.get(ctx_fn, client_ctx, path, query, request)
             })
             .on(MethodFilter::POST, move |path, query, body, request| {
-                post_this.post(ctx_fn2, path, query, body, request)
+                post_this.post(ctx_fn, client_ctx, path, query, body, request)
             })
     }
 
@@ -101,10 +103,14 @@ where
         self: Arc<Self>,
         ctx_fn: impl TCtxFunc<TCtx, TMarker>,
     ) -> MethodRouter {
+        let client_ctx = ClientContext::new();
+
         MethodRouter::new().on(
             MethodFilter::GET,
             move |ws: WebSocketUpgrade, request| async move {
-                ws.on_upgrade(move |socket| async move { self.ws(ctx_fn, socket, request).await })
+                ws.on_upgrade(move |socket| async move {
+                    self.ws(ctx_fn, client_ctx, socket, request).await
+                })
             },
         )
     }
@@ -112,6 +118,7 @@ where
     async fn get<TMarker>(
         self: Arc<Self>,
         ctx_fn: impl TCtxFunc<TCtx, TMarker>,
+        client_ctx: Arc<ClientContext>,
         Path(key): Path<String>,
         Query(params): Query<GetParams>,
         request: Request<Body>,
@@ -144,7 +151,7 @@ where
                             operation: OperationKind::Query,
                             key: OperationKey(key, Some(arg)),
                         }
-                        .handle(ctx, &self, None)
+                        .handle(ctx, &self, &client_ctx, None)
                         .await,
                     ]),
                 )
@@ -159,8 +166,9 @@ where
     async fn post<TMarker>(
         self: Arc<Self>,
         ctx_fn: impl TCtxFunc<TCtx, TMarker>,
+        client_ctx: Arc<ClientContext>,
         Path(key): Path<String>,
-        Query(params): Query<PostParams>,
+        Query(_params): Query<PostParams>,
         Json(arg): Json<Option<Value>>,
         request: Request<Body>,
     ) -> impl IntoResponse {
@@ -187,7 +195,7 @@ where
                     operation: OperationKind::Mutation,
                     key: OperationKey(key, arg),
                 }
-                .handle(ctx, &self, None)
+                .handle(ctx, &self, &client_ctx, None)
                 .await,
             ]),
         )
@@ -196,6 +204,7 @@ where
     async fn ws<TMarker>(
         self: Arc<Self>,
         ctx_fn: impl TCtxFunc<TCtx, TMarker>,
+        client_ctx: Arc<ClientContext>,
         mut socket: WebSocket,
         request: Request<Body>,
     ) {
@@ -221,7 +230,7 @@ where
                                                 },
                                             };
 
-                                            result.handle(ctx, &self, Some(&tx)).await
+                                            result.handle(ctx, &self, &client_ctx, Some(&tx)).await
                                         },
                                         Err(err) =>{
                                             println!("ERROR PARSING MESSAGE! {:?}", err); // TODO: Error handling here

@@ -18,6 +18,18 @@ pub enum OperationKind {
     SubscriptionRemove,
 }
 
+impl ToString for OperationKind {
+    fn to_string(&self) -> String {
+        match self {
+            OperationKind::Query => "query",
+            OperationKind::Mutation => "mutation",
+            OperationKind::SubscriptionAdd => "subscriptionAdd",
+            OperationKind::SubscriptionRemove => "subscriptionRemove",
+        }
+        .to_string()
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Request {
     pub id: Option<String>,

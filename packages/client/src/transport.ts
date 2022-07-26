@@ -18,7 +18,7 @@ export interface Transport {
     key: OperationKey,
     onMessage: (msg: any) => void,
     onError: (msg: any) => void
-  ): Promise<void>;
+  ): Promise<string | undefined>;
 }
 
 export class FetchTransport implements Transport {
@@ -35,12 +35,12 @@ export class FetchTransport implements Transport {
 
     const params = new URLSearchParams();
     if (operation === "query") {
-      if (arg !== undefined) {
-        params.append("arg", JSON.stringify(arg));
+      if (key[1] !== undefined) {
+        params.append("arg", JSON.stringify(key[1]));
       }
     } else if (operation === "mutation") {
       method = "POST";
-      body = arg || {};
+      body = key[1] || {};
       headers.set("Content-Type", "application/json");
     }
     const resp = await fetch(`${this.url}/${key}?${params.toString()}`, {
@@ -57,10 +57,11 @@ export class FetchTransport implements Transport {
     key: OperationKey,
     onMessage: (msg: any) => void,
     onError: (msg: any) => void
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     console.error(
       `Subscribing to '{}' failed as the HTTP transport does not support subscriptions. Maybe try using Websockets?`
     );
+    return undefined;
   }
 }
 
@@ -131,7 +132,7 @@ export class WebsocketTransport implements Transport {
     key: OperationKey,
     onMessage?: (msg: any) => void,
     onError?: (msg: any) => void
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     if (this.ws.readyState == 0) {
       let resolve: () => void;
       const promise = new Promise((res) => {
@@ -142,12 +143,12 @@ export class WebsocketTransport implements Transport {
       await promise;
     }
 
-    if (!this.subscriptionMap.has(key)) {
-      this.subscriptionMap.set(key, new Set());
+    if (!this.subscriptionMap.has(key[0])) {
+      this.subscriptionMap.set(key[0], new Set());
     }
 
     if (onMessage) {
-      this.subscriptionMap.get(key)?.add(onMessage);
+      this.subscriptionMap.get(key[0])?.add(onMessage);
     }
 
     const id = randomId();
@@ -163,11 +164,13 @@ export class WebsocketTransport implements Transport {
       JSON.stringify({
         id,
         operation,
-        key,
+        key: [key, null],
       })
     );
 
-    await promise;
+    console.log("TODO", await promise);
+
+    return undefined; // TODO
   }
 }
 
@@ -230,7 +233,10 @@ export class TauriTransport implements Transport {
     key: OperationKey,
     onMessage: (msg: any) => void,
     onError: (msg: any) => void
-  ): Promise<void> {
+  ): Promise<string | undefined> {
+    alert("bruh");
     // TODO
+
+    return undefined; // TODO
   }
 }

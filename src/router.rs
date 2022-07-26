@@ -83,6 +83,22 @@ where
         Arc::new(self)
     }
 
+    pub fn queries(&self) -> &HashMap<String, Procedure<TCtx>> {
+        &self.queries
+    }
+
+    pub fn mutations(&self) -> &HashMap<String, Procedure<TCtx>> {
+        &self.mutations
+    }
+
+    pub fn subscriptions(&self) -> &HashMap<String, Procedure<TCtx>> {
+        &self.subscriptions
+    }
+
+    pub fn typ_store(&self) -> TypeDefs {
+        self.typ_store.clone()
+    }
+
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
         let export_path = PathBuf::from(export_path.as_ref());
         if let Some(export_dir) = export_path.parent() {
@@ -121,6 +137,7 @@ fn generate_procedures_ts<Ctx>(procedures: &HashMap<String, Procedure<Ctx>>) -> 
             .map(|(key, operation)| {
                 let arg_ts = match &operation.ty.arg_ty {
                     DataType::Tuple(def)
+                        // This condition is met with an empty enum or `()`.
                         if def.fields.len() == 0 =>
                     {
                         "".into()

@@ -24,6 +24,9 @@ enum GenericEnum<T> {
     X(T),
 }
 
+#[derive(Serialize, Type)]
+pub struct Demo {}
+
 #[tokio::main]
 async fn main() {
     let _r =
@@ -56,6 +59,11 @@ async fn main() {
             })
             .query("genericEnum", |_, _: ()| {
                 GenericEnum::<String>::X("Hello World".into())
+            })
+            .query("demo", |_, _: ()| {
+                let mut x = BTreeMap::new();
+                x.insert("a", Demo {});
+                x
             })
             .build();
 }

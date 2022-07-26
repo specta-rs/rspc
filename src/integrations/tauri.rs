@@ -6,7 +6,7 @@ use tauri::{
 };
 use tokio::sync::mpsc;
 
-use crate::{Request, Response, Router};
+use crate::{ClientContext, Request, Response, Router};
 
 pub fn plugin<R: Runtime, TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
@@ -20,12 +20,15 @@ where
         .setup(|app_handle| {
             let (tx, mut rx) = mpsc::unbounded_channel::<Request>();
             let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<Response>();
+            let client_ctx = ClientContext::new();
 
             {
                 let app_handle = app_handle.clone();
                 tokio::spawn(async move {
                     while let Some(event) = rx.recv().await {
-                        let result = event.handle(ctx_fn(), &router, Some(&resp_tx)).await;
+                        let result = event
+                            .handle(ctx_fn(), &router, &client_ctx, Some(&resp_tx))
+                            .await;
 
                         if !matches!(result, Response::None) {
                             app_handle

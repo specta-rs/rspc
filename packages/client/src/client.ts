@@ -3,9 +3,9 @@ import { Transport } from "./transport";
 export type OperationKey = [string] | [string, /* args */ any];
 
 export type OperationsDef = {
-  queries: { key: OperationKey; margs: any; arg: any; result: any };
-  mutations: { key: OperationKey; margs: any; arg: any; result: any };
-  subscriptions: { key: OperationKey; margs: any; arg: any; result: any };
+  queries: { key: OperationKey; result: any };
+  mutations: { key: OperationKey; result: any };
+  subscriptions: { key: OperationKey; result: any };
 };
 
 export interface ClientArgs {
@@ -26,10 +26,9 @@ export class Client<T extends OperationsDef> {
   }
 
   async query<K extends T["queries"]["key"]>(
-    key: K,
-    margs: Extract<T["queries"], { key: K }>["margs"]
+    key: K
   ): Promise<Extract<T["queries"], { key: K }>["result"]> {
-    return await this.transport.doRequest("query", key, margs);
+    return await this.transport.doRequest("query", key);
   }
 
   async mutation<K extends T["mutations"]["key"]>(
@@ -38,19 +37,34 @@ export class Client<T extends OperationsDef> {
     return await this.transport.doRequest("mutation", key);
   }
 
-  async subscription<K extends T["subscriptions"]["key"]>(
+  async addSubscription<K extends T["subscriptions"]["key"]>(
     key: K,
     options?: {
-      onNext(msg: Extract<T["queries"], { key: K }>["result"]);
+      onNext(msg: Extract<T["subscriptions"], { key: K }>["result"]);
       onError(err: never); // TODO: Error type??
     }
   ) {
-    // TODO: Handle unsubscribe
-    this.transport.subscribe(
+    const id = await this.transport.subscribe(
       "subscriptionAdd",
       key,
       options?.onNext as any,
       options?.onError as any
     );
+    console.log("SUBSCRIPTION ID", id);
   }
+
+  // async removeSubscription<K extends T["subscriptions"]["key"]>(
+  //   key: K,
+  //   options?: {
+  //     onNext(msg: Extract<T["subscriptions"], { key: K }>["result"]);
+  //     onError(err: never); // TODO: Error type??
+  //   }
+  // ) {
+  //   await this.transport.subscribe(
+  //     "subscriptionAdd",
+  //     key,
+  //     options?.onNext as any,
+  //     options?.onError as any
+  //   );
+  // }
 }
