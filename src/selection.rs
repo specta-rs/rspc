@@ -24,16 +24,9 @@ macro_rules! selection {
                         ),*],
                     })
                 }
-                fn base(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType {
-                    Self::def(defs)
-                }
 
                 fn name() -> Option<String> {
                     None
-                }
-
-                fn refr() -> $crate::internal::specta::DataType {
-                    unreachable!()
                 }
             }
         }
@@ -66,16 +59,8 @@ macro_rules! selection {
                     })
                 }
 
-                fn base(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType {
-                    Self::def(defs)
-                }
-
                 fn name() -> Option<String> {
                     None
-                }
-
-                fn refr() -> $crate::internal::specta::DataType {
-                    unreachable!()
                 }
             }
         }

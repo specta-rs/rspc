@@ -1,9 +1,10 @@
-use crate::{DataType, ObjectType, PrimitiveType, TupleType};
+use crate::{DataType, ObjectType, PrimitiveType, TupleType, GenericType};
 
 #[derive(Debug, Clone)]
 pub struct EnumType {
     pub name: String,
     pub variants: Vec<EnumVariant>,
+    pub generics: Vec<GenericType>,
     pub repr: EnumRepr,
 }
 

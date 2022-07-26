@@ -1,4 +1,4 @@
-use crate::DataType;
+use crate::{DataType, GenericType};
 
 #[derive(Debug, Clone)]
 pub struct ObjectField {
@@ -11,12 +11,7 @@ pub struct ObjectField {
 pub struct ObjectType {
     pub name: String,
     pub inline: bool,
-    pub generics: Vec<Generic>,
+    pub generics: Vec<GenericType>,
     pub fields: Vec<ObjectField>,
     pub tag: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub enum Generic {
-    TypeParam { name: String, ty: DataType },
 }

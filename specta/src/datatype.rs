@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{EnumType, ObjectType, TupleType};
 
 #[derive(Debug, Clone)]
@@ -8,11 +10,18 @@ pub enum DataType {
     List(Box<DataType>),
     Nullable(Box<DataType>),
     Record(Box<(DataType, DataType)>),
-    // Can be exported
     Tuple(TupleType),
+    // Reference types
     Object(ObjectType),
     Enum(EnumType),
-    Reference(String),
+    // A reference type that has already been defined
+    Reference {
+        name: String,
+        generics: Vec<DataType>
+    },
+    Generic {
+        ident: String,
+    }
 }
 
 impl DataType {

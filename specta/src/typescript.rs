@@ -1,8 +1,6 @@
-use std::collections::HashSet;
-
 use crate::{
-    DataType, EnumRepr, EnumType, EnumVariant, Generic, ObjectField, ObjectType, PrimitiveType,
-    TupleType, TypeDefs,
+    DataType, EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType, PrimitiveType, TupleType,
+    TypeDefs,
 };
 
 use super::Type;
@@ -28,36 +26,44 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
             inline,
             generics,
             ..
-        }) => match !inline {
-            true => {
-                let generics = generics
-                    .into_iter()
-                    .map(|generic| match generic {
-                        Generic::TypeParam { name, .. } => name.clone(),
-                    })
-                    .collect::<Vec<_>>();
-                let generics = match generics.len() {
-                    0 => "".into(),
-                    _ => format!("<{}>", generics.join(", ")),
-                };
+        }) if !inline => {
+            println!("{:?}", generics);
+            let generics = match generics.len() {
+                0 => "".into(),
+                _ => format!(
+                    "<{}>",
+                    generics
+                        .iter()
+                        .map(|g| g.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            };
 
-                format!("export interface {name}{generics} {inline_ts}")
-            }
-            false => return Err(format!("Type is inlined and cannot be exported: {}", name))?,
-        },
-        DataType::Enum(EnumType { name, .. }) => {
-            format!("export type {name} = {inline_ts}")
+            format!("export interface {name}{generics} {inline_ts}")
+        }
+        DataType::Enum(EnumType { name, generics, .. }) => {
+            let generics = match generics.len() {
+                0 => "".into(),
+                _ => format!(
+                    "<{}>",
+                    generics
+                        .iter()
+                        .map(|g| g.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            };
+            format!("export type {name}{generics} = {inline_ts}")
         }
         DataType::Tuple(TupleType { name, .. }) => {
             format!("export type {name} = {inline_ts}")
         }
-        _ => return Err(format!("Type cannot be exported: {:?}", def)),
+        _ => return Err(format!("Inline type cannot be exported: {:?}", def)),
     })
 }
 
 /// Prints the type definition of the given type.
-/// `field_inline` is necessary since the type may have been
-/// made inline outside of the type definition.
 pub fn to_ts(typ: &DataType) -> String {
     match &typ {
         DataType::Object(ObjectType {
@@ -68,15 +74,16 @@ pub fn to_ts(typ: &DataType) -> String {
         }) => match *inline {
             true => to_ts_inline(typ),
             false => {
-                let generics = generics
-                    .into_iter()
-                    .map(|generic| match generic {
-                        Generic::TypeParam { ty, .. } => to_ts(ty),
-                    })
-                    .collect::<Vec<_>>();
                 let generics = match generics.len() {
                     0 => "".into(),
-                    _ => format!("<{}>", generics.join(", ")),
+                    _ => format!(
+                        "<{}>",
+                        generics
+                            .iter()
+                            .map(|g| g.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
                 };
 
                 format!("{name}{generics}")
@@ -173,7 +180,19 @@ pub fn to_ts_inline(typ: &DataType) -> String {
             })
             .collect::<Vec<_>>()
             .join(" | "),
-        DataType::Reference(name) => name.to_string(),
+        DataType::Reference { name, generics } => match &generics[..] {
+            [] => name.to_string(),
+            generics => {
+                let generics = generics
+                    .iter()
+                    .map(|g| to_ts(&g))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                format!("{name}<{generics}>")
+            }
+        },
+        DataType::Generic { ident } => ident.to_string(),
     }
 }
 
@@ -213,74 +232,4 @@ pub fn sanitise_name(value: &str) -> String {
     } else {
         value.to_string()
     }
-}
-
-/// Resolves dependencies of a type.
-/// Ignores inlining as the type passed in is treated as the root type.
-pub fn ts_dependencies(ty: &DataType) -> HashSet<&str> {
-    match &ty {
-        DataType::Any | DataType::Primitive(_) => HashSet::new(),
-        DataType::Nullable(def) | DataType::List(def) => ts_dependencies(&def),
-        DataType::Record(def) => ts_dependencies(&def.0)
-            .union(&ts_dependencies(&def.1))
-            .copied()
-            .collect::<HashSet<_>>(),
-        DataType::Object(obj) => obj
-            .fields
-            .iter()
-            .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty))
-            .collect(),
-        DataType::Enum(e) => ts_enum_dependencies(e).into_iter().collect(),
-        DataType::Tuple(tuple) => tuple
-            .fields
-            .iter()
-            .flat_map(ts_field_dependencies)
-            .collect(),
-        DataType::Reference(name) => [name.as_str()].into_iter().collect(),
-    }
-}
-
-/// Resolves dependencies of a type as if it is a dependency of some parent type.
-/// Similar to ts_dependencies, but if the type is inlineable and inline is false
-/// it will itself be a dependency, indicating that the parent type depends on it.
-fn ts_field_dependencies(ty: &DataType) -> Vec<&str> {
-    match &ty {
-        DataType::Any | DataType::Primitive(_) => vec![],
-        DataType::Nullable(ty) | DataType::List(ty) => ts_field_dependencies(&ty),
-        DataType::Record(def) => ts_field_dependencies(&def.0)
-            .into_iter()
-            .chain(ts_field_dependencies(&def.1).into_iter())
-            .collect(),
-        DataType::Object(obj) => obj
-            .fields
-            .iter()
-            .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty))
-            .collect(),
-        DataType::Enum(e) => ts_enum_dependencies(e),
-        DataType::Tuple(tuple) => tuple
-            .fields
-            .iter()
-            .flat_map(|field| ts_field_dependencies(&field))
-            .collect(),
-        DataType::Reference(name) => vec![name.as_str()],
-    }
-}
-
-fn ts_enum_dependencies(e: &EnumType) -> Vec<&str> {
-    e.variants
-        .iter()
-        .flat_map(|v| match v {
-            EnumVariant::Unit(_) => vec![],
-            EnumVariant::Unnamed(tuple) => tuple
-                .fields
-                .iter()
-                .flat_map(ts_field_dependencies)
-                .collect(),
-            EnumVariant::Named(obj) => obj
-                .fields
-                .iter()
-                .flat_map(|obj_field| ts_field_dependencies(&obj_field.ty))
-                .collect(),
-        })
-        .collect()
 }

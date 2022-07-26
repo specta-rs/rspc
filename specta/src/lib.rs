@@ -1,5 +1,6 @@
 mod datatype;
 mod r#enum;
+mod generic;
 mod object;
 mod tuple;
 mod typescript;
@@ -13,6 +14,7 @@ use std::{
 };
 
 pub use datatype::*;
+pub use generic::*;
 pub use object::*;
 pub use r#enum::*;
 pub use specta_macros::*;
@@ -23,9 +25,7 @@ pub type TypeDefs = HashMap<String, DataType>;
 
 pub trait Type {
     fn def(defs: &mut TypeDefs) -> DataType;
-    fn base(defs: &mut TypeDefs) -> DataType;
     fn name() -> Option<String>;
-    fn refr() -> DataType;
 }
 
 macro_rules! impl_primitives {
@@ -35,16 +35,8 @@ macro_rules! impl_primitives {
                 DataType::Primitive(PrimitiveType::$i)
             }
 
-            fn base(defs: &mut TypeDefs) -> DataType {
-                Self::def(defs)
-            }
-
             fn name() -> Option<String> {
                 None
-            }
-
-            fn refr() -> DataType {
-                unreachable!()
             }
         }
     )+};
@@ -77,19 +69,12 @@ macro_rules! impl_tuple {
                 DataType::Tuple(TupleType {
                     name: stringify!(($($i),*)).to_string(),
                     fields: vec![$($crate::upsert_def!(_defs, $i)),*],
+                    generics: vec![]
                 })
-            }
-
-            fn base(defs: &mut TypeDefs) -> DataType {
-                Self::def(defs)
             }
 
             fn name() -> Option<String> {
                 None
-            }
-
-            fn refr() -> DataType {
-                unreachable!()
             }
         }
     };
@@ -124,16 +109,8 @@ impl<'a> Type for &'a str {
         String::def(defs)
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         String::name()
-    }
-
-    fn refr() -> DataType {
-        String::refr()
     }
 }
 
@@ -142,16 +119,8 @@ impl<'a, T: Type + 'static> Type for &'a T {
         T::def(defs)
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         T::name()
-    }
-
-    fn refr() -> DataType {
-        T::refr()
     }
 }
 
@@ -160,16 +129,8 @@ impl<T: Type> Type for Vec<T> {
         DataType::List(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        T::base(defs)
-    }
-
     fn name() -> Option<String> {
         T::name()
-    }
-
-    fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -178,16 +139,8 @@ impl<'a, T: Type> Type for &'a [T] {
         DataType::List(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        T::base(defs)
-    }
-
     fn name() -> Option<String> {
         T::name()
-    }
-
-    fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -196,16 +149,8 @@ impl<'a, const N: usize, T: Type> Type for [T; N] {
         DataType::List(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        T::base(defs)
-    }
-
     fn name() -> Option<String> {
         T::name()
-    }
-
-    fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -214,16 +159,8 @@ impl<T: Type> Type for Option<T> {
         DataType::Nullable(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        T::base(defs)
-    }
-
     fn name() -> Option<String> {
         T::name()
-    }
-
-    fn refr() -> DataType {
-        DataType::Nullable(Box::new(T::refr()))
     }
 }
 
@@ -234,16 +171,8 @@ macro_rules! impl_containers {
                 upsert_def!(defs)
             }
 
-            fn base(defs: &mut TypeDefs) -> DataType {
-                T::base(defs)
-            }
-
             fn name() -> Option<String> {
                 T::name()
-            }
-
-            fn refr() -> DataType {
-                T::refr()
             }
         }
     )+}
@@ -256,16 +185,8 @@ impl<T: Type> Type for HashSet<T> {
         DataType::List(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -274,16 +195,8 @@ impl<T: Type> Type for BTreeSet<T> {
         DataType::List(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -292,16 +205,8 @@ impl<K: Type, V: Type> Type for HashMap<K, V> {
         DataType::Record(Box::new((K::def(defs), V::def(defs))))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::Record(Box::new((K::refr(), V::refr())))
     }
 }
 
@@ -310,16 +215,8 @@ impl<K: Type, V: Type> Type for BTreeMap<K, V> {
         DataType::Record(Box::new((K::def(defs), V::def(defs))))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::Record(Box::new((K::refr(), V::refr())))
     }
 }
 
@@ -329,16 +226,8 @@ impl<T: Type> Type for indexmap::IndexSet<T> {
         DataType::List(Box::new(upsert_def!(defs)))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -348,16 +237,8 @@ impl<K: Type, V: Type> Type for indexmap::IndexMap<K, V> {
         DataType::Record(Box::new((K::def(defs), V::def(defs))))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::Record(Box::new((K::refr(), V::refr())))
     }
 }
 
@@ -367,16 +248,8 @@ impl<K: Type, V: Type> Type for serde_json::Map<K, V> {
         DataType::Record(Box::new((K::def(defs), V::def(defs))))
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::Record(Box::new((K::refr(), V::refr())))
     }
 }
 
@@ -386,16 +259,8 @@ impl Type for serde_json::Value {
         DataType::Any
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         None
-    }
-
-    fn refr() -> DataType {
-        DataType::Any
     }
 }
 
@@ -405,16 +270,8 @@ impl Type for uuid::Uuid {
         String::def(defs)
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         String::name()
-    }
-
-    fn refr() -> DataType {
-        String::refr()
     }
 }
 
@@ -424,15 +281,7 @@ impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
         String::def(defs)
     }
 
-    fn base(defs: &mut TypeDefs) -> DataType {
-        Self::def(defs)
-    }
-
     fn name() -> Option<String> {
         String::name()
-    }
-
-    fn refr() -> DataType {
-        String::refr()
     }
 }
