@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use crate::{
-    DataType, EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType, PrimitiveType, TupleType,
-    TypeDefs,
+    DataType, EnumRepr, EnumType, EnumVariant, Generic, ObjectField, ObjectType, PrimitiveType,
+    TupleType, TypeDefs,
 };
 
 use super::Type;
@@ -23,8 +23,26 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts_inline(&def);
 
     Ok(match &def {
-        DataType::Object(ObjectType { name, inline, .. }) => match !inline {
-            true => format!("export interface {name} {inline_ts}"),
+        DataType::Object(ObjectType {
+            name,
+            inline,
+            generics,
+            ..
+        }) => match !inline {
+            true => {
+                let generics = generics
+                    .into_iter()
+                    .map(|generic| match generic {
+                        Generic::TypeParam { name, .. } => name.clone(),
+                    })
+                    .collect::<Vec<_>>();
+                let generics = match generics.len() {
+                    0 => "".into(),
+                    _ => format!("<{}>", generics.join(", ")),
+                };
+
+                format!("export interface {name}{generics} {inline_ts}")
+            }
             false => return Err(format!("Type is inlined and cannot be exported: {}", name))?,
         },
         DataType::Enum(EnumType { name, .. }) => {
@@ -42,9 +60,27 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
 /// made inline outside of the type definition.
 pub fn to_ts(typ: &DataType) -> String {
     match &typ {
-        DataType::Object(ObjectType { name, inline, .. }) => match *inline {
+        DataType::Object(ObjectType {
+            name,
+            inline,
+            generics,
+            ..
+        }) => match *inline {
             true => to_ts_inline(typ),
-            false => format!("{name}"),
+            false => {
+                let generics = generics
+                    .into_iter()
+                    .map(|generic| match generic {
+                        Generic::TypeParam { ty, .. } => to_ts(ty),
+                    })
+                    .collect::<Vec<_>>();
+                let generics = match generics.len() {
+                    0 => "".into(),
+                    _ => format!("<{}>", generics.join(", ")),
+                };
+
+                format!("{name}{generics}")
+            }
         },
         DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0]),
         DataType::Nullable(def) => format!("{} | null", to_ts(&def)),

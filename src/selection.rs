@@ -15,6 +15,7 @@ macro_rules! selection {
                         name: "Selection".to_string(),
                         tag: None,
                         inline: true,
+                        generics: vec![],
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
@@ -56,6 +57,7 @@ macro_rules! selection {
                         name: "Selection".to_string(),
                         tag: None,
                         inline: true,
+                        generics: vec![],
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),

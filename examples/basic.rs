@@ -5,14 +5,14 @@ use serde_json::json;
 
 #[tokio::main]
 async fn main() {
-    let r = <Router>::new()
-        .config(
-            Config::new()
-                .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
-        )
-        .query("myQuery", |_, _: ()| "My Query Result!")
-        .mutation("myMutation", |_ctx, arg: i32| arg)
-        .build();
+    let r =
+        <Router>::new()
+            .config(Config::new().export_ts_bindings(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
+            ))
+            .query("myQuery", |_, _: ()| "My Query Result!")
+            .mutation("myMutation", |_ctx, arg: i32| arg)
+            .build();
 
     // You can also export the bindings yourself
     // router.export_ts("./ts").unwrap();

@@ -14,6 +14,12 @@ pub struct ObjectType {
     pub name: String,
     pub id: TypeId,
     pub inline: bool,
+    pub generics: Vec<Generic>,
     pub fields: Vec<ObjectField>,
     pub tag: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Generic {
+    TypeParam { name: String, ty: DataType },
 }

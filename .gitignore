@@ -13,9 +13,7 @@ Cargo.lock
 .DS_Store
 
 # Typescript bindings exported by the examples
-/ts
-/examples/ts
-/examples/solid/src/ts
+bindings.ts
 
 # Node
 node_modules

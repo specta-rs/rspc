@@ -20,7 +20,7 @@ impl Into<Error> for MyCustomError {
 #[tokio::main]
 async fn main() {
     let r = <Router>::new()
-        .config(Config::new().export_ts_bindings("./ts"))
+        .config(Config::new().export_ts_bindings("./bindings.ts"))
         .query("ok", |_, _args: ()| {
             Ok("Hello World".into()) as Result<String, Error>
         })

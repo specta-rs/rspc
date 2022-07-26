@@ -145,7 +145,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
                         serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
                     )
                 })),
-                ty: TResolver::typedef(&mut TypeDefs::default()),
+                ty: TResolver::typedef(&mut self.typ_store),
             },
         );
         self

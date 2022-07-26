@@ -11,7 +11,7 @@ struct Ctx {}
 #[tokio::main]
 async fn main() {
     let router = rspc::Router::<Ctx>::new()
-        .config(Config::new().export_ts_bindings("./examples/ts"))
+        .config(Config::new().export_ts_bindings("./examples/bindings.ts"))
         .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
         .mutation("sayHi", |_, v: String| println!("{}", v))
         .subscription("pings", |_ctx, _args: ()| {

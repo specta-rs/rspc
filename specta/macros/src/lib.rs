@@ -5,7 +5,10 @@ mod attr;
 use attr::{ContainerAttr, EnumAttr, FieldAttr, StructAttr, Tagged, VariantAttr};
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Ident};
+use syn::{
+    parse_macro_input, parse_quote, ConstParam, Data, DataEnum, DataStruct, DeriveInput, Field,
+    Fields, GenericParam, Generics, Ident, LifetimeDef, TypeParam, WhereClause,
+};
 
 #[proc_macro_derive(Type, attributes(specta, serde))]
 pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -28,7 +31,7 @@ fn derive_type_internal(
 
     let DeriveInput {
         ident,
-        // generics,
+        generics,
         data,
         attrs,
         ..
@@ -43,9 +46,6 @@ fn derive_type_internal(
         .parse()
         .unwrap();
     let crate_ref = quote!(::#crate_name);
-
-    // TODO: Deal with struct or enum with generics
-    // TODO: Struct attributes -> Renaming field, etc + Serde compatibility
 
     let name_str = container_attrs.rename.clone().unwrap_or(ident.to_string());
 
@@ -63,6 +63,7 @@ fn derive_type_internal(
                 &ident,
                 &struct_attrs,
                 &container_attrs,
+                &generics,
                 &crate_ref,
                 data,
             )
@@ -75,6 +76,7 @@ fn derive_type_internal(
                 &ident,
                 &enum_attrs,
                 &container_attrs,
+                &generics,
                 &crate_ref,
                 data,
             )
@@ -82,9 +84,10 @@ fn derive_type_internal(
         Data::Union(_) => panic!("Type 'Union' is not supported by specta!"),
     };
 
+    let impl_start = generate_impl(&crate_name, &ident, &generics);
     quote! {
-        impl #crate_ref::Type for #ident {
-            fn def(defs: &mut #crate_ref::TypeDefs) -> #crate_ref::DataType {
+       #impl_start {
+            fn def(mut defs: &mut #crate_ref::TypeDefs) -> #crate_ref::DataType {
                 #ty
             }
 
@@ -104,11 +107,32 @@ fn derive_type_internal(
     .into()
 }
 
+fn type_ident_with_generics(ident: &Ident, generics: &Generics) -> TokenStream {
+    let generics = generics
+        .params
+        .iter()
+        .map(|param| match param {
+            GenericParam::Type(param) => {
+                let ident = &param.ident;
+                quote! { #ident }
+            }
+            GenericParam::Lifetime(param) => {
+                let ident = &param.lifetime;
+                quote! { #ident }
+            }
+            GenericParam::Const(_) => panic!("const generics are not supported by specta!"), // TODO: Support const generics
+        })
+        .collect::<Vec<_>>();
+
+    quote! { #ident<#(#generics),*> }
+}
+
 fn parse_struct(
     struct_name_str: &str,
     struct_ident: &Ident,
     _struct_attrs: &StructAttr,
     container_attrs: &ContainerAttr,
+    generics: &Generics,
     crate_ref: &TokenStream,
     data: &DataStruct,
 ) -> TokenStream {
@@ -124,6 +148,7 @@ fn parse_struct(
         })
         .filter(|(_, attrs)| !attrs.skip);
 
+    let struct_ident = type_ident_with_generics(&struct_ident, &generics);
     match &data.fields {
         Fields::Unit => quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
             name: #struct_name_str.to_string(),
@@ -161,14 +186,17 @@ fn parse_struct(
                 .map(|t| quote!(Some(#t.to_string())))
                 .unwrap_or(quote!(None));
 
+            let generics = parse_generics(crate_ref, generics);
             quote! {{
                 if #inline == false {
+                    let generics = #generics;
                     defs.insert(
                         #struct_name_str.to_string(),
                         #crate_ref::DataType::Object(#crate_ref::ObjectType {
                             name: #struct_name_str.to_string(),
                             inline: #inline,
                             id: std::any::TypeId::of::<#struct_ident>(),
+                            generics,
                             fields: vec![],
                             tag: #tag
                         })
@@ -197,11 +225,93 @@ fn parse_struct(
                         name: #struct_name_str.to_string(),
                         inline: #inline,
                         id: std::any::TypeId::of::<#struct_ident>(),
+                        generics: #generics,
                         fields: new_fields,
                         tag: #tag
                     })
                 }
             }}
+        }
+    }
+}
+
+fn parse_generics(crate_ref: &TokenStream, generics: &Generics) -> TokenStream {
+    let generics = generics
+        .params
+        .iter()
+        .filter_map(|param| match param {
+            GenericParam::Type(ty) => {
+                let ident = ty.ident.clone();
+                Some(quote! {
+                    #crate_ref::Generic::TypeParam {
+                        name: stringify!(#ident).into(),
+                        ty: <#ident as #crate_ref::Type>::def(defs),
+                    }
+                })
+            }
+            GenericParam::Lifetime(_) => None,
+            GenericParam::Const(_) => None, // TODO: Support const generics
+        })
+        .collect::<Vec<_>>();
+
+    quote! { vec![#(#generics),*] }
+}
+
+// Code copied from ts-rs. Thanks to it's original author!
+// generate start of the `impl TS for #ty` block, up to (excluding) the open brace
+fn generate_impl(crate_name: &TokenStream, ty: &Ident, generics: &Generics) -> TokenStream {
+    use GenericParam::*;
+
+    let bounds = generics.params.iter().map(|param| match param {
+        Type(TypeParam {
+            ident,
+            colon_token,
+            bounds,
+            ..
+        }) => quote!(#ident #colon_token #bounds),
+        Lifetime(LifetimeDef {
+            lifetime,
+            colon_token,
+            bounds,
+            ..
+        }) => quote!(#lifetime #colon_token #bounds),
+        Const(ConstParam {
+            const_token,
+            ident,
+            colon_token,
+            ty,
+            ..
+        }) => quote!(#const_token #ident #colon_token #ty),
+    });
+    let type_args = generics.params.iter().map(|param| match param {
+        Type(TypeParam { ident, .. }) | Const(ConstParam { ident, .. }) => quote!(#ident),
+        Lifetime(LifetimeDef { lifetime, .. }) => quote!(#lifetime),
+    });
+
+    let where_bound = add_ts_to_where_clause(crate_name, generics);
+    quote!(impl <#(#bounds),*> #crate_name::Type for #ty <#(#type_args),*> #where_bound)
+}
+
+// Code copied from ts-rs. Thanks to it's original author!
+fn add_ts_to_where_clause(crate_name: &TokenStream, generics: &Generics) -> Option<WhereClause> {
+    let generic_types = generics
+        .params
+        .iter()
+        .filter_map(|gp| match gp {
+            GenericParam::Type(ty) => Some(ty.ident.clone()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if generic_types.is_empty() {
+        return generics.where_clause.clone();
+    }
+    match generics.where_clause {
+        None => Some(parse_quote! { where #( #generic_types : #crate_name::Type + 'static ),* }),
+        Some(ref w) => {
+            let bounds = w.predicates.iter();
+            Some(
+                parse_quote! { where #(#bounds,)* #( #generic_types : #crate_name::Type + 'static ),* },
+            )
         }
     }
 }
@@ -330,6 +440,7 @@ fn parse_enum(
     enum_ident: &Ident,
     enum_attrs: &EnumAttr,
     _container_attrs: &ContainerAttr,
+    generics: &Generics,
     crate_ref: &TokenStream,
     data: &DataEnum,
 ) -> TokenStream {
@@ -337,6 +448,7 @@ fn parse_enum(
         return quote!(#crate_ref::DataType::Primitive(#crate_ref::PrimitiveType::Never));
     }
 
+    let enum_ident = type_ident_with_generics(&enum_ident, &generics);
     let variants = data
         .variants
         .iter()

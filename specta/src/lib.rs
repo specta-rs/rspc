@@ -156,7 +156,7 @@ impl<'a, T: Type + 'static> Type for &'a T {
     }
 }
 
-impl<T: Type + 'static> Type for Vec<T> {
+impl<T: Type> Type for Vec<T> {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::List(Box::new(upsert_def!(defs)))
     }
@@ -174,7 +174,7 @@ impl<T: Type + 'static> Type for Vec<T> {
     }
 }
 
-impl<'a, T: Type + 'static> Type for &'a [T] {
+impl<'a, T: Type> Type for &'a [T] {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::List(Box::new(upsert_def!(defs)))
     }
@@ -192,7 +192,7 @@ impl<'a, T: Type + 'static> Type for &'a [T] {
     }
 }
 
-impl<'a, const N: usize, T: Type + 'static> Type for [T; N] {
+impl<'a, const N: usize, T: Type> Type for [T; N] {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::List(Box::new(upsert_def!(defs)))
     }
@@ -210,7 +210,7 @@ impl<'a, const N: usize, T: Type + 'static> Type for [T; N] {
     }
 }
 
-impl<T: Type + 'static> Type for Option<T> {
+impl<T: Type> Type for Option<T> {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::Nullable(Box::new(upsert_def!(defs)))
     }
@@ -230,7 +230,7 @@ impl<T: Type + 'static> Type for Option<T> {
 
 macro_rules! impl_containers {
     ($($container:ident)+) => {$(
-        impl<T: Type + 'static> Type for $container<T> {
+        impl<T: Type> Type for $container<T> {
             fn def(defs: &mut TypeDefs) -> DataType {
                 upsert_def!(defs)
             }
