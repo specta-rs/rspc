@@ -1,11 +1,11 @@
-use specta::{Type, ts_inline, ts_export};
+use specta::{ts_export, ts_inline, Type};
 
 #[derive(Type)]
 enum SimpleEnum {
     #[specta(rename = "asdf")]
     A,
     B,
-    C
+    C,
 }
 
 #[test]

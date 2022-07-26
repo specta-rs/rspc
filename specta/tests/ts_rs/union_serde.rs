@@ -1,10 +1,10 @@
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
 #[serde(tag = "kind", content = "d")]
 enum SimpleEnum {
     A,
-    B
+    B,
 }
 
 #[derive(Type)]
@@ -14,7 +14,7 @@ enum ComplexEnum {
     B { foo: String, bar: f64 },
     W(SimpleEnum),
     F { nested: SimpleEnum },
-    T(i32, SimpleEnum)
+    T(i32, SimpleEnum),
 }
 
 #[derive(Type)]
@@ -22,7 +22,7 @@ enum ComplexEnum {
 enum Untagged {
     Foo(String),
     Bar(i32),
-    None
+    None,
 }
 
 #[cfg(feature = "serde")]
@@ -36,8 +36,5 @@ fn test_serde_enum() {
         ts_inline::<ComplexEnum>(),
         r#"{ kind: "A" } | { kind: "B", data: { foo: string, bar: number } } | { kind: "W", data: SimpleEnum } | { kind: "F", data: { nested: SimpleEnum } } | { kind: "T", data: [number, SimpleEnum] }"#
     );
-    assert_eq!(
-        ts_inline::<Untagged>(),
-        r#"string | number | null"#
-    );
+    assert_eq!(ts_inline::<Untagged>(), r#"string | number | null"#);
 }

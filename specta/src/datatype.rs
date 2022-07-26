@@ -10,7 +10,7 @@ pub enum DataType {
     Tuple(TupleType),
     Object(ObjectType),
     Enum(EnumType),
-    Reference(String)
+    Reference(String),
 }
 
 impl DataType {

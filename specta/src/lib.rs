@@ -36,7 +36,7 @@ macro_rules! impl_primitives {
             fn def(_: &mut TypeDefs) -> DataType {
                 DataType::Primitive(PrimitiveType::$i)
             }
-            
+
             fn base(defs: &mut TypeDefs) -> DataType {
                 Self::def(defs)
             }

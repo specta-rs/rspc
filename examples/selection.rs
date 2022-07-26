@@ -18,7 +18,7 @@ async fn main() {
             Config::new()
                 .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
         )
-        .query("customSelection", || {
+        .query("customSelection", |_, _: ()| {
             // The user come from your database.
             let user = User {
                 id: 1,
@@ -29,7 +29,7 @@ async fn main() {
 
             selection!(user, { id, name, age })
         })
-        .query("customSelectionOnList", || {
+        .query("customSelectionOnList", |_, _: ()| {
             // The users come from your database.
             let users = vec![User {
                 id: 1,

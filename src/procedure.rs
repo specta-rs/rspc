@@ -2,7 +2,7 @@ use specta::DataType;
 
 use crate::FirstMiddleware;
 
-pub struct ProcedureDataType{
+pub struct ProcedureDataType {
     pub arg_ty: DataType,
     pub result_ty: DataType,
 }

@@ -1,5 +1,5 @@
-use specta::{Type, ts_inline, ts_export};
 use serde::Serialize;
+use specta::{ts_export, ts_inline, Type};
 
 #[derive(Type, Serialize)]
 struct Bar {
@@ -23,10 +23,16 @@ enum SimpleEnum {
 
 #[test]
 fn test_stateful_enum() {
-    assert_eq!(ts_export::<Bar>().unwrap(), r#"export interface Bar { field: number }"#);
+    assert_eq!(
+        ts_export::<Bar>().unwrap(),
+        r#"export interface Bar { field: number }"#
+    );
     // assert_eq!(Bar::dependencies(), vec![]);
 
-    assert_eq!(ts_export::<Foo>().unwrap(), r#"export interface Foo { bar: Bar }"#);
+    assert_eq!(
+        ts_export::<Foo>().unwrap(),
+        r#"export interface Foo { bar: Bar }"#
+    );
     // assert_eq!(
     //     Foo::dependencies(),
     //     vec![Dependency::from_ty::<Bar>().unwrap()]

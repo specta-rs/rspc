@@ -1,4 +1,4 @@
-use specta::{Type, ts_export};
+use specta::{ts_export, Type};
 
 #[derive(Type)]
 #[specta(rename_all = "lowercase")]
@@ -7,7 +7,7 @@ enum RenamedEnum {
     #[specta(rename = "ASDF")]
     A,
     B,
-    C
+    C,
 }
 
 // #[test]

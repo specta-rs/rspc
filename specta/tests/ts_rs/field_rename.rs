@@ -1,10 +1,10 @@
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
-struct Rename{
+struct Rename {
     a: i32,
     #[specta(rename = "bb")]
-    b: i32
+    b: i32,
 }
 
 #[test]

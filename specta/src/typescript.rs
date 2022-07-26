@@ -42,12 +42,10 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
 /// made inline outside of the type definition.
 pub fn to_ts(typ: &DataType) -> String {
     match &typ {
-        DataType::Object(ObjectType { name, inline, .. })=> {
-            match *inline {
-                true => to_ts_inline(typ),
-                false => format!("{name}"),
-            }
-        }
+        DataType::Object(ObjectType { name, inline, .. }) => match *inline {
+            true => to_ts_inline(typ),
+            false => format!("{name}"),
+        },
         DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0]),
         DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
         DataType::List(def) => format!("Array<{}>", to_ts(&def)),

@@ -13,7 +13,7 @@ async fn main() {
             println!("MIDDLEWARE ONE");
             ctx.next(42).await
         })
-        .query("version", |_ctx| {
+        .query("version", |_, _: ()| {
             println!("ANOTHER QUERY");
             env!("CARGO_PKG_VERSION")
         })
@@ -21,7 +21,7 @@ async fn main() {
             println!("MIDDLEWARE TWO");
             ctx.next("hello").await
         })
-        .query("another", |_ctx| {
+        .query("another", |_, _: ()| {
             println!("ANOTHER QUERY");
             "Another Result!"
         })

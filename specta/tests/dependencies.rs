@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use specta::{Type, TypeDefs, ts_dependencies};
+use specta::{ts_dependencies, Type, TypeDefs};
 
 #[derive(Type)]
 struct Primitives {
@@ -16,13 +16,13 @@ struct DependsOnPrimitives {
 #[derive(Type)]
 struct DependsOnPrimitives2 {
     p: Primitives,
-    d: DependsOnPrimitives
+    d: DependsOnPrimitives,
 }
 
 #[derive(Type)]
 struct InlinesPrimitives {
     #[specta(inline)]
-    p: Primitives 
+    p: Primitives,
 }
 
 #[derive(Type)]
@@ -38,17 +38,28 @@ fn test_deps() {
 
     let def = DependsOnPrimitives::def(&mut TypeDefs::new());
     println!("{:?}", def);
-    assert_eq!(ts_dependencies(&def), vec!["Primitives"].into_iter().collect());
+    assert_eq!(
+        ts_dependencies(&def),
+        vec!["Primitives"].into_iter().collect()
+    );
 
     let def = DependsOnPrimitives2::def(&mut TypeDefs::new());
-    assert_eq!(ts_dependencies(&def), vec!["Primitives", "DependsOnPrimitives"].into_iter().collect());
+    assert_eq!(
+        ts_dependencies(&def),
+        vec!["Primitives", "DependsOnPrimitives"]
+            .into_iter()
+            .collect()
+    );
 
     let def = InlinesPrimitives::def(&mut TypeDefs::new());
     assert_eq!(ts_dependencies(&def), vec![].into_iter().collect());
 
     let def = InlinesDependsOnPrimitives::def(&mut TypeDefs::new());
     write_dbg(&def);
-    assert_eq!(ts_dependencies(&def), vec!["Primitives"].into_iter().collect());
+    assert_eq!(
+        ts_dependencies(&def),
+        vec!["Primitives"].into_iter().collect()
+    );
 }
 
 fn write_dbg(o: impl std::fmt::Debug) {

@@ -25,7 +25,8 @@ impl ContainerAttr {
         let mut result = Self::default();
         parse_attrs(attrs)?.for_each(|a| result.merge(a));
         #[cfg(feature = "serde")]
-        crate::utils::parse_serde_attrs::<SerdeContainerAttr>(attrs).for_each(|a| result.merge(a.0));
+        crate::utils::parse_serde_attrs::<SerdeContainerAttr>(attrs)
+            .for_each(|a| result.merge(a.0));
         Ok(result)
     }
 
@@ -64,4 +65,3 @@ impl_parse! {
         "tag" => out.0.tag = Some(parse_assign_str(input)?),
     }
 }
-

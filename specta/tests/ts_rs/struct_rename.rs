@@ -1,4 +1,4 @@
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[test]
 fn rename_all() {
@@ -21,5 +21,8 @@ fn serde_rename_special_char() {
         b: i32,
     }
 
-    assert_eq!(ts_inline::<RenameSerdeSpecialChar>(), r#"{ "a/b": number }"#);
+    assert_eq!(
+        ts_inline::<RenameSerdeSpecialChar>(),
+        r#"{ "a/b": number }"#
+    );
 }

@@ -23,8 +23,8 @@ where
         self().into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
-        ProcedureDataType{
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+        ProcedureDataType {
             arg_ty: <() as Type>::def(defs),
             result_ty: <TResult as Type>::def(defs),
         }
@@ -41,8 +41,8 @@ where
         self(ctx).into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
-        ProcedureDataType{
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+        ProcedureDataType {
             arg_ty: <() as Type>::def(defs),
             result_ty: <TResult::Result as Type>::def(defs),
         }
@@ -64,8 +64,8 @@ where
         self(ctx, arg).into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
-        ProcedureDataType{
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+        ProcedureDataType {
             arg_ty: <TArg as Type>::def(defs),
             result_ty: <TResult::Result as Type>::def(defs),
         }
@@ -96,8 +96,8 @@ where
         }))))
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType{
-        ProcedureDataType{
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+        ProcedureDataType {
             arg_ty: <TArg as Type>::def(defs),
             result_ty: <TResult as Type>::def(defs),
         }

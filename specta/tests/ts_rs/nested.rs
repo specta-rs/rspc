@@ -1,18 +1,18 @@
-use std::{sync::Arc, cell::Cell, rc::Rc};
+use std::{cell::Cell, rc::Rc, sync::Arc};
 
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
 struct A {
     x1: Arc<i32>,
-    y1: Cell<i32>
+    y1: Cell<i32>,
 }
 
 #[derive(Type)]
 struct B {
     a1: Box<A>,
     #[specta(inline)]
-    a2: A
+    a2: A,
 }
 
 #[derive(Type)]

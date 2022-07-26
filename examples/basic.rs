@@ -10,7 +10,7 @@ async fn main() {
             Config::new()
                 .export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./ts")),
         )
-        .query("myQuery", || "My Query Result!")
+        .query("myQuery", |_, _: ()| "My Query Result!")
         .mutation("myMutation", |_ctx, arg: i32| arg)
         .build();
 

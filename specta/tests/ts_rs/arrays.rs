@@ -1,4 +1,4 @@
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[test]
 fn free() {

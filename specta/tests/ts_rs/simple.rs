@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
 struct Simple {

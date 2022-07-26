@@ -1,11 +1,12 @@
 use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use futures::Future;
-use specta::TypeDefs;
+use serde::de::DeserializeOwned;
+use specta::{Type, TypeDefs};
 
 use crate::{
-    Config, ExecError, FirstMiddleware, LayerResult, MiddlewareContext, NextMiddleware, Procedure,
-    Resolver, Router, StreamOrValue, StreamResolver,
+    Config, DoubleArgMarker, ExecError, FirstMiddleware, IntoLayerResult, LayerResult,
+    MiddlewareContext, NextMiddleware, Procedure, Resolver, Router, StreamOrValue, StreamResolver,
 };
 
 pub struct RouterBuilder<
@@ -22,7 +23,7 @@ pub struct RouterBuilder<
     mutations: HashMap<String, Procedure<TCtx>>,
     subscriptions: HashMap<String, Procedure<TCtx>>,
     phantom: PhantomData<TMeta>,
-    typ_store: TypeDefs
+    typ_store: TypeDefs,
 }
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
@@ -38,7 +39,7 @@ where
             mutations: HashMap::new(),
             subscriptions: HashMap::new(),
             phantom: PhantomData,
-            typ_store: TypeDefs::new()
+            typ_store: TypeDefs::new(),
         }
     }
 }
@@ -56,7 +57,7 @@ where
             mutations: HashMap::new(),
             subscriptions: HashMap::new(),
             phantom: PhantomData,
-            typ_store: TypeDefs::new()
+            typ_store: TypeDefs::new(),
         }
     }
 }
@@ -109,13 +110,23 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             mutations,
             subscriptions,
             phantom: PhantomData,
-            typ_store
+            typ_store,
         }
     }
 
-    pub fn query<TResolver, TMarker>(mut self, key: &'static str, resolver: TResolver) -> Self
+    pub fn query<TResolver, TArg, TResult, TResultMarker>(
+        mut self,
+        key: &'static str,
+        resolver: TResolver,
+    ) -> Self
     where
-        TResolver: Resolver<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TResolver: Fn(TLayerCtx, TArg) -> TResult
+            + Resolver<TLayerCtx, DoubleArgMarker<TArg, TResultMarker>>
+            + Send
+            + Sync
+            + 'static,
+        TArg: DeserializeOwned + Type,
+        TResult: IntoLayerResult<TResultMarker>,
     {
         let key = key.to_string();
         if self.queries.contains_key(&key) {
@@ -134,15 +145,25 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
                         serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
                     )
                 })),
-                ty: TResolver::typedef(&mut self.typ_store),
+                ty: TResolver::typedef(&mut TypeDefs::default()),
             },
         );
         self
     }
 
-    pub fn mutation<TResolver, TMarker>(mut self, key: &'static str, resolver: TResolver) -> Self
+    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+        mut self,
+        key: &'static str,
+        resolver: TResolver,
+    ) -> Self
     where
-        TResolver: Resolver<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TResolver: Fn(TLayerCtx, TArg) -> TResult
+            + Resolver<TLayerCtx, DoubleArgMarker<TArg, TResultMarker>>
+            + Send
+            + Sync
+            + 'static,
+        TArg: DeserializeOwned + Type,
+        TResult: IntoLayerResult<TResultMarker>,
     {
         let key = key.to_string();
         if self.mutations.contains_key(&key) {
@@ -254,7 +275,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             mutations,
             subscriptions,
             phantom: PhantomData,
-            typ_store
+            typ_store,
         }
     }
 

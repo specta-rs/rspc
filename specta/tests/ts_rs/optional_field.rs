@@ -1,11 +1,11 @@
-use specta::{Type, ts_inline};
+use specta::{ts_inline, Type};
 
 #[derive(Type)]
 struct Optional {
     #[specta(optional)]
     a: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    b: Option<String>
+    b: Option<String>,
 }
 
 #[test]

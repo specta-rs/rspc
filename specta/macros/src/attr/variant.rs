@@ -22,13 +22,7 @@ impl VariantAttr {
         Ok(result)
     }
 
-    fn merge(
-        &mut self,
-        VariantAttr {
-            rename,
-            skip,
-        }: VariantAttr,
-    ) {
+    fn merge(&mut self, VariantAttr { rename, skip }: VariantAttr) {
         self.rename = self.rename.take().or(rename);
         self.skip = self.skip || skip;
     }

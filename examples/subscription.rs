@@ -2,13 +2,13 @@ use std::time::Duration;
 
 use async_stream::stream;
 use futures::StreamExt;
-use rspc::{Error, OperationKey, OperationKind, Router, StreamOrValue};
+use rspc::{OperationKey, OperationKind, Router, StreamOrValue};
 use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() {
     let r = <Router>::new()
-        .subscription("mySubscription", |ctx, arg: ()| {
+        .subscription("mySubscription", |_, _: ()| {
             stream! {
                 println!("Client subscribed to 'pings'");
                 for i in 0..5 {
@@ -36,6 +36,6 @@ async fn main() {
                 println!("Received: {:?}", msg);
             }
         }
-        StreamOrValue::Value(v) => unreachable!(),
+        StreamOrValue::Value(_) => unreachable!(),
     }
 }

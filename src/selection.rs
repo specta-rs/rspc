@@ -87,9 +87,8 @@ macro_rules! selection {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct User {
         pub id: i32,
         pub name: String,
