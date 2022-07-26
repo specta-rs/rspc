@@ -14,6 +14,7 @@ default = ["serde"]
 serde = ["specta-macros/serde", "dep:serde_json"]
 uuid = ["dep:uuid"]
 chrono = ["dep:chrono"]
+indexmap = ["dep:indexmap"]
 
 [dependencies]
 convert_case = "0.5.0"
@@ -22,6 +23,7 @@ termcolor = "1.1.3"
 serde_json = { version = "1.0.81", optional = true }
 uuid = { version = "1.1.2", optional = true }
 chrono = { version = "0.4.19", optional = true }
+indexmap = { version = "1.9.1", optional = true }
 
 [dev-dependencies]
 serde = { version = "1.0.140", features = ["derive"] }

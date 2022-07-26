@@ -9,6 +9,21 @@ use syn::{parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Field, Fie
 
 #[proc_macro_derive(Type, attributes(specta, serde))]
 pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    derive_type_internal(input, "specta".into())
+}
+
+/// This macro is exposed from rspc as a wrapper around [Type] with a correct import path.
+/// This is exposed from here so rspc doesn't need a macro package for 4 lines of code.
+#[doc(hidden)]
+#[proc_macro_derive(RSPCType, attributes(specta, serde))]
+pub fn derive_rspc_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    derive_type_internal(input, "rspc::internal::specta".into())
+}
+
+fn derive_type_internal(
+    input: proc_macro::TokenStream,
+    default_crate_name: String,
+) -> proc_macro::TokenStream {
     let derive_input = parse_macro_input!(input);
 
     let DeriveInput {
@@ -24,7 +39,7 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let crate_name: TokenStream = container_attrs
         .crate_name
         .clone()
-        .unwrap_or_else(|| "specta".to_string())
+        .unwrap_or_else(|| default_crate_name)
         .parse()
         .unwrap();
     let crate_ref = quote!(::#crate_name);

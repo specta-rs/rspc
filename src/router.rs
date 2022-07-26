@@ -1,4 +1,5 @@
 use std::{
+    any::TypeId,
     collections::HashMap,
     fs::{self, File},
     io::Write,
@@ -8,7 +9,7 @@ use std::{
 };
 
 use serde_json::Value;
-use specta::{to_ts, to_ts_export, TypeDefs};
+use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{ExecError, ExportError, OperationKey, OperationKind, Procedure, StreamOrValue};
 
@@ -116,13 +117,20 @@ fn generate_procedures_ts<Ctx>(procedures: &HashMap<String, Procedure<Ctx>>) -> 
         0 => "never".to_string(),
         _ => procedures
             .iter()
-            .map(|(key, subscription)| {
-                let arg_ts = to_ts(&subscription.ty.arg_ty);
-                let result_ts = to_ts(&subscription.ty.result_ty);
+            .map(|(key, operation)| {
+                let arg_ts = match &operation.ty.arg_ty {
+                    DataType::Tuple(def)
+                        if def.fields.len() == 0 && def.id == TypeId::of::<()>() =>
+                    {
+                        "".into()
+                    }
+                    ty => format!(", {}", to_ts(ty)),
+                };
+                let result_ts = to_ts(&operation.ty.result_ty);
 
                 format!(
                     r#"
-        {{ key: "{key}", arg: {arg_ts}, result: {result_ts} }}"#
+        {{ key: ["{key}"{arg_ts}], result: {result_ts} }}"#
                 )
             })
             .collect::<Vec<_>>()

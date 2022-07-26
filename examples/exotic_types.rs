@@ -4,16 +4,18 @@ use std::{
 };
 
 use chrono::prelude::*;
-use rspc::{Config, Router};
+use rspc::{Config, Router, Type};
+use serde::Serialize;
 use serde_json::Value;
-use uuid::uuid;
+use uuid::{uuid, Uuid};
 
-fn demo<T: serde::de::DeserializeOwned + specta::Type>() {}
+#[derive(Serialize, Type)]
+struct ExoticStruct {
+    id: Uuid,
+}
 
 #[tokio::main]
 async fn main() {
-    demo::<uuid::Uuid>();
-
     let _r = <Router>::new()
         .config(
             Config::new()
@@ -36,5 +38,8 @@ async fn main() {
             uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
         })
         .query("chronoTimestamp", |_, _: ()| Utc::now())
+        .query("exoticStruct", |_, _: ()| ExoticStruct {
+            id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
+        })
         .build();
 }

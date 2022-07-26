@@ -24,6 +24,9 @@ pub use types::*;
 
 pub mod integrations;
 
+pub use specta::RSPCType as Type;
+
+#[doc(hidden)]
 pub mod internal {
     pub use specta;
 }

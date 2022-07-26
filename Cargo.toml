@@ -15,6 +15,7 @@ axum = ["dep:axum"]
 tauri = ["dep:tauri"]
 uuid = ["specta/uuid"]
 chrono = ["specta/chrono"]
+indexmap = ["specta/indexmap"]
 
 [[example]]
 name = "axum"

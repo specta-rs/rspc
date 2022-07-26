@@ -6,7 +6,7 @@ mod typescript;
 
 use std::{
     cell::{Cell, RefCell},
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     path::{Path, PathBuf},
     rc::Rc,
     sync::{Arc, Mutex},
@@ -152,7 +152,7 @@ impl<'a, T: Type + 'static> Type for &'a T {
     }
 
     fn refr() -> DataType {
-        DataType::List(Box::new(T::refr()))
+        T::refr()
     }
 }
 
@@ -252,6 +252,42 @@ macro_rules! impl_containers {
 
 impl_containers!(Box Rc Arc Cell RefCell Mutex);
 
+impl<T: Type> Type for HashSet<T> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::List(Box::new(upsert_def!(defs)))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::List(Box::new(T::refr()))
+    }
+}
+
+impl<T: Type> Type for BTreeSet<T> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::List(Box::new(upsert_def!(defs)))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::List(Box::new(T::refr()))
+    }
+}
+
 impl<K: Type, V: Type> Type for HashMap<K, V> {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::Record(Box::new((K::def(defs), V::def(defs))))
@@ -271,6 +307,44 @@ impl<K: Type, V: Type> Type for HashMap<K, V> {
 }
 
 impl<K: Type, V: Type> Type for BTreeMap<K, V> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::Record(Box::new((K::def(defs), V::def(defs))))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::Record(Box::new((K::refr(), V::refr())))
+    }
+}
+
+#[cfg(feature = "indexmap")]
+impl<T: Type> Type for indexmap::IndexSet<T> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::List(Box::new(upsert_def!(defs)))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::List(Box::new(T::refr()))
+    }
+}
+
+#[cfg(feature = "indexmap")]
+impl<K: Type, V: Type> Type for indexmap::IndexMap<K, V> {
     fn def(defs: &mut TypeDefs) -> DataType {
         DataType::Record(Box::new((K::def(defs), V::def(defs))))
     }
