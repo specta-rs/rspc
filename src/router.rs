@@ -8,7 +8,7 @@ use std::{
 };
 
 use serde_json::Value;
-use specta::{to_ts, to_ts_export, DataType, EnumVariant, TypeDefs};
+use specta::{to_ts, to_ts_export, TypeDefs};
 
 use crate::{ExecError, ExportError, OperationKey, OperationKind, Procedure, StreamOrValue};
 

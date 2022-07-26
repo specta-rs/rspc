@@ -39,10 +39,6 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         false => quote!(Some(#name_str.to_string())),
     };
 
-    if name_str.to_string() == "Data" {
-        println!("Data name: {}", name);
-    }
-
     let ty = match data {
         Data::Struct(data) => {
             let struct_attrs = StructAttr::from_attrs(attrs).unwrap();

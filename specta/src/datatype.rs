@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::{EnumType, ObjectType, TupleType};
 
 #[derive(Debug, Clone)]
