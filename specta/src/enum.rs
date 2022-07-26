@@ -1,11 +1,8 @@
-use std::any::TypeId;
-
 use crate::{DataType, ObjectType, PrimitiveType, TupleType};
 
 #[derive(Debug, Clone)]
 pub struct EnumType {
     pub name: String,
-    pub id: TypeId,
     pub variants: Vec<EnumVariant>,
     pub repr: EnumRepr,
 }

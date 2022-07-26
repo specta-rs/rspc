@@ -152,7 +152,6 @@ fn parse_struct(
     match &data.fields {
         Fields::Unit => quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
             name: #struct_name_str.to_string(),
-            id: std::any::TypeId::of::<#struct_ident>(),
             fields: vec![],
         })),
         Fields::Unnamed(_) => {
@@ -165,7 +164,6 @@ fn parse_struct(
 
             quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
                 name: #struct_name_str.to_string(),
-                id: std::any::TypeId::of::<#struct_ident>(),
                 fields: (vec![#(#fields),*] as Vec<Vec<_>>)
                     .into_iter()
                     .flatten()
@@ -195,7 +193,6 @@ fn parse_struct(
                         #crate_ref::DataType::Object(#crate_ref::ObjectType {
                             name: #struct_name_str.to_string(),
                             inline: #inline,
-                            id: std::any::TypeId::of::<#struct_ident>(),
                             generics,
                             fields: vec![],
                             tag: #tag
@@ -224,7 +221,6 @@ fn parse_struct(
                     #crate_ref::DataType::Object(#crate_ref::ObjectType {
                         name: #struct_name_str.to_string(),
                         inline: #inline,
-                        id: std::any::TypeId::of::<#struct_ident>(),
                         generics: #generics,
                         fields: new_fields,
                         tag: #tag
@@ -492,7 +488,6 @@ fn parse_enum(
 
                     quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
                         name: #variant_name_str.to_string(),
-                        id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
                     }))
                 }
@@ -527,7 +522,6 @@ fn parse_enum(
                     quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
                         name: #variant_name_str.to_string(),
                         inline: true,
-                        id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
                         tag: None
                     }))
@@ -552,7 +546,6 @@ fn parse_enum(
 
     quote!(#crate_ref::DataType::Enum(#crate_ref::EnumType {
         name: #enum_name_str.to_string(),
-        id: std::any::TypeId::of::<#enum_ident>(),
         variants: vec![#(#variants),*],
         repr: #crate_ref::EnumRepr::#repr,
     }))

@@ -76,7 +76,6 @@ macro_rules! impl_tuple {
             fn def(_defs: &mut TypeDefs) -> DataType {
                 DataType::Tuple(TupleType {
                     name: stringify!(($($i),*)).to_string(),
-                    id: std::any::TypeId::of::<($($i),*)>(),
                     fields: vec![$($crate::upsert_def!(_defs, $i)),*],
                 })
             }

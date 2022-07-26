@@ -11,7 +11,6 @@ macro_rules! selection {
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
                 fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType{
                     $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
-                        id: std::any::TypeId::of::<Selection<$($n,)*>>(),
                         name: "Selection".to_string(),
                         tag: None,
                         inline: true,
@@ -53,7 +52,6 @@ macro_rules! selection {
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
                 fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType{
                     $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
-                        id: std::any::TypeId::of::<Selection<$($n,)*>>(),
                         name: "Selection".to_string(),
                         tag: None,
                         inline: true,

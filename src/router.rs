@@ -1,5 +1,4 @@
 use std::{
-    any::TypeId,
     collections::HashMap,
     fs::{self, File},
     io::Write,
@@ -122,7 +121,7 @@ fn generate_procedures_ts<Ctx>(procedures: &HashMap<String, Procedure<Ctx>>) -> 
             .map(|(key, operation)| {
                 let arg_ts = match &operation.ty.arg_ty {
                     DataType::Tuple(def)
-                        if def.fields.len() == 0 && def.id == TypeId::of::<()>() =>
+                        if def.fields.len() == 0 =>
                     {
                         "".into()
                     }

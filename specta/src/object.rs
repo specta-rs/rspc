@@ -1,5 +1,3 @@
-use std::any::TypeId;
-
 use crate::DataType;
 
 #[derive(Debug, Clone)]
@@ -12,7 +10,6 @@ pub struct ObjectField {
 #[derive(Debug, Clone)]
 pub struct ObjectType {
     pub name: String,
-    pub id: TypeId,
     pub inline: bool,
     pub generics: Vec<Generic>,
     pub fields: Vec<ObjectField>,
