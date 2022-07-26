@@ -15,6 +15,15 @@ pub enum DataType {
     Reference(String)
 }
 
+impl DataType {
+    pub fn force_inline(&mut self) {
+        match self {
+            DataType::Object(object) => object.inline = true,
+            _ => {}
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
 pub enum PrimitiveType {

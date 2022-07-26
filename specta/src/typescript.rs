@@ -20,17 +20,18 @@ pub fn ts_export<T: Type>() -> Result<String, String> {
 }
 
 pub fn to_ts_export(def: &DataType) -> Result<String, String> {
-    let inline = to_ts_inline(&def);
+    let inline_ts = to_ts_inline(&def);
 
     Ok(match &def {
-        DataType::Object(ObjectType { name, .. }) => {
-            format!("export interface {name} {inline}")
-        }
+        DataType::Object(ObjectType { name, inline, .. }) => match !inline {
+            true => format!("export interface {name} {inline_ts}"),
+            false => return Err(format!("Type is inlined and cannot be exported: {}", name))?,
+        },
         DataType::Enum(EnumType { name, .. }) => {
-            format!("export type {name} = {inline}")
+            format!("export type {name} = {inline_ts}")
         }
         DataType::Tuple(TupleType { name, .. }) => {
-            format!("export type {name} = {inline}")
+            format!("export type {name} = {inline_ts}")
         }
         _ => return Err(format!("Type cannot be exported: {:?}", def)),
     })
@@ -39,8 +40,14 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
 /// Prints the type definition of the given type.
 /// `field_inline` is necessary since the type may have been
 /// made inline outside of the type definition.
-pub fn to_ts(typ: &DataType)  -> String {
+pub fn to_ts(typ: &DataType) -> String {
     match &typ {
+        DataType::Object(ObjectType { name, inline, .. })=> {
+            match *inline {
+                true => to_ts_inline(typ),
+                false => format!("{name}"),
+            }
+        }
         DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0]),
         DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
         DataType::List(def) => format!("Array<{}>", to_ts(&def)),
@@ -68,13 +75,7 @@ pub fn to_ts_inline(typ: &DataType) -> String {
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
             [ty] => to_ts(&ty),
-            tys => format!(
-                "[{}]",
-                tys.iter()
-                    .map(to_ts)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            tys => format!("[{}]", tys.iter().map(to_ts).collect::<Vec<_>>().join(", ")),
         },
         DataType::Object(ObjectType {
             fields, tag, name, ..

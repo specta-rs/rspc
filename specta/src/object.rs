@@ -13,6 +13,7 @@ pub struct ObjectField {
 pub struct ObjectType {
     pub name: String,
     pub id: TypeId,
+    pub inline: bool,
     pub fields: Vec<ObjectField>,
     pub tag: Option<String>,
 }

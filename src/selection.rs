@@ -14,6 +14,7 @@ macro_rules! selection {
                         id: std::any::TypeId::of::<Selection<$($n,)*>>(),
                         name: "Selection".to_string(),
                         tag: None,
+                        inline: true,
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
@@ -23,8 +24,16 @@ macro_rules! selection {
                         ),*],
                     })
                 }
+                fn base(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType {
+                    Self::def(defs)
+                }
+
                 fn name() -> Option<String> {
                     None
+                }
+
+                fn refr() -> $crate::internal::specta::DataType {
+                    unreachable!()
                 }
             }
         }
@@ -46,6 +55,7 @@ macro_rules! selection {
                         id: std::any::TypeId::of::<Selection<$($n,)*>>(),
                         name: "Selection".to_string(),
                         tag: None,
+                        inline: true,
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
@@ -55,8 +65,17 @@ macro_rules! selection {
                         ),*],
                     })
                 }
+
+                fn base(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType {
+                    Self::def(defs)
+                }
+
                 fn name() -> Option<String> {
                     None
+                }
+
+                fn refr() -> $crate::internal::specta::DataType {
+                    unreachable!()
                 }
             }
         }

@@ -22,6 +22,7 @@ pub struct RouterBuilder<
     mutations: HashMap<String, Procedure<TCtx>>,
     subscriptions: HashMap<String, Procedure<TCtx>>,
     phantom: PhantomData<TMeta>,
+    typ_store: TypeDefs
 }
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
@@ -37,6 +38,7 @@ where
             mutations: HashMap::new(),
             subscriptions: HashMap::new(),
             phantom: PhantomData,
+            typ_store: TypeDefs::new()
         }
     }
 }
@@ -54,6 +56,7 @@ where
             mutations: HashMap::new(),
             subscriptions: HashMap::new(),
             phantom: PhantomData,
+            typ_store: TypeDefs::new()
         }
     }
 }
@@ -79,6 +82,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             queries,
             mutations,
             subscriptions,
+            typ_store,
             ..
         } = self;
 
@@ -105,6 +109,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             mutations,
             subscriptions,
             phantom: PhantomData,
+            typ_store
         }
     }
 
@@ -129,7 +134,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
                         serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
                     )
                 })),
-                ty: TResolver::typedef(&mut TypeDefs::default()),
+                ty: TResolver::typedef(&mut self.typ_store),
             },
         );
         self
@@ -156,7 +161,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
                         serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
                     )
                 })),
-                ty: TResolver::typedef(&mut TypeDefs::default()),
+                ty: TResolver::typedef(&mut self.typ_store),
             },
         );
         self
@@ -187,7 +192,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
                         serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
                     )
                 })),
-                ty: TResolver::typedef(&mut TypeDefs::default()),
+                ty: TResolver::typedef(&mut self.typ_store),
             },
         );
         self
@@ -204,6 +209,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             mut queries,
             mut mutations,
             mut subscriptions,
+            mut typ_store,
             ..
         } = self;
 
@@ -237,6 +243,10 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             );
         }
 
+        for (name, typ) in router.typ_store {
+            typ_store.insert(name, typ);
+        }
+
         RouterBuilder {
             config,
             middleware: Box::new(move |next| middleware((router.middleware)(next))),
@@ -244,6 +254,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             mutations,
             subscriptions,
             phantom: PhantomData,
+            typ_store
         }
     }
 
@@ -252,6 +263,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             queries,
             mutations,
             subscriptions,
+            typ_store,
             ..
         } = self;
 
@@ -259,6 +271,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             queries,
             mutations,
             subscriptions,
+            typ_store,
             phantom: PhantomData,
         };
 

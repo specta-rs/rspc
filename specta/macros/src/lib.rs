@@ -39,6 +39,10 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         false => quote!(Some(#name_str.to_string())),
     };
 
+    if name_str.to_string() == "Data" {
+        println!("Data name: {}", name);
+    }
+
     let ty = match data {
         Data::Struct(data) => {
             let struct_attrs = StructAttr::from_attrs(attrs).unwrap();
@@ -73,8 +77,16 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 #ty
             }
 
+            fn base(defs: &mut #crate_ref::TypeDefs) -> #crate_ref::DataType {
+                Self::def(defs)
+            }
+
             fn name() -> Option<String> {
                 #name
+            }
+
+            fn refr() -> #crate_ref::DataType {
+                #crate_ref::DataType::Reference(#name_str.to_string())
             }
         }
     }
@@ -138,15 +150,47 @@ fn parse_struct(
                 .map(|t| quote!(Some(#t.to_string())))
                 .unwrap_or(quote!(None));
 
-            quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
-                name: #struct_name_str.to_string(),
-                id: std::any::TypeId::of::<#struct_ident>(),
-                fields: (vec![#(#fields),*] as Vec<Vec<_>>)
+            quote! {{
+                if #inline == false {
+                    defs.insert(
+                        #struct_name_str.to_string(),
+                        #crate_ref::DataType::Object(#crate_ref::ObjectType {
+                            name: #struct_name_str.to_string(),
+                            inline: #inline,
+                            id: std::any::TypeId::of::<#struct_ident>(),
+                            fields: vec![],
+                            tag: #tag
+                        })
+                    );
+                }
+
+                let new_fields = (vec![#(#fields),*] as Vec<Vec<_>>)
                     .into_iter()
                     .flatten()
-                    .collect::<Vec<#crate_ref::ObjectField>>(),
-                tag: #tag
-            }))
+                    .collect::<Vec<#crate_ref::ObjectField>>();
+
+                if #inline == false {
+                    match defs.get_mut(&#struct_name_str.to_string()).unwrap() {
+                        #crate_ref::DataType::Object(#crate_ref::ObjectType {
+                            fields,
+                            ..
+                        }) => {
+                            fields.extend(new_fields);
+                        }
+                        _ => panic!("Unexpected data type for struct"),
+                    }
+
+                    defs.get(&#struct_name_str.to_string()).unwrap().clone()
+                } else {
+                    #crate_ref::DataType::Object(#crate_ref::ObjectType {
+                        name: #struct_name_str.to_string(),
+                        inline: #inline,
+                        id: std::any::TypeId::of::<#struct_ident>(),
+                        fields: new_fields,
+                        tag: #tag
+                    })
+                }
+            }}
         }
     }
 }
@@ -181,28 +225,44 @@ fn parse_named_struct_field(
 
     let optional = field_attrs.optional;
 
+    let ty_ident = &field.ty;
+
     let ty = match field_attrs.inline {
-        true => upsert,
+        true => quote! {{
+            let mut ty = #upsert;
+
+            ty.force_inline();
+
+            ty
+        }},
         false => {
-            let ty_ident = &field.ty;
-            quote!(
+            quote! {{
                 match <#ty_ident>::name() {
-                    Some(name) => #crate_ref::DataType::Reference(
-                        name.to_string()
-                    ),
-                    None => #upsert
+                    Some(name) => {
+                        if let None = defs.get(&name) {
+                            let def = <#ty_ident as #crate_ref::Type>::base(defs);
+                            defs.insert(name.to_string(), def);
+                        }
+
+                        <#ty_ident>::refr()
+                    },
+                    None => {
+                        <#ty_ident as #crate_ref::Type>::def(defs)
+                    },
                 }
-            )
+            }}
         }
     };
 
-    quote! {
+    quote! {{
+        let ty = #ty;
+
         vec![#crate_ref::ObjectField {
             name: #name_str.to_string(),
-            ty: #ty,
+            ty,
             optional: #optional,
         }]
-    }
+    }}
 }
 
 fn parse_tuple_struct_field(
@@ -238,9 +298,7 @@ fn parse_tuple_struct_field(
             let ty_ident = &field.ty;
             quote!(
                 match <#ty_ident>::name() {
-                    Some(name) => #crate_ref::DataType::Reference(
-                        name.to_string()
-                    ),
+                    Some(_) => <#ty_ident>::refr(),
                     None => #upsert
                 }
             )
@@ -345,6 +403,7 @@ fn parse_enum(
 
                     quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
                         name: #variant_name_str.to_string(),
+                        inline: true,
                         id: std::any::TypeId::of::<#enum_ident>(),
                         fields: vec![#(#fields),*],
                         tag: None
@@ -385,7 +444,7 @@ fn upsert_def(f: &Field, crate_ref: &TokenStream) -> TokenStream {
                 if let Some(def) = defs.get(&name) {
                     def.clone()
                 } else {
-                    let def = <#ty as #crate_ref::Type>::def(defs);
+                    let def = <#ty as #crate_ref::Type>::base(defs);
                     defs.insert(name.to_string(), def.clone());
                     def
                 }
