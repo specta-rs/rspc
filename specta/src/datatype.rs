@@ -3,9 +3,11 @@ use crate::{EnumType, ObjectType, TupleType};
 #[derive(Debug, Clone)]
 pub enum DataType {
     // Always inlined
+    Any,
     Primitive(PrimitiveType),
     List(Box<DataType>),
     Nullable(Box<DataType>),
+    Record(Box<(DataType, DataType)>),
     // Can be exported
     Tuple(TupleType),
     Object(ObjectType),

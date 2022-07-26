@@ -10,13 +10,18 @@ repository = "https://github.com/oscartbeaumont/rspc/tree/main/specta"
 documentation = "https://docs.rs/specta/latest/specta"
 
 [features]
-serde = ["specta-macros/serde"]
 default = ["serde"]
+serde = ["specta-macros/serde", "dep:serde_json"]
+uuid = ["dep:uuid"]
+chrono = ["dep:chrono"]
 
 [dependencies]
 convert_case = "0.5.0"
 specta-macros = { version = "0.0.1", path = "./macros" }
 termcolor = "1.1.3"
+serde_json = { version = "1.0.81", optional = true }
+uuid = { version = "1.1.2", optional = true }
+chrono = { version = "0.4.19", optional = true }
 
 [dev-dependencies]
 serde = { version = "1.0.140", features = ["derive"] }

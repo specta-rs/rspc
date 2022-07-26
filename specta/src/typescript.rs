@@ -63,12 +63,16 @@ macro_rules! primitive_def {
 /// Inlining is not applied to fields and variants.
 pub fn to_ts_inline(typ: &DataType) -> String {
     match &typ {
+        DataType::Any => "any".into(),
         primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
         primitive_def!(i64 u64 i128 u128) => "bigint".into(),
         primitive_def!(String char Path PathBuf) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
         primitive_def!(Never) => "never".into(),
         DataType::Nullable(def) => format!("{} | null", to_ts_inline(&def)),
+        DataType::Record(def) => {
+            format!("Record<{}, {}>", to_ts(&def.0), to_ts(&def.1))
+        }
         DataType::List(def) => format!("Array<{}>", to_ts_inline(&def)),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
@@ -179,8 +183,12 @@ pub fn sanitise_name(value: &str) -> String {
 /// Ignores inlining as the type passed in is treated as the root type.
 pub fn ts_dependencies(ty: &DataType) -> HashSet<&str> {
     match &ty {
-        DataType::Primitive(_) => HashSet::new(),
+        DataType::Any | DataType::Primitive(_) => HashSet::new(),
         DataType::Nullable(def) | DataType::List(def) => ts_dependencies(&def),
+        DataType::Record(def) => ts_dependencies(&def.0)
+            .union(&ts_dependencies(&def.1))
+            .copied()
+            .collect::<HashSet<_>>(),
         DataType::Object(obj) => obj
             .fields
             .iter()
@@ -201,8 +209,12 @@ pub fn ts_dependencies(ty: &DataType) -> HashSet<&str> {
 /// it will itself be a dependency, indicating that the parent type depends on it.
 fn ts_field_dependencies(ty: &DataType) -> Vec<&str> {
     match &ty {
-        DataType::Primitive(_) => vec![],
+        DataType::Any | DataType::Primitive(_) => vec![],
         DataType::Nullable(ty) | DataType::List(ty) => ts_field_dependencies(&ty),
+        DataType::Record(def) => ts_field_dependencies(&def.0)
+            .into_iter()
+            .chain(ts_field_dependencies(&def.1).into_iter())
+            .collect(),
         DataType::Object(obj) => obj
             .fields
             .iter()

@@ -6,7 +6,7 @@ mod typescript;
 
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
     rc::Rc,
     sync::{Arc, Mutex},
@@ -19,10 +19,8 @@ pub use specta_macros::*;
 pub use tuple::*;
 pub use typescript::*;
 
-/// TODO
 pub type TypeDefs = HashMap<String, DataType>;
 
-/// TODO
 pub trait Type {
     fn def(defs: &mut TypeDefs) -> DataType;
     fn base(defs: &mut TypeDefs) -> DataType;
@@ -154,7 +152,7 @@ impl<'a, T: Type + 'static> Type for &'a T {
     }
 
     fn refr() -> DataType {
-        T::refr()
+        DataType::List(Box::new(T::refr()))
     }
 }
 
@@ -254,5 +252,114 @@ macro_rules! impl_containers {
 
 impl_containers!(Box Rc Arc Cell RefCell Mutex);
 
-// TODO: UUID & chrono types
-//
+impl<K: Type, V: Type> Type for HashMap<K, V> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::Record(Box::new((K::def(defs), V::def(defs))))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::Record(Box::new((K::refr(), V::refr())))
+    }
+}
+
+impl<K: Type, V: Type> Type for BTreeMap<K, V> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::Record(Box::new((K::def(defs), V::def(defs))))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::Record(Box::new((K::refr(), V::refr())))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<K: Type, V: Type> Type for serde_json::Map<K, V> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        DataType::Record(Box::new((K::def(defs), V::def(defs))))
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::Record(Box::new((K::refr(), V::refr())))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Type for serde_json::Value {
+    fn def(_defs: &mut TypeDefs) -> DataType {
+        DataType::Any
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        None
+    }
+
+    fn refr() -> DataType {
+        DataType::Any
+    }
+}
+
+#[cfg(feature = "uuid")]
+impl Type for uuid::Uuid {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        String::def(defs)
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        String::name()
+    }
+
+    fn refr() -> DataType {
+        String::refr()
+    }
+}
+
+#[cfg(feature = "chrono")]
+impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
+    fn def(defs: &mut TypeDefs) -> DataType {
+        String::def(defs)
+    }
+
+    fn base(defs: &mut TypeDefs) -> DataType {
+        Self::def(defs)
+    }
+
+    fn name() -> Option<String> {
+        String::name()
+    }
+
+    fn refr() -> DataType {
+        String::refr()
+    }
+}
