@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use crate::{ClientContext, Error, ErrorCode, ExecError, OperationKey, OperationKind, Router};
+use crate::{ClientContext, ExecError, OperationKey, OperationKind, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -67,7 +67,12 @@ where
         TCtxFuncResult::Future(Box::pin(async move {
             match T1::from_request(request).await {
                 Ok(t1) => Ok(this(t1)),
-                Err(_) => Err(ExecError::AxumExtractorError),
+                Err(_) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("error executing axum extractor");
+
+                    Err(ExecError::AxumExtractorError)
+                }
             }
         }))
     }
@@ -141,7 +146,16 @@ where
                             .handle(ctx, &self, &client_ctx, None)
                             .await
                         }
-                        Err(err) => err.into_rspc_err().into_response(None),
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!(
+                                "error executing operation {:?}: {:?}",
+                                OperationKind::Query,
+                                err
+                            );
+
+                            err.into_rspc_err().into_response(None)
+                        }
                     },
                     TCtxFuncResult::Future(future) => match future.await {
                         Ok(ctx) => {
@@ -153,7 +167,16 @@ where
                             .handle(ctx, &self, &client_ctx, None)
                             .await
                         }
-                        Err(err) => err.into_rspc_err().into_response(None),
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!(
+                                "error executing operation {:?}: {:?}",
+                                OperationKind::Query,
+                                err
+                            );
+
+                            err.into_rspc_err().into_response(None)
+                        }
                     },
                 };
 
@@ -191,7 +214,15 @@ where
                     .handle(ctx, &self, &client_ctx, None)
                     .await
                 }
-                Err(err) => err.into_rspc_err().into_response(None),
+                Err(err) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!(
+                        "error executing operation {:?}: {:?}",
+                        OperationKind::Mutation,
+                        err
+                    );
+                    err.into_rspc_err().into_response(None)
+                }
             },
             TCtxFuncResult::Future(future) => match future.await {
                 Ok(ctx) => {
@@ -203,7 +234,15 @@ where
                     .handle(ctx, &self, &client_ctx, None)
                     .await
                 }
-                Err(err) => err.into_rspc_err().into_response(None),
+                Err(err) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!(
+                        "error executing operation {:?}: {:?}",
+                        OperationKind::Mutation,
+                        err
+                    );
+                    err.into_rspc_err().into_response(None)
+                }
             },
         };
 
@@ -235,20 +274,41 @@ where
                                             match ctx_fn.exec(&mut request_parts) {
                                                 TCtxFuncResult::Value(ctx) => match ctx {
                                                     Ok(ctx) => result.handle(ctx, &self, &client_ctx, Some(&tx)).await,
-                                                    Err(err) => err.into_rspc_err().into_response(result.id),
+                                                    Err(err) => {
+                                                        #[cfg(feature = "tracing")]
+                                                        tracing::error!(
+                                                            "error executing operation {:?} with id '{}': {:?}",
+                                                            result.operation,
+                                                            result.id.clone().unwrap_or("".into()),
+                                                            err
+                                                        );
+                                                        err.into_rspc_err().into_response(result.id)
+                                                    },
                                                 },
                                                 TCtxFuncResult::Future(future) => match future.await {
                                                     Ok(ctx) => result.handle(ctx, &self, &client_ctx, Some(&tx)).await,
                                                     Err(err) => {
-                                                        Error {
-                                                            code: ErrorCode::InternalServerError,
-                                                            message: err.to_string(),
-                                                        }.into_response(result.id)
+                                                        #[cfg(feature = "tracing")]
+                                                        tracing::error!(
+                                                            "error executing operation {:?} with id '{}': {:?}",
+                                                            result.operation,
+                                                            result.id.clone().unwrap_or("".into()),
+                                                            err
+                                                        );
+                                                        err.into_rspc_err().into_response(result.id)
                                                     }
                                                 },
                                             }
                                         },
-                                        Err(err) => ExecError::DeserializingArgErr(err).into_rspc_err().into_response(None),
+                                        Err(err) => {
+                                            #[cfg(feature = "tracing")]
+                                            tracing::error!(
+                                                "error executing websocket operation: {:?}",
+                                                err
+                                            );
+
+                                            ExecError::DeserializingArgErr(err).into_rspc_err().into_response(None)
+                                        },
                                     };
 
                                     if !matches!(result, crate::Response::None) && socket
@@ -286,8 +346,9 @@ where
                         .await
                     {
                         Ok(_) => {},
-                        Err(_) => {
-                            println!("ERROR SENDING MESSAGE!"); // TODO: Error handling here
+                        Err(_err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("error sending message to client: {}", _err);
                             return;
                         }
                     }

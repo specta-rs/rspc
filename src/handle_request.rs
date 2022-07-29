@@ -67,6 +67,7 @@ impl Request {
                             Some(event_sender) => {
                                 let event_sender = event_sender.clone();
                                 let key = self.key.0.clone();
+                                let id = self.id.clone();
                                 {
                                     let subscription_id = subscription_id.clone();
                                     tokio::spawn(async move {
@@ -115,7 +116,7 @@ impl Request {
                                     });
                                 }
                                 Response::Response {
-                                    id: self.id,
+                                    id,
                                     result: Value::String(subscription_id),
                                 }
                             }

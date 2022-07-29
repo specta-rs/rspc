@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_stream::stream;
 use axum::{extract::Path, routing::get};
-use rspc::{Config, ErrorCode};
+use rspc::Config;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 

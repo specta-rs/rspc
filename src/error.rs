@@ -53,6 +53,7 @@ pub enum ExportError {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Error {
     pub(crate) code: ErrorCode,
     pub(crate) message: String,
