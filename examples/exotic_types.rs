@@ -12,7 +12,7 @@ use uuid::{uuid, Uuid};
 #[derive(Serialize, Type)]
 struct ExoticStruct {
     id: Uuid,
-    time: Option<DateTime<Utc>>,
+    time: Option<std::string::String>,
     s: &'static str
 }
 
@@ -22,10 +22,10 @@ struct GenericStruct<T> {
 }
 
 #[derive(Serialize, Type)]
-enum SomeEnum<T> {
+enum SomeEnum {
     Unit,
-    Unnamed(Box<Vec<Option<T>>>),
-    Named { n: Option<Vec<T>> },
+    Unnamed(Box<Vec<Option<std::string::String>>>),
+    Named { n: Option<Vec<i32>> },
 }
 
 // #[derive(Serialize, Type)]
@@ -59,7 +59,7 @@ async fn main() {
             .query("genericStruct", |_, _: ()| GenericStruct::<String> {
                 x: "Hello World".into(),
             })
-            .query("enum", |_, _: ()| <SomeEnum<()>>::Unit)
+            .query("enum", |_, _: ()| <SomeEnum>::Unit)
             // .query("demo", |_, _: ()| {
             //     let mut x = BTreeMap::new();
             //     x.insert("a", Demo {});

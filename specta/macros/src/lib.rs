@@ -124,8 +124,6 @@ fn derive_type_internal(
         }
     };
 
-    println!("{}", out);
-
     out.into()
 }
 
@@ -166,19 +164,20 @@ fn recurse_generics(
         }
     } else {
         let generic_args = match &path.segments.last().unwrap().arguments {
-            PathArguments::AngleBracketed(args) => {
-                args.args
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, arg)| match arg {
-                        GenericArgument::Type(ty) => Some((i, path_from_type(ty))),
-                        _ => todo!("one"),
-                    })
-            }
+            PathArguments::AngleBracketed(args) => args
+                .args
+                .iter()
+                .enumerate()
+                .filter_map(|(i, arg)| match arg {
+                    GenericArgument::Type(ty) => Some((i, path_from_type(ty))),
+                    _ => todo!("one"),
+                })
+                .collect(),
+            PathArguments::None => vec![],
             _ => panic!("Only angle bracketed generics are supported!"),
         };
 
-        let generic_vars = generic_args.clone().map(|(i, path)| {
+        let generic_vars = generic_args.iter().map(|(i, path)| {
             recurse_generics(
                 format_ident!("{}_{}", &var_ident, i),
                 &path,
@@ -187,7 +186,9 @@ fn recurse_generics(
             )
         });
 
-        let generic_var_idents = generic_args.map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
+        let generic_var_idents = generic_args
+            .iter()
+            .map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
 
         quote! {
             #(#generic_vars)*
