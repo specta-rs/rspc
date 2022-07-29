@@ -13,6 +13,7 @@ use uuid::{uuid, Uuid};
 struct ExoticStruct {
     id: Uuid,
     time: Option<DateTime<Utc>>,
+    s: &'static str
 }
 
 #[derive(Serialize, Type)]
@@ -74,6 +75,7 @@ async fn main() {
             .query("exoticStruct", |_, _: ()| ExoticStruct {
                 id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
                 time: None,
+                s: "Hello World",
             })
             .build();
 }

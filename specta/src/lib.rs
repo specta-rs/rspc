@@ -159,6 +159,22 @@ impl<'a> Type for &'a str {
     }
 }
 
+impl Type for str {
+    const NAME: &'static str = String::NAME;
+
+    fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
+        String::inline(defs, generics)
+    }
+
+    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
+        String::reference(opts, generics)
+    }
+
+    fn definition(_: DefOpts) -> DataType {
+        panic!()
+    }
+}
+
 impl<'a, T: Type + 'static> Type for &'a T {
     const NAME: &'static str = T::NAME;
 

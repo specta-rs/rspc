@@ -171,7 +171,7 @@ fn recurse_generics(
                     .iter()
                     .enumerate()
                     .filter_map(|(i, arg)| match arg {
-                        GenericArgument::Type(Type::Path(type_path)) => Some((i, &type_path.path)),
+                        GenericArgument::Type(ty) => Some((i, path_from_type(ty))),
                         _ => todo!("one"),
                     })
             }
@@ -248,15 +248,12 @@ fn _parse_struct(
                 let field_ident = &field.ident;
                 let field_ty = &field.ty;
 
-                let generic_vars = match field_ty {
-                    Type::Path(type_path) => recurse_generics(
-                        format_ident!("gen"),
-                        &type_path.path,
-                        &generic_idents,
-                        crate_ref,
-                    ),
-                    _ => panic!("Only path types are supported!"),
-                };
+                let generic_vars = recurse_generics(
+                    format_ident!("gen"),
+                    path_from_type(field_ty),
+                    &generic_idents,
+                    crate_ref,
+                );
 
                 quote!(#crate_ref::ObjectField {
                     name: stringify!(#field_ident).to_string(),
@@ -756,6 +753,18 @@ fn parse_enum(
     }
 }
 
+fn path_from_type(ty: &Type) -> &Path {
+    match ty {
+        Type::Path(p) => &p.path,
+        Type::Array(a) => path_from_type(&a.elem),
+        Type::Slice(s) => path_from_type(&s.elem),
+        Type::Ptr(p) => path_from_type(&p.elem),
+        Type::Reference(r) => path_from_type(&r.elem),
+        // Type::Tuple(t) => path_from_type(&t.elems[0]),
+        _ => panic!("Cannot get path from type {}", quote!(#ty)),
+    }
+}
+
 fn _parse_enum(
     enum_name_str: &str,
     enum_attrs: &EnumAttr,
@@ -821,15 +830,12 @@ fn _parse_enum(
                     let fields = fields.unnamed.iter().map(|field| {
                         let field_ty = &field.ty;
 
-                        let generic_vars = match field_ty {
-                            Type::Path(type_path) => recurse_generics(
-                                format_ident!("gen"),
-                                &type_path.path,
-                                &generic_idents,
-                                crate_ref,
-                            ),
-                            _ => panic!("Only path types are supported!"),
-                        };
+                        let generic_vars = recurse_generics(
+                            format_ident!("gen"),
+                            path_from_type(field_ty),
+                            &generic_idents,
+                            crate_ref,
+                        );
 
                         quote!({
                             #generic_vars
