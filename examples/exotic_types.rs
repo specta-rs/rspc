@@ -12,6 +12,7 @@ use uuid::{uuid, Uuid};
 #[derive(Serialize, Type)]
 struct ExoticStruct {
     id: Uuid,
+    time: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize, Type)]
@@ -64,6 +65,7 @@ async fn main() {
             .query("chronoTimestamp", |_, _: ()| Utc::now())
             .query("exoticStruct", |_, _: ()| ExoticStruct {
                 id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
+                time: None
             })
             .build();
 }

@@ -702,3 +702,28 @@ impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
         panic!()
     }
 }
+
+macro_rules! chrono_timezone {
+    ($($name:ident),+) => {
+        $(
+            impl Type for chrono::$name {
+                const NAME: &'static str = stringify!($name);
+
+                fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+                    DataType::Primitive(PrimitiveType::String)
+                }
+
+                fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
+                    DataType::Primitive(PrimitiveType::String)
+                }
+
+                fn definition(_: DefOpts) -> DataType {
+                    panic!()
+                }
+            }
+        )*
+    };
+}
+
+#[cfg(feature = "chrono")]
+chrono_timezone!(FixedOffset, Utc, Local);
