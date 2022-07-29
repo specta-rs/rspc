@@ -4,7 +4,7 @@ use crate::{DataType, GenericType, ObjectType, PrimitiveType, TupleType};
 pub struct EnumType {
     pub name: String,
     pub variants: Vec<EnumVariant>,
-    pub generics: Vec<GenericType>,
+    pub generics: Vec<&'static str>,
     pub repr: EnumRepr,
 }
 

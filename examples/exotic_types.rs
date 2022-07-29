@@ -20,6 +20,13 @@ struct GenericStruct<T> {
     x: T,
 }
 
+#[derive(Serialize, Type)]
+enum SomeEnum<T> {
+    Unit,
+    Unnamed(Box<Vec<Option<T>>>),
+    Named { n: Option<Vec<T>> },
+}
+
 // #[derive(Serialize, Type)]
 // enum GenericEnum<T> {
 //     X(T),
@@ -51,6 +58,7 @@ async fn main() {
             .query("genericStruct", |_, _: ()| GenericStruct::<String> {
                 x: "Hello World".into(),
             })
+            .query("enum", |_, _: ()| <SomeEnum<()>>::Unit)
             // .query("demo", |_, _: ()| {
             //     let mut x = BTreeMap::new();
             //     x.insert("a", Demo {});
@@ -65,7 +73,7 @@ async fn main() {
             .query("chronoTimestamp", |_, _: ()| Utc::now())
             .query("exoticStruct", |_, _: ()| ExoticStruct {
                 id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
-                time: None
+                time: None,
             })
             .build();
 }

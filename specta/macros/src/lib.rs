@@ -9,7 +9,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, Data, DataEnum, DataStruct, DeriveInput, Field, Fields, GenericArgument,
-    GenericParam, Generics, Ident, Path, PathArguments, Type,
+    GenericParam, Generics, Ident, Path, PathArguments, Type, Variant,
 };
 
 #[proc_macro_derive(Type, attributes(specta, serde))]
@@ -60,18 +60,18 @@ fn derive_type_internal(
         Data::Struct(data) => {
             _parse_struct(&name_str, &container_attrs, &generics, &crate_ref, data)
         }
-        // Data::Enum(data) => {
-        //     let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
-        //
-        //     parse_enum(
-        //         &name_str,
-        //         &enum_attrs,
-        //         &container_attrs,
-        //         &generics,
-        //         &crate_ref,
-        //         data,
-        //     )
-        // }
+        Data::Enum(data) => {
+            let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
+
+            _parse_enum(
+                &name_str,
+                &enum_attrs,
+                &container_attrs,
+                &generics,
+                &crate_ref,
+                data,
+            )
+        }
         _ => panic!("Type 'Union' is not supported by specta!"),
     };
 
@@ -124,9 +124,83 @@ fn derive_type_internal(
         }
     };
 
-    println!("{out}");
+    println!("{}", out);
 
     out.into()
+}
+
+fn recurse_generics(
+    var_ident: Ident,
+    path: &Path,
+    generic_idents: &[(usize, &Ident)],
+    crate_ref: &TokenStream,
+) -> TokenStream {
+    if let Some(type_ident) = path.get_ident() {
+        if let Some((i, generic_ident)) = generic_idents
+            .iter()
+            .find(|(_, ident)| ident == &type_ident)
+        {
+            quote! {
+                let #var_ident = generics.get(#i).map(Clone::clone).unwrap_or(
+                    <#generic_ident as #crate_ref::Type>::reference(
+                        #crate_ref::DefOpts {
+                            parent_inline: false,
+                            type_map: opts.type_map
+                        },
+                        &[#crate_ref::DataType::Generic(
+                            stringify!(#type_ident).to_string()
+                        )]
+                    )
+                );
+            }
+        } else {
+            quote! {
+                let #var_ident = <#type_ident as #crate_ref::Type>::reference(
+                    #crate_ref::DefOpts {
+                        parent_inline: false,
+                        type_map: opts.type_map
+                    },
+                    &[]
+                );
+            }
+        }
+    } else {
+        let generic_args = match &path.segments.last().unwrap().arguments {
+            PathArguments::AngleBracketed(args) => {
+                args.args
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, arg)| match arg {
+                        GenericArgument::Type(Type::Path(type_path)) => Some((i, &type_path.path)),
+                        _ => todo!("one"),
+                    })
+            }
+            _ => panic!("Only angle bracketed generics are supported!"),
+        };
+
+        let generic_vars = generic_args.clone().map(|(i, path)| {
+            recurse_generics(
+                format_ident!("{}_{}", &var_ident, i),
+                &path,
+                &generic_idents,
+                crate_ref,
+            )
+        });
+
+        let generic_var_idents = generic_args.map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
+
+        quote! {
+            #(#generic_vars)*
+
+            let #var_ident = <#path as #crate_ref::Type>::reference(
+                #crate_ref::DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map
+                },
+                &[#(#generic_var_idents),*]
+            );
+        }
+    }
 }
 
 fn _parse_struct(
@@ -146,24 +220,21 @@ fn _parse_struct(
         })
         .collect::<Vec<_>>();
 
-    let reference_generics = generic_idents
-        .iter()
-        .map(|(i, ident)| {
-            let ident = &ident.clone();
+    let reference_generics = generic_idents.iter().map(|(i, ident)| {
+        let ident = &ident.clone();
 
-            quote! {
-                generics.get(#i).cloned().unwrap_or(
-                    <#ident as #crate_ref::Type>::reference(
-                        #crate_ref::DefOpts {
-                            parent_inline: false,
-                            type_map: opts.type_map
-                        },
-                        &[]
-                    )
+        quote! {
+            generics.get(#i).cloned().unwrap_or(
+                <#ident as #crate_ref::Type>::reference(
+                    #crate_ref::DefOpts {
+                        parent_inline: false,
+                        type_map: opts.type_map
+                    },
+                    &[]
                 )
-            }
-        })
-        .collect::<Vec<_>>();
+            )
+        }
+    });
 
     let definition_generics = generic_idents.iter().map(|(_, ident)| {
         let ident = &ident.clone();
@@ -177,84 +248,8 @@ fn _parse_struct(
                 let field_ident = &field.ident;
                 let field_ty = &field.ty;
 
-                fn recurse(
-                    var_ident: Ident,
-                    path: &Path,
-                    generic_idents: &[(usize, &Ident)],
-                    crate_ref: &TokenStream,
-                ) -> TokenStream {
-                    if let Some(type_ident) = path.get_ident() {
-                        if let Some((i, generic_ident)) = generic_idents
-                            .iter()
-                            .find(|(_, ident)| ident == &type_ident)
-                        {
-                            quote! {
-                                let #var_ident = generics.get(#i).map(Clone::clone).unwrap_or(
-                                    <#generic_ident as #crate_ref::Type>::reference(
-                                        #crate_ref::DefOpts {
-                                            parent_inline: false,
-                                            type_map: opts.type_map
-                                        },
-                                        &[#crate_ref::DataType::Generic(
-                                            stringify!(#type_ident).to_string()
-                                        )]
-                                    )
-                                );
-                            }
-                        } else {
-                            quote! {
-                                let #var_ident = <#type_ident as #crate_ref::Type>::reference(
-                                    #crate_ref::DefOpts {
-                                        parent_inline: false,
-                                        type_map: opts.type_map
-                                    },
-                                    &[]
-                                );
-                            }
-                        }
-                    } else {
-                        let generic_args = match &path.segments.last().unwrap().arguments {
-                            PathArguments::AngleBracketed(args) => args
-                                .args
-                                .iter()
-                                .enumerate()
-                                .filter_map(|(i, arg)| match arg {
-                                    GenericArgument::Type(Type::Path(type_path)) => {
-                                        Some((i, &type_path.path))
-                                    }
-                                    _ => todo!("one"),
-                                }),
-                            _ => panic!("Only angle bracketed generics are supported!"),
-                        };
-
-                        let generic_vars = generic_args.clone().map(|(i, path)| {
-                            recurse(
-                                format_ident!("{}_{}", &var_ident, i),
-                                &path,
-                                &generic_idents,
-                                crate_ref,
-                            )
-                        });
-
-                        let generic_var_idents =
-                            generic_args.map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
-
-                        quote! {
-                            #(#generic_vars)*
-
-                            let #var_ident = <#path as #crate_ref::Type>::reference(
-                                #crate_ref::DefOpts {
-                                    parent_inline: false,
-                                    type_map: opts.type_map
-                                },
-                                &[#(#generic_var_idents),*]
-                            );
-                        }
-                    }
-                }
-
                 let generic_vars = match field_ty {
-                    Type::Path(type_path) => recurse(
+                    Type::Path(type_path) => recurse_generics(
                         format_ident!("gen"),
                         &type_path.path,
                         &generic_idents,
@@ -759,6 +754,158 @@ fn parse_enum(
             ty
         }},
     }
+}
+
+fn _parse_enum(
+    enum_name_str: &str,
+    enum_attrs: &EnumAttr,
+    container_attrs: &ContainerAttr,
+    generics: &Generics,
+    crate_ref: &TokenStream,
+    data: &DataEnum,
+) -> (TokenStream, TokenStream) {
+    let generic_idents = generics
+        .params
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| match p {
+            GenericParam::Type(t) => Some((i, &t.ident)),
+            _ => None,
+        });
+
+    let definition_generics = generic_idents.clone().map(|(_, ident)| {
+        let ident = &ident.clone();
+
+        quote!(stringify!(#ident))
+    });
+
+    let reference_generics = generic_idents.clone().map(|(i, ident)| {
+        let ident = &ident.clone();
+
+        quote! {
+            generics.get(#i).cloned().unwrap_or(
+                <#ident as #crate_ref::Type>::reference(
+                    #crate_ref::DefOpts {
+                        parent_inline: false,
+                        type_map: opts.type_map
+                    },
+                    &[]
+                )
+            )
+        }
+    });
+
+    let variants = data
+        .variants
+        .iter()
+        .map(|v| {
+            let attrs = VariantAttr::from_attrs(&v.attrs).expect("Failed to parse enum attributes");
+
+            (v, attrs)
+        })
+        .filter(|(_, attrs)| !attrs.skip)
+        .map(|(variant, attrs)| {
+            let variant_name_str = match (attrs.rename.clone(), container_attrs.rename_all) {
+                (Some(name), _) => name,
+                (None, Some(inflection)) => inflection.apply(&variant.ident.to_string()),
+                (None, None) => variant.ident.to_string(),
+            };
+
+            let generic_idents = generic_idents.clone().collect::<Vec<_>>();
+
+            match &variant.fields {
+                Fields::Unit => {
+                    quote!(#crate_ref::EnumVariant::Unit(#variant_name_str.to_string()))
+                }
+                Fields::Unnamed(fields) => {
+                    let fields = fields.unnamed.iter().map(|field| {
+                        let field_ty = &field.ty;
+
+                        let generic_vars = match field_ty {
+                            Type::Path(type_path) => recurse_generics(
+                                format_ident!("gen"),
+                                &type_path.path,
+                                &generic_idents,
+                                crate_ref,
+                            ),
+                            _ => panic!("Only path types are supported!"),
+                        };
+
+                        quote!({
+                            #generic_vars
+
+                            gen
+                        })
+                    });
+
+                    quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
+                        name: #variant_name_str.to_string(),
+                        fields: vec![#(#fields),*],
+                        generics: vec![]
+                    }))
+                }
+                Fields::Named(fields) => {
+                    let fields = fields.named.iter().map(|field| {
+                        let field_ident = &field.ident;
+                        let field_ty = &field.ty;
+
+                        let generic_vars = match field_ty {
+                            Type::Path(type_path) => recurse_generics(
+                                format_ident!("gen"),
+                                &type_path.path,
+                                &generic_idents,
+                                crate_ref,
+                            ),
+                            _ => panic!("Only path types are supported!"),
+                        };
+
+                        quote!(#crate_ref::ObjectField {
+                            name: stringify!(#field_ident).to_string(),
+                            optional: false,
+                            ty: {
+                                #generic_vars
+
+                                gen
+                            },
+                        })
+                    });
+
+                    quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
+                        name: #variant_name_str.to_string(),
+                        fields: vec![#(#fields),*],
+                        generics: vec![],
+                        tag: None
+                    }))
+                }
+            }
+        });
+
+    let repr = match enum_attrs
+        .tagged()
+        .expect("Invalid tag/content combination")
+    {
+        Tagged::Externally => quote!(External),
+        Tagged::Untagged => quote!(Untagged),
+        Tagged::Adjacently { tag, content } => {
+            quote!(Adjacent { tag: #tag.to_string(), content: #content.to_string() })
+        }
+        Tagged::Internally { tag } => {
+            quote!(Internal { tag: #tag.to_string() })
+        }
+    };
+
+    (
+        quote!(#crate_ref::DataType::Enum(#crate_ref::EnumType {
+            name: #enum_name_str.to_string(),
+            generics: vec![#(#definition_generics),*],
+            variants: vec![#(#variants),*],
+            repr: #crate_ref::EnumRepr::#repr
+        })),
+        quote!(#crate_ref::DataType::Reference {
+            name: #enum_name_str.to_string(),
+            generics: vec![#(#reference_generics),*],
+        }),
+    )
 }
 
 fn sanitise_raw_ident(ident: &Ident) -> String {
