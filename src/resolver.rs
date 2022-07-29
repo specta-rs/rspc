@@ -122,16 +122,16 @@ where
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
         ProcedureDataType {
-            arg_ty: <TArg as Type>::inline(
+            arg_ty: <TArg as Type>::reference(
                 DefOpts {
-                    parent_inline: true,
+                    parent_inline: false,
                     type_map: defs,
                 },
                 &[],
             ),
-            result_ty: <TResult as Type>::inline(
+            result_ty: <TResult as Type>::reference(
                 DefOpts {
-                    parent_inline: true,
+                    parent_inline: false,
                     type_map: defs,
                 },
                 &[],
