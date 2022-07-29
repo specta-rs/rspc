@@ -17,18 +17,7 @@ pub enum DataType {
         name: String,
         generics: Vec<DataType>,
     },
-    Generic {
-        ident: String,
-    },
-}
-
-impl DataType {
-    pub fn force_inline(&mut self) {
-        match self {
-            DataType::Object(object) => object.inline = true,
-            _ => {}
-        }
-    }
+    Generic(String)
 }
 
 #[allow(non_camel_case_types)]

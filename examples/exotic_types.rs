@@ -19,13 +19,13 @@ struct GenericStruct<T> {
     x: T,
 }
 
-#[derive(Serialize, Type)]
-enum GenericEnum<T> {
-    X(T),
-}
+// #[derive(Serialize, Type)]
+// enum GenericEnum<T> {
+//     X(T),
+// }
 
-#[derive(Serialize, Type)]
-pub struct Demo {}
+// #[derive(Serialize, Type)]
+// pub struct Demo {}
 
 #[tokio::main]
 async fn main() {
@@ -47,23 +47,23 @@ async fn main() {
                 x
             })
             .query("serdeValue", |_, _: ()| Value::String("Hello World".into()))
+            .query("genericStruct", |_, _: ()| GenericStruct::<String> {
+                x: "Hello World".into(),
+            })
+            // .query("demo", |_, _: ()| {
+            //     let mut x = BTreeMap::new();
+            //     x.insert("a", Demo {});
+            //     x
+            // })
+            // .query("genericEnum", |_, _: ()| {
+            //     GenericEnum::<String>::X("Hello World".into())
+            // })
             .query("uuid", |_, _: ()| {
                 uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
             })
             .query("chronoTimestamp", |_, _: ()| Utc::now())
             .query("exoticStruct", |_, _: ()| ExoticStruct {
                 id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
-            })
-            .query("genericStruct", |_, _: ()| GenericStruct::<String> {
-                x: "Hello World".into(),
-            })
-            .query("genericEnum", |_, _: ()| {
-                GenericEnum::<String>::X("Hello World".into())
-            })
-            .query("demo", |_, _: ()| {
-                let mut x = BTreeMap::new();
-                x.insert("a", Demo {});
-                x
             })
             .build();
 }
