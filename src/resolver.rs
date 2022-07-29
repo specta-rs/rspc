@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use futures::{Stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::{Type, TypeDefs};
+use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{ExecError, IntoLayerResult, LayerResult, ProcedureDataType};
 
@@ -13,41 +13,53 @@ pub trait Resolver<TCtx, TMarker> {
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
 
-pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
-impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, NoArgMarker<TResultMarker>> for TFunc
-where
-    TFunc: Fn() -> TResult,
-    TResult: IntoLayerResult<TResultMarker> + Type,
-{
-    fn exec(&self, _ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
-        self().into_layer_result()
-    }
-
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-        ProcedureDataType {
-            arg_ty: <() as Type>::def(defs),
-            result_ty: <TResult as Type>::def(defs),
-        }
-    }
-}
-
-pub struct SingleArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
-impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, SingleArgMarker<TResultMarker>> for TFunc
-where
-    TFunc: Fn(TCtx) -> TResult,
-    TResult: IntoLayerResult<TResultMarker>,
-{
-    fn exec(&self, ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
-        self(ctx).into_layer_result()
-    }
-
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-        ProcedureDataType {
-            arg_ty: <() as Type>::def(defs),
-            result_ty: <TResult::Result as Type>::def(defs),
-        }
-    }
-}
+// pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
+// impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, NoArgMarker<TResultMarker>> for TFunc
+// where
+//     TFunc: Fn() -> TResult,
+//     TResult: IntoLayerResult<TResultMarker> + Type,
+// {
+//     fn exec(&self, _ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
+//         self().into_layer_result()
+//     }
+//
+//     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+//         ProcedureDataType {
+//             arg_ty: <() as Type>::def(DefOpts {
+//                 parent_inline: true,
+//                 type_map: defs,
+//             }),
+//             result_ty: <TResult as Type>::def(DefOpts {
+//                 parent_inline: true,
+//                 type_map: defs,
+//             }),
+//         }
+//     }
+// }
+//
+// pub struct SingleArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
+// impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, SingleArgMarker<TResultMarker>> for TFunc
+// where
+//     TFunc: Fn(TCtx) -> TResult,
+//     TResult: IntoLayerResult<TResultMarker>,
+// {
+//     fn exec(&self, ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
+//         self(ctx).into_layer_result()
+//     }
+//
+//     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+//         ProcedureDataType {
+//             arg_ty: <() as Type>::def(DefOpts {
+//                 parent_inline: true,
+//                 type_map: defs,
+//             }),
+//             result_ty: <TResult::Result as Type>::def(DefOpts {
+//                 parent_inline: true,
+//                 type_map: defs,
+//             }),
+//         }
+//     }
+// }
 
 pub struct DoubleArgMarker<TArg, TResultMarker>(
     /* private */ PhantomData<(TArg, TResultMarker)>,
@@ -66,8 +78,20 @@ where
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
         ProcedureDataType {
-            arg_ty: <TArg as Type>::def(defs),
-            result_ty: <TResult::Result as Type>::def(defs),
+            arg_ty: <TArg as Type>::reference(
+                DefOpts {
+                    parent_inline: false,
+                    type_map: defs,
+                },
+                &[],
+            ),
+            result_ty: <TResult::Result as Type>::reference(
+                DefOpts {
+                    parent_inline: false,
+                    type_map: defs,
+                },
+                &[],
+            ),
         }
     }
 }
@@ -98,8 +122,20 @@ where
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
         ProcedureDataType {
-            arg_ty: <TArg as Type>::def(defs),
-            result_ty: <TResult as Type>::def(defs),
+            arg_ty: <TArg as Type>::inline(
+                DefOpts {
+                    parent_inline: true,
+                    type_map: defs,
+                },
+                &[],
+            ),
+            result_ty: <TResult as Type>::inline(
+                DefOpts {
+                    parent_inline: true,
+                    type_map: defs,
+                },
+                &[],
+            ),
         }
     }
 }

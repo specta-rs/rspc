@@ -10,8 +10,7 @@ pub struct ObjectField {
 #[derive(Debug, Clone)]
 pub struct ObjectType {
     pub name: String,
-    pub inline: bool,
-    pub generics: Vec<GenericType>,
+    pub generics: Vec<&'static str>,
     pub fields: Vec<ObjectField>,
     pub tag: Option<String>,
 }

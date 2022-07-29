@@ -1,60 +1,61 @@
 use crate::{
-    DataType, EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType, PrimitiveType, TupleType,
-    TypeDefs,
+    DataType, DefOpts, EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType, PrimitiveType,
+    TupleType, TypeDefs,
 };
 
 use super::Type;
 
 pub fn ts_inline<T: Type>() -> String {
-    to_ts_inline(&T::def(&mut TypeDefs::default()))
+    to_ts_inline(&T::inline(
+        DefOpts {
+            parent_inline: true,
+            type_map: &mut TypeDefs::new(),
+        },
+        &[],
+    ))
 }
 
-pub fn ts_ref<T: Type>() -> String {
-    to_ts(&T::def(&mut TypeDefs::default()))
+pub fn ts_ref<T: Type>(generics: Vec<DataType>) -> String {
+    to_ts(&T::inline(
+        DefOpts {
+            parent_inline: false,
+            type_map: &mut TypeDefs::new(),
+        },
+        &[],
+    ))
 }
 
 pub fn ts_export<T: Type>() -> Result<String, String> {
-    to_ts_export(&T::def(&mut TypeDefs::default()))
+    to_ts_export(&T::inline(
+        DefOpts {
+            parent_inline: true,
+            type_map: &mut TypeDefs::default(),
+        },
+        &[],
+    ))
 }
 
 pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts_inline(&def);
 
     Ok(match &def {
-        DataType::Object(ObjectType {
-            name,
-            inline,
-            generics,
-            ..
-        }) if !inline => {
-            println!("{:?}", generics);
+        DataType::Object(ObjectType { name, generics, .. }) => {
             let generics = match generics.len() {
                 0 => "".into(),
                 _ => format!(
                     "<{}>",
                     generics
                         .iter()
-                        .map(|g| g.name.as_str())
+                        .map(|g| *g)
                         .collect::<Vec<_>>()
                         .join(", ")
                 ),
             };
 
             format!("export interface {name}{generics} {inline_ts}")
-        }
-        DataType::Enum(EnumType { name, generics, .. }) => {
-            let generics = match generics.len() {
-                0 => "".into(),
-                _ => format!(
-                    "<{}>",
-                    generics
-                        .iter()
-                        .map(|g| g.name.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            };
-            format!("export type {name}{generics} = {inline_ts}")
+        },
+        DataType::Enum(EnumType { name, .. }) => {
+            format!("export type {name} = {inline_ts}")
         }
         DataType::Tuple(TupleType { name, .. }) => {
             format!("export type {name} = {inline_ts}")
@@ -63,32 +64,24 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     })
 }
 
-/// Prints the type definition of the given type.
+/// Prints the type inline of the given type.
 pub fn to_ts(typ: &DataType) -> String {
     match &typ {
-        DataType::Object(ObjectType {
-            name,
-            inline,
-            generics,
-            ..
-        }) => match *inline {
-            true => to_ts_inline(typ),
-            false => {
-                let generics = match generics.len() {
-                    0 => "".into(),
-                    _ => format!(
-                        "<{}>",
-                        generics
-                            .iter()
-                            .map(|g| g.name.as_str())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ),
-                };
+        DataType::Object(ObjectType { name, generics, .. }) => {
+            let generics = match generics.len() {
+                0 => "".into(),
+                _ => format!(
+                    "<{}>",
+                    generics
+                        .iter()
+                        .map(|g| *g)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            };
 
-                format!("{name}{generics}")
-            }
-        },
+            format!("{name}{generics}")
+        }
         DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0]),
         DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
         DataType::List(def) => format!("Array<{}>", to_ts(&def)),
@@ -192,7 +185,7 @@ pub fn to_ts_inline(typ: &DataType) -> String {
                 format!("{name}<{generics}>")
             }
         },
-        DataType::Generic { ident } => ident.to_string(),
+        DataType::Generic(ident) => ident.to_string(),
     }
 }
 
