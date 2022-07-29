@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{EnumType, ObjectType, TupleType};
 
 #[derive(Debug, Clone)]
@@ -17,11 +15,11 @@ pub enum DataType {
     // A reference type that has already been defined
     Reference {
         name: String,
-        generics: Vec<DataType>
+        generics: Vec<DataType>,
     },
     Generic {
         ident: String,
-    }
+    },
 }
 
 impl DataType {

@@ -1,5 +1,11 @@
 import { Transport } from "./transport";
 
+export type OperationType =
+  | "query"
+  | "mutation"
+  | "subscriptionAdd"
+  | "subscriptionRemove";
+
 export type OperationKey = [string] | [string, /* args */ any];
 
 export type OperationsDef = {
@@ -8,8 +14,13 @@ export type OperationsDef = {
   subscriptions: { key: OperationKey; result: any };
 };
 
+export interface ClientTransformer {
+  serialize(type: OperationType, key: OperationKey): OperationKey;
+  deserialize(type: OperationType, key: OperationKey, data: any): any;
+}
 export interface ClientArgs {
   transport: Transport;
+  transformer?: ClientTransformer;
 }
 
 export function createClient<T extends OperationsDef>(
@@ -20,9 +31,16 @@ export function createClient<T extends OperationsDef>(
 
 export class Client<T extends OperationsDef> {
   private transport: Transport;
+  private subscriptionMap = new Map<string, (data: any) => void>();
 
   constructor(args: ClientArgs) {
     this.transport = args.transport;
+    this.transport.transformer = args.transformer;
+    this.transport.clientSubscriptionCallback = (id, key, value) => {
+      const func = this.subscriptionMap?.get(id);
+      if (func !== undefined) func(value);
+    };
+    this.subscriptionMap = new Map();
   }
 
   async query<K extends T["queries"]["key"]>(
@@ -31,40 +49,47 @@ export class Client<T extends OperationsDef> {
     return await this.transport.doRequest("query", key);
   }
 
-  async mutation<K extends T["mutations"]["key"]>(
-    key: K
+  async mutation<K extends T["mutations"]["key"][0]>(
+    key: [K, Extract<T["mutations"], { key: [K, any] }>["key"][1]]
   ): Promise<Extract<T["mutations"], { key: K }>["result"]> {
     return await this.transport.doRequest("mutation", key);
   }
 
-  async addSubscription<K extends T["subscriptions"]["key"]>(
-    key: K,
-    options?: {
-      onNext(msg: Extract<T["subscriptions"], { key: K }>["result"]);
-      onError(err: never); // TODO: Error type??
+  // TODO: Redesign this, i'm sure it probably has race conditions but it functions for now
+  addSubscription<K extends T["subscriptions"]["key"][0]>(
+    key: Extract<
+      T["subscriptions"]["key"],
+      { key: [K, any] }
+    >[1] extends undefined
+      ? [K]
+      : [K, Extract<T["subscriptions"]["key"], { key: [K, any] }>[1]],
+    options: {
+      onNext(msg: Extract<T["subscriptions"], { key: [K, any] }>["result"]);
+      onError?(err: never);
     }
-  ) {
-    const id = await this.transport.subscribe(
-      "subscriptionAdd",
-      key,
-      options?.onNext as any,
-      options?.onError as any
-    );
-    console.log("SUBSCRIPTION ID", id);
-  }
+  ): () => void {
+    let subscriptionId = undefined;
+    let unsubscribed = false;
 
-  // async removeSubscription<K extends T["subscriptions"]["key"]>(
-  //   key: K,
-  //   options?: {
-  //     onNext(msg: Extract<T["subscriptions"], { key: K }>["result"]);
-  //     onError(err: never); // TODO: Error type??
-  //   }
-  // ) {
-  //   await this.transport.subscribe(
-  //     "subscriptionAdd",
-  //     key,
-  //     options?.onNext as any,
-  //     options?.onError as any
-  //   );
-  // }
+    const cleanup = () => {
+      this.subscriptionMap?.delete(subscriptionId);
+      if (subscriptionId) {
+        this.transport.doRequest("subscriptionRemove", [subscriptionId]);
+      }
+    };
+
+    this.transport.doRequest("subscriptionAdd", key).then((id) => {
+      subscriptionId = id;
+      if (unsubscribed) {
+        cleanup();
+      } else {
+        this.subscriptionMap?.set(subscriptionId, options.onNext);
+      }
+    });
+
+    return () => {
+      unsubscribed = true;
+      cleanup();
+    };
+  }
 }

@@ -7,14 +7,17 @@ pub enum MyCustomError {
     IAmBroke,
 }
 
-impl Into<Error> for MyCustomError {
-    fn into(self) -> Error {
-        match self {
-            MyCustomError::IAmBroke => {
-                Error::new(ErrorCode::InternalServerError, "I am broke".into())
-            }
+impl From<MyCustomError> for Error {
+    fn from(_: MyCustomError) -> Self {
+        Error {
+            code: ErrorCode::InternalServerError,
+            message: "I am broke".into(),
         }
     }
+}
+
+fn func_returning_custom_error() -> Result<String, MyCustomError> {
+    Err(MyCustomError::IAmBroke)
 }
 
 #[tokio::main]
@@ -31,10 +34,10 @@ async fn main() {
             )) as Result<String, Error>
         })
         .query("customErr", |_, _args: ()| {
-            Err(MyCustomError::IAmBroke) as Result<String, MyCustomError>
+            Ok(func_returning_custom_error()?)
         })
         .query("asyncCustomError", |_, _args: ()| async move {
-            Err(MyCustomError::IAmBroke) as Result<String, MyCustomError>
+            Err(MyCustomError::IAmBroke.into()) as Result<String, _>
         })
         .build();
 

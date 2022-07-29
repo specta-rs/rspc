@@ -1,5 +1,7 @@
 use std::{error, fmt};
 
+use crate::Response;
+
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
     #[error("the requested operation '{0}' is not supported by this server")]
@@ -8,8 +10,36 @@ pub enum ExecError {
     DeserializingArgErr(serde_json::Error),
     #[error("error serializing procedure result: {0}")]
     SerializingResultErr(serde_json::Error),
+    #[cfg(feature = "axum")]
+    #[error("error in axum extractor")]
+    AxumExtractorError,
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
+}
+
+impl ExecError {
+    pub fn into_rspc_err(self) -> Error {
+        match self {
+            ExecError::OperationNotFound(_) => Error {
+                code: ErrorCode::NotFound,
+                message: format!("the requested operation is not supported by this server"),
+            },
+            ExecError::DeserializingArgErr(_) => Error {
+                code: ErrorCode::BadRequest,
+                message: format!("error deserializing procedure arguments"),
+            },
+            ExecError::SerializingResultErr(_) => Error {
+                code: ErrorCode::InternalServerError,
+                message: format!("error serializing procedure result"),
+            },
+            #[cfg(feature = "axum")]
+            ExecError::AxumExtractorError => Error {
+                code: ErrorCode::BadRequest,
+                message: "Error running Axum extractors on the HTTP request".into(),
+            },
+            ExecError::ErrResolverError(err) => err,
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -20,9 +50,19 @@ pub enum ExportError {
 
 #[derive(Debug, Clone)]
 pub struct Error {
-    code: ErrorCode,
-    message: String,
+    pub code: ErrorCode,
+    pub message: String,
     // cause: Option<Arc<dyn std::error::Error>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
+}
+
+impl Error {
+    pub fn into_response(self, id: Option<String>) -> Response {
+        Response::Error {
+            id,
+            status_code: self.code.to_status_code(),
+            message: self.message,
+        }
+    }
 }
 
 impl fmt::Display for Error {

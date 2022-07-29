@@ -158,7 +158,10 @@ fn parse_struct(
                     fields,
                     ..
                 }) => fields.extend(new_fields),
-                _ => unreachable!(),
+                _ => {
+                    println!("A");
+                    unreachable!()
+                },
             };
 
             (ty, fields, add_fields)
@@ -196,7 +199,10 @@ fn parse_struct(
                     fields,
                     ..
                 }) => fields.extend(new_fields),
-                _ => unreachable!()
+                v => {
+                    println!("B {:?}", v);
+                    // unreachable!()
+                },
             };
 
             (ty, fields, add_fields)
@@ -209,7 +215,7 @@ fn parse_struct(
         // If the struct is not inline, retrieve the struct definition and
         // add fields to it. The struct's fields definitions are constructed
         // after the definition is inserted into the export map so that they
-        // are aware of structs that have been defned earlier.
+        // are aware of structs that have been defined earlier.
         false => quote! {{
             if !defs.contains_key(#struct_name) {
                 defs.insert(
@@ -515,7 +521,10 @@ fn parse_enum(
         }) => {
             variants.extend(new_variants);
         }
-        _ => unreachable!(),
+        _ => {
+            println!("C");
+            unreachable!()
+        },
     };
 
     match container_attrs.inline {

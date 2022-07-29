@@ -13,8 +13,8 @@
     "preact": "^10.10.0"
   },
   "devDependencies": {
-    "@astrojs/preact": "^0.5.1",
-    "astro": "1.0.0-beta.72"
+    "@astrojs/preact": "^0.5.2",
+    "astro": "1.0.0-rc.2"
   },
   "engines": {
     "pnpm": ">=7.0.0",

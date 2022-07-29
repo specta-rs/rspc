@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use crate::{ClientContext, OperationKey, OperationKind, Response, ResponseResult, Router};
+use crate::{ClientContext, Error, ErrorCode, ExecError, OperationKey, OperationKind, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {
@@ -27,12 +27,12 @@ pub struct GetParams {
 
 #[derive(Debug, Deserialize)]
 pub struct PostParams {
-    pub batch: i32,
+    pub batch: Option<i32>,
 }
 
 pub enum TCtxFuncResult<'a, TCtx> {
-    Value(TCtx),
-    Future(Pin<Box<dyn Future<Output = Result<TCtx, axum::response::Response>> + Send + 'a>>),
+    Value(Result<TCtx, ExecError>),
+    Future(Pin<Box<dyn Future<Output = Result<TCtx, ExecError>> + Send + 'a>>),
 }
 
 // TODO: This request extractor system needs a huge refactor!!!!
@@ -51,7 +51,7 @@ where
     TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
 {
     fn exec<'a>(&self, _request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx> {
-        TCtxFuncResult::Value(self.clone()())
+        TCtxFuncResult::Value(Ok(self.clone()()))
     }
 }
 
@@ -67,7 +67,7 @@ where
         TCtxFuncResult::Future(Box::pin(async move {
             match T1::from_request(request).await {
                 Ok(t1) => Ok(this(t1)),
-                Err(e) => Err(e.into_response()),
+                Err(_) => Err(ExecError::AxumExtractorError),
             }
         }))
     }
@@ -94,8 +94,8 @@ where
                 let client_ctx = client_ctx.clone();
                 move |path, query, request| get_this.get(ctx_fn, client_ctx, path, query, request)
             })
-            .on(MethodFilter::POST, move |path, query, body, request| {
-                post_this.post(ctx_fn, client_ctx, path, query, body, request)
+            .on(MethodFilter::POST, move |path, query, request| {
+                post_this.post(ctx_fn, client_ctx, path, query, request) // body
             })
     }
 
@@ -130,36 +130,39 @@ where
             .unwrap_or(Ok(Value::Null))
         {
             Ok(arg) => {
-                let ctx = match ctx_fn.exec(&mut request_parts) {
-                    TCtxFuncResult::Value(ctx) => ctx,
-                    TCtxFuncResult::Future(future) => match future.await {
-                        Ok(ctx) => ctx,
-                        Err(_) => {
-                            return (
-                                StatusCode::BAD_REQUEST,
-                                Json(vec![Response::Response(ResponseResult::Error)]),
-                            );
+                let resp = match ctx_fn.exec(&mut request_parts) {
+                    TCtxFuncResult::Value(ctx) => match ctx {
+                        Ok(ctx) => {
+                            crate::Request {
+                                id: None,
+                                operation: OperationKind::Query,
+                                key: OperationKey(key, Some(arg)),
+                            }
+                            .handle(ctx, &self, &client_ctx, None)
+                            .await
                         }
+                        Err(err) => err.into_rspc_err().into_response(None),
+                    },
+                    TCtxFuncResult::Future(future) => match future.await {
+                        Ok(ctx) => {
+                            crate::Request {
+                                id: None,
+                                operation: OperationKind::Query,
+                                key: OperationKey(key, Some(arg)),
+                            }
+                            .handle(ctx, &self, &client_ctx, None)
+                            .await
+                        }
+                        Err(err) => err.into_rspc_err().into_response(None),
                     },
                 };
 
                 (
                     StatusCode::OK, // TODO: Make status code correct based on `Response`
-                    Json(vec![
-                        crate::Request {
-                            id: None,
-                            operation: OperationKind::Query,
-                            key: OperationKey(key, Some(arg)),
-                        }
-                        .handle(ctx, &self, &client_ctx, None)
-                        .await,
-                    ]),
+                    Json(vec![resp]),
                 )
             }
-            Err(_) => (
-                StatusCode::BAD_REQUEST,
-                Json(vec![Response::Response(ResponseResult::Error)]),
-            ),
+            Err(_) => (StatusCode::BAD_REQUEST, Json(vec![])),
         }
     }
 
@@ -169,36 +172,46 @@ where
         client_ctx: Arc<ClientContext>,
         Path(key): Path<String>,
         Query(_params): Query<PostParams>,
-        Json(arg): Json<Option<Value>>,
         request: Request<Body>,
     ) -> impl IntoResponse {
         let mut request_parts = RequestParts::new(request);
+        let arg = match Json::<Option<Value>>::from_request(&mut request_parts).await {
+            Ok(t1) => t1.0,
+            Err(e) => return (StatusCode::BAD_REQUEST, e.into_response()).into_response(),
+        };
 
-        let ctx = match ctx_fn.exec(&mut request_parts) {
-            TCtxFuncResult::Value(ctx) => ctx,
-            TCtxFuncResult::Future(future) => match future.await {
-                Ok(ctx) => ctx,
-                Err(_) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(vec![Response::Response(ResponseResult::Error)]),
-                    );
+        let resp = match ctx_fn.exec(&mut request_parts) {
+            TCtxFuncResult::Value(ctx) => match ctx {
+                Ok(ctx) => {
+                    crate::Request {
+                        id: None,
+                        operation: OperationKind::Mutation,
+                        key: OperationKey(key, arg),
+                    }
+                    .handle(ctx, &self, &client_ctx, None)
+                    .await
                 }
+                Err(err) => err.into_rspc_err().into_response(None),
+            },
+            TCtxFuncResult::Future(future) => match future.await {
+                Ok(ctx) => {
+                    crate::Request {
+                        id: None,
+                        operation: OperationKind::Mutation,
+                        key: OperationKey(key, arg),
+                    }
+                    .handle(ctx, &self, &client_ctx, None)
+                    .await
+                }
+                Err(err) => err.into_rspc_err().into_response(None),
             },
         };
 
         (
             StatusCode::OK, // TODO: Make status code correct based on `Response`
-            Json(vec![
-                crate::Request {
-                    id: None,
-                    operation: OperationKind::Mutation,
-                    key: OperationKey(key, arg),
-                }
-                .handle(ctx, &self, &client_ctx, None)
-                .await,
-            ]),
+            Json(vec![resp]),
         )
+            .into_response()
     }
 
     async fn ws<TMarker>(
@@ -219,23 +232,23 @@ where
                                 Message::Text(msg) => {
                                     let result = match serde_json::from_str::<crate::Request>(&msg) {
                                         Ok(result) => {
-                                            let ctx = match ctx_fn.exec(&mut request_parts) {
-                                                TCtxFuncResult::Value(ctx) => ctx,
+                                            match ctx_fn.exec(&mut request_parts) {
+                                                TCtxFuncResult::Value(ctx) => match ctx {
+                                                    Ok(ctx) => result.handle(ctx, &self, &client_ctx, Some(&tx)).await,
+                                                    Err(err) => err.into_rspc_err().into_response(result.id),
+                                                },
                                                 TCtxFuncResult::Future(future) => match future.await {
-                                                    Ok(ctx) => ctx,
+                                                    Ok(ctx) => result.handle(ctx, &self, &client_ctx, Some(&tx)).await,
                                                     Err(err) => {
-                                                        println!("ERROR GETTING CONTEXT! {:?}", err); // TODO: Error handling here
-                                                        return;
+                                                        Error {
+                                                            code: ErrorCode::InternalServerError,
+                                                            message: err.to_string(),
+                                                        }.into_response(result.id)
                                                     }
                                                 },
-                                            };
-
-                                            result.handle(ctx, &self, &client_ctx, Some(&tx)).await
+                                            }
                                         },
-                                        Err(err) =>{
-                                            println!("ERROR PARSING MESSAGE! {:?}", err); // TODO: Error handling here
-                                            crate::Response::Response (ResponseResult::Error)
-                                        },
+                                        Err(err) => ExecError::DeserializingArgErr(err).into_rspc_err().into_response(None),
                                     };
 
                                     if !matches!(result, crate::Response::None) && socket

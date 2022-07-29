@@ -34,6 +34,7 @@ futures = "0.3.21"
 tokio = { version = "1.19.2", features = ["sync", "rt"] }
 axum = { version = "0.5.9", optional = true, features = ["ws"] }
 tauri = { version = "1.0.4", optional = true }
+nanoid = "0.4.0" # TODO: Remove this in favor of the client generating the key
 
 [dev-dependencies]
 async-stream = "0.3.3"

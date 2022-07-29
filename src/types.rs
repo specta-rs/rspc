@@ -40,20 +40,19 @@ pub struct Request {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Response {
-    Event(EventResult),
-    Response(ResponseResult),
+    Event {
+        id: String,
+        key: String,
+        result: Value,
+    },
+    Response {
+        id: Option<String>,
+        result: Value,
+    },
+    Error {
+        id: Option<String>,
+        status_code: u16,
+        message: String,
+    },
     None,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct EventResult {
-    pub key: String,
-    pub result: Value,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
-pub enum ResponseResult {
-    Success { id: Option<String>, result: Value },
-    Error, // TODO: Make events work
 }

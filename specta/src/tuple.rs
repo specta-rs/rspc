@@ -4,5 +4,5 @@ use crate::{DataType, GenericType};
 pub struct TupleType {
     pub name: String,
     pub fields: Vec<DataType>,
-    pub generics: Vec<GenericType>
+    pub generics: Vec<GenericType>,
 }

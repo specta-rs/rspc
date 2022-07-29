@@ -1,3 +1,5 @@
+use nanoid::nanoid;
+use serde_json::Value;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -6,7 +8,7 @@ use std::{
 use futures::StreamExt;
 use tokio::sync::{mpsc::UnboundedSender, oneshot};
 
-use crate::{EventResult, OperationKind, Request, Response, ResponseResult, Router, StreamOrValue};
+use crate::{Error, ErrorCode, OperationKind, Request, Response, Router, StreamOrValue};
 
 impl Request {
     pub async fn handle<TCtx, TMeta>(
@@ -28,22 +30,21 @@ impl Request {
                 {
                     Ok(result) => match result {
                         StreamOrValue::Stream(_) => unreachable!(),
-                        StreamOrValue::Value(v) => Response::Response(ResponseResult::Success {
+                        StreamOrValue::Value(v) => Response::Response {
                             id: self.id,
                             result: v,
-                        }),
+                        },
                     },
-                    Err(err) => {
-                        println!("Error: {}", err); // TODO: Proper error handling
-                        Response::Response(ResponseResult::Error)
-                    }
+                    Err(err) => err.into_rspc_err().into_response(self.id),
                 }
             }
             OperationKind::SubscriptionAdd => {
+                // TODO: Scope websocket to the client IP/Port or something so that another client can't unsubscribe them.
+                let subscription_id = nanoid!();
                 let mut shutdown_rx = client_ctx.register(
                     self.operation.to_string(),
                     self.key.0.clone(),
-                    self.key.0.clone(), // Subscription ID
+                    subscription_id.clone(),
                 );
 
                 match router
@@ -51,31 +52,31 @@ impl Request {
                     .await
                 {
                     Ok(result) => match result {
-                        StreamOrValue::Stream(mut stream) => {
-                            match event_sender {
-                                Some(event_sender) => {
-                                    let event_sender = event_sender.clone();
-                                    let key = self.key.0.clone();
+                        StreamOrValue::Stream(mut stream) => match event_sender {
+                            Some(event_sender) => {
+                                let event_sender = event_sender.clone();
+                                let key = self.key.0.clone();
+                                {
+                                    let subscription_id = subscription_id.clone();
                                     tokio::spawn(async move {
                                         loop {
                                             tokio::select! {
                                                 msg = stream.next() => {
                                                     if let Some(msg) = msg {
-                                                        match msg {
-                                                            Ok(msg) => {
-                                                                if let Err(_) =
-                                                                    event_sender.send(Response::Event(EventResult {
-                                                                        key: key.clone(),
-                                                                        result: msg,
-                                                                    }))
-                                                                {
-                                                                    println!("ERROR SENDING MESSAGE!"); // TODO: Error handling here
-                                                                    return;
-                                                                }
-                                                            }
+                                                        let resp = match msg {
+                                                            Ok(msg) => Response::Event{
+                                                                id: subscription_id.clone(),
+                                                                key: key.clone(),
+                                                                result: msg,
+                                                            },
+                                                            Err(err) => err.into_rspc_err().into_response(Some(subscription_id.clone())),
+                                                        };
+
+
+                                                        match event_sender.send(resp) {
+                                                            Ok(_) => {},
                                                             Err(_) => {
-                                                                println!("ERROR GETTING MESSAGE!"); // TODO: Error handling here
-                                                                return;
+                                                                println!("rspc: subscription event was dropped, the server may be overloaded!");
                                                             }
                                                         }
                                                     } else {
@@ -88,20 +89,21 @@ impl Request {
                                             }
                                         }
                                     });
-                                    Response::None
                                 }
-                                None => {
-                                    println!("Error: Can't add subscription without event sender"); // TODO: Proper error handling
-                                    Response::Response(ResponseResult::Error)
+                                Response::Response {
+                                    id: self.id,
+                                    result: Value::String(subscription_id),
                                 }
                             }
-                        }
+                            None => Error {
+                                code: ErrorCode::InternalServerError,
+                                message: "Can't add subscription without event sender".into(),
+                            }
+                            .into_response(self.id),
+                        },
                         StreamOrValue::Value(_) => unreachable!(),
                     },
-                    Err(err) => {
-                        println!("Error: {}", err); // TODO: Proper error handling
-                        Response::Response(ResponseResult::Error)
-                    }
+                    Err(err) => err.into_rspc_err().into_response(self.id),
                 }
             }
             OperationKind::SubscriptionRemove => {

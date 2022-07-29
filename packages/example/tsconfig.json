@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true
+  },
+  "include": ["react.tsx"]
+  // "references": [{ "path": "../client" }]
+}
