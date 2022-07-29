@@ -22,6 +22,8 @@ impl Request {
         TCtx: Send + 'static,
         TMeta: Send + Sync + 'static,
     {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Handling request: {:?}", self);
         match self.operation {
             OperationKind::Query | OperationKind::Mutation => {
                 match router
@@ -35,7 +37,16 @@ impl Request {
                             result: v,
                         },
                     },
-                    Err(err) => err.into_rspc_err().into_response(self.id),
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!(
+                            "error executing operation {:?} with id '{}': {:?}",
+                            self.operation,
+                            self.id.clone().unwrap_or("".into()),
+                            err
+                        );
+                        err.into_rspc_err().into_response(self.id)
+                    }
                 }
             }
             OperationKind::SubscriptionAdd => {
@@ -69,13 +80,26 @@ impl Request {
                                                                 key: key.clone(),
                                                                 result: msg,
                                                             },
-                                                            Err(err) => err.into_rspc_err().into_response(Some(subscription_id.clone())),
+                                                            Err(err) => {
+                                                                #[cfg(feature = "tracing")]
+                                                                tracing::error!(
+                                                                    "error executing operation {:?} with id '{}': {:?}",
+                                                                    self.operation,
+                                                                    self.id.clone().unwrap_or("".into()),
+                                                                    err
+                                                                );
+
+                                                                err.into_rspc_err().into_response(Some(subscription_id.clone()))
+                                                            },
                                                         };
 
 
                                                         match event_sender.send(resp) {
                                                             Ok(_) => {},
                                                             Err(_) => {
+                                                                #[cfg(feature = "tracing")]
+                                                                tracing::warn!("subscription event was dropped, the server may be overloaded!");
+
                                                                 println!("rspc: subscription event was dropped, the server may be overloaded!");
                                                             }
                                                         }
@@ -95,15 +119,31 @@ impl Request {
                                     result: Value::String(subscription_id),
                                 }
                             }
-                            None => Error {
-                                code: ErrorCode::InternalServerError,
-                                message: "Can't add subscription without event sender".into(),
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!(
+                                    "error cannot add subscription without event sender"
+                                );
+                                Error {
+                                    code: ErrorCode::InternalServerError,
+                                    message: "Can't add subscription without event sender".into(),
+                                    cause: None,
+                                }
+                                .into_response(self.id)
                             }
-                            .into_response(self.id),
                         },
                         StreamOrValue::Value(_) => unreachable!(),
                     },
-                    Err(err) => err.into_rspc_err().into_response(self.id),
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!(
+                            "error executing operation {:?} with id '{}': {:?}",
+                            self.operation,
+                            self.id.clone().unwrap_or("".into()),
+                            err
+                        );
+                        err.into_rspc_err().into_response(self.id)
+                    }
                 }
             }
             OperationKind::SubscriptionRemove => {

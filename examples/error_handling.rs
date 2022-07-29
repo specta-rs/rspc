@@ -9,10 +9,7 @@ pub enum MyCustomError {
 
 impl From<MyCustomError> for Error {
     fn from(_: MyCustomError) -> Self {
-        Error {
-            code: ErrorCode::InternalServerError,
-            message: "I am broke".into(),
-        }
+        Error::new(ErrorCode::InternalServerError, "I am broke".into())
     }
 }
 

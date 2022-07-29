@@ -1,4 +1,4 @@
-use std::{error, fmt};
+use std::{error, fmt, sync::Arc};
 
 use crate::Response;
 
@@ -23,19 +23,23 @@ impl ExecError {
             ExecError::OperationNotFound(_) => Error {
                 code: ErrorCode::NotFound,
                 message: format!("the requested operation is not supported by this server"),
+                cause: None,
             },
-            ExecError::DeserializingArgErr(_) => Error {
+            ExecError::DeserializingArgErr(err) => Error {
                 code: ErrorCode::BadRequest,
                 message: format!("error deserializing procedure arguments"),
+                cause: Some(Arc::new(err)),
             },
-            ExecError::SerializingResultErr(_) => Error {
+            ExecError::SerializingResultErr(err) => Error {
                 code: ErrorCode::InternalServerError,
                 message: format!("error serializing procedure result"),
+                cause: Some(Arc::new(err)),
             },
             #[cfg(feature = "axum")]
             ExecError::AxumExtractorError => Error {
                 code: ErrorCode::BadRequest,
                 message: "Error running Axum extractors on the HTTP request".into(),
+                cause: None,
             },
             ExecError::ErrResolverError(err) => err,
         }
@@ -50,9 +54,9 @@ pub enum ExportError {
 
 #[derive(Debug, Clone)]
 pub struct Error {
-    pub code: ErrorCode,
-    pub message: String,
-    // cause: Option<Arc<dyn std::error::Error>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
+    pub(crate) code: ErrorCode,
+    pub(crate) message: String,
+    pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
 impl Error {
@@ -86,21 +90,20 @@ impl Error {
         Error {
             code,
             message,
-            // cause: None,
+            cause: None,
         }
     }
 
-    // pub fn with_cause<TErr: std::error::Error + 'static>(
-    //     code: ErrorCode,
-    //     message: String,
-    //     cause: TErr,
-    // ) -> Self {
-    //     Self {
-    //         code,
-    //         message,
-    //         cause: Some(Arc::new(cause)),
-    //     }
-    // }
+    pub fn with_cause<TErr>(code: ErrorCode, message: String, cause: TErr) -> Self
+    where
+        TErr: std::error::Error + Send + Sync + 'static,
+    {
+        Self {
+            code,
+            message,
+            cause: Some(Arc::new(cause)),
+        }
+    }
 }
 
 /// TODO
