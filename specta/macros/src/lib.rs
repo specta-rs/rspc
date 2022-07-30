@@ -129,10 +129,39 @@ fn derive_type_internal(
 
 fn recurse_generics(
     var_ident: Ident,
-    path: &Path,
+    ty: &Type,
     generic_idents: &[(usize, &Ident)],
     crate_ref: &TokenStream,
 ) -> TokenStream {
+    let path = match ty {
+        Type::Tuple(t) => {
+            let elems = t.elems.iter().enumerate().map(|(i, el)| {
+                recurse_generics(
+                    format_ident!("{}_{}", var_ident, i),
+                    &el,
+                    generic_idents,
+                    crate_ref,
+                )
+            });
+
+            let generic_var_idents = t
+                .elems
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
+
+            return quote! {
+                #(#elems)*
+
+                let #var_ident = <#ty as #crate_ref::Type>::reference(#crate_ref::DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map
+                }, &[#(#generic_var_idents),*]);
+            };
+        }
+        _ => path_from_type(ty),
+    };
+
     if let Some(type_ident) = path.get_ident() {
         if let Some((i, generic_ident)) = generic_idents
             .iter()
@@ -169,7 +198,7 @@ fn recurse_generics(
                 .iter()
                 .enumerate()
                 .filter_map(|(i, arg)| match arg {
-                    GenericArgument::Type(ty) => Some((i, path_from_type(ty))),
+                    GenericArgument::Type(ty) => Some((i, ty)),
                     _ => todo!("one"),
                 })
                 .collect(),
@@ -243,18 +272,13 @@ fn _parse_struct(
         quote!(stringify!(#ident))
     });
 
-    match &data.fields {
+    let definition = match &data.fields {
         Fields::Named(_) => {
             let fields = data.fields.iter().map(|field| {
                 let field_ident = &field.ident;
-                let field_ty = &field.ty;
 
-                let generic_vars = recurse_generics(
-                    format_ident!("gen"),
-                    path_from_type(field_ty),
-                    &generic_idents,
-                    crate_ref,
-                );
+                let generic_vars =
+                    recurse_generics(format_ident!("gen"), &field.ty, &generic_idents, crate_ref);
 
                 quote!(#crate_ref::ObjectField {
                     name: stringify!(#field_ident).to_string(),
@@ -267,21 +291,44 @@ fn _parse_struct(
                 })
             });
 
-            (
-                quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
-                    name: #struct_name.to_string(),
-                    generics: vec![#(#definition_generics),*],
-                    fields: vec![#(#fields),*],
-                    tag: None
-                })),
-                quote!(#crate_ref::DataType::Reference {
-                    name: #struct_name.to_string(),
-                    generics: vec![#(#reference_generics),*],
-                }),
-            )
+            quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
+                name: #struct_name.to_string(),
+                generics: vec![#(#definition_generics),*],
+                fields: vec![#(#fields),*],
+                tag: None
+            }))
         }
-        _ => todo!(),
-    }
+        Fields::Unnamed(_) => {
+            let fields = data.fields.iter().map(|field| {
+                let generic_vars =
+                    recurse_generics(format_ident!("gen"), &field.ty, &generic_idents, crate_ref);
+
+                quote! {{
+                    #generic_vars
+
+                    gen
+                }}
+            });
+
+            quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
+                name: #struct_name.to_string(),
+                generics: vec![#(#definition_generics),*],
+                fields: vec![#(#fields),*]
+            }))
+        }
+        Fields::Unit => quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
+            name: #struct_name.to_string(),
+            generics: vec![#(#definition_generics),*],
+            fields: vec![],
+        })),
+    };
+
+    let reference = quote!(#crate_ref::DataType::Reference {
+        name: #struct_name.to_string(),
+        generics: vec![#(#reference_generics),*],
+    });
+
+    (definition, reference)
 }
 
 fn parse_struct(
@@ -761,7 +808,6 @@ fn path_from_type(ty: &Type) -> &Path {
         Type::Slice(s) => path_from_type(&s.elem),
         Type::Ptr(p) => path_from_type(&p.elem),
         Type::Reference(r) => path_from_type(&r.elem),
-        // Type::Tuple(t) => path_from_type(&t.elems[0]),
         _ => panic!("Cannot get path from type {}", quote!(#ty)),
     }
 }
@@ -833,7 +879,7 @@ fn _parse_enum(
 
                         let generic_vars = recurse_generics(
                             format_ident!("gen"),
-                            path_from_type(field_ty),
+                            field_ty,
                             &generic_idents,
                             crate_ref,
                         );
@@ -854,17 +900,13 @@ fn _parse_enum(
                 Fields::Named(fields) => {
                     let fields = fields.named.iter().map(|field| {
                         let field_ident = &field.ident;
-                        let field_ty = &field.ty;
 
-                        let generic_vars = match field_ty {
-                            Type::Path(type_path) => recurse_generics(
-                                format_ident!("gen"),
-                                &type_path.path,
-                                &generic_idents,
-                                crate_ref,
-                            ),
-                            _ => panic!("Only path types are supported!"),
-                        };
+                        let generic_vars = recurse_generics(
+                            format_ident!("gen"),
+                            &field.ty,
+                            &generic_idents,
+                            crate_ref,
+                        );
 
                         quote!(#crate_ref::ObjectField {
                             name: stringify!(#field_ident).to_string(),

@@ -56,54 +56,33 @@ macro_rules! impl_primitives {
     )+};
 }
 
-#[macro_export]
-macro_rules! upsert_def {
-    ($opts:ident, $generic:ident, $generics:expr) => {
-        <$generic as Type>::inline(
-            DefOpts {
-                parent_inline: false,
-                type_map: $opts.type_map,
-            },
-            $generics,
-        )
-        // if let Some(name) = <$generic as Type>::name() {
-        //     if let Some(def) = $opts.type_map.get(&name) {
-        //         def.clone()
-        //     } else {
-        //         let def = <$generic as Type>::def(
-        //             DefOpts {
-        //                 parent_inline: false,
-        //                 type_map: $opts.type_map,
-        //             },
-        //             $generics,
-        //         );
-        //         $opts.type_map.insert(name, def.clone());
-        //         def
-        //     }
-        // } else {
-        //     <$generic as Type>::def(
-        //         DefOpts {
-        //             parent_inline: false,
-        //             type_map: $opts.type_map,
-        //         },
-        //         $generics,
-        //     )
-        // }
-    };
-    ($opts:ident, $generics:expr) => {
-        $crate::upsert_def!($opts, T, $generics)
-    };
-}
+impl_primitives!(
+    i8 i16 i32 i64 i128 isize
+    u8 u16 u32 u64 u128 usize
+    f32 f64
+    bool char
+    String
+    Path
+    PathBuf
+);
 
 macro_rules! impl_tuple {
     (($($i:ident),*)) => {
+        #[allow(non_snake_case)]
         impl<$($i: Type + 'static),*> Type for ($($i),*) {
-            const NAME: &'static str = "Tuple";
+            const NAME: &'static str = stringify!(($($i::NAME),*));
 
-            fn inline(_opts: DefOpts, [$($i),* ..]: &[DataType]) -> DataType {
+            fn inline(_opts: DefOpts, _generics: &[DataType]) -> DataType {
+                $(let $i = $i::reference(
+                    DefOpts {
+                        parent_inline: _opts.parent_inline,
+                        type_map: _opts.type_map
+                    }, &[]
+                );)*
+
                 DataType::Tuple(TupleType {
                     name: stringify!(($($i),*)).to_string(),
-                    fields: vec![$($crate::upsert_def!(_opts, $i, $i)),*],
+                    fields: vec![$($i),*],
                     generics: vec![]
                 })
             }
@@ -119,30 +98,20 @@ macro_rules! impl_tuple {
     };
 }
 
-impl_primitives!(
-    i8 i16 i32 i64 i128 isize
-    u8 u16 u32 u64 u128 usize
-    f32 f64
-    bool char
-    String
-    Path
-    PathBuf
-);
-
 impl_tuple!(());
-// // T = (T1)
-// impl_tuple!((T1, T2));
-// impl_tuple!((T1, T2, T3));
-// impl_tuple!((T1, T2, T3, T4));
-// impl_tuple!((T1, T2, T3, T4, T5));
-// impl_tuple!((T1, T2, T3, T4, T5, T6));
-// impl_tuple!((T1, T2, T3, T4, T5, T6, T7));
-// impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8));
-// impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9));
-// impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10));
-// impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11));
-// impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12));
-//
+// T = (T1)
+impl_tuple!((T1, T2));
+impl_tuple!((T1, T2, T3));
+impl_tuple!((T1, T2, T3, T4));
+impl_tuple!((T1, T2, T3, T4, T5));
+impl_tuple!((T1, T2, T3, T4, T5, T6));
+impl_tuple!((T1, T2, T3, T4, T5, T6, T7));
+impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8));
+impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9));
+impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10));
+impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11));
+impl_tuple!((T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12));
+
 impl<'a> Type for &'a str {
     const NAME: &'static str = String::NAME;
 
@@ -719,6 +688,7 @@ impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
     }
 }
 
+#[cfg(feature = "chrono")]
 macro_rules! chrono_timezone {
     ($($name:ident),+) => {
         $(

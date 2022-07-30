@@ -15,7 +15,7 @@ pub fn ts_inline<T: Type>() -> String {
     ))
 }
 
-pub fn ts_ref<T: Type>(generics: Vec<DataType>) -> String {
+pub fn ts_ref<T: Type>() -> String {
     to_ts(&T::inline(
         DefOpts {
             parent_inline: false,
@@ -39,20 +39,24 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts_inline(&def);
 
     Ok(match &def {
-        DataType::Object(ObjectType { name, generics, .. }) => {
-            let generics = match generics.len() {
-                0 => "".into(),
-                _ => format!(
-                    "<{}>",
-                    generics
-                        .iter()
-                        .map(|g| *g)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ),
-            };
+        DataType::Object(ObjectType {
+            name,
+            generics,
+            fields,
+            ..
+        }) => match fields.len() {
+            0 => format!("export type {name} = {inline_ts}"),
+            _ => {
+                let generics = match generics.len() {
+                    0 => "".into(),
+                    _ => format!(
+                        "<{}>",
+                        generics.iter().map(|g| *g).collect::<Vec<_>>().join(", ")
+                    ),
+                };
 
-            format!("export interface {name}{generics} {inline_ts}")
+                format!("export interface {name}{generics} {inline_ts}")
+            }
         },
         DataType::Enum(EnumType { name, .. }) => {
             format!("export type {name} = {inline_ts}")
@@ -72,11 +76,7 @@ pub fn to_ts(typ: &DataType) -> String {
                 0 => "".into(),
                 _ => format!(
                     "<{}>",
-                    generics
-                        .iter()
-                        .map(|g| *g)
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    generics.iter().map(|g| *g).collect::<Vec<_>>().join(", ")
                 ),
             };
 
