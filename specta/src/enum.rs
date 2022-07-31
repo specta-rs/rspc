@@ -11,6 +11,12 @@ pub struct EnumType {
     pub type_id: TypeId
 }
 
+impl PartialEq for EnumType {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_id == other.type_id
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum EnumRepr {
     External,

@@ -1,6 +1,6 @@
 use crate::DataType;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TupleType {
     pub name: String,
     pub fields: Vec<DataType>,

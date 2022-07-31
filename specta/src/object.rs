@@ -17,3 +17,9 @@ pub struct ObjectType {
     pub tag: Option<String>,
     pub type_id: Option<TypeId>,
 }
+
+impl PartialEq for ObjectType {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_id == other.type_id
+    }
+}

@@ -2,7 +2,7 @@ use std::any::TypeId;
 
 use crate::{EnumType, ObjectType, TupleType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     // Always inlined
     Any,
@@ -24,7 +24,7 @@ pub enum DataType {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PrimitiveType {
     Never,
     i8,
