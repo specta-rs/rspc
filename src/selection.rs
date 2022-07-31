@@ -9,24 +9,35 @@ macro_rules! selection {
             }
 
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
-                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType{
+                const NAME: &'static str = "Selection";
+
+                fn inline(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
                     $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
-                        inline: true,
                         generics: vec![],
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
-                                ty: <$n as $crate::internal::specta::Type>::def(defs),
+                                ty: <$n as $crate::internal::specta::Type>::reference(
+                                    $crate::internal::specta::DefOpts {
+                                        parent_inline: false,
+                                        type_map: opts.type_map,
+                                    },
+                                    &[]
+                                ),
                                 optional: false,
                             }
                         ),*],
                     })
                 }
 
-                fn name() -> Option<String> {
-                    None
+                fn reference(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    Self::inline(opts, generics)
+                }
+
+                fn definition(_: $crate::internal::specta::DefOpts) -> $crate::internal::specta::DataType {
+                    unreachable!()
                 }
             }
         }
@@ -43,24 +54,35 @@ macro_rules! selection {
             }
 
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
-                fn def(defs: &mut $crate::internal::specta::TypeDefs) -> $crate::internal::specta::DataType{
-                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
+                const NAME: &'static str = "Selection";
+
+                fn inline(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    $crate::internal::specta::DataType::List(Box::new($crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
-                        inline: true,
                         generics: vec![],
                         fields: vec![$(
                             $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
-                                ty: <$n as $crate::internal::specta::Type>::def(defs),
+                                ty: <$n as $crate::internal::specta::Type>::reference(
+                                    $crate::internal::specta::DefOpts {
+                                        parent_inline: false,
+                                        type_map: opts.type_map,
+                                    },
+                                    &[]
+                                ),
                                 optional: false,
                             }
                         ),*],
-                    })
+                    })))
                 }
 
-                fn name() -> Option<String> {
-                    None
+                fn reference(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    Self::inline(opts, generics)
+                }
+
+                fn definition(_: $crate::internal::specta::DefOpts) -> $crate::internal::specta::DataType {
+                    unreachable!()
                 }
             }
         }

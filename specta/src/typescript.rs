@@ -39,6 +39,7 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts_inline(&def);
 
     Ok(match &def {
+        // Named struct
         DataType::Object(ObjectType {
             name,
             generics,
@@ -58,13 +59,23 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
                 format!("export interface {name}{generics} {inline_ts}")
             }
         },
-        DataType::Enum(EnumType { name, .. }) => {
-            format!("export type {name} = {inline_ts}")
+        // Enum
+        DataType::Enum(EnumType { name, generics, .. }) => {
+            let generics = match generics.len() {
+                0 => "".into(),
+                _ => format!(
+                    "<{}>",
+                    generics.iter().map(|g| *g).collect::<Vec<_>>().join(", ")
+                ),
+            };
+
+            format!("export type {name}{generics} = {inline_ts}")
         }
+        // Unnamed struct
         DataType::Tuple(TupleType { name, .. }) => {
             format!("export type {name} = {inline_ts}")
         }
-        _ => return Err(format!("Inline type cannot be exported: {:?}", def)),
+        _ => return Err(format!("Type cannot be exported: {:?}", def)),
     })
 }
 
@@ -107,7 +118,7 @@ pub fn to_ts_inline(typ: &DataType) -> String {
         primitive_def!(Never) => "never".into(),
         DataType::Nullable(def) => format!("{} | null", to_ts_inline(&def)),
         DataType::Record(def) => {
-            format!("Record<{}, {}>", to_ts(&def.0), to_ts(&def.1))
+            format!("Record<{}, {}>", to_ts_inline(&def.0), to_ts_inline(&def.1))
         }
         DataType::List(def) => format!("Array<{}>", to_ts_inline(&def)),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
@@ -132,47 +143,52 @@ pub fn to_ts_inline(typ: &DataType) -> String {
                 format!("{{ {} }}", out.join(", "))
             }
         },
-        DataType::Enum(EnumType { variants, repr, .. }) => variants
-            .iter()
-            .map(|variant| {
-                let sanitised_name = sanitise_name(variant.name());
+        DataType::Enum(EnumType { variants, repr, .. }) => match &variants[..] {
+            [] => "never".to_string(),
+            variants => variants
+                .iter()
+                .map(|variant| {
+                    let sanitised_name = sanitise_name(variant.name());
 
-                match (repr, variant) {
-                    (EnumRepr::Internal { tag }, EnumVariant::Unit(_)) => {
-                        format!("{{ {tag}: \"{sanitised_name}\" }}")
-                    }
-                    (EnumRepr::Internal { tag }, EnumVariant::Unnamed(tuple)) => {
-                        let typ = to_ts(&DataType::Tuple(tuple.clone()));
+                    match (repr, variant) {
+                        (EnumRepr::Internal { tag }, EnumVariant::Unit(_)) => {
+                            format!("{{ {tag}: \"{sanitised_name}\" }}")
+                        }
+                        (EnumRepr::Internal { tag }, EnumVariant::Unnamed(tuple)) => {
+                            let typ = to_ts_inline(&DataType::Tuple(tuple.clone()));
 
-                        format!("{{ {tag}: \"{sanitised_name}\" }} & {typ}")
-                    }
-                    (EnumRepr::Internal { tag }, EnumVariant::Named(obj)) => {
-                        let mut fields = vec![format!("{tag}: \"{sanitised_name}\"")];
+                            format!("{{ {tag}: \"{sanitised_name}\" }} & {typ}")
+                        }
+                        (EnumRepr::Internal { tag }, EnumVariant::Named(obj)) => {
+                            let mut fields = vec![format!("{tag}: \"{sanitised_name}\"")];
 
-                        fields.extend(object_fields(&obj.fields));
+                            fields.extend(object_fields(&obj.fields));
 
-                        format!("{{ {} }}", fields.join(", "))
-                    }
-                    (EnumRepr::External, EnumVariant::Unit(_)) => format!("\"{sanitised_name}\""),
-                    (EnumRepr::External, v) => {
-                        let ts_values = to_ts(&v.data_type());
+                            format!("{{ {} }}", fields.join(", "))
+                        }
+                        (EnumRepr::External, EnumVariant::Unit(_)) => {
+                            format!("\"{sanitised_name}\"")
+                        }
+                        (EnumRepr::External, v) => {
+                            let ts_values = to_ts_inline(&v.data_type());
 
-                        format!("{{ {sanitised_name}: {ts_values} }}")
-                    }
-                    (EnumRepr::Untagged, EnumVariant::Unit(_)) => "null".to_string(),
-                    (EnumRepr::Untagged, v) => to_ts(&v.data_type()),
-                    (EnumRepr::Adjacent { tag, .. }, EnumVariant::Unit(_)) => {
-                        format!("{{ {tag}: \"{sanitised_name}\" }}")
-                    }
-                    (EnumRepr::Adjacent { tag, content }, v) => {
-                        let ts_values = to_ts(&v.data_type());
+                            format!("{{ {sanitised_name}: {ts_values} }}")
+                        }
+                        (EnumRepr::Untagged, EnumVariant::Unit(_)) => "null".to_string(),
+                        (EnumRepr::Untagged, v) => to_ts_inline(&v.data_type()),
+                        (EnumRepr::Adjacent { tag, .. }, EnumVariant::Unit(_)) => {
+                            format!("{{ {tag}: \"{sanitised_name}\" }}")
+                        }
+                        (EnumRepr::Adjacent { tag, content }, v) => {
+                            let ts_values = to_ts_inline(&v.data_type());
 
-                        format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
+                            format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
+                        }
                     }
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" | "),
+                })
+                .collect::<Vec<_>>()
+                .join(" | "),
+        },
         DataType::Reference { name, generics } => match &generics[..] {
             [] => name.to_string(),
             generics => {
@@ -206,7 +222,7 @@ pub fn object_fields(fields: &[ObjectField]) -> Vec<String> {
                 false => (field_name_safe, &field.ty),
             };
 
-            format!("{key}: {}", to_ts(&ty))
+            format!("{key}: {}", to_ts_inline(&ty))
         })
         .collect::<Vec<_>>()
 }

@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use syn::{Attribute, Error, Result};
+use syn::{Attribute, Error, Ident, Result};
 
 macro_rules! syn_err {
     ($l:literal $(, $a:expr)*) => {
@@ -59,27 +59,13 @@ where
 
 #[cfg(feature = "serde")]
 #[allow(unused)]
-pub fn parse_serde_attrs<'a, A: TryFrom<&'a Attribute, Error = Error>>(
+pub fn parse_serde_attrs<'a, A: TryFrom<&'a Attribute, Error = Error> + 'a>(
     attrs: &'a [Attribute],
-) -> impl Iterator<Item = A> {
+) -> impl Iterator<Item = A> + 'a {
     attrs
         .iter()
         .filter(|a| a.path.is_ident("serde"))
-        .flat_map(|attr| match A::try_from(attr) {
-            Ok(attr) => Some(attr),
-            Err(_) => {
-                use quote::ToTokens;
-                warning::print_warning(
-                    "failed to parse serde attribute",
-                    format!("{}", attr.to_token_stream()),
-                    "specta failed to parse this attribute. It will be ignored.",
-                )
-                .unwrap();
-                None
-            }
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
+        .flat_map(|attr| A::try_from(attr).ok())
 }
 
 #[cfg(feature = "serde")]
@@ -131,5 +117,14 @@ mod warning {
         writeln!(&mut buffer, "{}", note)?;
 
         writer.print(&buffer)
+    }
+}
+
+pub fn unraw_raw_ident(ident: &Ident) -> String {
+    let ident = ident.to_string();
+    if ident.starts_with("r#") {
+        ident.trim_start_matches("r#").to_owned()
+    } else {
+        ident
     }
 }

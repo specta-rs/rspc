@@ -1,5 +1,5 @@
 use serde::Serialize;
-use specta::{ts_export, ts_inline, Type};
+use specta::{ts_export, Type};
 
 #[derive(Type, Serialize)]
 struct Bar {

@@ -12,14 +12,15 @@ use uuid::{uuid, Uuid};
 #[derive(Serialize, Type)]
 struct ExoticStruct {
     id: Uuid,
-    time: Option<std::string::String>,
-    s: &'static str
+    time: Option<&'static (i32, i32)>,
+    s: &'static str,
 }
 
 #[derive(Serialize, Type)]
 struct GenericStruct<T> {
     x: T,
 }
+
 
 #[derive(Serialize, Type)]
 enum SomeEnum {
@@ -28,13 +29,13 @@ enum SomeEnum {
     Named { n: Option<Vec<i32>> },
 }
 
-// #[derive(Serialize, Type)]
-// enum GenericEnum<T> {
-//     X(T),
-// }
+#[derive(Serialize, Type)]
+enum GenericEnum<T> {
+    X(T),
+}
 
-// #[derive(Serialize, Type)]
-// pub struct Demo {}
+#[derive(Serialize, Type)]
+pub struct Demo();
 
 #[tokio::main]
 async fn main() {
@@ -60,14 +61,14 @@ async fn main() {
                 x: "Hello World".into(),
             })
             .query("enum", |_, _: ()| <SomeEnum>::Unit)
-            // .query("demo", |_, _: ()| {
-            //     let mut x = BTreeMap::new();
-            //     x.insert("a", Demo {});
-            //     x
-            // })
-            // .query("genericEnum", |_, _: ()| {
-            //     GenericEnum::<String>::X("Hello World".into())
-            // })
+            .query("demo", |_, _: ()| {
+                let mut x = BTreeMap::new();
+                x.insert("a", Demo {});
+                x
+            })
+            .query("genericEnum", |_, _: ()| {
+                GenericEnum::<String>::X("Hello World".into())
+            })
             .query("uuid", |_, _: ()| {
                 uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
             })
