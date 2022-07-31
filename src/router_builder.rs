@@ -128,6 +128,13 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         TArg: DeserializeOwned + Type,
         TResult: IntoLayerResult<TResultMarker>,
     {
+        if key == "ws" {
+            panic!(
+                "rspc error: attempted to create query operation named '{}', however this name is not allowed.",
+                key
+            );
+        }
+
         let key = key.to_string();
         if self.queries.contains_key(&key) {
             panic!(
@@ -165,6 +172,13 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         TArg: DeserializeOwned + Type,
         TResult: IntoLayerResult<TResultMarker>,
     {
+        if key == "ws" {
+            panic!(
+                "rspc error: attempted to create query operation named '{}', however this name is not allowed.",
+                key
+            );
+        }
+
         let key = key.to_string();
         if self.mutations.contains_key(&key) {
             panic!(
@@ -200,6 +214,13 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         TStream: Stream<Item = TResult> + Send + 'static,
         TResult: Serialize + Type,
     {
+        if key == "ws" {
+            panic!(
+                "rspc error: attempted to create query operation named '{}', however this name is not allowed.",
+                key
+            );
+        }
+
         let key = key.to_string();
         if self.subscriptions.contains_key(&key) {
             panic!(

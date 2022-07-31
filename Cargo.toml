@@ -26,6 +26,10 @@ required-features = ["axum"]
 name = "exotic_types"
 required-features = ["uuid", "chrono"]
 
+[[example]]
+name = "global_context"
+require-features = ["axum"]
+
 [dependencies]
 specta = { version = "0.0.1", path = "./specta", features = ["serde"] }
 serde = { version = "1.0.137", features = ["derive"] }
