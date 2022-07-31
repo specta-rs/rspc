@@ -184,16 +184,10 @@ export class TauriTransport implements Transport {
         const { id, key, result } = body;
         this.clientSubscriptionCallback(id, key, result);
       } else if (body.type === "response") {
-        const { id, kind, result } = body;
-        if (kind === "success") {
-          if (this.requestMap.has(id)) {
+        const { id, result } = body;
+        if (this.requestMap.has(id)) {
             this.requestMap.get(id)?.({ type: "response", result });
             this.requestMap.delete(id);
-          } else {
-            console.error(`Missing handler for request with id '${id}'`);
-          }
-        } else {
-          console.error(`Received event of unknown kind '${kind}'`);
         }
       } else if (body.type === "error") {
         const { id, message, status_code } = body;
@@ -223,8 +217,8 @@ export class TauriTransport implements Transport {
 
     await appWindow.emit("plugin:rspc:transport", {
       id,
-      method: operation,
-      operation: this.transformer?.serialize(operation, key) || key,
+      operation,
+      key: this.transformer?.serialize(operation, key) || key,
     });
 
     const body = (await promise) as any;
