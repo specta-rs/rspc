@@ -41,7 +41,7 @@ async fn main() {
                 "This is a custom error!".into(),
             )) as Result<String, _>
         })
-        .query("errWithCause", |_, args: ()| {
+        .query("errWithCause", |_, _args: ()| {
             Err(Error::with_cause(
                 ErrorCode::BadRequest,
                 "This is a custom error!".into(),

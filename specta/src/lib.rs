@@ -38,7 +38,10 @@ pub trait Flatten: Type {
     fn flatten(opts: DefOpts, generics: &[DataType]) -> Vec<ObjectField> {
         match Self::inline(opts, generics) {
             DataType::Object(ObjectType { fields, .. }) => fields,
-            _ => unreachable!("Type '{}' implements flatten but is not an object!", Self::NAME),
+            _ => unreachable!(
+                "Type '{}' implements flatten but is not an object!",
+                Self::NAME
+            ),
         }
     }
 }
@@ -166,27 +169,31 @@ impl<'a, T: Type + 'static> Type for &'a T {
     }
 }
 
+fn wrap_list(ty: DataType) -> DataType {
+    DataType::List(Box::new(ty))
+}
+
 impl<T: Type> Type for Vec<T> {
     const NAME: &'static str = "Vec";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::inline(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::reference(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn definition(_: DefOpts) -> DataType {
@@ -198,23 +205,23 @@ impl<'a, T: Type> Type for &'a [T] {
     const NAME: &'static str = "&[T]";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::inline(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::reference(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn definition(_: DefOpts) -> DataType {
@@ -226,23 +233,23 @@ impl<'a, const N: usize, T: Type> Type for [T; N] {
     const NAME: &'static str = "&[T; N]";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::inline(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::reference(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn definition(_: DefOpts) -> DataType {
@@ -316,23 +323,23 @@ impl<T: Type> Type for HashSet<T> {
     const NAME: &'static str = "HashSet";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::inline(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::reference(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn definition(_: DefOpts) -> DataType {
@@ -344,23 +351,23 @@ impl<T: Type> Type for BTreeSet<T> {
     const NAME: &'static str = "BTreeSet";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::inline(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
+        wrap_list(generics.get(0).cloned().unwrap_or(T::reference(
             DefOpts {
                 parent_inline: false,
                 type_map: opts.type_map,
             },
             generics,
-        ))))
+        )))
     }
 
     fn definition(_: DefOpts) -> DataType {
@@ -372,36 +379,21 @@ impl<K: Type, V: Type> Type for HashMap<K, V> {
     const NAME: &'static str = "HashMap";
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
-        let k_gen = generics.get(0).cloned().unwrap_or(<K as Type>::inline(
-            DefOpts {
-                parent_inline: false,
-                type_map: defs.type_map,
-            },
-            &[],
-        ));
-        let v_gen = generics.get(1).cloned().unwrap_or(<V as Type>::inline(
-            DefOpts {
-                parent_inline: false,
-                type_map: defs.type_map,
-            },
-            &[],
-        ));
-
         DataType::Record(Box::new((
-            K::inline(
+            generics.get(0).cloned().unwrap_or(<K as Type>::inline(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs.type_map,
                 },
-                &[k_gen],
-            ),
-            V::inline(
+                &[],
+            )),
+            generics.get(1).cloned().unwrap_or(<V as Type>::inline(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs.type_map,
                 },
-                &[v_gen],
-            ),
+                &[],
+            )),
         )))
     }
 
@@ -433,36 +425,21 @@ impl<K: Type, V: Type> Type for BTreeMap<K, V> {
     const NAME: &'static str = "BTreeMap";
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
-        let k_gen = generics.get(0).cloned().unwrap_or(<K as Type>::inline(
-            DefOpts {
-                parent_inline: false,
-                type_map: defs.type_map,
-            },
-            &[],
-        ));
-        let v_gen = generics.get(1).cloned().unwrap_or(<V as Type>::inline(
-            DefOpts {
-                parent_inline: false,
-                type_map: defs.type_map,
-            },
-            &[],
-        ));
-
         DataType::Record(Box::new((
-            K::inline(
+            generics.get(0).cloned().unwrap_or(<K as Type>::inline(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs.type_map,
                 },
-                &[k_gen],
-            ),
-            V::inline(
+                &[],
+            )),
+            generics.get(1).cloned().unwrap_or(<V as Type>::inline(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs.type_map,
                 },
-                &[v_gen],
-            ),
+                &[],
+            )),
         )))
     }
 
@@ -647,11 +624,11 @@ impl<K: Type, V: Type> Type for serde_json::Map<K, V> {
 impl Type for serde_json::Value {
     const NAME: &'static str = "Value";
 
-    fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+    fn inline(_: DefOpts, _: &[DataType]) -> DataType {
         DataType::Any
     }
 
-    fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
+    fn reference(_: DefOpts, _: &[DataType]) -> DataType {
         DataType::Any
     }
 
@@ -664,11 +641,11 @@ impl Type for serde_json::Value {
 impl Type for uuid::Uuid {
     const NAME: &'static str = "Uuid";
 
-    fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+    fn inline(_: DefOpts, _: &[DataType]) -> DataType {
         DataType::Primitive(PrimitiveType::String)
     }
 
-    fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
+    fn reference(_: DefOpts, _: &[DataType]) -> DataType {
         DataType::Primitive(PrimitiveType::String)
     }
 
@@ -681,11 +658,11 @@ impl Type for uuid::Uuid {
 impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
     const NAME: &'static str = "DateTime";
 
-    fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+    fn inline(_opts: DefOpts, _: &[DataType]) -> DataType {
         DataType::Primitive(PrimitiveType::String)
     }
 
-    fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
+    fn reference(_opts: DefOpts, _: &[DataType]) -> DataType {
         DataType::Primitive(PrimitiveType::String)
     }
 
@@ -701,11 +678,11 @@ macro_rules! chrono_timezone {
             impl Type for chrono::$name {
                 const NAME: &'static str = stringify!($name);
 
-                fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+                fn inline(_opts: DefOpts, _: &[DataType]) -> DataType {
                     DataType::Primitive(PrimitiveType::String)
                 }
 
-                fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
+                fn reference(_opts: DefOpts, _: &[DataType]) -> DataType {
                     DataType::Primitive(PrimitiveType::String)
                 }
 

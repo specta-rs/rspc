@@ -153,11 +153,13 @@ pub fn parse_enum(
             name: #enum_name_str.to_string(),
             generics: vec![#(#definition_generics),*],
             variants: vec![#(#variants),*],
-            repr: #crate_ref::EnumRepr::#repr
+            repr: #crate_ref::EnumRepr::#repr,
+            type_id: std::any::TypeId::of::<Self>()
         })),
         quote!(#crate_ref::DataType::Reference {
             name: #enum_name_str.to_string(),
             generics: vec![#(#reference_generics),*],
+            type_id: std::any::TypeId::of::<Self>()
         }),
     )
 }

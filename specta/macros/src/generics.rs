@@ -40,43 +40,6 @@ pub fn impl_heading(r#trait: TokenStream, ty: &Ident, generics: &Generics) -> To
     quote!(impl <#(#bounds),*> #r#trait for #ty <#(#type_args),*> #where_bound)
 }
 
-pub fn generic_refs(generics: &Generics, crate_ref: &TokenStream) -> TokenStream {
-    let generics = generics
-        .params
-        .iter()
-        .filter_map(|param| match param {
-            GenericParam::Type(ty) => {
-                let ident = &ty.ident;
-                Some(quote!(<#ident as #crate_ref::Type>::def(defs)))
-            }
-            GenericParam::Lifetime(_) => None,
-            GenericParam::Const(_) => None, // TODO: Support const generics
-        })
-        .collect::<Vec<_>>();
-
-    quote! { vec![#(#generics),*] }
-}
-
-pub fn type_ident_with_generics(ident: &Ident, generics: &Generics) -> TokenStream {
-    let generics = generics
-        .params
-        .iter()
-        .map(|param| match param {
-            GenericParam::Type(param) => {
-                let ident = &param.ident;
-                quote! { #ident }
-            }
-            GenericParam::Lifetime(param) => {
-                let ident = &param.lifetime;
-                quote! { #ident }
-            }
-            GenericParam::Const(_) => panic!("const generics are not supported by specta!"), // TODO: Support const generics
-        })
-        .collect::<Vec<_>>();
-
-    quote! { #ident<#(#generics),*> }
-}
-
 // Code copied from ts-rs. Thanks to it's original author!
 fn add_type_to_where_clause(ty: &TokenStream, generics: &Generics) -> Option<WhereClause> {
     let generic_types = generics

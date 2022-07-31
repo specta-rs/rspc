@@ -166,7 +166,7 @@ pub fn to_ts(typ: &DataType) -> String {
                 .collect::<Vec<_>>()
                 .join(" | "),
         },
-        DataType::Reference { name, generics } => match &generics[..] {
+        DataType::Reference { name, generics, .. } => match &generics[..] {
             [] => name.to_string(),
             generics => {
                 let generics = generics

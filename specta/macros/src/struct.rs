@@ -158,6 +158,7 @@ pub fn parse_struct(
     let reference = quote!(#crate_ref::DataType::Reference {
         name: #struct_name.to_string(),
         generics: vec![#(#reference_generics),*],
+        type_id: std::any::TypeId::of::<Self>()
     });
 
     (definition, reference)
