@@ -28,7 +28,7 @@ required-features = ["uuid", "chrono"]
 
 [[example]]
 name = "global_context"
-require-features = ["axum"]
+required-features = ["axum"]
 
 [dependencies]
 specta = { version = "0.0.1", path = "./specta", features = ["serde"] }
