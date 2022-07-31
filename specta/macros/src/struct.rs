@@ -115,7 +115,8 @@ pub fn parse_struct(
                     .into_iter()
                     .flatten()
                     .collect::<Vec<_>>(),
-                tag: #tag
+                tag: #tag,
+                type_id: Some(std::any::TypeId::of::<Self>())
             }))
         }
         Fields::Unnamed(_) => {

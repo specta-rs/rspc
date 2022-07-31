@@ -1,4 +1,6 @@
-use crate::{DataType, GenericType};
+use std::any::TypeId;
+
+use crate::DataType;
 
 #[derive(Debug, Clone)]
 pub struct ObjectField {
@@ -13,4 +15,5 @@ pub struct ObjectType {
     pub generics: Vec<&'static str>,
     pub fields: Vec<ObjectField>,
     pub tag: Option<String>,
+    pub type_id: Option<TypeId>,
 }

@@ -127,7 +127,8 @@ pub fn parse_enum(
                         name: #variant_name_str.to_string(),
                         fields: vec![#(#fields),*],
                         generics: vec![],
-                        tag: None
+                        tag: None,
+                        type_id: None
                     }))
                 }
             }

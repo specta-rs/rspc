@@ -29,6 +29,7 @@ macro_rules! selection {
                                 optional: false,
                             }
                         ),*],
+                        type_id: Some(std::any::TypeId::of::<Self>()),
                     })
                 }
 
@@ -74,6 +75,7 @@ macro_rules! selection {
                                 optional: false,
                             }
                         ),*],
+                        type_id: Some(std::any::TypeId::of::<Self>())
                     })))
                 }
 
