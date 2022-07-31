@@ -134,7 +134,5 @@ fn derive_type_internal(
         #flatten_impl
     };
 
-    println!("{}", out.to_string());
-
     out.into()
 }

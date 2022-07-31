@@ -6,7 +6,7 @@ use crate::{
 use super::Type;
 
 pub fn ts_inline<T: Type>() -> String {
-    to_ts_inline(&T::inline(
+    to_ts(&T::inline(
         DefOpts {
             parent_inline: true,
             type_map: &mut TypeDefs::new(),
@@ -16,7 +16,7 @@ pub fn ts_inline<T: Type>() -> String {
 }
 
 pub fn ts_ref<T: Type>() -> String {
-    to_ts(&T::inline(
+    to_ts(&T::reference(
         DefOpts {
             parent_inline: false,
             type_map: &mut TypeDefs::new(),
@@ -36,7 +36,7 @@ pub fn ts_export<T: Type>() -> Result<String, String> {
 }
 
 pub fn to_ts_export(def: &DataType) -> Result<String, String> {
-    let inline_ts = to_ts_inline(&def);
+    let inline_ts = to_ts(&def);
 
     Ok(match &def {
         // Named struct
@@ -79,36 +79,13 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     })
 }
 
-/// Prints the type inline of the given type.
-pub fn to_ts(typ: &DataType) -> String {
-    match &typ {
-        DataType::Object(ObjectType { name, generics, .. }) => {
-            let generics = match generics.len() {
-                0 => "".into(),
-                _ => format!(
-                    "<{}>",
-                    generics.iter().map(|g| *g).collect::<Vec<_>>().join(", ")
-                ),
-            };
-
-            format!("{name}{generics}")
-        }
-        DataType::Tuple(TupleType { fields, .. }) if fields.len() == 1 => to_ts(&fields[0]),
-        DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
-        DataType::List(def) => format!("Array<{}>", to_ts(&def)),
-        body => to_ts_inline(body),
-    }
-}
-
 macro_rules! primitive_def {
     ($($t:ident)+) => {
         $(DataType::Primitive(PrimitiveType::$t))|+
     }
 }
 
-/// Prints the inline type of the given type.
-/// Inlining is not applied to fields and variants.
-pub fn to_ts_inline(typ: &DataType) -> String {
+pub fn to_ts(typ: &DataType) -> String {
     match &typ {
         DataType::Any => "any".into(),
         primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
@@ -116,11 +93,11 @@ pub fn to_ts_inline(typ: &DataType) -> String {
         primitive_def!(String char Path PathBuf) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
         primitive_def!(Never) => "never".into(),
-        DataType::Nullable(def) => format!("{} | null", to_ts_inline(&def)),
+        DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
         DataType::Record(def) => {
-            format!("Record<{}, {}>", to_ts_inline(&def.0), to_ts_inline(&def.1))
+            format!("Record<{}, {}>", to_ts(&def.0), to_ts(&def.1))
         }
-        DataType::List(def) => format!("Array<{}>", to_ts_inline(&def)),
+        DataType::List(def) => format!("Array<{}>", to_ts(&def)),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
             [ty] => to_ts(&ty),
@@ -155,7 +132,7 @@ pub fn to_ts_inline(typ: &DataType) -> String {
                             format!("{{ {tag}: \"{sanitised_name}\" }}")
                         }
                         (EnumRepr::Internal { tag }, EnumVariant::Unnamed(tuple)) => {
-                            let typ = to_ts_inline(&DataType::Tuple(tuple.clone()));
+                            let typ = to_ts(&DataType::Tuple(tuple.clone()));
 
                             format!("{{ {tag}: \"{sanitised_name}\" }} & {typ}")
                         }
@@ -170,17 +147,17 @@ pub fn to_ts_inline(typ: &DataType) -> String {
                             format!("\"{sanitised_name}\"")
                         }
                         (EnumRepr::External, v) => {
-                            let ts_values = to_ts_inline(&v.data_type());
+                            let ts_values = to_ts(&v.data_type());
 
                             format!("{{ {sanitised_name}: {ts_values} }}")
                         }
                         (EnumRepr::Untagged, EnumVariant::Unit(_)) => "null".to_string(),
-                        (EnumRepr::Untagged, v) => to_ts_inline(&v.data_type()),
+                        (EnumRepr::Untagged, v) => to_ts(&v.data_type()),
                         (EnumRepr::Adjacent { tag, .. }, EnumVariant::Unit(_)) => {
                             format!("{{ {tag}: \"{sanitised_name}\" }}")
                         }
                         (EnumRepr::Adjacent { tag, content }, v) => {
-                            let ts_values = to_ts_inline(&v.data_type());
+                            let ts_values = to_ts(&v.data_type());
 
                             format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
                         }
@@ -222,7 +199,7 @@ pub fn object_fields(fields: &[ObjectField]) -> Vec<String> {
                 false => (field_name_safe, &field.ty),
             };
 
-            format!("{key}: {}", to_ts_inline(&ty))
+            format!("{key}: {}", to_ts(&ty))
         })
         .collect::<Vec<_>>()
 }
