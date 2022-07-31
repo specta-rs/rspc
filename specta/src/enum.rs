@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::{DataType, ObjectType, PrimitiveType, TupleType};
 
 #[derive(Debug, Clone)]
@@ -6,6 +8,7 @@ pub struct EnumType {
     pub variants: Vec<EnumVariant>,
     pub generics: Vec<&'static str>,
     pub repr: EnumRepr,
+    pub type_id: TypeId
 }
 
 #[derive(Debug, Clone)]

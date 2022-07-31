@@ -11,7 +11,7 @@ macro_rules! selection {
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
                 const NAME: &'static str = "Selection";
 
-                fn inline(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
                     $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
@@ -33,8 +33,8 @@ macro_rules! selection {
                     })
                 }
 
-                fn reference(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    Self::inline(opts, generics)
+                fn reference(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    Self::inline(opts, _generics)
                 }
 
                 fn definition(_: $crate::internal::specta::DefOpts) -> $crate::internal::specta::DataType {
@@ -57,7 +57,7 @@ macro_rules! selection {
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
                 const NAME: &'static str = "Selection";
 
-                fn inline(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
                     $crate::internal::specta::DataType::List(Box::new($crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
@@ -79,8 +79,8 @@ macro_rules! selection {
                     })))
                 }
 
-                fn reference(opts: $crate::internal::specta::DefOpts, generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    Self::inline(opts, generics)
+                fn reference(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    Self::inline(opts, _generics)
                 }
 
                 fn definition(_: $crate::internal::specta::DefOpts) -> $crate::internal::specta::DataType {

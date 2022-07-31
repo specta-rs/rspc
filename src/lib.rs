@@ -32,7 +32,7 @@ pub fn test_result_type<T: specta::Type + serde::Serialize>() {
 }
 
 #[cfg(debug_assertions)]
-pub fn test_result_value<T: specta::Type + serde::Serialize>(t: T) {
+pub fn test_result_value<T: specta::Type + serde::Serialize>(_: T) {
     panic!("You should not call `test_type` at runtime. This is just a debugging tool.");
 }
 

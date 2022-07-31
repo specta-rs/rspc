@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use crate::{EnumType, ObjectType, TupleType};
 
 #[derive(Debug, Clone)]
@@ -16,6 +18,7 @@ pub enum DataType {
     Reference {
         name: String,
         generics: Vec<DataType>,
+        type_id: TypeId
     },
     Generic(String)
 }
