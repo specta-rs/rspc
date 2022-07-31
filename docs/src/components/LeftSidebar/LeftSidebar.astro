@@ -4,20 +4,20 @@ const { currentPage } = Astro.props;
 const currentPageMatch = currentPage.slice(1);
 // SIDEBAR is a flat array. Group it by sections to properly render.
 const sidebarSections = SIDEBAR.reduce((col, item, i) => {
-	// If the first item is not a section header, create a new container section.
 	if (i === 0) {
-		if (!item.header) {
-			const pesudoSection = { text: "" };
-			col.push({ ...pesudoSection, children: [] });
-		}
+		return col;
 	}
 	if (item.header) {
-		col.push({ ...item, children: [] });
+		if (item?.text !== "rspc") {
+			col.push({ ...item, children: [] });
+		} else {
+			col.push({ children: [] });
+		}
 	} else {
 		col[col.length - 1].children.push(item);
 	}
 	return col;
-}, []);
+}, [])
 ---
 
 <nav aria-labelledby="grid-left">
@@ -66,16 +66,16 @@ const sidebarSections = SIDEBAR.reduce((col, item, i) => {
 	}
 
 	.nav-groups>li+li {
-		margin-top: 2rem;
+		margin-top: 1rem;
 	}
 
 	.nav-groups> :first-child {
-		padding-top: var(--doc-padding);
+		padding-top: 0;
+		margin-top: 0;
 	}
 
 	.nav-groups> :last-child {
-		padding-bottom: 2rem;
-		margin-bottom: var(--theme-navbar-height);
+		padding-bottom: 20px;
 	}
 
 	.nav-group-title {

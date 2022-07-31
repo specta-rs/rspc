@@ -1,3 +1,5 @@
+use std::{error, fmt};
+
 use rspc::{
     Config, Error, ErrorCode, ExecError, OperationKey, OperationKind, Router, StreamOrValue,
 };
@@ -13,9 +15,18 @@ impl From<MyCustomError> for Error {
     }
 }
 
-fn func_returning_custom_error() -> Result<String, MyCustomError> {
-    Err(MyCustomError::IAmBroke)
+#[derive(Debug)]
+pub enum CustomRustError {
+    GenericError,
 }
+
+impl fmt::Display for CustomRustError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "some Rust error!")
+    }
+}
+
+impl error::Error for CustomRustError {}
 
 #[tokio::main]
 async fn main() {
@@ -28,10 +39,20 @@ async fn main() {
             Err(Error::new(
                 ErrorCode::BadRequest,
                 "This is a custom error!".into(),
+            )) as Result<String, _>
+        })
+        .query("errWithCause", |_, args: ()| {
+            Err(Error::with_cause(
+                ErrorCode::BadRequest,
+                "This is a custom error!".into(),
+                CustomRustError::GenericError,
             )) as Result<String, Error>
         })
         .query("customErr", |_, _args: ()| {
-            Ok(func_returning_custom_error()?)
+            Ok(Err(MyCustomError::IAmBroke)?)
+        })
+        .query("customErrUsingInto", |_, _args: ()| {
+            Err(MyCustomError::IAmBroke.into()) as Result<String, Error>
         })
         .query("asyncCustomError", |_, _args: ()| async move {
             Err(MyCustomError::IAmBroke.into()) as Result<String, _>

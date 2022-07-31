@@ -15,7 +15,7 @@ async fn main() {
             .build();
 
     // You can also export the bindings yourself
-    // router.export_ts("./ts").unwrap();
+    // r.export_ts("./bindings.ts").unwrap();
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
     match r

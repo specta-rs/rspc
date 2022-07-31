@@ -3,6 +3,7 @@ import * as CONFIG from '../../config.ts';
 import AstroLogo from './AstroLogo.astro';
 import SkipToContent from './SkipToContent.astro';
 import SidebarToggle from './SidebarToggle.tsx';
+import Icon from 'astro-icon';
 ---
 
 <header>
@@ -11,12 +12,10 @@ import SidebarToggle from './SidebarToggle.tsx';
 		<div class="menu-toggle">
 			<SidebarToggle client:idle />
 		</div>
-		<div class="logo flex">
-			<a href="/">
-				<AstroLogo size={40} />
-				<h1>{CONFIG.SITE.title ?? "Documentation"}</h1>
-			</a>
-		</div>
+		<a href="/" class="link">
+			<Icon name="logo" height="40px" alt={`${CONFIG.SITE.title} logo`} />
+			<h1>{CONFIG.SITE.title}</h1>
+		</a>
 		<div style="flex-grow: 1;"></div>
 	</nav>
 </header>
@@ -35,36 +34,19 @@ import SidebarToggle from './SidebarToggle.tsx';
 		top: 0;
 	}
 
-	.logo {
-		flex: 1;
+	.link {
 		display: flex;
-		overflow: hidden;
-		width: 30px;
-		font-size: 2rem;
-		flex-shrink: 0;
-		font-weight: 600;
-		line-height: 1;
-		color: hsla(var(--color-base-white), 100%, 1);
-		gap: 0.25em;
-		z-index: -1;
-	}
-
-	.logo a {
-		display: flex;
-		padding: 0.5em 0.25em;
-		margin: -0.5em -0.25em;
 		text-decoration: none;
-		font-weight: bold;
+		color: inherit;
 	}
 
-	.logo a {
-		transition: color 100ms ease-out;
-		color: var(--theme-text);
+	.link:hover {
+		text-decoration: none;
 	}
 
-	.logo a:hover,
-	.logo a:focus {
-		color: var(--theme-text-accent);
+	.link h1 {
+		font-size: 2.5rem;
+		padding-left: 18px;
 	}
 
 	.logo h1 {
@@ -86,21 +68,6 @@ import SidebarToggle from './SidebarToggle.tsx';
 
 	@media (min-width: 50em) {
 		header {
-			position: static;
-			padding: 2rem 0rem;
-		}
-
-		.logo {
-			width: auto;
-			margin: 0;
-			z-index: 0;
-		}
-
-		.logo h1 {
-			display: initial;
-		}
-
-		.menu-toggle {
 			display: none;
 		}
 	}

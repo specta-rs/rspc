@@ -5,6 +5,7 @@ import Header from '../components/Header/Header.astro';
 import PageContent from '../components/PageContent/PageContent.astro';
 import LeftSidebar from '../components/LeftSidebar/LeftSidebar.astro';
 import RightSidebar from '../components/RightSidebar/RightSidebar.astro';
+import { Icon } from 'astro-icon';
 import * as CONFIG from '../config';
 
 const { content = {} } = Astro.props;
@@ -17,7 +18,7 @@ const githubEditUrl = CONFIG.GITHUB_EDIT_URL && CONFIG.GITHUB_EDIT_URL + current
 
 <head>
 	<HeadCommon />
-	<HeadSEO {content} canonicalURL={Astro.canonicalURL} />
+	<HeadSEO {content} canonicalURL={new URL(Astro.url.pathname, Astro.site)} />
 	<title>{content.title !== "rspc" ? `${content.title} | ${CONFIG.SITE.title}` : CONFIG.SITE.title}</title>
 	<style>
 		body {
@@ -47,6 +48,25 @@ const githubEditUrl = CONFIG.GITHUB_EDIT_URL && CONFIG.GITHUB_EDIT_URL + current
 			position: sticky;
 			top: 0;
 			padding: 0;
+			display: flex;
+			flex-direction: column;
+			margin-top: 50px;
+		}
+
+		.sidebar-header {
+			margin-top: 0.5rem;
+			text-align: center;
+			display: none;
+		}
+
+		.sidebar-header a {
+			color: inherit;
+			text-decoration: inherit;
+		}
+
+		.sidebar-header a:hover {
+			color: inherit;
+			text-decoration: inherit;
 		}
 
 		#grid-left {
@@ -84,11 +104,19 @@ const githubEditUrl = CONFIG.GITHUB_EDIT_URL && CONFIG.GITHUB_EDIT_URL + current
 				gap: 1em;
 			}
 
+			.grid-sidebar {
+				margin-top: 0;
+			}
+
 			#grid-left {
 				display: flex;
 				padding-left: 2rem;
 				position: sticky;
 				grid-column: 1;
+			}
+
+			.sidebar-header {
+				display: block;
 			}
 		}
 
@@ -110,9 +138,24 @@ const githubEditUrl = CONFIG.GITHUB_EDIT_URL && CONFIG.GITHUB_EDIT_URL + current
 </head>
 
 <body>
+	{/* TODO: Remove this as it's adding extra data to each payload.
+	If you remove this hidden svg the logo will render in the
+	<Header /> but not sidebar. This is so weird and I really don't get why it is doing it.
+	*/}
+	<Icon name="logo" height="0px" styles="display: none;" />
+
 	<Header {currentPage} />
 	<main class="layout">
 		<aside id="grid-left" class="grid-sidebar" title="Site Navigation">
+			<div class="sidebar-header">
+				<a href="/">
+					<div>
+						<Icon name="logo" height="90px" alt={`${CONFIG.SITE.title} logo`} />
+					</div>
+					<h1>{CONFIG.SITE.title}</h1>
+				</a>
+			</div>
+
 			<LeftSidebar {currentPage} />
 		</aside>
 		<div id="grid-main">

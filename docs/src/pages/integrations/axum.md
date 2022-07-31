@@ -34,9 +34,9 @@ let app = axum::Router::new()
 
 ### Extracting Context from Request
 
-**Warning: Current we only support a single extractor. We will fix this soon.**
+**Warning: Current we only support a single extractor. This is a temporary limitation so open a GitHub Issue if you need more.**
 
-You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extractors" target="_blank">Axum extractors</a> to get data from the request such as cookies and put them on the request context. The `axum_handler` function takes a closure that can take up to 16 valid Axum extractors as arguments and then returns the context (of type `TCtx`).
+You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extractors" target="_blank">Axum extractors</a> to get data from the request such as cookies and put them on the request context. The `axum_handler` function takes a closure that can take up to 16 valid Axum extractors as arguments and then returns the [request context](/server/request-context) (of type `TCtx`).
 
 ```rust
 let router = rspc::Router::<String>::new()
@@ -49,4 +49,23 @@ let app = axum::Router::new()
     .route("/rspc/:id", router.clone().axum_handler(|Path(path): Path<String>| path))
     .route("/rspcws", router.axum_ws_handler(|Path(path): Path<String>| path))
     .layer(cors);
+```
+
+### Usage on frontend
+
+```typescript
+import { FetchTransport, WebsocketTransport, createClient } from '@rspc/client';
+import type { Operations } from "./ts/bindings"; // These were the bindings exported from your Rust code!
+
+// For fetch transport
+const client = createClient<Operations>({
+  transport: new FetchTransport("http://localhost:4000/rspc"),
+});
+
+// For websocket transport - Required for subscriptions
+const client = createClient<Operations>({
+  transport: new WebsocketTransport("ws://localhost:8080/rspcws"),
+});
+
+client.query('version').then((data) => console.log(data));
 ```

@@ -5,7 +5,7 @@ layout: ../layouts/MainLayout.astro
 
 **Get rspc up and running in your own project.**
 
-### (Optional) Create new project
+### Create new project (optional)
 
 If you haven't got a Rust project already setup, create a new one using the following command.
 
@@ -17,15 +17,13 @@ cargo add tokio --features full # rpsc requires an async runtime
 
 ### Install rspc
 
-~~`rspc` is distributed through a Rust crate hosted on [crates.io](https://crates.io/rspc). Add it to your project using the following command:~~
-
-**Currently installation has to be done through Git as we are using a fork of [`ts_rs`](https://github.com/oscartbeaumont/ts-rs/tree/rspc) which isn't on [crates.io](https://crates.io/rspc). This is a temporary workaround and will be fixed in the near future.**
+`rspc` is distributed through a Rust crate hosted on [crates.io](https://crates.io/crates/rspc). Add it to your project using the following command:
 
 ```bash
-cargo add rspc --git https://github.com/oscartbeaumont/rspc.git
+cargo add rspc
 ```
 
-You may need to install [cargo edit](https://github.com/killercup/cargo-edit) if your not running Rust `1.62.0` or later.
+This command will not exist if your running a Rust version earlier than `1.62.0`, please upgrade your Rust version if this is the case.
 
 ### Create router
 
@@ -43,3 +41,37 @@ async fn main() {
 ```
 
 Now you have setup a basic `rspc::Router`.
+
+### Exposing your router
+
+Now that you have a router your probably wondering how you access it from your frontend. This is done through an rspc integration. I would recommend starting with [Axum](https://github.com/tokio-rs/axum), by following [this](http://localhost:3000/integrations/axum).
+
+### Unit test (optional)
+
+Your rspc router is validated on the startup of your application and may panic if anything is incorrect. To ensure you catch any issues with your router before releasing a production version of your application you can use a unit test.
+
+```rust
+use rspc::Router;
+
+fn router() -> Router {
+    <Router>::new()
+        .query("version", |ctx, arg: ()| env!("CARGO_PKG_VERSION"))
+        .build()
+}
+
+#[tokio::main]
+async fn main() {
+    let r = router();
+    // Use your router like you normally would
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_rspc_router() {
+        super::router();
+    }
+}
+```
+
+This method is possible as all context (such as database connections) comes from the request (read more about [request context](/server/request-context)) and therefore you don't need to setup your database and other dependencies to validate the router is valid.

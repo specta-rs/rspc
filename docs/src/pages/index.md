@@ -5,8 +5,6 @@ layout: ../layouts/MainLayout.astro
 
 **A blazing fast and easy to use TRPC-like server for Rust.**
 
-🚧 Work in progress 🚧
-
 ```rust
 let router = <Router>::new()
     .query("version", |ctx, args: ()| "1.0.0")
@@ -14,6 +12,12 @@ let router = <Router>::new()
     .build();
 ```
 [View more examples](https://github.com/oscartbeaumont/rspc/tree/main/examples)
+
+### Project status
+
+🚧 Work in progress 🚧
+
+Expect breaking changes however it should be stable enough to build a project.
 
 ### Introduction
 
@@ -34,3 +38,7 @@ This library fits a use case between REST and [GraphQL](https://graphql.org). It
 ### Inspiration
 
 This project is based off [trpc](https://trpc.io) and was inspired by the bridge system [Jamie Pine](https://github.com/jamiepine) designed for [Spacedrive](https://www.spacedrive.com). A huge thanks to everyone who helped inspire this project!
+
+### Roadmap
+
+Refer to [GitHub Issue](https://github.com/oscartbeaumont/rspc/issues/2).
