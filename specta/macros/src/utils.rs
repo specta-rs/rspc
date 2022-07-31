@@ -24,7 +24,7 @@ macro_rules! impl_parse {
                 #[allow(warnings)]
                 let mut $out = $i::default();
                 loop {
-                    let key: Ident = $input.call(syn::ext::IdentExt::parse_any)?;
+                    let key: syn::Ident = $input.call(syn::ext::IdentExt::parse_any)?;
                     match &*key.to_string() {
                         $($k => $e,)*
                         #[allow(unreachable_patterns)]

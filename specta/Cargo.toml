@@ -1,7 +1,7 @@
 [package]
 name = "specta"
 description = "Easily export your Rust types to other languages"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
@@ -18,7 +18,7 @@ indexmap = ["dep:indexmap"]
 
 [dependencies]
 convert_case = "0.5.0"
-specta-macros = { version = "0.0.1", path = "./macros" }
+specta-macros = { version = "0.0.2", path = "./macros" }
 termcolor = "1.1.3"
 serde_json = { version = "1.0.81", optional = true }
 uuid = { version = "1.1.2", optional = true }

@@ -1,4 +1,4 @@
-use syn::{Attribute, Ident, Result};
+use syn::{Attribute, Result};
 
 use crate::{
     attr::{parse_assign_inflection, parse_assign_str},

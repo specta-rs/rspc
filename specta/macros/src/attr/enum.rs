@@ -1,6 +1,4 @@
-use syn::{Attribute, Ident, Result};
-
-use crate::attr::parse_assign_str;
+use syn::{Attribute, Result};
 
 #[derive(Debug, Default)]
 pub struct EnumAttr {
@@ -34,6 +32,8 @@ impl EnumAttr {
         }
     }
 
+    #[allow(unused_variables)]
+    #[allow(unused_mut)]
     pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut result = Self::default();
         // parse_attrs(attrs)?.for_each(|a| result.merge(a));
@@ -42,6 +42,7 @@ impl EnumAttr {
         Ok(result)
     }
 
+    #[allow(dead_code)]
     fn merge(
         &mut self,
         EnumAttr {
@@ -64,8 +65,8 @@ impl EnumAttr {
 #[cfg(feature = "serde")]
 impl_parse! {
     SerdeEnumAttr(input, out) {
-        "tag" => out.0.tag = Some(parse_assign_str(input)?),
-        "content" => out.0.content = Some(parse_assign_str(input)?),
+        "tag" => out.0.tag = Some(crate::attr::parse_assign_str(input)?),
+        "content" => out.0.content = Some(crate::attr::parse_assign_str(input)?),
         "untagged" => out.0.untagged = true
     }
 }

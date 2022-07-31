@@ -1,4 +1,4 @@
-use syn::{Attribute, Ident, Result};
+use syn::{Attribute, Result};
 
 use super::parse_assign_str;
 use crate::utils::parse_attrs;
