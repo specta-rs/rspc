@@ -6,8 +6,8 @@ use syn::{
 };
 
 // Code copied from ts-rs. Thanks to it's original author!
-// generate start of the `impl TS for #ty` block, up to (excluding) the open brace
-pub fn generate_impl(crate_name: &TokenStream, ty: &Ident, generics: &Generics) -> TokenStream {
+// generate start of the `impl #r#trait for #ty` block, up to (excluding) the open brace
+pub fn impl_heading(r#trait: TokenStream, ty: &Ident, generics: &Generics) -> TokenStream {
     use GenericParam::*;
 
     let bounds = generics.params.iter().map(|param| match param {
@@ -36,8 +36,8 @@ pub fn generate_impl(crate_name: &TokenStream, ty: &Ident, generics: &Generics) 
         Lifetime(LifetimeDef { lifetime, .. }) => quote!(#lifetime),
     });
 
-    let where_bound = add_type_to_where_clause(crate_name, generics);
-    quote!(impl <#(#bounds),*> #crate_name::Type for #ty <#(#type_args),*> #where_bound)
+    let where_bound = add_type_to_where_clause(&r#trait, generics);
+    quote!(impl <#(#bounds),*> #r#trait for #ty <#(#type_args),*> #where_bound)
 }
 
 pub fn generic_refs(generics: &Generics, crate_ref: &TokenStream) -> TokenStream {
@@ -78,7 +78,7 @@ pub fn type_ident_with_generics(ident: &Ident, generics: &Generics) -> TokenStre
 }
 
 // Code copied from ts-rs. Thanks to it's original author!
-fn add_type_to_where_clause(crate_name: &TokenStream, generics: &Generics) -> Option<WhereClause> {
+fn add_type_to_where_clause(ty: &TokenStream, generics: &Generics) -> Option<WhereClause> {
     let generic_types = generics
         .params
         .iter()
@@ -91,11 +91,11 @@ fn add_type_to_where_clause(crate_name: &TokenStream, generics: &Generics) -> Op
         return generics.where_clause.clone();
     }
     match generics.where_clause {
-        None => Some(parse_quote! { where #( #generic_types : #crate_name::Type + 'static ),* }),
+        None => Some(parse_quote! { where #( #generic_types : #ty + 'static ),* }),
         Some(ref w) => {
             let bounds = w.predicates.iter();
             Some(
-                parse_quote! { where #(#bounds,)* #( #generic_types : #crate_name::Type + 'static ),* },
+                parse_quote! { where #(#bounds,)* #( #generic_types : #ty + 'static ),* },
             )
         }
     }

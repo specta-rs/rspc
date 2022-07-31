@@ -75,6 +75,15 @@ fn typescript_types() {
         InlinerStruct,
         "{ inline_this: { ref_struct: SimpleStruct, val: number }, dont_inline_this: RefStruct }"
     );
+
+    assert_ts_type!(
+        GenericStruct<i32>,
+        "{ arg: number }"
+    );
+    assert_ts_type!(
+        GenericStruct<String>,
+        "{ arg: string }"
+    );
 }
 
 #[derive(Type)]
@@ -129,5 +138,7 @@ struct InlinerStruct {
     dont_inline_this: RefStruct,
 }
 
-// #[derive(Type)]
-// struct Wrapper<T>(T);
+#[derive(Type)]
+struct GenericStruct<T> {
+    arg: T
+}

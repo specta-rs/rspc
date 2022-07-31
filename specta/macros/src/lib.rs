@@ -72,8 +72,6 @@ fn derive_type_internal(
         _ => panic!("Type 'Union' is not supported by specta!"),
     };
 
-    let impl_for_type = generate_impl(&crate_name, &ident, &generics);
-
     let definition_generics = generics.type_params().map(|param| {
         let ident = &param.ident;
 
@@ -81,14 +79,20 @@ fn derive_type_internal(
     });
 
     let flatten_impl = match data {
-        Data::Struct(_) => Some(quote! {
-            impl #crate_ref::Flatten for #ident {}
-        }),
+        Data::Struct(_) => {
+            let heading = impl_heading(quote!(#crate_ref::Flatten), &ident, &generics);
+
+            Some(quote! {
+                #heading {}
+            })
+        }
         _ => None,
     };
 
+    let type_impl_heading = impl_heading(quote!(#crate_ref::Type), &ident, &generics);
+
     let out = quote! {
-        #impl_for_type {
+        #type_impl_heading {
             const NAME: &'static str = #name_str;
 
             fn inline(opts: #crate_ref::DefOpts, generics: &[#crate_ref::DataType]) -> #crate_ref::DataType {
