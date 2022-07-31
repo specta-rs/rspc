@@ -116,7 +116,8 @@ fn derive_type_internal(
                         name: #name_str.to_string(),
                         generics: vec![],
                         fields: vec![],
-                        tag: None
+                        tag: None,
+                        type_id: Some(std::any::TypeId::of::<Self>())
                     }));
 
                     let def = Self::inline(#crate_ref::DefOpts {

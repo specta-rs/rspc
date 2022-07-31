@@ -1,4 +1,4 @@
-use crate::{DataType, GenericType, ObjectType, PrimitiveType, TupleType};
+use crate::{DataType, ObjectType, PrimitiveType, TupleType};
 
 #[derive(Debug, Clone)]
 pub struct EnumType {
