@@ -139,5 +139,6 @@ export function createReactQueryHooks<T extends OperationsDef>() {
     useSubscription,
     // useDehydratedState,
     // useInfiniteQuery,
+    ReactQueryContext,
   };
 }
