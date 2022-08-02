@@ -306,6 +306,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
 
     pub fn build(self) -> Router<TCtx, TMeta> {
         let Self {
+            config,
             queries,
             mutations,
             subscriptions,
@@ -313,7 +314,9 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             ..
         } = self;
 
+        let export_path = config.export_bindings_on_build.clone();
         let router = Router {
+            config,
             queries,
             mutations,
             subscriptions,
@@ -322,7 +325,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         };
 
         #[cfg(debug_assertions)]
-        if let Some(export_path) = self.config.export_bindings_on_build {
+        if let Some(export_path) = export_path {
             router.export_ts(export_path).unwrap();
         }
 
