@@ -9,8 +9,7 @@ import {
   UseMutationOptions,
   QueryClientProvider,
 } from "@tanstack/react-query";
-import { Client, OperationsDef } from "./client";
-import { RSPCError } from "./error";
+import { Client, OperationsDef, RSPCError } from "@rspc/client";
 
 export type OperationKeyArgs<
   Operations extends OperationsDef,

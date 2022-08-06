@@ -3,6 +3,7 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "jsx": "react-jsx",
     "lib": ["esnext", "dom"]
   },
   "include": ["src/**/*"],

@@ -1,17 +1,16 @@
 import {
   ClientTransformer,
   createClient,
-  createReactQueryHooks,
   FetchTransport,
   OperationKey,
   OperationType,
   WebsocketTransport,
 } from "@rspc/client";
+import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient } from "@tanstack/react-query";
 import React, { useState } from "react";
-import ReactDOM from "react-dom/client";
 
-import type { Operations } from "./bindings";
+import type { Operations } from "../../bindings";
 
 export const rspc = createReactQueryHooks<Operations>();
 
@@ -88,20 +87,22 @@ function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("react") as HTMLElement).render(
-  <React.StrictMode>
-    <div
-      style={{
-        backgroundColor: "rgba(50, 205, 50, .5)",
-      }}
-    >
-      <h1>React</h1>
-      <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
-        <Example name="Fetch Transport" />
-      </rspc.Provider>
-      <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
-        <Example name="Websocket Transport" />
-      </rspc.Provider>
-    </div>
-  </React.StrictMode>
-);
+export default function App() {
+  return (
+    <React.StrictMode>
+      <div
+        style={{
+          backgroundColor: "rgba(50, 205, 50, .5)",
+        }}
+      >
+        <h1>React</h1>
+        <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
+          <Example name="Fetch Transport" />
+        </rspc.Provider>
+        <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
+          <Example name="Websocket Transport" />
+        </rspc.Provider>
+      </div>
+    </React.StrictMode>
+  );
+}

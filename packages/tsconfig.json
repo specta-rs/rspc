@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./packages",
+    "paths": {
+      "@rspc/client": ["../client/src"],
+      "@rspc/react": ["../react/src"],
+      "@rspc/tauri": ["../tauri/src"]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
     "esModuleInterop": true
   },
-  "include": ["react.tsx"]
-  // "references": [{ "path": "../client" }]
+  "include": ["src"]
 }

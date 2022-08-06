@@ -1,5 +1,5 @@
 {
-  "name": "@rspc/client",
+  "name": "@rspc/react",
   "version": "0.0.5",
   "description": "A blazing fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
@@ -22,13 +22,9 @@
     "build": "tsup",
     "prepare": "tsup"
   },
-  "devDependencies": {
-    "tsup": "^6.2.0",
-    "typescript": "^4.7.4"
-  },
   "tsup": {
     "entry": [
-      "src/index.ts"
+      "src/index.tsx"
     ],
     "format": [
       "esm",
@@ -40,5 +36,18 @@
     "splitting": true,
     "clean": true,
     "sourcemap": true
+  },
+  "dependencies": {
+    "@rspc/client": "workspace:*",
+    "@tanstack/react-query": "^4.0.10"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.15",
+    "react": "^18.2.0",
+    "tsup": "^6.2.0",
+    "typescript": "^4.7.4"
+  },
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0"
   }
 }

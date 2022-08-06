@@ -1,0 +1,19 @@
+{
+  "name": "@rspc/playground",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "echo 'todo'",
+    "build": "echo 'todo'"
+  },
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "dependencies": {
+    "solid-js": "^1.4.8"
+  },
+  "devDependencies": {
+    "vite": "^3.0.3"
+  }
+}

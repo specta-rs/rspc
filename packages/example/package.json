@@ -1,24 +1,24 @@
 {
-  "name": "example",
-  "version": "1.0.0",
-  "description": "",
+  "name": "@rspc/example",
+  "version": "0.0.0",
+  "description": "A project to test the RSPC frontend libraries",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "astro dev"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@rspc/client": "workspace:^0.0.3",
+    "@rspc/client": "workspace:*",
+    "@rspc/react": "workspace:0.0.5",
+    "astro": "1.0.0-rc.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "solid-js": "^1.4.8",
-    "vite": "^3.0.3"
+    "solid-js": "^1.4.8"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^2.0.0",
-    "vite-plugin-solid": "^2.3.0"
+    "@astrojs/react": "^0.4.3",
+    "@astrojs/solid-js": "^0.4.1"
   }
 }
