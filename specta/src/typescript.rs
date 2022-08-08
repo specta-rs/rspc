@@ -90,7 +90,9 @@ pub fn to_ts(typ: &DataType) -> String {
         DataType::Any => "any".into(),
         primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
         primitive_def!(i64 u64 i128 u128) => "bigint".into(),
-        primitive_def!(String char Path PathBuf) => "string".into(),
+        primitive_def!(String char Path PathBuf IpAddr Ipv4Addr Ipv6Addr SocketAddr SocketAddrV4 SocketAddrV6) => {
+            "string".into()
+        }
         primitive_def!(bool) => "boolean".into(),
         primitive_def!(Never) => "never".into(),
         DataType::Nullable(def) => format!("{} | null", to_ts(&def)),

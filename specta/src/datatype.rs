@@ -18,9 +18,9 @@ pub enum DataType {
     Reference {
         name: String,
         generics: Vec<DataType>,
-        type_id: TypeId
+        type_id: TypeId,
     },
-    Generic(String)
+    Generic(String),
 }
 
 #[allow(non_camel_case_types)]
@@ -46,4 +46,10 @@ pub enum PrimitiveType {
     String,
     Path,
     PathBuf,
+    IpAddr,
+    Ipv4Addr,
+    Ipv6Addr,
+    SocketAddr,
+    SocketAddrV4,
+    SocketAddrV6,
 }

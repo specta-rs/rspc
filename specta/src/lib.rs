@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod datatype;
 mod r#enum;
 mod object;
@@ -7,6 +9,7 @@ mod typescript;
 use std::{
     cell::{Cell, RefCell},
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     path::{Path, PathBuf},
     rc::Rc,
     sync::{Arc, Mutex},
@@ -73,6 +76,8 @@ impl_primitives!(
     String
     Path
     PathBuf
+    IpAddr Ipv4Addr Ipv6Addr
+    SocketAddr SocketAddrV4 SocketAddrV6
 );
 
 macro_rules! impl_tuple {

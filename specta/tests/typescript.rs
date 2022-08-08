@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use std::{cell::RefCell, path::PathBuf};
+use std::{
+    cell::RefCell,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    path::PathBuf,
+};
 
 use specta::{ts_inline, Type};
 
@@ -40,6 +44,12 @@ fn typescript_types() {
     // impossible since Path as a generic is unsized lol
     // assert_ts_type!(Path, "string");
     assert_ts_type!(PathBuf, "string");
+    assert_ts_type!(IpAddr, "string");
+    assert_ts_type!(Ipv4Addr, "string");
+    assert_ts_type!(Ipv6Addr, "string");
+    assert_ts_type!(SocketAddr, "string");
+    assert_ts_type!(SocketAddrV4, "string");
+    assert_ts_type!(SocketAddrV6, "string");
     assert_ts_type!(char, "string");
     assert_ts_type!(&'static str, "string");
 
@@ -76,14 +86,8 @@ fn typescript_types() {
         "{ inline_this: { ref_struct: SimpleStruct, val: number }, dont_inline_this: RefStruct }"
     );
 
-    assert_ts_type!(
-        GenericStruct<i32>,
-        "{ arg: number }"
-    );
-    assert_ts_type!(
-        GenericStruct<String>,
-        "{ arg: string }"
-    );
+    assert_ts_type!(GenericStruct<i32>, "{ arg: number }");
+    assert_ts_type!(GenericStruct<String>, "{ arg: string }");
 }
 
 #[derive(Type)]
@@ -140,5 +144,5 @@ struct InlinerStruct {
 
 #[derive(Type)]
 struct GenericStruct<T> {
-    arg: T
+    arg: T,
 }
