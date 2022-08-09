@@ -26,5 +26,5 @@ Support for more webservers is coming soon. Tracked in [#22](https://github.com/
 
 #### Database
 
- - [sqlx](https://jmoiron.github.io/sqlx/)
+ - [sqlx](https://github.com/launchbadge/sqlx)
  - [SeaORM](https://www.sea-ql.org/SeaORM/)
