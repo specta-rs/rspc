@@ -35,7 +35,7 @@
 
 ## Example
 
-You define a `trpc` router and attach resolvers to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
+You define a `rspc` router and attach resolvers to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
 
 ```rust
 let router = <rspc::Router>::new()
