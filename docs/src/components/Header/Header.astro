@@ -1,9 +1,9 @@
 ---
-import * as CONFIG from '../../config.ts';
-import AstroLogo from './AstroLogo.astro';
-import SkipToContent from './SkipToContent.astro';
-import SidebarToggle from './SidebarToggle.tsx';
-import Icon from 'astro-icon';
+import * as CONFIG from "../../config.ts";
+import AstroLogo from "./AstroLogo.astro";
+import SkipToContent from "./SkipToContent.astro";
+import SidebarToggle from "./SidebarToggle.tsx";
+import Icon from "astro-icon";
 ---
 
 <header>
@@ -12,7 +12,7 @@ import Icon from 'astro-icon';
 		<div class="menu-toggle">
 			<SidebarToggle client:idle />
 		</div>
-		<a href="/" class="link">
+		<a href="/" class="link preload">
 			<Icon name="logo" height="40px" alt={`${CONFIG.SITE.title} logo`} />
 			<h1>{CONFIG.SITE.title}</h1>
 		</a>
