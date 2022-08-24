@@ -16,7 +16,8 @@
   },
   "devDependencies": {
     "@astrojs/preact": "^0.5.2",
-    "astro": "1.0.0-rc.2"
+    "astro": "1.0.0-rc.2",
+    "astro-compress": "^1.0.5"
   },
   "engines": {
     "pnpm": ">=7.0.0",
