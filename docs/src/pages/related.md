@@ -6,7 +6,7 @@ layout: ../layouts/MainLayout.astro
 ### Official Integrations
 
  - [Prisma Client Rust](https://github.com/brendonovich/prisma-client-rust)
-   - Enabling the `rspc` feature in Prisma Client Rust allows you to return Prisma types or selections directly from your resolvers. Also adds support for returning Prisma Client Rust errors directly from your resolvers. **Currently requires version 0.6.0 which is prerelease**.
+   - Enabling the `rspc` feature in Prisma Client Rust allows you to return Prisma types or selections directly from your resolvers. Also adds support for returning Prisma Client Rust errors directly from your resolvers. **Currently requires version 0.6.0+**.
 
 ### Starter projects
 
