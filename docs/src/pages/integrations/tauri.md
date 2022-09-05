@@ -17,7 +17,8 @@ tauri::Builder::default()
 ### Usage on frontend
 
 ```typescript
-import { TauriTransport, createClient } from '@rspc/client';
+import { createClient } from '@rspc/client';
+import { TauriTransport } from '@rspc/tauri';
 import type { Operations } from "./ts/bindings"; // These were the bindings exported from your Rust code!
 
 const client = createClient<Operations>({

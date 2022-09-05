@@ -37,7 +37,7 @@ importers:
       '@astrojs/react': ^0.4.3
       '@astrojs/solid-js': ^0.4.1
       '@rspc/client': workspace:*
-      '@rspc/react': workspace:0.0.5
+      '@rspc/react': workspace:*
       astro: 1.0.0-rc.2
       react: ^18.2.0
       react-dom: ^18.2.0

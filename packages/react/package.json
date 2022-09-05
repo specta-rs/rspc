@@ -1,6 +1,6 @@
 {
   "name": "@rspc/react",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A blazing fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
