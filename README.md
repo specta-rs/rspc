@@ -12,17 +12,15 @@
 <br />
 
 <div align="center">
-  <!-- Crates version -->
+  <a href="https://discord.gg/4V9M5sksw8"><img src="https://img.shields.io/discord/1011665225809924136?style=flat-square" alt="Discord"></a>
   <a href="https://crates.io/crates/rspc">
     <img src="https://img.shields.io/crates/v/rspc.svg?style=flat-square"
     alt="crates.io" />
   </a>
-  <!-- Downloads -->
   <a href="https://crates.io/crates/rspc">
     <img src="https://img.shields.io/crates/d/rspc.svg?style=flat-square"
       alt="download count badge" />
   </a>
-  <!-- docs.rs docs -->
   <a href="https://docs.rs/rspc">
     <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
       alt="docs.rs" />
