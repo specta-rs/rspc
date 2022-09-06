@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, sync::Arc};
 
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Serialize};
@@ -19,9 +19,9 @@ pub struct RouterBuilder<
 {
     config: Config,
     middleware: Box<dyn Fn(NextMiddleware<TLayerCtx>) -> FirstMiddleware<TCtx>>,
-    queries: HashMap<String, Procedure<TCtx>>,
-    mutations: HashMap<String, Procedure<TCtx>>,
-    subscriptions: HashMap<String, Procedure<TCtx>>,
+    queries: BTreeMap<String, Procedure<TCtx>>,
+    mutations: BTreeMap<String, Procedure<TCtx>>,
+    subscriptions: BTreeMap<String, Procedure<TCtx>>,
     phantom: PhantomData<TMeta>,
     typ_store: TypeDefs,
 }
@@ -35,9 +35,9 @@ where
         RouterBuilder {
             config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
-            queries: HashMap::new(),
-            mutations: HashMap::new(),
-            subscriptions: HashMap::new(),
+            queries: Default::default(),
+            mutations: Default::default(),
+            subscriptions: Default::default(),
             phantom: PhantomData,
             typ_store: TypeDefs::new(),
         }
@@ -53,9 +53,9 @@ where
         RouterBuilder {
             config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
-            queries: HashMap::new(),
-            mutations: HashMap::new(),
-            subscriptions: HashMap::new(),
+            queries: Default::default(),
+            mutations: Default::default(),
+            subscriptions: Default::default(),
             phantom: PhantomData,
             typ_store: TypeDefs::new(),
         }
