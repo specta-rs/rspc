@@ -2,11 +2,10 @@
 
 mod datatype;
 mod r#enum;
+pub mod impl_type_macros;
 mod object;
 mod tuple;
 mod typescript;
-pub mod impl_type_macros;
-
 
 use std::{
     cell::{Cell, RefCell},
@@ -24,7 +23,7 @@ pub use specta_macros::*;
 pub use tuple::*;
 pub use typescript::*;
 
-pub type TypeDefs = HashMap<&'static str, DataType>;
+pub type TypeDefs = BTreeMap<&'static str, DataType>;
 
 pub struct DefOpts<'a> {
     pub parent_inline: bool,
