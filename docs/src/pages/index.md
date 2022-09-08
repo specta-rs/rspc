@@ -27,6 +27,8 @@ Your `rspc::Router` is converted into [Typescript](https://www.typescriptlang.or
 
 This library fits a use case between REST and [GraphQL](https://graphql.org). It allows you to built API's with the typesafey of GraphQL without the complexity involved.
 
+rspc acts as a type safe router on top of whatever HTTP or Websocket server you are already using such as [Axum](https://github.com/tokio-rs/axum).
+
 ### Features
 
 - ✅ **End-to-end typesafety** - Call your Rust code from Typescript with complete typesafety!
