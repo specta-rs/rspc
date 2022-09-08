@@ -22,6 +22,7 @@ indexmap = ["specta/indexmap"]
 ipnetwork = ["specta/ipnetwork"]
 mac_address = ["specta/mac_address"]
 bit-vec = ["specta/bit-vec"]
+bson = ["specta/bson"]
 tracing = ["dep:tracing"]
 
 [[example]]

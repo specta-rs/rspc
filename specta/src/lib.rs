@@ -343,3 +343,14 @@ impl_as!(
     chrono::Utc as String
     chrono::Local as String
 );
+
+#[cfg(feature = "bson")]
+impl_as!(
+    bson::oid::ObjectId as String
+    bson::Decimal128 as i128
+    bson::DateTime as String
+    bson::Uuid as String
+);
+
+// TODO: bson::Bson
+// TODO: bson::Document
