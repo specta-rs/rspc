@@ -13,17 +13,21 @@ async fn main() {
                 println!("MIDDLEWARE ONE");
                 ctx.next(42).await
             })
-            .query("version", |_, _: ()| {
-                println!("ANOTHER QUERY");
-                env!("CARGO_PKG_VERSION")
+            .query("version", |t| {
+                t(|_, _: ()| {
+                    println!("ANOTHER QUERY");
+                    env!("CARGO_PKG_VERSION")
+                })
             })
             .middleware(|ctx| async move {
                 println!("MIDDLEWARE TWO");
                 ctx.next("hello").await
             })
-            .query("another", |_, _: ()| {
-                println!("ANOTHER QUERY");
-                "Another Result!"
+            .query("another", |t| {
+                t(|_, _: ()| {
+                    println!("ANOTHER QUERY");
+                    "Another Result!"
+                })
             })
             .build();
 }

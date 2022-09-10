@@ -8,16 +8,18 @@ use tokio::time::sleep;
 #[tokio::main]
 async fn main() {
     let r = <Router>::new()
-        .subscription("mySubscription", |_, _: ()| {
-            stream! {
-                println!("Client subscribed to 'pings'");
-                for i in 0..5 {
-                    println!("Sending ping {}", i);
-                    yield "ping".to_string();
-                    sleep(Duration::from_secs(1)).await;
+        .subscription("mySubscription", |t| {
+            t(|_, _: ()| {
+                stream! {
+                    println!("Client subscribed to 'pings'");
+                    for i in 0..5 {
+                        println!("Sending ping {}", i);
+                        yield "ping".to_string();
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    println!("Client unsubscribed from 'pings'"); // TODO: This is not going to be run if client triggers shutdown cause we are doing a fixed loop
                 }
-                println!("Client unsubscribed from 'pings'"); // TODO: This is not going to be run if client triggers shutdown cause we are doing a fixed loop
-            }
+            })
         })
         .build();
 

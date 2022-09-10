@@ -18,26 +18,30 @@ async fn main() {
             .config(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
             ))
-            .query("customSelection", |_, _: ()| {
-                // The user come from your database.
-                let user = User {
-                    id: 1,
-                    name: "Monty Beaumont".to_string(),
-                    age: 7,
-                    password: "password".to_string(),
-                };
+            .query("customSelection", |t| {
+                t(|_, _: ()| {
+                    // The user come from your database.
+                    let user = User {
+                        id: 1,
+                        name: "Monty Beaumont".to_string(),
+                        age: 7,
+                        password: "password".to_string(),
+                    };
 
-                selection!(user, { id, name, age })
+                    selection!(user, { id, name, age })
+                })
             })
-            .query("customSelectionOnList", |_, _: ()| {
-                // The users come from your database.
-                let users = vec![User {
-                    id: 1,
-                    name: "Monty Beaumont".to_string(),
-                    age: 7,
-                    password: "password".to_string(),
-                }];
-                selection!(users, [{ id, name, age }])
+            .query("customSelectionOnList", |t| {
+                t(|_, _: ()| {
+                    // The users come from your database.
+                    let users = vec![User {
+                        id: 1,
+                        name: "Monty Beaumont".to_string(),
+                        age: 7,
+                        password: "password".to_string(),
+                    }];
+                    selection!(users, [{ id, name, age }])
+                })
             })
             .build();
 }
