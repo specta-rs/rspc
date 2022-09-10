@@ -92,6 +92,9 @@ importers:
       tsup: 6.2.0_typescript@4.7.4
       typescript: 4.7.4
 
+  packages/vscode:
+    specifiers: {}
+
 packages:
 
   /@ampproject/remapping/2.2.0:
