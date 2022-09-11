@@ -1,0 +1,11 @@
+[package]
+name = "rspc_examples-axum"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+rspc = { path = "../../", features = ["axum"] }
+tokio = { version = "1.21.0", features = ["full"] }
+async-stream = "0.3.3"
+axum = { version = "0.5.9", features = ["ws"] }
+tower-http = { version = "0.3.4", default-features = false, features = ["cors"] }
