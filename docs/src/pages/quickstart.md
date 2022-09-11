@@ -44,7 +44,7 @@ Now you have setup a basic `rspc::Router`.
 
 ### Exposing your router
 
-Now that you have a router your probably wondering how you access it from your frontend. This is done through an rspc integration. I would recommend starting with [Axum](https://github.com/tokio-rs/axum), by following [this](http://localhost:3000/integrations/axum).
+Now that you have a router your probably wondering how you access it from your frontend. This is done through an rspc integration. I would recommend starting with [Axum](https://github.com/tokio-rs/axum), by following [this](/integrations/axum).
 
 ### Unit test (optional)
 

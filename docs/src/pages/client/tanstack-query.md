@@ -10,6 +10,7 @@ To use rspc with TanStack Query you must do the following:
 ```tsx
 import { QueryClient } from '@tanstack/react-query';
 import { FetchTransport, createClient, createReactQueryHooks } from '@rspc/client';
+import { createReactQueryHooks } from '@rspc/react';
 
 import type { Operations } from "./ts/index"; // These were the bindings exported from your Rust code!
 
@@ -41,5 +42,4 @@ function App() {
         </rspc.Provider>
     )
 }
-
 ````

@@ -11,6 +11,7 @@ export const SIDEBAR = [
   { text: "rspc", header: true },
   { text: "Introduction", link: "" },
   { text: "Quickstart", link: "quickstart" },
+  { text: "Breaking changes", link: "breaking-changes" },
   { text: "Related projects", link: "related" },
 
   { text: "Server", header: true },

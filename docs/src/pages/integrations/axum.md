@@ -34,6 +34,8 @@ let app = axum::Router::new()
 
 ### Extracting Context from Request
 
+**Warning: The Axum extractor API is probally going to be removed in a future release. If you are using this API, I would appreciate a message in the Discord about your usecase so I can ensure the replacement API can do everything you need.**
+
 **Warning: Current we only support a single extractor. This is a temporary limitation so open a GitHub Issue if you need more.**
 
 You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extractors" target="_blank">Axum extractors</a> to get data from the request such as cookies and put them on the request context. The `axum_handler` function takes a closure that can take up to 16 valid Axum extractors as arguments and then returns the [request context](/server/request-context) (of type `TCtx`).

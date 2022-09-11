@@ -5,7 +5,7 @@ use serde_json::json;
 
 #[tokio::main]
 async fn main() {
-    let r1 = Router::<i32>::new().query("demo", |_, _: ()| "Merging Routers!");
+    let r1 = Router::<i32>::new().query("demo", |t| t(|_, _: ()| "Merging Routers!"));
 
     let r =
         <Router>::new()
@@ -13,7 +13,7 @@ async fn main() {
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
             ))
             .middleware(|ctx| async move { ctx.next(42).await })
-            .query("version", |_, _: ()| "0.1.0")
+            .query("version", |t| t(|_, _: ()| "0.1.0"))
             .merge("r1.", r1)
             .build();
 

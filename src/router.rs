@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fs::{self, File},
     io::Write,
     marker::PhantomData,
@@ -19,9 +19,9 @@ where
     TCtx: 'static,
 {
     pub(crate) config: Config,
-    pub(crate) queries: HashMap<String, Procedure<TCtx>>,
-    pub(crate) mutations: HashMap<String, Procedure<TCtx>>,
-    pub(crate) subscriptions: HashMap<String, Procedure<TCtx>>,
+    pub(crate) queries: BTreeMap<String, Procedure<TCtx>>,
+    pub(crate) mutations: BTreeMap<String, Procedure<TCtx>>,
+    pub(crate) subscriptions: BTreeMap<String, Procedure<TCtx>>,
     pub(crate) typ_store: TypeDefs,
     pub(crate) phantom: PhantomData<TMeta>,
 }
@@ -86,15 +86,15 @@ where
         Arc::new(self)
     }
 
-    pub fn queries(&self) -> &HashMap<String, Procedure<TCtx>> {
+    pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.queries
     }
 
-    pub fn mutations(&self) -> &HashMap<String, Procedure<TCtx>> {
+    pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.mutations
     }
 
-    pub fn subscriptions(&self) -> &HashMap<String, Procedure<TCtx>> {
+    pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.subscriptions
     }
 
@@ -135,7 +135,7 @@ export type Operations = {{
     }
 }
 
-fn generate_procedures_ts<Ctx>(procedures: &HashMap<String, Procedure<Ctx>>) -> String {
+fn generate_procedures_ts<Ctx>(procedures: &BTreeMap<String, Procedure<Ctx>>) -> String {
     match procedures.len() {
         0 => "never".to_string(),
         _ => procedures

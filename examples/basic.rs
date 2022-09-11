@@ -10,8 +10,11 @@ async fn main() {
             .config(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
             ))
-            .query("myQuery", |_, _: ()| "My Query Result!")
-            .mutation("myMutation", |_ctx, arg: i32| arg)
+            .query("myQuery", |t| t(|_, _: ()| "My Query Result!"))
+            .query("anotherQuery", |t| {
+                t.resolver(|_, _: ()| "My Query Result!")
+            })
+            .mutation("myMutation", |t| t(|_ctx, arg: i32| arg))
             .build();
 
     // You can also export the bindings yourself

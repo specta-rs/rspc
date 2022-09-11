@@ -2,19 +2,32 @@
 
 mod datatype;
 mod r#enum;
+pub mod impl_type_macros;
 mod object;
 mod tuple;
 mod typescript;
-pub mod impl_type_macros;
-
 
 use std::{
+    borrow::Cow,
     cell::{Cell, RefCell},
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
+    ffi::{CStr, CString, OsStr, OsString},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+    },
     path::{Path, PathBuf},
     rc::Rc,
+    sync::{
+        atomic::{
+            AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16,
+            AtomicU32, AtomicU64, AtomicU8, AtomicUsize,
+        },
+        RwLock,
+    },
     sync::{Arc, Mutex},
+    time::{Duration, Instant, SystemTime},
 };
 
 pub use datatype::*;
@@ -24,7 +37,7 @@ pub use specta_macros::*;
 pub use tuple::*;
 pub use typescript::*;
 
-pub type TypeDefs = HashMap<&'static str, DataType>;
+pub type TypeDefs = BTreeMap<&'static str, DataType>;
 
 pub struct DefOpts<'a> {
     pub parent_inline: bool,
@@ -57,13 +70,9 @@ impl_primitives!(
     f32 f64
     bool char
     String
-    Path
-    PathBuf
-    IpAddr Ipv4Addr Ipv6Addr
-    SocketAddr SocketAddrV4 SocketAddrV6
 );
 
-impl_containers!(Box Rc Arc Cell RefCell Mutex);
+impl_containers!(Box Rc Arc Cell RefCell Mutex RwLock);
 
 impl_tuple!(());
 // T = (T1)
@@ -111,11 +120,78 @@ impl<'a, T: Type + 'static> Type for &'a T {
     }
 }
 
-impl_as!(str as String);
+impl<'a, T: ToOwned + Type + 'static> Type for Cow<'a, T> {
+    const NAME: &'static str = T::NAME;
 
-impl_for_list!(Vec<T>, "Vec");
-impl_for_list!(HashSet<T>, "HashSet");
-impl_for_list!(BTreeSet<T>, "BTreeSet");
+    fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
+        T::inline(defs, generics)
+    }
+
+    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
+        T::reference(opts, generics)
+    }
+
+    fn definition(opts: DefOpts) -> DataType {
+        T::definition(opts)
+    }
+}
+
+impl_as!(
+    str as String
+    CString as String
+    CStr as String
+    OsString as String
+    OsStr as String
+
+    Path as String
+    PathBuf as String
+
+    IpAddr as String
+    Ipv4Addr as String
+    Ipv6Addr as String
+
+    SocketAddr as String
+    SocketAddrV4 as String
+    SocketAddrV6 as String
+
+    SystemTime as String
+    Instant as String
+    Duration as String
+
+    AtomicBool as bool
+    AtomicI8 as i8
+    AtomicI16 as i16
+    AtomicI32 as i32
+    AtomicIsize as isize
+    AtomicU8 as u8
+    AtomicU16 as u16
+    AtomicU32 as u32
+    AtomicUsize as usize
+    AtomicI64 as i64
+    AtomicU64 as u64
+
+    NonZeroU8 as u8
+    NonZeroU16 as u16
+    NonZeroU32 as u32
+    NonZeroU64 as u64
+    NonZeroUsize as usize
+    NonZeroI8 as i8
+    NonZeroI16 as i16
+    NonZeroI32 as i32
+    NonZeroI64 as i64
+    NonZeroIsize as isize
+    NonZeroU128 as u128
+    NonZeroI128 as i128
+);
+
+impl_for_list!(
+    Vec<T> as "Vec"
+    VecDeque<T> as "VecDeque"
+    BinaryHeap<T> as "BinaryHeap"
+    LinkedList<T> as "LinkedList"
+    HashSet<T> as "HashSet"
+    BTreeSet<T> as "BTreeSet"
+);
 
 impl<'a, T: Type> Type for &'a [T] {
     const NAME: &'static str = "&[T]";
@@ -177,17 +253,17 @@ impl<T: Type> Type for Option<T> {
     }
 }
 
-impl_for_map!(HashMap<K, V>, "HashMap");
-impl_for_map!(BTreeMap<K, V>, "BTreeMap");
+impl_for_map!(HashMap<K, V> as "HashMap");
+impl_for_map!(BTreeMap<K, V> as "BTreeMap");
 
 #[cfg(feature = "indexmap")]
-impl_for_list!(indexmap::IndexSet<T>, "IndexSet");
+impl_for_list!(indexmap::IndexSet<T> as "IndexSet");
 
 #[cfg(feature = "indexmap")]
-impl_for_map!(indexmap::IndexMap<K, V>, "IndexMap");
+impl_for_map!(indexmap::IndexMap<K, V> as "IndexMap");
 
 #[cfg(feature = "serde")]
-impl_for_map!(serde_json::Map<K, V>, "Map");
+impl_for_map!(serde_json::Map<K, V> as "Map");
 
 #[cfg(feature = "serde")]
 impl Type for serde_json::Value {
@@ -207,10 +283,10 @@ impl Type for serde_json::Value {
 }
 
 #[cfg(feature = "uuid")]
-impl_as!(uuid::Uuid as String);
-
-#[cfg(feature = "uuid")]
-impl_as!(uuid::fmt::Hyphenated as String);
+impl_as!(
+    uuid::Uuid as String
+    uuid::fmt::Hyphenated as String
+);
 
 #[cfg(feature = "chrono")]
 impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
@@ -230,25 +306,19 @@ impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
 }
 
 #[cfg(feature = "chrono")]
-impl_as!(chrono::NaiveDateTime as String);
-
-#[cfg(feature = "chrono")]
-impl_as!(chrono::NaiveDate as String);
-
-#[cfg(feature = "chrono")]
-impl_as!(chrono::NaiveTime as String);
+impl_as!(
+    chrono::NaiveDateTime as String
+    chrono::NaiveDate as String
+    chrono::NaiveTime as String
+);
 
 #[cfg(feature = "time")]
-impl_as!(time::PrimitiveDateTime as String);
-
-#[cfg(feature = "time")]
-impl_as!(time::OffsetDateTime as String);
-
-#[cfg(feature = "time")]
-impl_as!(time::Date as String);
-
-#[cfg(feature = "time")]
-impl_as!(time::Time as String);
+impl_as!(
+    time::PrimitiveDateTime as String
+    time::OffsetDateTime as String
+    time::Date as String
+    time::Time as String
+);
 
 #[cfg(feature = "bigdecimal")]
 impl_as!(bigdecimal::BigDecimal as String);
@@ -258,22 +328,29 @@ impl_as!(bigdecimal::BigDecimal as String);
 impl_as!(rust_decimal::Decimal as String);
 
 #[cfg(feature = "ipnetwork")]
-impl_as!(ipnetwork::IpNetwork as String);
-
-#[cfg(feature = "ipnetwork")]
-impl_as!(ipnetwork::Ipv4Network as String);
-
-#[cfg(feature = "ipnetwork")]
-impl_as!(ipnetwork::Ipv6Network as String);
+impl_as!(
+    ipnetwork::IpNetwork as String
+    ipnetwork::Ipv4Network as String
+    ipnetwork::Ipv6Network as String
+);
 
 #[cfg(feature = "mac_address")]
 impl_as!(mac_address::MacAddress as String);
 
 #[cfg(feature = "chrono")]
-impl_as!(chrono::FixedOffset as String);
+impl_as!(
+    chrono::FixedOffset as String
+    chrono::Utc as String
+    chrono::Local as String
+);
 
-#[cfg(feature = "chrono")]
-impl_as!(chrono::Utc as String);
+#[cfg(feature = "bson")]
+impl_as!(
+    bson::oid::ObjectId as String
+    bson::Decimal128 as i128
+    bson::DateTime as String
+    bson::Uuid as String
+);
 
-#[cfg(feature = "chrono")]
-impl_as!(chrono::Local as String);
+// TODO: bson::Bson
+// TODO: bson::Document

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::BTreeMap, marker::PhantomData, ops::Deref, sync::Arc};
 
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Serialize};
@@ -8,6 +8,36 @@ use crate::{
     Config, DoubleArgMarker, ExecError, FirstMiddleware, IntoLayerResult, LayerResult,
     MiddlewareContext, NextMiddleware, Procedure, Resolver, Router, StreamOrValue, StreamResolver,
 };
+
+pub struct UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
+    deref_handler: fn(TResolver) -> BuiltProcedureBuilder<TResolver>,
+    phantom: PhantomData<TLayerCtx>,
+}
+
+impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
+    pub(crate) fn new() -> Self {
+        Self {
+            deref_handler: |resolver| BuiltProcedureBuilder { resolver },
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn resolver(self, resolver: TResolver) -> BuiltProcedureBuilder<TResolver> {
+        (self.deref_handler)(resolver)
+    }
+}
+
+impl<TLayerCtx, TResolver> Deref for UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
+    type Target = fn(resolver: TResolver) -> BuiltProcedureBuilder<TResolver>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.deref_handler
+    }
+}
+
+pub struct BuiltProcedureBuilder<TResolver> {
+    resolver: TResolver,
+}
 
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
@@ -19,9 +49,9 @@ pub struct RouterBuilder<
 {
     config: Config,
     middleware: Box<dyn Fn(NextMiddleware<TLayerCtx>) -> FirstMiddleware<TCtx>>,
-    queries: HashMap<String, Procedure<TCtx>>,
-    mutations: HashMap<String, Procedure<TCtx>>,
-    subscriptions: HashMap<String, Procedure<TCtx>>,
+    queries: BTreeMap<String, Procedure<TCtx>>,
+    mutations: BTreeMap<String, Procedure<TCtx>>,
+    subscriptions: BTreeMap<String, Procedure<TCtx>>,
     phantom: PhantomData<TMeta>,
     typ_store: TypeDefs,
 }
@@ -35,9 +65,9 @@ where
         RouterBuilder {
             config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
-            queries: HashMap::new(),
-            mutations: HashMap::new(),
-            subscriptions: HashMap::new(),
+            queries: Default::default(),
+            mutations: Default::default(),
+            subscriptions: Default::default(),
             phantom: PhantomData,
             typ_store: TypeDefs::new(),
         }
@@ -53,9 +83,9 @@ where
         RouterBuilder {
             config: Config::new(),
             middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
-            queries: HashMap::new(),
-            mutations: HashMap::new(),
-            subscriptions: HashMap::new(),
+            queries: Default::default(),
+            mutations: Default::default(),
+            subscriptions: Default::default(),
             phantom: PhantomData,
             typ_store: TypeDefs::new(),
         }
@@ -117,7 +147,9 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     pub fn query<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        resolver: TResolver,
+        builder: impl Fn(
+            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+        ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
         TResolver: Fn(TLayerCtx, TArg) -> TResult
@@ -143,6 +175,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             );
         }
 
+        let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
         self.queries.insert(
             key,
             Procedure {
@@ -161,7 +194,9 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        resolver: TResolver,
+        builder: impl Fn(
+            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+        ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
         TResolver: Fn(TLayerCtx, TArg) -> TResult
@@ -187,6 +222,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             );
         }
 
+        let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
         self.mutations.insert(
             key,
             Procedure {
@@ -205,7 +241,9 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     pub fn subscription<TArg, TResolver, TStream, TResult, TMarker>(
         mut self,
         key: &'static str,
-        resolver: TResolver,
+        builder: impl Fn(
+            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+        ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
         TArg: DeserializeOwned + Type,
@@ -229,6 +267,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             );
         }
 
+        let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
         self.subscriptions.insert(
             key,
             Procedure {

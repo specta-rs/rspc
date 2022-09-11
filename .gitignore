@@ -20,3 +20,6 @@ node_modules
 .pnpm-debug.log*
 *.tsbuildinfo
 /packages/*/dist
+
+# Compiled vscode extension
+*.vsix

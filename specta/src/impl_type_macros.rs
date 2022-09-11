@@ -87,7 +87,7 @@ macro_rules! impl_containers {
 
 #[macro_export]
 macro_rules! impl_as {
-    ($ty:path as $tty:ident) => {
+    ($($ty:path as $tty:ident)+) => {$(
         impl Type for $ty {
             const NAME: &'static str = stringify!($ty);
 
@@ -103,15 +103,15 @@ macro_rules! impl_as {
                 <$tty as Type>::definition(opts)
             }
         }
-    };
+    )+};
 }
 
 #[macro_export]
 macro_rules! impl_for_list {
-    ($ty:path, $name:expr) => {
+    ($($ty:path as $name:expr)+) => {$(
         impl<T: Type> Type for $ty {
             const NAME: &'static str = $name;
-        
+
             fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
                 DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
                     DefOpts {
@@ -121,7 +121,7 @@ macro_rules! impl_for_list {
                     generics,
                 ))))
             }
-        
+
             fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
                 DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
                     DefOpts {
@@ -131,20 +131,20 @@ macro_rules! impl_for_list {
                     generics,
                 ))))
             }
-        
+
             fn definition(_: DefOpts) -> DataType {
                 unreachable!()
             }
         }
-    };
+    )+};
 }
 
 #[macro_export]
 macro_rules! impl_for_map {
-    ($ty:path, $name:expr) => {
+    ($ty:path as $name:expr) => {
         impl<K: Type, V: Type> Type for $ty {
             const NAME: &'static str = $name;
-        
+
             fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
                 DataType::Record(Box::new((
                     generics.get(0).cloned().unwrap_or(<K as Type>::inline(
@@ -163,7 +163,7 @@ macro_rules! impl_for_map {
                     )),
                 )))
             }
-        
+
             fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
                 DataType::Record(Box::new((
                     generics.get(0).cloned().unwrap_or(K::reference(
@@ -182,7 +182,7 @@ macro_rules! impl_for_map {
                     )),
                 )))
             }
-        
+
             fn definition(_: DefOpts) -> DataType {
                 unreachable!()
             }

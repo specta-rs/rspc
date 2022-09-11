@@ -21,7 +21,6 @@ struct GenericStruct<T> {
     x: T,
 }
 
-
 #[derive(Serialize, Type)]
 enum SomeEnum {
     Unit,
@@ -44,39 +43,51 @@ async fn main() {
             .config(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
             ))
-            .query("hashmap", |_, _: ()| {
-                let mut x = HashMap::new();
-                x.insert("a", 1);
-                x.insert("b", 2);
-                x
+            .query("hashmap", |t| {
+                t(|_, _: ()| {
+                    let mut x = HashMap::new();
+                    x.insert("a", 1);
+                    x.insert("b", 2);
+                    x
+                })
             })
-            .query("btreemap", |_, _: ()| {
-                let mut x = BTreeMap::new();
-                x.insert("a", 1);
-                x.insert("b", 2);
-                x
+            .query("btreemap", |t| {
+                t(|_, _: ()| {
+                    let mut x = BTreeMap::new();
+                    x.insert("a", 1);
+                    x.insert("b", 2);
+                    x
+                })
             })
-            .query("serdeValue", |_, _: ()| Value::String("Hello World".into()))
-            .query("genericStruct", |_, _: ()| GenericStruct::<String> {
-                x: "Hello World".into(),
+            .query("serdeValue", |t| {
+                t(|_, _: ()| Value::String("Hello World".into()))
             })
-            .query("enum", |_, _: ()| <SomeEnum>::Unit)
-            .query("demo", |_, _: ()| {
-                let mut x = BTreeMap::new();
-                x.insert("a", Demo {});
-                x
+            .query("genericStruct", |t| {
+                t(|_, _: ()| GenericStruct::<String> {
+                    x: "Hello World".into(),
+                })
             })
-            .query("genericEnum", |_, _: ()| {
-                GenericEnum::<String>::X("Hello World".into())
+            .query("enum", |t| t(|_, _: ()| <SomeEnum>::Unit))
+            .query("demo", |t| {
+                t(|_, _: ()| {
+                    let mut x = BTreeMap::new();
+                    x.insert("a", Demo {});
+                    x
+                })
             })
-            .query("uuid", |_, _: ()| {
-                uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8")
+            .query("genericEnum", |t| {
+                t(|_, _: ()| GenericEnum::<String>::X("Hello World".into()))
             })
-            .query("chronoTimestamp", |_, _: ()| Utc::now())
-            .query("exoticStruct", |_, _: ()| ExoticStruct {
-                id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
-                time: None,
-                s: "Hello World",
+            .query("uuid", |t| {
+                t(|_, _: ()| uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"))
+            })
+            .query("chronoTimestamp", |t| t(|_, _: ()| Utc::now()))
+            .query("exoticStruct", |t| {
+                t(|_, _: ()| ExoticStruct {
+                    id: uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8"),
+                    time: None,
+                    s: "Hello World",
+                })
             })
             .build();
 }
