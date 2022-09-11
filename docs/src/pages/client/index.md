@@ -36,4 +36,4 @@ const userOne = await client.query("getUser", 1);
 const userTwo = await client.mutation("addUser", { name: "Monty Beaumont" });
 ```
 
-[View full example](https://github.com/oscartbeaumont/rspc/tree/main/packages/example/react.tsx)
+[View full example](https://github.com/oscartbeaumont/rspc/tree/main/examples/nextjs)

@@ -30,7 +30,7 @@ let app = axum::Router::new()
     .layer(cors);
 ```
 
-[View full example](https://github.com/oscartbeaumont/rspc/blob/main/examples/axum.rs)
+[View full example](https://github.com/oscartbeaumont/rspc/blob/main/examples/axum)
 
 ### Extracting Context from Request
 
