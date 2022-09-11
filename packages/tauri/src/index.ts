@@ -1,7 +1,7 @@
 import {
   randomId,
   ClientTransformer,
-  OperationKey,
+  ProcedureKey,
   OperationType,
   Transport,
   RSPCError,
@@ -39,7 +39,7 @@ export class TauriTransport implements Transport {
     });
   }
 
-  async doRequest(operation: OperationType, key: OperationKey): Promise<any> {
+  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
     if (!this.listener) {
       await this.listener;
     }

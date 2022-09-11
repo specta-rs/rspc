@@ -26,7 +26,7 @@ export const SIDEBAR = [
   { text: "Deployment", link: "server/deployment" },
 
   { text: "Client", header: true },
-  { text: "Client", link: "client" },
+  { text: "Vanilla Client", link: "client" },
   { text: "TanStack Query", link: "client/tanstack-query" },
 
   { text: "Integrations", header: true },

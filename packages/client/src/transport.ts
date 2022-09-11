@@ -1,4 +1,4 @@
-import { ClientTransformer, OperationKey, OperationType, RSPCError } from ".";
+import { ClientTransformer, ProcedureKey, OperationType, RSPCError } from ".";
 
 // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
 
@@ -6,7 +6,7 @@ export interface Transport {
   transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
-  doRequest(operation: OperationType, key: OperationKey): Promise<any>;
+  doRequest(operation: OperationType, key: ProcedureKey): Promise<any>;
 }
 
 export class FetchTransport implements Transport {
@@ -18,7 +18,7 @@ export class FetchTransport implements Transport {
     this.url = url;
   }
 
-  async doRequest(operation: OperationType, key: OperationKey): Promise<any> {
+  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
     if (operation === "subscriptionAdd" || operation === "subscriptionRemove") {
       throw new Error(
         `Subscribing to '${key[0]}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
@@ -124,7 +124,7 @@ export class WebsocketTransport implements Transport {
     }, timeout);
   }
 
-  async doRequest(operation: OperationType, key: OperationKey): Promise<any> {
+  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
     if (this.ws.readyState == 0) {
       let resolve: () => void;
       const promise = new Promise((res) => {

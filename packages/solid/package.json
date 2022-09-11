@@ -1,0 +1,42 @@
+{
+  "name": "@rspc/solid",
+  "version": "0.0.6",
+  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "source": "src/index.tsx",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "solid": "./dist/source/index.jsx",
+      "import": "./dist/esm/index.js",
+      "browser": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "node": "./dist/cjs/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "prepare": "rollup -c"
+  },
+  "dependencies": {
+    "@adeora/solid-query": "github:oscartbeaumont/solid-query",
+    "@tanstack/query-core": "^4.3.1"
+  },
+  "devDependencies": {
+    "rollup": "^2.79.0",
+    "rollup-preset-solid": "^1.4.0",
+    "typescript": "^4.7.4"
+  },
+  "peerDependencies": {
+    "@rspc/client": "*",
+    "solid-js": "^1.5.4"
+  }
+}

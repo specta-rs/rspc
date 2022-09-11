@@ -12,6 +12,7 @@
   "dependencies": {
     "@rspc/client": "workspace:*",
     "@rspc/react": "workspace:*",
+    "@rspc/solid": "workspace:*",
     "astro": "1.0.0-rc.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -1,20 +1,22 @@
 ---
-title: Create Client
+title: Create Vanilla Client
 layout: ../../layouts/MainLayout.astro
 ---
 
-To use consume your API from Typescript, first install the minimal runtime package.
+The vanilla client allows you to consume your API on the frontend. As the vanilla client is very minimal you will want to use something built on top of it for most applications such as the [TanStack Query](/client/tanstack-query) hooks.
+
+To get started first install the minimal runtime package.
 
 ```bash
 npm i @rspc/client
 ```
 
-Next you need to export the Typescript bindings from your `rspc::Router` in Rust by using the following line of code.
+Next you need to export the Typescript bindings from your `rspc::Router` by using either [export_ts_bindings](/server/router#export_ts_bindings) or [export_ts](/server/router#exporting-the-typescript-bindings).
 
 ```rust
 let router = <rspc::Router>::new()
   // This will automatically export the bindings to the `./ts` directory when you run build() in a non-release Rust build
-  .config(Config::new().export_ts_bindings("./ts"))
+  .config(Config::new().export_ts_bindings("./bindings.rs"))
   .build();
 ```
 

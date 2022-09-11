@@ -9,11 +9,14 @@ import {
   UseMutationOptions,
   QueryClientProvider,
 } from "@tanstack/react-query";
-import { Client, OperationsDef, RSPCError } from "@rspc/client";
+import { Client, Procedures, RSPCError } from "@rspc/client";
+
+// TODO: Delete these helpers or move them to "./typescript"
+// TODO: Allow passing `{ rspc: { client: ... } }` to override the client -> Like `@rspc/solid` supports
 
 export type OperationKeyArgs<
-  Operations extends OperationsDef,
-  Type extends keyof OperationsDef,
+  Operations extends Procedures,
+  Type extends keyof Procedures,
   K extends Operations[Type]["key"][0]
 > = Extract<
   Operations[Type],
@@ -23,8 +26,8 @@ export type OperationKeyArgs<
   : [K, Extract<Operations[Type], { key: [K, any] }>["key"][1]];
 
 export type OperationKeyResult<
-  Operations extends OperationsDef,
-  Type extends keyof OperationsDef,
+  Operations extends Procedures,
+  Type extends keyof Procedures,
   K extends Operations[Type]["key"][0]
 > = Extract<
   Operations[Type],
@@ -34,61 +37,64 @@ export type OperationKeyResult<
   : [K, Extract<Operations[Type], { key: [K, any] }>["key"][1]];
 
 export type Demo<
-  Operations extends OperationsDef,
-  Type extends keyof OperationsDef,
+  Operations extends Procedures,
+  Type extends keyof Procedures,
   K
 > = Extract<Operations[Type], { key: [K] | [K, any] }>;
 
-interface Context<T extends OperationsDef> {
+interface Context<T extends Procedures> {
   client: Client<T>;
   queryClient: QueryClient;
 }
 
-export function createReactQueryHooks<T extends OperationsDef>() {
-  const Context = React.createContext<Context<T>>(undefined!);
+export function createReactQueryHooks<Operations extends Procedures>() {
+  const Context = React.createContext<Context<Operations>>(undefined!);
   const ReactQueryContext = React.createContext<QueryClient>(undefined!);
 
-  function useContext() {
+  function useRspcContext() {
     return React.useContext(Context);
   }
 
-  function useQuery<K extends T["queries"]["key"][0]>(
-    key: Demo<T, "queries", K>["key"],
-    options?: UseQueryOptions<Demo<T, "queries", K>["result"], RSPCError>
-  ): UseQueryResult<Demo<T, "queries", K>["result"], RSPCError> {
-    const ctx = useContext();
+  function useQuery<K extends Operations["queries"]["key"][0]>(
+    key: Demo<Operations, "queries", K>["key"],
+    options?: UseQueryOptions<
+      Demo<Operations, "queries", K>["result"],
+      RSPCError
+    >
+  ): UseQueryResult<Demo<Operations, "queries", K>["result"], RSPCError> {
+    const ctx = useRspcContext();
     return _useQuery(key, async () => ctx.client.query(key), {
       ...options,
       context: ReactQueryContext,
     });
   }
 
-  function useMutation<K extends T["mutations"]["key"]>(
+  function useMutation<K extends Operations["mutations"]["key"]>(
     key: K[0],
     options?: UseMutationOptions<
-      Extract<T["mutations"], { key: K }>["result"],
+      Extract<Operations["mutations"], { key: K }>["result"],
       RSPCError,
       K[1]
     >
   ): UseMutationResult<
-    Extract<T["mutations"], { key: K }>["result"],
+    Extract<Operations["mutations"], { key: K }>["result"],
     RSPCError,
     K[1]
   > {
-    const ctx = useContext();
+    const ctx = useRspcContext();
     return _useMutation(async (data) => ctx.client.mutation([key, data]), {
       ...options,
       context: ReactQueryContext,
     });
   }
 
-  type SubscriptionKey = T["subscriptions"]["key"][0];
+  type SubscriptionKey = Operations["subscriptions"]["key"][0];
   type SubscriptionArg<K extends string> = Extract<
-    T["subscriptions"],
+    Operations["subscriptions"],
     { key: [K] | [K, any] }
   >["key"][1];
   type SubscriptionResult<K extends string> = Extract<
-    T["subscriptions"],
+    Operations["subscriptions"],
     { key: [K] | [K, any] }
   >["result"];
 
@@ -99,7 +105,7 @@ export function createReactQueryHooks<T extends OperationsDef>() {
       onError?(err: RSPCError);
     }
   ) {
-    const ctx = useContext();
+    const ctx = useRspcContext();
 
     useEffect(() => {
       const unsub = ctx.client.addSubscription(key, options);
@@ -108,13 +114,14 @@ export function createReactQueryHooks<T extends OperationsDef>() {
   }
 
   return {
+    _rspc_def: undefined as Operations, // This allows inferring the operations type from TS helpers
     Provider: ({
       children,
       client,
       queryClient,
     }: {
-      children: ReactElement;
-      client: Client<T>;
+      children?: ReactElement;
+      client: Client<Operations>;
       queryClient: QueryClient;
     }) => (
       <Context.Provider
@@ -130,14 +137,12 @@ export function createReactQueryHooks<T extends OperationsDef>() {
         </ReactQueryContext.Provider>
       </Context.Provider>
     ),
-    useContext: () => {
-      return React.useContext(Context);
-    },
+    useContext: useRspcContext,
     useQuery,
     useMutation,
     useSubscription,
-    // useDehydratedState,
-    // useInfiniteQuery,
+    // useDehydratedState, // TODO
+    // useInfiniteQuery, // TODO
     ReactQueryContext,
   };
 }
