@@ -61,15 +61,16 @@ impl<T1: FromRequest<Body> + Send + 'static, TCtx, TFunc>
 where
     TCtx: Send + Sync + 'static,
     TFunc: FnOnce(T1) -> TCtx + Clone + Send + Sync + 'static,
+    <T1 as FromRequest<Body>>::Rejection: std::fmt::Debug,
 {
     fn exec<'a>(&self, request: &'a mut RequestParts<Body>) -> TCtxFuncResult<'a, TCtx> {
         let this = self.clone();
         TCtxFuncResult::Future(Box::pin(async move {
             match T1::from_request(request).await {
                 Ok(t1) => Ok(this(t1)),
-                Err(_) => {
+                Err(_err) => {
                     #[cfg(feature = "tracing")]
-                    tracing::error!("error executing axum extractor");
+                    tracing::error!("error executing axum extractor: {:?}", _err);
 
                     Err(ExecError::AxumExtractorError)
                 }
