@@ -83,13 +83,13 @@ importers:
 
   packages/solid:
     specifiers:
-      '@adeora/solid-query': github:oscartbeaumont/solid-query
+      '@adeora/solid-query': github:oscartbeaumont/solid-query#1d305d5b3a7f3e2450fb56b3694a648861adfedd
       '@tanstack/query-core': ^4.3.1
       rollup: ^2.79.0
       rollup-preset-solid: ^1.4.0
       typescript: ^4.7.4
     dependencies:
-      '@adeora/solid-query': github.com/oscartbeaumont/solid-query/2eb4b159e1e73c9430126471bd0100f5a567110d
+      '@adeora/solid-query': github.com/oscartbeaumont/solid-query/1d305d5b3a7f3e2450fb56b3694a648861adfedd
       '@tanstack/query-core': 4.3.1
     devDependencies:
       rollup: 2.79.0
@@ -5868,8 +5868,8 @@ packages:
   /zwitch/2.0.2:
     resolution: {integrity: sha512-JZxotl7SxAJH0j7dN4pxsTV6ZLXoLdGME+PsjkL/DaBrVryK9kTGq06GfKrwcSOqypP+fdXGoCHE36b99fWVoA==}
 
-  github.com/oscartbeaumont/solid-query/2eb4b159e1e73c9430126471bd0100f5a567110d:
-    resolution: {tarball: https://codeload.github.com/oscartbeaumont/solid-query/tar.gz/2eb4b159e1e73c9430126471bd0100f5a567110d}
+  github.com/oscartbeaumont/solid-query/1d305d5b3a7f3e2450fb56b3694a648861adfedd:
+    resolution: {tarball: https://codeload.github.com/oscartbeaumont/solid-query/tar.gz/1d305d5b3a7f3e2450fb56b3694a648861adfedd}
     name: '@adeora/solid-query'
     version: 0.0.9
     peerDependencies:
