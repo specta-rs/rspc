@@ -7,11 +7,11 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel --filter=!@rspc/docs exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example exec pnpm build",
+    "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* exec pnpm dev",
+    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* exec pnpm build",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",
-    "example": "pnpm --filter @rspc/example -- ",
+    "examples": "pnpm --filter @rspc/examples-* -- ",
     "playground": "pnpm --filter @rspc/playground -- ",
     "react": "pnpm --filter @rspc/react -- ",
     "tauri": "pnpm --filter @rspc/tauri -- "

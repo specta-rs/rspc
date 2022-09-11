@@ -1,5 +1,5 @@
 {
-  "name": "@rspc/example",
+  "name": "@rspc/examples-astro",
   "version": "0.0.0",
   "description": "A project to test the RSPC frontend libraries",
   "keywords": [],
@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@rspc/client": "workspace:*",
-    "@rspc/react": "workspace:0.0.5",
+    "@rspc/react": "workspace:*",
+    "@tanstack/react-query": "4.2.3",
     "astro": "1.0.0-rc.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
