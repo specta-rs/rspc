@@ -146,7 +146,7 @@ export function createSolidQueryHooks<Operations extends Procedures>() {
           }}
         >
           <ReactQueryContext.Provider value={props.queryClient}>
-            {props.children as any}
+            {props.children}
           </ReactQueryContext.Provider>
         </rspcCtx.Provider>
       );

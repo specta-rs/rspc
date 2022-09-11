@@ -27,7 +27,8 @@ export const SIDEBAR = [
 
   { text: "Client", header: true },
   { text: "Vanilla Client", link: "client" },
-  { text: "TanStack Query", link: "client/tanstack-query" },
+  { text: "React Query", link: "client/react" },
+  { text: "Solid Query", link: "client/solid" },
 
   { text: "Integrations", header: true },
   { text: "Axum", link: "integrations/axum" },

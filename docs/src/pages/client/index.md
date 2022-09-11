@@ -3,7 +3,7 @@ title: Create Vanilla Client
 layout: ../../layouts/MainLayout.astro
 ---
 
-The vanilla client allows you to consume your API on the frontend. As the vanilla client is very minimal you will want to use something built on top of it for most applications such as the [TanStack Query](/client/tanstack-query) hooks.
+The vanilla client allows you to consume your API on the frontend. This client is the minimal core and it is recommended that you use the [React](/client/react) or [Solid](/client/solid) integration for building application.
 
 To get started first install the minimal runtime package.
 

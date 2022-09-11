@@ -1,15 +1,22 @@
 ---
-title: TanStack Query
+title: React
 layout: ../../layouts/MainLayout.astro
 ---
 
-rspc integrations with the wonderful [TanStack Query](https://tanstack.com/query/v4) to provide caching, refetching and a lot more.
+rspc can be used on the frontend with [React](https://reactjs.org) via the powerful [React Query](https://tanstack.com/query/v4) library which provides caching, refetching and a lot more.
 
-To use rspc with TanStack Query you must do the following:
+To get started first install the required packages.
+
+```bash
+npm i @rspc/client # The core client
+pnpm i @rspc/react # The React integration
+```
+
+Then you can do the following:
 
 ```tsx
 import { QueryClient } from '@tanstack/react-query';
-import { FetchTransport, createClient, createReactQueryHooks } from '@rspc/client';
+import { FetchTransport, createClient } from '@rspc/client';
 import { createReactQueryHooks } from '@rspc/react';
 
 import type { Operations } from "./ts/index"; // These were the bindings exported from your Rust code!
