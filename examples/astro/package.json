@@ -12,7 +12,7 @@
   "dependencies": {
     "@rspc/client": "workspace:*",
     "@rspc/react": "workspace:*",
-    "@tanstack/react-query": "4.2.3",
+    "@tanstack/react-query": "^4.0.10",
     "astro": "1.0.0-rc.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -27,6 +27,7 @@ tracing = ["dep:tracing"]
 [[example]]
 name = "axum"
 required-features = ["axum"]
+path = "examples/axum/src/main.rs"
 
 [[example]]
 name = "exotic_types"
@@ -59,6 +60,7 @@ uuid = { version = "1.1.2", features = ["v4", "serde"] }
 
 [workspace]
 members = [
+    "./examples/axum",
     "./specta",
     "./specta/macros"
 ]
