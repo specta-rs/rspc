@@ -1,6 +1,6 @@
 {
   "name": "@rspc/solid",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A blazing fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
