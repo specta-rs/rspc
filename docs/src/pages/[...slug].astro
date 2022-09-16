@@ -1,0 +1,22 @@
+---
+import PageLayout from "../layouts/Layout";
+import { getPageData } from "../utils";
+
+export async function getStaticPaths() {
+  const pages = await getPageData();
+
+  return await Promise.all(
+    [...pages.values()].map(async (p) => ({
+      params: { slug: p.url === "" ? undefined : p.url },
+      props: { data: await p.component },
+    }))
+  );
+}
+
+const mdContent = (await Astro.props.data()).compiledContent();
+---
+
+<!DOCTYPE html>
+<PageLayout activePath={Astro.url.pathname}
+  ><div set:html={mdContent}></div>
+</PageLayout>

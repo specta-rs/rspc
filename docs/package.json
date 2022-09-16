@@ -9,15 +9,18 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@docsearch/css": "^3.1.1",
+    "@astrojs/tailwind": "^2.0.1",
     "astro-icon": "^0.7.3",
-    "preact": "^10.10.0",
-    "rehype-external-links": "^2.0.0"
+    "morphdom": "^2.6.1",
+    "rehype-external-links": "^2.0.1",
+    "tailwindcss": "^3.0.24"
   },
   "devDependencies": {
-    "@astrojs/preact": "^0.5.2",
-    "astro": "1.0.0-rc.2",
-    "astro-compress": "^1.0.5"
+    "@astrojs/sitemap": "^1.0.0",
+    "@astrojs/solid-js": "^1.1.0",
+    "astro": "1.2.5",
+    "astro-compress": "^1.0.8",
+    "solid-js": "^1.5.5"
   },
   "engines": {
     "pnpm": ">=7.0.0",
