@@ -72,13 +72,13 @@ impl Request {
         }
     }
 
-    /// TODO: Docs
-    pub fn execute_stream<R: RequestRouter>(self, r: &R, ctx: R::Ctx) {
-        match self.inner {
-            RequestInner::Query { path, input } => todo!(),
-            RequestInner::Mutation { path, input } => todo!(),
-            RequestInner::Subscription { path, input } => todo!(),
-            RequestInner::StopSubscription => todo!(),
-        }
-    }
+    // /// TODO: Docs
+    // pub fn execute_stream<R: RequestRouter>(self, r: &R, ctx: R::Ctx) {
+    //     match self.inner {
+    //         RequestInner::Query { path, input } => todo!(),
+    //         RequestInner::Mutation { path, input } => todo!(),
+    //         RequestInner::Subscription { path, input } => todo!(),
+    //         RequestInner::StopSubscription => todo!(),
+    //     }
+    // }
 }

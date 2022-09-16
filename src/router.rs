@@ -14,14 +14,8 @@ use crate::{
     internal::{
         Procedure, ProcedureStore, Request, RequestId, RequestInner, RequestRouter, Response,
     },
-    Config, Error, ExecError, ExportError,
+    Config, Error, ExecError, ExportError, OperationKind, OperationTrait,
 };
-
-/// TODO
-pub enum RequestKind {
-    Query,
-    Mutation,
-}
 
 /// TODO
 pub struct Router<TCtx = (), TMeta = ()>
@@ -41,33 +35,25 @@ where
     TCtx: 'static,
 {
     /// TODO: Docs
-    pub async fn execute(
+    pub async fn execute<T: OperationTrait>(
         &self,
         ctx: TCtx,
-        kind: RequestKind,
+        kind: T,
         key: String,
         input: Option<Value>,
+        // TODO: use T::Result
     ) -> Result<Value, ExecError> {
         Request {
             jsonrpc: None,
             id: RequestId::Null,
-            inner: match kind {
-                RequestKind::Query => RequestInner::Query { path: key, input },
-                RequestKind::Mutation => RequestInner::Mutation { path: key, input },
+            inner: match T::KIND {
+                OperationKind::Query => RequestInner::Query { path: key, input },
+                OperationKind::Mutation => RequestInner::Mutation { path: key, input },
+                OperationKind::Subscription => todo!(),
             },
         }
         .execute(self, ctx)
         .await
-    }
-
-    /// execute a subscription on the router  // TODO: Docs
-    pub fn execute_subscription(&self, ctx: TCtx, inner: RequestInner) -> () {
-        Request {
-            jsonrpc: None,
-            id: RequestId::Null,
-            inner,
-        }
-        .execute_stream(self, ctx);
     }
 
     pub fn arced(self) -> Arc<Self> {

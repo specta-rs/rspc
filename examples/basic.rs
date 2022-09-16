@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rspc::{Config, RequestKind, Router};
+use rspc::{Config, Operation, OperationKind, Router};
 use serde_json::json;
 
 #[tokio::main]
@@ -22,19 +22,14 @@ async fn main() {
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
     let v = r
-        .execute((), RequestKind::Query, "myQuery".into(), None)
+        .execute((), Operation::Query, "myQuery".into(), None)
         .await
         .unwrap();
     println!("{:?}", v);
     assert_eq!(serde_json::to_value(&v).unwrap(), json!("My Query Result!"));
 
     let v = r
-        .execute(
-            (),
-            RequestKind::Mutation,
-            "myMutation".into(),
-            Some(json!(5)),
-        )
+        .execute((), Operation::Mutation, "myMutation".into(), Some(json!(5)))
         .await
         .unwrap();
     println!("{:?}", v);
