@@ -17,6 +17,8 @@ const mdContent = (await Astro.props.data()).compiledContent();
 ---
 
 <!DOCTYPE html>
-<PageLayout activePath={Astro.url.pathname}
-  ><div set:html={mdContent}></div>
+<PageLayout activePath={Astro.url.pathname}>
+  <div set:html={mdContent}></div>
+
+  <script src="../utils/router.ts"></script>
 </PageLayout>

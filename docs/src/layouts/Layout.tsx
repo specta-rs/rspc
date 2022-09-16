@@ -5,10 +5,6 @@ const themeScript = await (
   await import.meta.glob("../utils/*", { as: "raw" })["../utils/theme.js"]
 )();
 
-const routerScriptUrl = await (
-  await import.meta.glob("../utils/*", { as: "url" })["../utils/router.ts"]
-)();
-
 export default function Page(props: { activePath: string; children: any }) {
   return (
     <html lang="en" dir="ltr">
@@ -45,12 +41,6 @@ export default function Page(props: { activePath: string; children: any }) {
         <meta name="twitter:image:alt" content={imageAlt} /> */}
         {config.seo?.customHead || []}
         <script innerHTML={themeScript}></script>
-        <script
-          client:only="solid-js"
-          type="module"
-          src={routerScriptUrl}
-          defer
-        ></script>
       </head>
       <body class="h-screen flex text-black dark:text-white dark:bg-[#242424]">
         <Sidebar activePath={props.activePath} />

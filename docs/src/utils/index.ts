@@ -14,9 +14,7 @@ export async function getPageData() {
       throw new Error("TOD");
     }
 
-    const url = pathElems
-      .filter((v) => (v === "index" ? undefined : v))
-      .join("/");
+    const url = pathElems.filter((v) => (v === "index" ? "" : v)).join("/");
     sidebar.set(url, {
       url,
       title: pathElems[1]

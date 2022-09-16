@@ -29,7 +29,9 @@ export default function Sidebar(props: { activePath: string }) {
               <h2 class="font-semibold no-underline">{category.name}</h2>
               <ul class="mt-3">
                 {category.children.map((page) => {
-                  const active = props.activePath === `/${page.url}`;
+                  const active =
+                    props.activePath === `/${page.url}/` ||
+                    props.activePath === `/${page.url}`;
                   return (
                     <li
                       class={classNames(
