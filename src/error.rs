@@ -1,6 +1,9 @@
 use std::{error, fmt, sync::Arc};
 
-use crate::Response;
+use serde::Serialize;
+use specta::Type;
+
+use crate::internal::{JsonRPCError, Response, ResponseInner};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
@@ -13,12 +16,16 @@ pub enum ExecError {
     #[cfg(feature = "axum")]
     #[error("error in axum extractor")]
     AxumExtractorError,
+    #[error("invalid JSON-RPC version")]
+    InvalidJsonRpcVersion,
+    #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
+    UnsupportedMethod(&'static str),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
 }
 
-impl ExecError {
-    pub fn into_rspc_err(self) -> Error {
+impl Into<Error> for ExecError {
+    fn into(self) -> Error {
         match self {
             ExecError::OperationNotFound(_) => Error {
                 code: ErrorCode::NotFound,
@@ -41,8 +48,21 @@ impl ExecError {
                 message: "Error running Axum extractors on the HTTP request".into(),
                 cause: None,
             },
+            ExecError::InvalidJsonRpcVersion => Error {
+                code: ErrorCode::BadRequest,
+                message: "invalid JSON-RPC version".into(),
+                cause: None,
+            },
             ExecError::ErrResolverError(err) => err,
+            _ => todo!(),
         }
+    }
+}
+
+impl Into<JsonRPCError> for ExecError {
+    fn into(self) -> JsonRPCError {
+        let x: Error = self.into();
+        x.into()
     }
 }
 
@@ -52,20 +72,21 @@ pub enum ExportError {
     IOErr(#[from] std::io::Error),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Type)]
 #[allow(dead_code)]
 pub struct Error {
     pub(crate) code: ErrorCode,
     pub(crate) message: String,
+    #[serde(skip)]
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl Error {
-    pub fn into_response(self, id: Option<String>) -> Response {
-        Response::Error {
-            id,
-            status_code: self.code.to_status_code(),
+impl Into<JsonRPCError> for Error {
+    fn into(self) -> JsonRPCError {
+        JsonRPCError {
+            code: self.code.to_status_code() as i32,
             message: self.message,
+            data: None,
         }
     }
 }
@@ -108,7 +129,7 @@ impl Error {
 }
 
 /// TODO
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Type, PartialEq, Eq)]
 pub enum ErrorCode {
     BadRequest,
     Unauthorized,

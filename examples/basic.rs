@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rspc::{Config, OperationKey, OperationKind, Router, StreamOrValue};
+use rspc::{Config, RequestKind, Router};
 use serde_json::json;
 
 #[tokio::main]
@@ -21,35 +21,22 @@ async fn main() {
     // r.export_ts("./bindings.ts").unwrap();
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
-    match r
-        .exec(
-            (),
-            OperationKind::Query,
-            OperationKey("myQuery".into(), None),
-        )
+    let v = r
+        .execute((), RequestKind::Query, "myQuery".into(), None)
         .await
-        .unwrap()
-    {
-        StreamOrValue::Stream(_) => unreachable!(),
-        StreamOrValue::Value(v) => {
-            println!("{:?}", v);
-            assert_eq!(v, json!("My Query Result!"));
-        }
-    }
+        .unwrap();
+    println!("{:?}", v);
+    assert_eq!(serde_json::to_value(&v).unwrap(), json!("My Query Result!"));
 
-    match r
-        .exec(
+    let v = r
+        .execute(
             (),
-            OperationKind::Mutation,
-            OperationKey("myMutation".into(), Some(json!(5))),
+            RequestKind::Mutation,
+            "myMutation".into(),
+            Some(json!(5)),
         )
         .await
-        .unwrap()
-    {
-        StreamOrValue::Stream(_) => unreachable!(),
-        StreamOrValue::Value(v) => {
-            println!("{:?}", v);
-            assert_eq!(v, json!(5));
-        }
-    }
+        .unwrap();
+    println!("{:?}", v);
+    assert_eq!(serde_json::to_value(&v).unwrap(), json!(5));
 }

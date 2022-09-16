@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use crate::{ClientContext, ExecError, OperationKey, OperationKind, Router};
+use crate::{ExecError, Router};
 
 #[derive(Debug, Deserialize)]
 pub struct GetParams {

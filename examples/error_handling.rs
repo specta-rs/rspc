@@ -1,8 +1,6 @@
 use std::{error, fmt};
 
-use rspc::{
-    Config, Error, ErrorCode, ExecError, OperationKey, OperationKind, Router, StreamOrValue,
-};
+use rspc::{Config, Error, ErrorCode, ExecError, RequestKind, Router};
 use serde_json::json;
 
 pub enum MyCustomError {
@@ -69,21 +67,14 @@ async fn main() {
             .build();
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
-    match r
-        .exec((), OperationKind::Query, OperationKey("ok".into(), None))
-        .await
-        .unwrap()
-    {
-        StreamOrValue::Stream(_) => unreachable!(),
-        StreamOrValue::Value(v) => {
-            println!("{:?}", v);
-            assert_eq!(v, json!("Hello World"));
-        }
-    }
-
     let v = r
-        .exec((), OperationKind::Query, OperationKey("err".into(), None))
-        .await;
+        .execute((), RequestKind::Query, "ok".into(), None)
+        .await
+        .unwrap();
+    println!("{:?}", v);
+    assert_eq!(v, json!("Hello World"));
+
+    let v = r.execute((), RequestKind::Query, "err".into(), None).await;
     println!("{:?}", v);
     assert!(matches!(v, Err(ExecError::ErrResolverError(_))));
 }

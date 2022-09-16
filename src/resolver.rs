@@ -5,9 +5,14 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::{DefOpts, Type, TypeDefs};
 
-use crate::{ExecError, IntoLayerResult, LayerResult, ProcedureDataType};
+use crate::{
+    internal::{LayerResult, ProcedureDataType},
+    ExecError, RequestLayer,
+};
 
 pub trait Resolver<TCtx, TMarker> {
+    type Result;
+
     fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
@@ -69,8 +74,10 @@ impl<TFunc, TCtx, TArg, TResult, TResultMarker> Resolver<TCtx, DoubleArgMarker<T
 where
     TArg: DeserializeOwned + Type,
     TFunc: Fn(TCtx, TArg) -> TResult,
-    TResult: IntoLayerResult<TResultMarker>,
+    TResult: RequestLayer<TResultMarker>,
 {
+    type Result = TResult;
+
     fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
         let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
         self(ctx, arg).into_layer_result()

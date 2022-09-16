@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use async_stream::stream;
 use futures::StreamExt;
-use rspc::{OperationKey, OperationKind, Router, StreamOrValue};
+use rspc::{internal::RequestInner, RequestKind, Router};
 use tokio::time::sleep;
 
 #[tokio::main]
@@ -24,20 +24,15 @@ async fn main() {
         .build();
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
-    match r
-        .exec(
-            (),
-            OperationKind::SubscriptionAdd,
-            OperationKey("mySubscription".into(), None),
-        )
-        .await
-        .unwrap()
-    {
-        StreamOrValue::Stream(mut stream) => {
-            while let Some(msg) = stream.next().await {
-                println!("Received: {:?}", msg);
-            }
-        }
-        StreamOrValue::Value(_) => unreachable!(),
-    }
+    let v = r.execute_subscription(
+        (),
+        RequestInner::Subscription {
+            path: "mySubscription".into(),
+            input: None,
+        },
+    );
+
+    // while let Some(msg) = stream.next().await {
+    //     println!("Received: {:?}", msg);
+    // }
 }

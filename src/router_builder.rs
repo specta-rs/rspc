@@ -1,59 +1,33 @@
-use std::{collections::BTreeMap, marker::PhantomData, ops::Deref, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 use specta::{Type, TypeDefs};
 
 use crate::{
-    Config, DoubleArgMarker, ExecError, FirstMiddleware, IntoLayerResult, LayerResult,
-    MiddlewareContext, NextMiddleware, Procedure, Resolver, Router, StreamOrValue, StreamResolver,
+    internal::{
+        BaseMiddleware, BuiltProcedureBuilder, Demo, LayerResult, Middleware, MiddlewareBuilder,
+        MiddlewareContext, ProcedureStore, UnbuiltProcedureBuilder,
+    },
+    Config, DoubleArgStreamMarker, ExecError, RequestLayer, Resolver, Router, StreamResolver,
 };
-
-pub struct UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
-    deref_handler: fn(TResolver) -> BuiltProcedureBuilder<TResolver>,
-    phantom: PhantomData<TLayerCtx>,
-}
-
-impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
-    pub(crate) fn new() -> Self {
-        Self {
-            deref_handler: |resolver| BuiltProcedureBuilder { resolver },
-            phantom: PhantomData,
-        }
-    }
-
-    pub fn resolver(self, resolver: TResolver) -> BuiltProcedureBuilder<TResolver> {
-        (self.deref_handler)(resolver)
-    }
-}
-
-impl<TLayerCtx, TResolver> Deref for UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
-    type Target = fn(resolver: TResolver) -> BuiltProcedureBuilder<TResolver>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.deref_handler
-    }
-}
-
-pub struct BuiltProcedureBuilder<TResolver> {
-    resolver: TResolver,
-}
 
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
     TMeta = (),
-    TLayerCtx = TCtx, // This is the context of the current layer -> Whatever the last middleware returned
+    TMiddleware = BaseMiddleware<TCtx>,
 > where
     TCtx: 'static,
-    TLayerCtx: 'static,
+    TMiddleware: MiddlewareBuilder<TCtx>,
 {
     config: Config,
-    middleware: Box<dyn Fn(NextMiddleware<TLayerCtx>) -> FirstMiddleware<TCtx>>,
-    queries: BTreeMap<String, Procedure<TCtx>>,
-    mutations: BTreeMap<String, Procedure<TCtx>>,
-    subscriptions: BTreeMap<String, Procedure<TCtx>>,
-    phantom: PhantomData<TMeta>,
+    middleware: TMiddleware,
+    queries: ProcedureStore<TCtx>,
+    mutations: ProcedureStore<TCtx>,
+    subscriptions: ProcedureStore<TCtx>,
     typ_store: TypeDefs,
+    phantom: PhantomData<TMeta>,
 }
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
@@ -61,15 +35,15 @@ where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, TCtx> {
+    pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
         RouterBuilder {
             config: Config::new(),
-            middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
-            queries: Default::default(),
-            mutations: Default::default(),
-            subscriptions: Default::default(),
-            phantom: PhantomData,
+            middleware: BaseMiddleware::new(),
+            queries: ProcedureStore::new("query"),
+            mutations: ProcedureStore::new("mutation"),
+            subscriptions: ProcedureStore::new("subscription"),
             typ_store: TypeDefs::new(),
+            phantom: PhantomData,
         }
     }
 }
@@ -79,20 +53,24 @@ where
     TCtx: Send + 'static,
     TMeta: Send + Sync + 'static,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, TCtx> {
+    pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
         RouterBuilder {
             config: Config::new(),
-            middleware: Box::new(|next| Box::new(move |ctx, args, kak| next(ctx, args, kak))),
-            queries: Default::default(),
-            mutations: Default::default(),
-            subscriptions: Default::default(),
-            phantom: PhantomData,
+            middleware: BaseMiddleware::new(),
+            queries: ProcedureStore::new("query"),
+            mutations: ProcedureStore::new("mutation"),
+            subscriptions: ProcedureStore::new("subscription"),
             typ_store: TypeDefs::new(),
+            phantom: PhantomData,
         }
     }
 }
 
-impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
+impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
+where
+    TLayerCtx: 'static,
+    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + 'static,
+{
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
         self.config = config;
@@ -102,10 +80,10 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     pub fn middleware<TNewLayerCtx, TFut>(
         self,
         func: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
-    ) -> RouterBuilder<TCtx, TMeta, TNewLayerCtx>
+    ) -> RouterBuilder<TCtx, TMeta, Demo<TCtx, TNewLayerCtx>>
     where
         TNewLayerCtx: Send + 'static,
-        TFut: Future<Output = Result<StreamOrValue, ExecError>> + Send + 'static,
+        TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
     {
         let Self {
             config,
@@ -119,28 +97,29 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
 
         RouterBuilder {
             config,
-            middleware: Box::new(move |nextmw| {
-                // TODO: An `Arc` is more avoid than should be need but it's probs better than leaking memory.
-                // I can't work out lifetimes to avoid this but would be great to try again!
-                let nextmw = Arc::new(nextmw);
-
-                (middleware)(Box::new(move |ctx, arg, (kind, key)| {
-                    Ok(LayerResult::FutureStreamOrValue(Box::pin(func(
-                        MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
-                            key,
-                            kind,
-                            ctx,
-                            arg,
-                            nextmw: nextmw.clone(),
-                        },
-                    ))))
-                }))
-            }),
+            middleware: Demo {
+                bruh: Box::new(move |nextmw: Box<dyn Middleware<TNewLayerCtx>>| {
+                    // TODO: An `Arc` is more avoid than should be need but it's probs better than leaking memory.
+                    // I can't work out lifetimes to avoid this but would be great to try again!
+                    let nextmw = Arc::new(nextmw);
+                    middleware.build(Box::new(move |ctx, arg, (kind, key)| {
+                        Ok(LayerResult::FutureStreamOrValue(Box::pin(func(
+                            MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
+                                key,
+                                kind,
+                                ctx,
+                                arg,
+                                nextmw: nextmw.clone(),
+                            },
+                        ))))
+                    }))
+                }),
+            },
             queries,
             mutations,
             subscriptions,
-            phantom: PhantomData,
             typ_store,
+            phantom: PhantomData,
         }
     }
 
@@ -152,41 +131,20 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
-        TResolver: Fn(TLayerCtx, TArg) -> TResult
-            + Resolver<TLayerCtx, DoubleArgMarker<TArg, TResultMarker>>
-            + Send
-            + Sync
-            + 'static,
         TArg: DeserializeOwned + Type,
-        TResult: IntoLayerResult<TResultMarker>,
+        TResult: RequestLayer<TResultMarker>,
+        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
-        if key == "ws" {
-            panic!(
-                "rspc error: attempted to create query operation named '{}', however this name is not allowed.",
-                key
-            );
-        }
-
-        let key = key.to_string();
-        if self.queries.contains_key(&key) {
-            panic!(
-                "rspc error: query operation already has resolver with name '{}'",
-                key
-            );
-        }
-
         let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
-        self.queries.insert(
-            key,
-            Procedure {
-                exec: (self.middleware)(Box::new(move |nextmw, arg, _| {
-                    resolver.exec(
-                        nextmw,
-                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                })),
-                ty: TResolver::typedef(&mut self.typ_store),
-            },
+        self.queries.append(
+            key.into(),
+            self.middleware.build(Box::new(move |nextmw, arg, _| {
+                resolver.exec(
+                    nextmw,
+                    serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                )
+            })),
+            TResolver::typedef(&mut self.typ_store),
         );
         self
     }
@@ -199,46 +157,25 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
-        TResolver: Fn(TLayerCtx, TArg) -> TResult
-            + Resolver<TLayerCtx, DoubleArgMarker<TArg, TResultMarker>>
-            + Send
-            + Sync
-            + 'static,
         TArg: DeserializeOwned + Type,
-        TResult: IntoLayerResult<TResultMarker>,
+        TResult: RequestLayer<TResultMarker>,
+        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
-        if key == "ws" {
-            panic!(
-                "rspc error: attempted to create query operation named '{}', however this name is not allowed.",
-                key
-            );
-        }
-
-        let key = key.to_string();
-        if self.mutations.contains_key(&key) {
-            panic!(
-                "rspc error: mutation operation already has resolver with name '{}'",
-                key
-            );
-        }
-
         let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
-        self.mutations.insert(
-            key,
-            Procedure {
-                exec: (self.middleware)(Box::new(move |nextmw, arg, _| {
-                    resolver.exec(
-                        nextmw,
-                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                })),
-                ty: TResolver::typedef(&mut self.typ_store),
-            },
+        self.mutations.append(
+            key.into(),
+            self.middleware.build(Box::new(move |nextmw, arg, _| {
+                resolver.exec(
+                    nextmw,
+                    serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                )
+            })),
+            TResolver::typedef(&mut self.typ_store),
         );
         self
     }
 
-    pub fn subscription<TArg, TResolver, TStream, TResult, TMarker>(
+    pub fn subscription<TResolver, TArg, TStream, TResult, TResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -247,47 +184,43 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     ) -> Self
     where
         TArg: DeserializeOwned + Type,
-        TResolver:
-            Fn(TCtx, TArg) -> TStream + StreamResolver<TLayerCtx, TMarker> + Send + Sync + 'static,
         TStream: Stream<Item = TResult> + Send + 'static,
         TResult: Serialize + Type,
+        TResolver: Fn(TLayerCtx, TArg) -> TStream
+            + StreamResolver<TLayerCtx, DoubleArgStreamMarker<TArg, TResultMarker, TStream>>
+            + Send
+            + Sync
+            + 'static,
     {
-        if key == "ws" {
-            panic!(
-                "rspc error: attempted to create query operation named '{}', however this name is not allowed.",
-                key
-            );
-        }
-
-        let key = key.to_string();
-        if self.subscriptions.contains_key(&key) {
-            panic!(
-                "rspc error: subscription operation already has resolver with name '{}'",
-                key
-            );
-        }
-
         let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
-        self.subscriptions.insert(
-            key,
-            Procedure {
-                exec: (self.middleware)(Box::new(move |nextmw, arg, _| {
-                    resolver.exec(
-                        nextmw,
-                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                })),
-                ty: TResolver::typedef(&mut self.typ_store),
-            },
+        self.subscriptions.append(
+            key.into(),
+            self.middleware.build(Box::new(move |nextmw, arg, _| {
+                resolver.exec(
+                    nextmw,
+                    serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                )
+            })),
+            TResolver::typedef(&mut self.typ_store),
         );
         self
     }
 
-    pub fn merge<TNewLayerCtx>(
+    pub fn merge<TNewLayerCtx, TIncomingMiddleware>(
         self,
         prefix: &'static str,
-        router: RouterBuilder<TLayerCtx, TMeta, TNewLayerCtx>,
-    ) -> RouterBuilder<TCtx, TMeta, TNewLayerCtx> {
+        router: RouterBuilder<TLayerCtx, TMeta, TIncomingMiddleware>,
+    ) -> RouterBuilder<TCtx, TMeta, Demo<TCtx, TNewLayerCtx>>
+    where
+        TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx> + 'static,
+    {
+        if prefix == "" || prefix.starts_with("rpc.") {
+            panic!(
+                "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
+                prefix
+            );
+        }
+
         let Self {
             config,
             middleware,
@@ -298,33 +231,27 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             ..
         } = self;
 
-        for (key, query) in router.queries {
-            queries.insert(
+        for (key, query) in router.queries.store {
+            queries.append(
                 format!("{}{}", prefix, key),
-                Procedure {
-                    exec: (middleware)(Box::new(query.exec)),
-                    ty: query.ty,
-                },
+                middleware.build(query.exec),
+                query.ty,
             );
         }
 
-        for (key, mutation) in router.mutations {
-            mutations.insert(
+        for (key, mutation) in router.mutations.store {
+            mutations.append(
                 format!("{}{}", prefix, key),
-                Procedure {
-                    exec: (middleware)(Box::new(mutation.exec)),
-                    ty: mutation.ty,
-                },
+                middleware.build(mutation.exec),
+                mutation.ty,
             );
         }
 
-        for (key, subscription) in router.subscriptions {
-            subscriptions.insert(
+        for (key, subscription) in router.subscriptions.store {
+            subscriptions.append(
                 format!("{}{}", prefix, key),
-                Procedure {
-                    exec: (middleware)(Box::new(subscription.exec)),
-                    ty: subscription.ty,
-                },
+                middleware.build(subscription.exec),
+                subscription.ty,
             );
         }
 
@@ -334,12 +261,16 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
 
         RouterBuilder {
             config,
-            middleware: Box::new(move |next| middleware((router.middleware)(next))),
+            middleware: Demo {
+                bruh: Box::new(move |next: Box<dyn Middleware<TNewLayerCtx>>| {
+                    middleware.build(router.middleware.build(next))
+                }),
+            },
             queries,
             mutations,
             subscriptions,
-            phantom: PhantomData,
             typ_store,
+            phantom: PhantomData,
         }
     }
 
