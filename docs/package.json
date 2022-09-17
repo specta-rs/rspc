@@ -37,7 +37,8 @@
   "pnpm": {
     "peerDependencyRules": {
       "ignoreMissing": [
-        "@babel/*"
+        "@babel/*",
+        "tailwindcss"
       ]
     }
   }
