@@ -18,15 +18,15 @@
     "marked": "^4.1.0",
     "morphdom": "^2.6.1",
     "prismjs": "^1.29.0",
-    "rehype-external-links": "^2.0.1",
-    "tailwindcss": "^3.0.24"
+    "rehype-external-links": "^2.0.1"
   },
   "devDependencies": {
     "@astrojs/sitemap": "^1.0.0",
     "@astrojs/solid-js": "^1.1.0",
     "astro": "1.2.5",
     "astro-compress": "^1.0.8",
-    "solid-js": "^1.5.5"
+    "solid-js": "^1.5.5",
+    "tailwindcss": "^3.1.8"
   },
   "engines": {
     "pnpm": ">=7.0.0",
