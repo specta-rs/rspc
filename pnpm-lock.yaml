@@ -10,7 +10,7 @@ importers:
       '@astrojs/sitemap': ^1.0.0
       '@astrojs/solid-js': ^1.1.0
       '@astrojs/tailwind': ^2.0.1
-      '@geoffcodesthings/tailwind-md-base': ^1.1.0
+      '@geoffcodesthings/tailwind-md-base': github:oscartbeaumont/tailwind-md-base
       astro: 1.2.5
       astro-compress: ^1.0.8
       astro-icon: ^0.7.3

@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@astrojs/tailwind": "^2.0.1",
-    "@geoffcodesthings/tailwind-md-base": "^1.1.0",
+    "@geoffcodesthings/tailwind-md-base": "github:oscartbeaumont/tailwind-md-base",
     "astro-icon": "^0.7.3",
     "autoprefixer": "^10.4.11",
     "cssnano": "^5.1.13",
