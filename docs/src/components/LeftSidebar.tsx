@@ -12,7 +12,7 @@ function classNames(...classes) {
 
 export default function Sidebar(props: { activePath: string }) {
   return (
-    <nav class="shrink-0 pl-32 pr-8 h-full pb-10 overflow-y-auto bg-[#1A1A1A]">
+    <nav class="shrink-0 pl-8 lg:pl-96 pr-8 h-full pb-10 overflow-y-auto bg-[#1A1A1A]">
       <div class="w-52 flex flex-col items-center">
         <a
           innerHTML={rspcIcon}

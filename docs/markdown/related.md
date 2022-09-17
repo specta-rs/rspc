@@ -1,6 +1,9 @@
 ---
 title: Related projects
+index: 4
 ---
+
+# Related
 
 ### Official Integrations
 

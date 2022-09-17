@@ -2,6 +2,8 @@
 title: Error Handling
 ---
 
+# Error Handling
+
 **rspc** resolvers are allowed to return a `Result<T, rspc::Error>` where `T` can be any type which can be returned from a normal resolver.
 
 It is important to understand that the [question mark operation (`?`)](https://doc.rust-lang.org/rust-by-example/std/result/question_mark.html) in Rust will expand to `return Err(From::from(err))`. We rely on this fact for custom errors.

@@ -1,6 +1,9 @@
 ---
-title: rspc
+title: Breaking Changes
+index: 3
 ---
+
+# Breaking Changes
 
 ## 0.0.5 to 0.0.6
 

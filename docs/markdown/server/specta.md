@@ -1,6 +1,9 @@
 ---
 title: Specta
+index: 10
 ---
+
+# Specta
 
 For rspc to be able to convert your types into Typescript they must implement the `specta::Type` trait. [Specta](https://github.com/oscartbeaumont/rspc/tree/main/specta) is a crate that was created so that rspc can introspect Rust types. The `Type` trait allows the Typescript exporter to understand the fields, generics and dependant types of a Rust type.
 

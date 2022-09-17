@@ -2,6 +2,8 @@
 title: Request Context
 ---
 
+# Request Context
+
 When calling execute on a operation you must provide a request context. The type of the request context must match the `TCtx` generic parameter defined on the `rspc::Router`.
 
 Using request context is important because it means you can construct the router without a dependency on anything (such a database) which allows you to validate the router in a unit test. The routes are stringly typed so we can't just rely on Rust's compiler to validate the router. This tradeoff was made for the superior developer experience as we believe using request context and a unit test for validating the router is able to mitigate the risk.

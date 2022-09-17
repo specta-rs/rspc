@@ -2,6 +2,8 @@
 title: Middleware
 ---
 
+# Middleware
+
 **rspc** allows adding middleware to your router which can intercept the request and response for operations defined after it on the router. The middleware can modify the request context as well as modify the response.
 
 ```rust

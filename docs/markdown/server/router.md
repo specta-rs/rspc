@@ -2,6 +2,8 @@
 title: Router
 ---
 
+# Router
+
 A router contains a collection of operations (queries, mutations or subscriptions) that can be called by a client. A router has many generic arguments which can be configured by the user to match the type of data that the router will be handling.
 
 A router is defined as `Router<TCtx, TMeta>`.

@@ -1,6 +1,9 @@
 ---
-title: rspc
+title: Overview
+index: 1
 ---
+
+# rspc
 
 **A blazing fast and easy to use TRPC-like server for Rust.**
 

@@ -1,6 +1,9 @@
 ---
 title: Quickstart
+index: 2
 ---
+
+# Quickstart
 
 **Get rspc up and running in your own project.**
 

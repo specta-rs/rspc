@@ -2,6 +2,8 @@
 title: SolidJS
 ---
 
+# SolidJS
+
 rspc can be used on the frontend with [SolidJS](https://www.solidjs.com/) via [solid-query](https://github.com/ardeora/solid-query) which provides caching, refetching and a lot more. 
 
 To get started first install the required packages.

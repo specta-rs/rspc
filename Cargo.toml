@@ -67,5 +67,6 @@ uuid = { version = "1.1.2", features = ["v4", "serde"] }
 [workspace]
 members = [
     "./specta",
-    "./specta/macros"
+    "./specta/macros",
+    "./docs/_test/d5acd59b8ad5d9a0a0ee8c09532f277e"
 ]

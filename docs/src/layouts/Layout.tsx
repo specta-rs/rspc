@@ -1,9 +1,10 @@
-import Sidebar from "../components/Sidebar";
+import LeftSidebar from "../components/LeftSidebar";
+import markdownStyles from "../styles/markdown.css?raw";
+import atomOneStyles from "../styles/atom-one.css?raw";
+import themeScript from "../utils/theme.js?raw";
+// import routerScriptUrl from "../utils/router.ts?url";
 import { config } from "../config";
-
-const themeScript = await (
-  await import.meta.glob("../utils/*", { as: "raw" })["../utils/theme.js"]
-)();
+import RightSidebar from "../components/RightSidebar";
 
 export default function Page(props: { activePath: string; children: any }) {
   return (
@@ -41,10 +42,14 @@ export default function Page(props: { activePath: string; children: any }) {
         <meta name="twitter:image:alt" content={imageAlt} /> */}
         {config.seo?.customHead || []}
         <script innerHTML={themeScript}></script>
+        <style>{markdownStyles}</style>
+        <style>{atomOneStyles}</style>
+        {/* <script defer type="module" src={routerScriptUrl}></script> */}
       </head>
       <body class="h-screen flex text-black dark:text-white dark:bg-[#242424]">
-        <Sidebar activePath={props.activePath} />
-        <main class="h-full overflow-none">{props.children}</main>
+        <LeftSidebar activePath={props.activePath} />
+        <main class="p-10 h-full overflow-auto">{props.children}</main>
+        <RightSidebar />
       </body>
     </html>
   );

@@ -10,8 +10,14 @@
   },
   "dependencies": {
     "@astrojs/tailwind": "^2.0.1",
+    "@geoffcodesthings/tailwind-md-base": "^1.1.0",
     "astro-icon": "^0.7.3",
+    "autoprefixer": "^10.4.11",
+    "cssnano": "^5.1.13",
+    "markdown-yaml-metadata-parser": "^3.0.0",
+    "marked": "^4.1.0",
     "morphdom": "^2.6.1",
+    "prismjs": "^1.29.0",
     "rehype-external-links": "^2.0.1",
     "tailwindcss": "^3.0.24"
   },

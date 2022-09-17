@@ -2,6 +2,8 @@
 title: Deployment
 ---
 
+# Deployment
+
 Coming soon...
 
 We will document how to deploy an rspc API to:

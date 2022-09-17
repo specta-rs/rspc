@@ -8,17 +8,15 @@ export async function getStaticPaths() {
   return await Promise.all(
     [...pages.values()].map(async (p) => ({
       params: { slug: p.url === "" ? undefined : p.url },
-      props: { data: await p.component },
+      props: { html: p.html },
     }))
   );
 }
-
-const mdContent = (await Astro.props.data()).compiledContent();
 ---
 
 <!DOCTYPE html>
 <PageLayout activePath={Astro.url.pathname}>
-  <div set:html={mdContent}></div>
+  <div class="markdown" set:html={Astro.props.html}></div>
 
   <script src="../utils/router.ts"></script>
 </PageLayout>
