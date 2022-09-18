@@ -1,7 +1,8 @@
 export const config = {
   seo: {
     title: "rspc",
-    description: "TODO",
+    description:
+      "rspc is a library which helps you built completely typesafe APIs with a Rust backend and Typescript frontend.",
     keywords: [],
     customHead: [
       <script

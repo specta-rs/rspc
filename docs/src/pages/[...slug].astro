@@ -20,3 +20,49 @@ export async function getStaticPaths() {
 
   <script src="../utils/router.ts"></script>
 </PageLayout>
+
+<style is:global>
+  @import "../styles/atom-one.css";
+  @import "../styles/markdown.css";
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  :root {
+    --code-color: darkred;
+    --code-font-size: 14px;
+    --code-line-height: 1.4;
+    --scroll-bar-color: #c5c5c5;
+    --scroll-bar-bg-color: #f6f6f6;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: #1a1a1a;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-bar-color) #1a1a1a;
+  }
+
+  /* Works on Chrome, Edge, and Safari */
+  *::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--scroll-bar-color);
+    border-radius: 20px;
+    border: 3px solid #1a1a1a;
+  }
+
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+</style>

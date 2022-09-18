@@ -8,7 +8,16 @@ import tailwind from "@astrojs/tailwind";
 // https://astro.build/config
 export default defineConfig({
   site: "https://rspc.otbeaumont.me",
-  integrations: [astro(), solid(), sitemap(), tailwind()],
+  integrations: [
+    astro(),
+    solid(),
+    sitemap(),
+    tailwind({
+      config: {
+        applyBaseStyles: false,
+      },
+    }),
+  ],
   markdown: {
     rehypePlugins: [
       [

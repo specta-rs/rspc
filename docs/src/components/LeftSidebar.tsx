@@ -12,8 +12,8 @@ function classNames(...classes) {
 
 export default function Sidebar(props: { activePath: string }) {
   return (
-    <nav class="shrink-0 pl-8 lg:pl-96 pr-8 h-full pb-10 overflow-y-auto bg-[#1A1A1A]">
-      <div class="w-52 flex flex-col items-center">
+    <nav class="h-screen shrink-0 lg:pl-96 bg-[#1A1A1A] px-8 overflow-y-auto overflow-x-hidden scrollbar-thin">
+      <div class="w-52 flex flex-col items-center sticky top-0 pb-4 bg-[#1A1A1A]">
         <a
           innerHTML={rspcIcon}
           class="route p-4 [&>*]:w-24 [&>*]:h-24"
@@ -22,7 +22,7 @@ export default function Sidebar(props: { activePath: string }) {
         <h1 class="text-5xl font-extrabold">rspc</h1>
       </div>
 
-      <div class="py-4">
+      <div class="py-1 ">
         {[...sidebar.values()].map((category) => {
           return (
             <div class="mb-5" key={category.name}>
