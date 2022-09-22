@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use specta::Type;
 
-use crate::{Error, ExecError};
-
 #[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum RequestId {

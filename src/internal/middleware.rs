@@ -8,14 +8,45 @@ use crate::ExecError;
 pub trait MiddlewareBuilder<TCtx> {
     type LayerContext: 'static;
 
-    fn build(&self, next: Box<dyn Middleware<Self::LayerContext>>) -> Box<dyn Middleware<TCtx>>;
+    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    where
+        T: Middleware<Self::LayerContext> + 'static;
+}
+
+pub struct MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
+where
+    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx>,
+    TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx>,
+{
+    pub middleware: TMiddleware,
+    pub middleware2: TIncomingMiddleware,
+    pub phantom: PhantomData<(TCtx, TLayerCtx)>,
+}
+
+impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware> MiddlewareBuilder<TCtx>
+    for MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
+where
+    TCtx: 'static,
+    TLayerCtx: 'static,
+    TNewLayerCtx: 'static,
+    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx>,
+    TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx>,
+{
+    type LayerContext = TNewLayerCtx;
+
+    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    where
+        T: Middleware<Self::LayerContext> + 'static,
+    {
+        self.middleware.build(self.middleware2.build(next))
+    }
 }
 
 pub struct Demo<TCtx, TLayerCtx>
 where
     TLayerCtx: 'static,
 {
-    pub bruh: Box<dyn Fn(Box<dyn Middleware<TLayerCtx>>) -> Box<dyn Middleware<TCtx>>>,
+    pub bruh: Box<dyn Fn(Box<dyn Middleware<TLayerCtx>>) -> Box<dyn Middleware<TCtx>>>, // TODO: Make this more generic
 }
 
 impl<TCtx, TLayerCtx> MiddlewareBuilder<TCtx> for Demo<TCtx, TLayerCtx>
@@ -24,8 +55,11 @@ where
 {
     type LayerContext = TLayerCtx;
 
-    fn build(&self, next: Box<dyn Middleware<TLayerCtx>>) -> Box<dyn Middleware<TCtx>> {
-        (self.bruh)(next)
+    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    where
+        T: Middleware<Self::LayerContext> + 'static,
+    {
+        (self.bruh)(Box::new(next))
     }
 }
 
@@ -37,11 +71,20 @@ impl<TCtx> BaseMiddleware<TCtx> {
     }
 }
 
-impl<TCtx> MiddlewareBuilder<TCtx> for BaseMiddleware<TCtx> {
+impl<TCtx> MiddlewareBuilder<TCtx> for BaseMiddleware<TCtx>
+where
+    TCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
+{
     type LayerContext = TCtx;
 
-    fn build(&self, next: Box<dyn Middleware<TCtx>>) -> Box<dyn Middleware<TCtx>> {
-        Box::new(move |ctx, args, kak| next.call(ctx, args, kak))
+    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    where
+        T: Middleware<Self::LayerContext> + 'static,
+    {
+        Box::new(ResolverLayer {
+            func: move |ctx, args, kak| next.call(ctx, args, kak),
+            phantom: PhantomData,
+        })
     }
 }
 
@@ -49,13 +92,31 @@ pub trait Middleware<TLayerCtx: 'static>: Send + Sync {
     fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError>;
 }
 
-impl<T, TLayerCtx> Middleware<TLayerCtx> for T
+pub struct ResolverLayer<TLayerCtx, T>
+where
+    TLayerCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
+    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync,
+{
+    pub func: T,
+    pub phantom: PhantomData<TLayerCtx>,
+}
+
+impl<T, TLayerCtx> Middleware<TLayerCtx> for ResolverLayer<TLayerCtx, T>
 where
     T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync,
+    TLayerCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
+{
+    fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
+        (self.func)(a, b, c)
+    }
+}
+
+impl<TLayerCtx> Middleware<TLayerCtx> for Box<dyn Middleware<TLayerCtx> + 'static>
+where
     TLayerCtx: 'static,
 {
     fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
-        self(a, b, c)
+        (**self).call(a, b, c)
     }
 }
 
@@ -81,7 +142,7 @@ impl LayerResult {
     // TODO: Probs just use `Into<Value>` trait instead
     pub(crate) async fn into_value(self) -> Result<Value, ExecError> {
         match self {
-            LayerResult::Stream(stream) => todo!(), // Ok(StreamOrValue::Stream(stream)),
+            LayerResult::Stream(_stream) => todo!(), // Ok(StreamOrValue::Stream(stream)),
             LayerResult::Future(fut) => Ok(fut.await?),
             LayerResult::FutureStreamOrValue(fut) => Ok(fut.await?),
             LayerResult::Ready(res) => Ok(res?),

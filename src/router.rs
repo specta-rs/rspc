@@ -11,10 +11,8 @@ use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{
-        Procedure, ProcedureStore, Request, RequestId, RequestInner, RequestRouter, Response,
-    },
-    Config, Error, ExecError, ExportError, OperationKind, OperationTrait,
+    internal::{Procedure, ProcedureStore, Request, RequestId, RequestInner, RequestRouter},
+    Config, ExecError, ExportError, OperationKind, OperationTrait,
 };
 
 /// TODO
@@ -41,7 +39,7 @@ where
         kind: T,
         key: String,
         input: Option<Value>,
-        // TODO: use T::Result
+        // TODO: Use T::Result
     ) -> Result<Value, ExecError> {
         Request {
             jsonrpc: None,

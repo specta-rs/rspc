@@ -3,7 +3,7 @@ use std::{error, fmt, sync::Arc};
 use serde::Serialize;
 use specta::Type;
 
-use crate::internal::{JsonRPCError, Response, ResponseInner};
+use crate::internal::JsonRPCError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {

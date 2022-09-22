@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rspc::{Config, Operation, OperationKind, Router};
+use rspc::{Config, Operation, Router};
 use serde_json::json;
 
 #[tokio::main]

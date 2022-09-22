@@ -8,7 +8,8 @@ use specta::{Type, TypeDefs};
 use crate::{
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, Demo, LayerResult, Middleware, MiddlewareBuilder,
-        MiddlewareContext, ProcedureStore, UnbuiltProcedureBuilder,
+        MiddlewareContext, MiddlewareMerger, ProcedureStore, ResolverLayer,
+        UnbuiltProcedureBuilder,
     },
     Config, DoubleArgStreamMarker, ExecError, RequestLayer, Resolver, Router, StreamResolver,
 };
@@ -32,7 +33,7 @@ pub struct RouterBuilder<
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
     TMeta: Send + Sync + 'static,
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
@@ -50,7 +51,7 @@ where
 
 impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta>
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
     TMeta: Send + Sync + 'static,
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
@@ -68,7 +69,8 @@ where
 
 impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
 where
-    TLayerCtx: 'static,
+    TCtx: Send + Sync + 'static,      // TODO: `+ Send + Sync` cringe
+    TLayerCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
     TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + 'static,
 {
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
@@ -102,17 +104,21 @@ where
                     // TODO: An `Arc` is more avoid than should be need but it's probs better than leaking memory.
                     // I can't work out lifetimes to avoid this but would be great to try again!
                     let nextmw = Arc::new(nextmw);
-                    middleware.build(Box::new(move |ctx, arg, (kind, key)| {
-                        Ok(LayerResult::FutureStreamOrValue(Box::pin(func(
-                            MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
-                                key,
-                                kind,
-                                ctx,
-                                arg,
-                                nextmw: nextmw.clone(),
-                            },
-                        ))))
-                    }))
+
+                    middleware.build(ResolverLayer {
+                        func: Box::new(move |ctx, arg, (kind, key)| {
+                            Ok(LayerResult::FutureStreamOrValue(Box::pin(func(
+                                MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
+                                    key,
+                                    kind,
+                                    ctx,
+                                    arg,
+                                    nextmw: nextmw.clone(),
+                                },
+                            ))))
+                        }),
+                        phantom: PhantomData,
+                    })
                 }),
             },
             queries,
@@ -138,12 +144,15 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
         self.queries.append(
             key.into(),
-            self.middleware.build(Box::new(move |nextmw, arg, _| {
-                resolver.exec(
-                    nextmw,
-                    serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
-                )
-            })),
+            self.middleware.build(ResolverLayer {
+                func: move |ctx, arg, _| {
+                    resolver.exec(
+                        ctx,
+                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                },
+                phantom: PhantomData,
+            }),
             TResolver::typedef(&mut self.typ_store),
         );
         self
@@ -164,12 +173,15 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
         self.mutations.append(
             key.into(),
-            self.middleware.build(Box::new(move |nextmw, arg, _| {
-                resolver.exec(
-                    nextmw,
-                    serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
-                )
-            })),
+            self.middleware.build(ResolverLayer {
+                func: move |ctx, arg, _| {
+                    resolver.exec(
+                        ctx,
+                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                },
+                phantom: PhantomData,
+            }),
             TResolver::typedef(&mut self.typ_store),
         );
         self
@@ -195,12 +207,15 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
         self.subscriptions.append(
             key.into(),
-            self.middleware.build(Box::new(move |nextmw, arg, _| {
-                resolver.exec(
-                    nextmw,
-                    serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
-                )
-            })),
+            self.middleware.build(ResolverLayer {
+                func: move |ctx, arg, _| {
+                    resolver.exec(
+                        ctx,
+                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                },
+                phantom: PhantomData,
+            }),
             TResolver::typedef(&mut self.typ_store),
         );
         self
@@ -210,9 +225,15 @@ where
         self,
         prefix: &'static str,
         router: RouterBuilder<TLayerCtx, TMeta, TIncomingMiddleware>,
-    ) -> RouterBuilder<TCtx, TMeta, Demo<TCtx, TNewLayerCtx>>
+    ) -> RouterBuilder<
+        TCtx,
+        TMeta,
+        MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>,
+    >
     where
+        TNewLayerCtx: 'static,
         TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx> + 'static,
+        TMiddleware: Send + Sync, // TODO: Remove
     {
         if prefix == "" || prefix.starts_with("rpc.") {
             panic!(
@@ -261,10 +282,10 @@ where
 
         RouterBuilder {
             config,
-            middleware: Demo {
-                bruh: Box::new(move |next: Box<dyn Middleware<TNewLayerCtx>>| {
-                    middleware.build(router.middleware.build(next))
-                }),
+            middleware: MiddlewareMerger {
+                middleware,
+                middleware2: router.middleware,
+                phantom: PhantomData,
             },
             queries,
             mutations,
