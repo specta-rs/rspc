@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 use futures::{Future, Stream};
 use serde::{de::DeserializeOwned, Serialize};
@@ -7,9 +7,8 @@ use specta::{Type, TypeDefs};
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, Demo, LayerResult, Middleware, MiddlewareBuilder,
-        MiddlewareContext, MiddlewareMerger, ProcedureStore, ResolverLayer,
-        UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilder, MiddlewareContext,
+        MiddlewareLayer, MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
     Config, DoubleArgStreamMarker, ExecError, RequestLayer, Resolver, Router, StreamResolver,
 };
@@ -19,8 +18,9 @@ pub struct RouterBuilder<
     TMeta = (),
     TMiddleware = BaseMiddleware<TCtx>,
 > where
-    TCtx: 'static,
-    TMiddleware: MiddlewareBuilder<TCtx>,
+    TCtx: Send + 'static,
+    TMeta: Send + 'static,
+    TMiddleware: MiddlewareBuilder<TCtx> + Send + 'static,
 {
     config: Config,
     middleware: TMiddleware,
@@ -33,8 +33,8 @@ pub struct RouterBuilder<
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
-    TCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
-    TMeta: Send + Sync + 'static,
+    TCtx: Send + 'static,
+    TMeta: Send + 'static,
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
         RouterBuilder {
@@ -51,8 +51,8 @@ where
 
 impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta>
 where
-    TCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
-    TMeta: Send + Sync + 'static,
+    TCtx: Send + 'static,
+    TMeta: Send + 'static,
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
         RouterBuilder {
@@ -69,9 +69,10 @@ where
 
 impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
 where
-    TCtx: Send + Sync + 'static,      // TODO: `+ Send + Sync` cringe
-    TLayerCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
-    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + 'static,
+    TCtx: Send + 'static,
+    TMeta: Send + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
@@ -81,8 +82,8 @@ where
 
     pub fn middleware<TNewLayerCtx, TFut>(
         self,
-        func: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
-    ) -> RouterBuilder<TCtx, TMeta, Demo<TCtx, TNewLayerCtx>>
+        handler: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
+    ) -> RouterBuilder<TCtx, TMeta, MiddlewareLayer<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware>>
     where
         TNewLayerCtx: Send + 'static,
         TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
@@ -99,27 +100,10 @@ where
 
         RouterBuilder {
             config,
-            middleware: Demo {
-                bruh: Box::new(move |nextmw: Box<dyn Middleware<TNewLayerCtx>>| {
-                    // TODO: An `Arc` is more avoid than should be need but it's probs better than leaking memory.
-                    // I can't work out lifetimes to avoid this but would be great to try again!
-                    let nextmw = Arc::new(nextmw);
-
-                    middleware.build(ResolverLayer {
-                        func: Box::new(move |ctx, arg, (kind, key)| {
-                            Ok(LayerResult::FutureStreamOrValue(Box::pin(func(
-                                MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
-                                    key,
-                                    kind,
-                                    ctx,
-                                    arg,
-                                    nextmw: nextmw.clone(),
-                                },
-                            ))))
-                        }),
-                        phantom: PhantomData,
-                    })
-                }),
+            middleware: MiddlewareLayer {
+                middleware,
+                handler,
+                phantom: PhantomData,
             },
             queries,
             mutations,
@@ -232,8 +216,8 @@ where
     >
     where
         TNewLayerCtx: 'static,
-        TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx> + 'static,
-        TMiddleware: Send + Sync, // TODO: Remove
+        TIncomingMiddleware:
+            MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
         if prefix == "" || prefix.starts_with("rpc.") {
             panic!(

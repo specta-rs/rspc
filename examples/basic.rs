@@ -26,12 +26,12 @@ async fn main() {
         .await
         .unwrap();
     println!("{:?}", v);
-    assert_eq!(serde_json::to_value(&v).unwrap(), json!("My Query Result!"));
+    assert_eq!(v, json!("My Query Result!"));
 
     let v = r
         .execute((), Operation::Mutation, "myMutation".into(), Some(json!(5)))
         .await
         .unwrap();
     println!("{:?}", v);
-    assert_eq!(serde_json::to_value(&v).unwrap(), json!(5));
+    assert_eq!(v, json!(5));
 }

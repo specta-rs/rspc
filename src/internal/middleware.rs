@@ -10,7 +10,7 @@ pub trait MiddlewareBuilder<TCtx> {
 
     fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
     where
-        T: Middleware<Self::LayerContext> + 'static;
+        T: Middleware<Self::LayerContext>;
 }
 
 pub struct MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
@@ -36,36 +36,87 @@ where
 
     fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
     where
-        T: Middleware<Self::LayerContext> + 'static,
+        T: Middleware<Self::LayerContext>,
     {
         self.middleware.build(self.middleware2.build(next))
     }
 }
 
-pub struct Demo<TCtx, TLayerCtx>
+pub struct MiddlewareLayer<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
 where
-    TLayerCtx: 'static,
+    TCtx: Send + 'static,
+    TLayerCtx: Send + 'static,
+    TNewLayerCtx: Send + 'static,
+    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
-    pub bruh: Box<dyn Fn(Box<dyn Middleware<TLayerCtx>>) -> Box<dyn Middleware<TCtx>>>, // TODO: Make this more generic
+    pub middleware: TMiddleware,
+    pub handler: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
+    pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx, TFut)>,
 }
 
-impl<TCtx, TLayerCtx> MiddlewareBuilder<TCtx> for Demo<TCtx, TLayerCtx>
+impl<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware> MiddlewareBuilder<TCtx>
+    for MiddlewareLayer<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
 where
-    TLayerCtx: 'static,
+    TCtx: Send + 'static,
+    TLayerCtx: Send + 'static,
+    TNewLayerCtx: Send + 'static,
+    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
-    type LayerContext = TLayerCtx;
+    type LayerContext = TNewLayerCtx;
 
     fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
     where
-        T: Middleware<Self::LayerContext> + 'static,
+        T: Middleware<Self::LayerContext> + Sync,
     {
-        (self.bruh)(Box::new(next))
+        self.middleware.build(Bruh {
+            next: Arc::new(next),
+            handler: self.handler,
+        })
     }
 }
 
-pub struct BaseMiddleware<TCtx: 'static>(PhantomData<TCtx>);
+pub struct Bruh<TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
+where
+    TLayerCtx: Send + 'static,
+    TNewLayerCtx: Send + 'static,
+    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+    TMiddleware: Middleware<TNewLayerCtx> + 'static,
+{
+    next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
+    handler: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
+}
 
-impl<TCtx> BaseMiddleware<TCtx> {
+impl<TLayerCtx, TNewLayerCtx, TFut, TMiddleware> Middleware<TLayerCtx>
+    for Bruh<TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
+where
+    TLayerCtx: Send + 'static,
+    TNewLayerCtx: Send + 'static,
+    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+    TMiddleware: Middleware<TNewLayerCtx> + Sync + 'static,
+{
+    fn call(&self, ctx: TLayerCtx, input: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
+        Ok(LayerResult::FutureStreamOrValue(Box::pin((self.handler)(
+            MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
+                key: c.1,
+                kind: c.0,
+                ctx,
+                input,
+                nextmw: self.next.clone(),
+            },
+        ))))
+    }
+}
+
+pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
+where
+    TCtx: 'static;
+
+impl<TCtx> BaseMiddleware<TCtx>
+where
+    TCtx: 'static,
+{
     pub fn new() -> Self {
         Self(PhantomData)
     }
@@ -73,29 +124,26 @@ impl<TCtx> BaseMiddleware<TCtx> {
 
 impl<TCtx> MiddlewareBuilder<TCtx> for BaseMiddleware<TCtx>
 where
-    TCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
+    TCtx: Send + 'static,
 {
     type LayerContext = TCtx;
 
     fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
     where
-        T: Middleware<Self::LayerContext> + 'static,
+        T: Middleware<Self::LayerContext>,
     {
-        Box::new(ResolverLayer {
-            func: move |ctx, args, kak| next.call(ctx, args, kak),
-            phantom: PhantomData,
-        })
+        Box::new(next)
     }
 }
 
-pub trait Middleware<TLayerCtx: 'static>: Send + Sync {
+pub trait Middleware<TLayerCtx: 'static>: Send + Sync + 'static {
     fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError>;
 }
 
 pub struct ResolverLayer<TLayerCtx, T>
 where
-    TLayerCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
-    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync,
+    TLayerCtx: Send + Sync + 'static,
+    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync + 'static,
 {
     pub func: T,
     pub phantom: PhantomData<TLayerCtx>,
@@ -103,8 +151,8 @@ where
 
 impl<T, TLayerCtx> Middleware<TLayerCtx> for ResolverLayer<TLayerCtx, T>
 where
-    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync,
-    TLayerCtx: Send + Sync + 'static, // TODO: `+ Send + Sync` cringe
+    TLayerCtx: Send + Sync + 'static,
+    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync + 'static,
 {
     fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
         (self.func)(a, b, c)
@@ -157,8 +205,8 @@ where
     pub key: OperationKey,
     pub kind: OperationKind,
     pub ctx: TLayerCtx,
-    pub arg: Value,
-    pub(crate) nextmw: Arc<Box<dyn Middleware<TNewLayerCtx>>>,
+    pub input: Value,
+    pub(crate) nextmw: Arc<dyn Middleware<TNewLayerCtx>>,
 }
 
 impl<TLayerCtx, TNewLayerCtx> MiddlewareContext<TLayerCtx, TNewLayerCtx>
@@ -168,7 +216,7 @@ where
 {
     pub async fn next(self, ctx: TNewLayerCtx) -> Result<Value, ExecError> {
         self.nextmw
-            .call(ctx, self.arg, (self.kind, self.key))?
+            .call(ctx, self.input, (self.kind, self.key))?
             .into_value()
             .await
     }

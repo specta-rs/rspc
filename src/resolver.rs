@@ -117,7 +117,7 @@ impl<TFunc, TCtx, TArg, TResult, TStream>
 where
     TArg: DeserializeOwned + Type,
     TFunc: Fn(TCtx, TArg) -> TStream,
-    TStream: Stream<Item = TResult> + Send + 'static,
+    TStream: Stream<Item = TResult> + Send + Sync + 'static,
     TResult: Serialize + Type,
 {
     fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
