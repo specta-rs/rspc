@@ -34,7 +34,7 @@ const fetchClient = createClient<Operations>({
 
 export const wsQueryClient = new QueryClient();
 const wsClient = createClient<Operations>({
-  transport: new WebsocketTransport("ws://localhost:4000/rspcws"),
+  transport: new WebsocketTransport("ws://localhost:4000/rspc/ws"),
   transformer: myCustomTransformer,
 });
 

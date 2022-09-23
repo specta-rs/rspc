@@ -19,7 +19,7 @@ export class FetchTransport implements Transport {
   }
 
   async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
-    if (operation === "subscriptionAdd" || operation === "subscriptionRemove") {
+    if (operation === "subscription" || operation === "subscriptionStop") {
       throw new Error(
         `Subscribing to '${key[0]}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
       );
@@ -144,11 +144,15 @@ export class WebsocketTransport implements Transport {
     // @ts-ignore
     this.requestMap.set(id, resolve);
 
+    const key2 = this.transformer?.serialize(operation, key) || key;
     this.ws.send(
       JSON.stringify({
         id,
-        operation,
-        key: this.transformer?.serialize(operation, key) || key,
+        method: operation,
+        params: {
+          path: key2[0],
+          input: key2[1],
+        },
       })
     );
 

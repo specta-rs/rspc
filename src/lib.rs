@@ -2,10 +2,10 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::unwrap_used)]
 // #![warn(missing_docs)] // TODO
+// TODO: Warn when using unwrap
 
 mod config;
 mod error;
-mod operation;
 mod resolver;
 mod resolver_result;
 mod router;
@@ -14,7 +14,6 @@ mod selection;
 
 pub use config::*;
 pub use error::*;
-pub use operation::*;
 pub use resolver::*;
 pub use resolver_result::*;
 pub use router::*;

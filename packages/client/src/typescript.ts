@@ -2,8 +2,8 @@
 export type OperationType =
   | "query"
   | "mutation"
-  | "subscriptionAdd"
-  | "subscriptionRemove";
+  | "subscription"
+  | "subscriptionStop";
 
 /**
  * The key to an operation

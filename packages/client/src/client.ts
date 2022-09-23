@@ -81,11 +81,11 @@ export class Client<T extends Procedures> {
       const cleanup = () => {
         this.subscriptionMap?.delete(subscriptionId);
         if (subscriptionId) {
-          this.transport.doRequest("subscriptionRemove", [subscriptionId]);
+          this.transport.doRequest("subscriptionStop", [subscriptionId]);
         }
       };
 
-      this.transport.doRequest("subscriptionAdd", key).then((id) => {
+      this.transport.doRequest("subscription", key).then((id) => {
         subscriptionId = id;
         if (unsubscribed) {
           cleanup();

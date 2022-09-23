@@ -3,7 +3,7 @@ use std::{error, fmt, sync::Arc};
 use serde::Serialize;
 use specta::Type;
 
-use crate::internal::JsonRPCError;
+// use crate::internal::JsonRPCError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
@@ -59,12 +59,12 @@ impl Into<Error> for ExecError {
     }
 }
 
-impl Into<JsonRPCError> for ExecError {
-    fn into(self) -> JsonRPCError {
-        let x: Error = self.into();
-        x.into()
-    }
-}
+// impl Into<JsonRPCError> for ExecError {
+//     fn into(self) -> JsonRPCError {
+//         let x: Error = self.into();
+//         x.into()
+//     }
+// }
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExportError {
@@ -81,15 +81,15 @@ pub struct Error {
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl Into<JsonRPCError> for Error {
-    fn into(self) -> JsonRPCError {
-        JsonRPCError {
-            code: self.code.to_status_code() as i32,
-            message: self.message,
-            data: None,
-        }
-    }
-}
+// impl Into<JsonRPCError> for Error {
+//     fn into(self) -> JsonRPCError {
+//         JsonRPCError {
+//             code: self.code.to_status_code() as i32,
+//             message: self.message,
+//             data: None,
+//         }
+//     }
+// }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

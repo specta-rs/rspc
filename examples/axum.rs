@@ -6,6 +6,7 @@ use rspc::Config;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
+#[derive(Clone)]
 struct Ctx {}
 
 #[tokio::main]
@@ -64,12 +65,14 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .route(
             "/rspc/:id",
-            router.clone().axum_handler(|Path(path): Path<String>| {
-                println!("Client requested operation '{}'", path);
-                Ctx {}
-            }),
+            router
+                .endpoint(|| {
+                    // TODO: Path(path): Path<String>
+                    // println!("Client requested operation '{}'", path);
+                    Ctx {}
+                })
+                .axum(),
         )
-        .route("/rspcws", router.axum_ws_handler(|| Ctx {}))
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4

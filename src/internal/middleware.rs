@@ -96,11 +96,15 @@ where
     TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
     TMiddleware: Middleware<TNewLayerCtx> + Sync + 'static,
 {
-    fn call(&self, ctx: TLayerCtx, input: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
+    fn call(
+        &self,
+        ctx: TLayerCtx,
+        input: Value,
+        req: RequestContext,
+    ) -> Result<LayerResult, ExecError> {
         Ok(LayerResult::FutureStreamOrValue(Box::pin((self.handler)(
             MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
-                key: c.1,
-                kind: c.0,
+                req,
                 ctx,
                 input,
                 nextmw: self.next.clone(),
@@ -137,13 +141,16 @@ where
 }
 
 pub trait Middleware<TLayerCtx: 'static>: Send + Sync + 'static {
-    fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError>;
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
 }
 
 pub struct ResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
+        + Send
+        + Sync
+        + 'static,
 {
     pub func: T,
     pub phantom: PhantomData<TLayerCtx>,
@@ -152,9 +159,12 @@ where
 impl<T, TLayerCtx> Middleware<TLayerCtx> for ResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, KindAndKey) -> Result<LayerResult, ExecError> + Send + Sync + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
+        + Send
+        + Sync
+        + 'static,
 {
-    fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
         (self.func)(a, b, c)
     }
 }
@@ -163,21 +173,34 @@ impl<TLayerCtx> Middleware<TLayerCtx> for Box<dyn Middleware<TLayerCtx> + 'stati
 where
     TLayerCtx: 'static,
 {
-    fn call(&self, a: TLayerCtx, b: Value, c: KindAndKey) -> Result<LayerResult, ExecError> {
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
         (**self).call(a, b, c)
     }
 }
 
-// BREAK
+// TODO: Is this a duplicate of any type?
+// TODO: Move into public API cause it might be used in middleware
+pub enum ProcedureKind {
+    Query,
+    Mutation,
+    Subscription,
+}
 
-// #[deprecated]
-pub struct OperationKey();
+impl ProcedureKind {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            ProcedureKind::Query => "query",
+            ProcedureKind::Mutation => "mutation",
+            ProcedureKind::Subscription => "subscription",
+        }
+    }
+}
 
-// #[deprecated]
-pub struct OperationKind();
-
-// #[deprecated]
-pub type KindAndKey = (OperationKind, OperationKey);
+// TODO: Maybe rename to `Request` or something else. Also move into Public API cause it might be used in middleware
+pub struct RequestContext {
+    pub kind: ProcedureKind,
+    pub path: String, // TODO: String slice??
+}
 
 pub enum LayerResult {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
@@ -202,8 +225,7 @@ pub struct MiddlewareContext<TLayerCtx, TNewLayerCtx>
 where
     TNewLayerCtx: Send,
 {
-    pub key: OperationKey,
-    pub kind: OperationKind,
+    pub req: RequestContext,
     pub ctx: TLayerCtx,
     pub input: Value,
     pub(crate) nextmw: Arc<dyn Middleware<TNewLayerCtx>>,
@@ -216,7 +238,7 @@ where
 {
     pub async fn next(self, ctx: TNewLayerCtx) -> Result<Value, ExecError> {
         self.nextmw
-            .call(ctx, self.input, (self.kind, self.key))?
+            .call(ctx, self.input, self.req)?
             .into_value()
             .await
     }

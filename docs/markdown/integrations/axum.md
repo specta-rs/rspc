@@ -21,13 +21,13 @@ Read more about Rust features [here](https://doc.rust-lang.org/cargo/reference/f
 
 ```rust
 let router = rspc::Router::<()>::new()
-    .query("version", |_, _: ()| "1.0.0");
-let router = Arc::new(router.build());
+    .query("version", |_, _: ()| "1.0.0")
+    .build()
+    .arced();
 
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
-    .route("/rspc/:id", router.clone().axum_handler(|| ()))
-    .route("/rspcws", router.axum_ws_handler(|| ()))
+    .route("/rspc/:id", router.endpoint(|| ()).axum())
     .layer(cors);
 ```
 
@@ -43,14 +43,14 @@ You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extract
 
 ```rust
 let router = rspc::Router::<String>::new()
-    .query("currentPath", |ctx, _: ()| ctx);
-let router = Arc::new(router.build());
+    .query("currentPath", |ctx, _: ()| ctx)
+    .build()
+    .arced();
 
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
     // We use Axum `Path` extractor. The `rspc::Router` has `TCtx` set to `String` so we return the path string as the context.
-    .route("/rspc/:id", router.clone().axum_handler(|Path(path): Path<String>| path))
-    .route("/rspcws", router.axum_ws_handler(|Path(path): Path<String>| path))
+    .route("/rspc/:id", router.endpoint(|Path(path): Path<String>| path).axum())
     .layer(cors);
 ```
 
@@ -67,7 +67,7 @@ const client = createClient<Operations>({
 
 // For websocket transport - Required for subscriptions
 const client = createClient<Operations>({
-  transport: new WebsocketTransport("ws://localhost:8080/rspcws"),
+  transport: new WebsocketTransport("ws://localhost:8080/rspc/ws"),
 });
 
 client.query('version').then((data) => console.log(data));

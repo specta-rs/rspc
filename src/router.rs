@@ -11,8 +11,8 @@ use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{Procedure, ProcedureStore, Request, RequestId, RequestInner, RequestRouter},
-    Config, ExecError, ExportError, OperationKind, OperationTrait,
+    internal::{Procedure, ProcedureStore},
+    Config, ExecError, ExportError,
 };
 
 /// TODO
@@ -33,26 +33,27 @@ where
     TCtx: 'static,
 {
     /// TODO: Docs
-    pub async fn execute<T: OperationTrait>(
-        &self,
-        ctx: TCtx,
-        kind: T,
-        key: String,
-        input: Option<Value>,
-        // TODO: Use T::Result
-    ) -> Result<Value, ExecError> {
-        Request {
-            jsonrpc: None,
-            id: RequestId::Null,
-            inner: match T::KIND {
-                OperationKind::Query => RequestInner::Query { path: key, input },
-                OperationKind::Mutation => RequestInner::Mutation { path: key, input },
-                OperationKind::Subscription => todo!(),
-            },
-        }
-        .execute(self, ctx)
-        .await
-    }
+    // pub async fn execute<T: OperationTrait>(
+    //     &self,
+    //     ctx: TCtx,
+    //     kind: T,
+    //     key: String,
+    //     input: Option<Value>,
+    //     // TODO: Use T::Result
+    // ) -> Result<Value, ExecError> {
+    //     // Request {
+    //     //     jsonrpc: None,
+    //     //     id: RequestId::Null,
+    //     //     inner: match T::KIND {
+    //     //         OperationKind::Query => RequestInner::Query { path: key, input },
+    //     //         OperationKind::Mutation => RequestInner::Mutation { path: key, input },
+    //     //         OperationKind::Subscription => todo!(),
+    //     //     },
+    //     // }
+    //     // .execute(self, ctx)
+    //     // .await
+    //     todo!();
+    // }
 
     pub fn arced(self) -> Arc<Self> {
         Arc::new(self)
@@ -60,6 +61,18 @@ where
 
     pub fn typ_store(&self) -> TypeDefs {
         self.typ_store.clone()
+    }
+
+    pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+        &self.queries.store
+    }
+
+    pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+        &self.mutations.store
+    }
+
+    pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+        &self.subscriptions.store
     }
 
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
@@ -96,21 +109,21 @@ export type Operations = {{
     }
 }
 
-impl<TCtx, TMeta> RequestRouter for Router<TCtx, TMeta> {
-    type Ctx = TCtx;
+// impl<TCtx, TMeta> RequestRouter for Router<TCtx, TMeta> {
+//     type Ctx = TCtx;
 
-    fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.queries.store
-    }
+//     fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+//         &self.queries.store
+//     }
 
-    fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.mutations.store
-    }
+//     fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+//         &self.mutations.store
+//     }
 
-    fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.subscriptions.store
-    }
-}
+//     fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+//         &self.subscriptions.store
+//     }
+// }
 
 // TODO: Move this out into a Specta API
 fn generate_procedures_ts<Ctx>(procedures: &BTreeMap<String, Procedure<Ctx>>) -> String {

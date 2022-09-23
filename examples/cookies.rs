@@ -46,10 +46,6 @@ async fn main() {
                 .clone()
                 .axum_handler(|cookies: Cookies| Ctx { cookies }),
         )
-        .route(
-            "/rspcws",
-            router.axum_ws_handler(|cookies: Cookies| Ctx { cookies }),
-        )
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
