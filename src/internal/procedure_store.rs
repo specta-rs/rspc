@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use specta::DataType;
 
-use crate::internal::Middleware;
+use super::Layer;
 
 // TODO: Make private
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub struct ProcedureDataType {
 
 // TODO: Make private
 pub struct Procedure<TCtx> {
-    pub exec: Box<dyn Middleware<TCtx>>,
+    pub exec: Box<dyn Layer<TCtx>>,
     pub ty: ProcedureDataType,
 }
 
@@ -30,7 +30,7 @@ impl<TCtx> ProcedureStore<TCtx> {
         }
     }
 
-    pub fn append(&mut self, key: String, exec: Box<dyn Middleware<TCtx>>, ty: ProcedureDataType) {
+    pub fn append(&mut self, key: String, exec: Box<dyn Layer<TCtx>>, ty: ProcedureDataType) {
         if key == "" || key == "ws" || key.starts_with("rpc.") {
             panic!(
                 "rspc error: attempted to create {} operation named '{}', however this name is not allowed.",

@@ -6,6 +6,7 @@
 
 mod config;
 mod error;
+mod middleware;
 mod resolver;
 mod resolver_result;
 mod router;
@@ -14,6 +15,7 @@ mod selection;
 
 pub use config::*;
 pub use error::*;
+pub use middleware::*;
 pub use resolver::*;
 pub use resolver_result::*;
 pub use router::*;

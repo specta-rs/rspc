@@ -7,11 +7,12 @@ use std::{
     sync::Arc,
 };
 
+use futures::Stream;
 use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{Procedure, ProcedureStore},
+    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext},
     Config, ExecError, ExportError,
 };
 
@@ -28,12 +29,65 @@ where
     pub(crate) phantom: PhantomData<TMeta>,
 }
 
+// TODO: Move this out of this file
+// TODO: Rename??
+pub enum ExecKind {
+    Query,
+    Mutation,
+}
+
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: 'static,
 {
+    pub async fn exec(
+        &self,
+        ctx: TCtx,
+        kind: ExecKind,
+        key: String,
+        input: Option<Value>,
+    ) -> Result<Value, ExecError> {
+        let (operations, kind) = match kind {
+            ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
+            ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
+        };
+
+        operations
+            .get(&key)
+            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+            .exec
+            .call(
+                ctx,
+                input.unwrap_or(Value::Null),
+                RequestContext { kind, path: key },
+            )?
+            .into_value()
+            .await
+    }
+
+    pub async fn exec_subscription(
+        &self,
+        ctx: TCtx,
+        key: String,
+        input: Option<Value>,
+    ) -> Result<Box<dyn Stream<Item = Value>>, ExecError> {
+        // operations
+        //     .get(&key)
+        //     .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+        //     .exec
+        //     .call(
+        //         ctx,
+        //         input.unwrap_or(Value::Null),
+        //         RequestContext { kind, path: key },
+        //     )?
+        //     .into_value()
+        //     .await;
+
+        todo!()
+    }
+
     /// TODO: Docs
-    // pub async fn execute<T: OperationTrait>(
+    // pub async fn execute(
     //     &self,
     //     ctx: TCtx,
     //     kind: T,

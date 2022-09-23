@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 
-use futures::{Future, Stream};
+use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::Value;
 use specta::{Type, TypeDefs};
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilder, MiddlewareContext,
-        MiddlewareLayer, MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilder, MiddlewareLayerBuilder,
+        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    Config, DoubleArgStreamMarker, ExecError, RequestLayer, Resolver, Router, StreamResolver,
+    Config, DoubleArgStreamMarker, ExecError, MiddlewareLike, MiddlewareRef, RequestLayer,
+    Resolver, Router, StreamResolver,
 };
 
 pub struct RouterBuilder<
@@ -18,7 +18,7 @@ pub struct RouterBuilder<
     TMeta = (),
     TMiddleware = BaseMiddleware<TCtx>,
 > where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
     TMiddleware: MiddlewareBuilder<TCtx> + Send + 'static,
 {
@@ -33,7 +33,7 @@ pub struct RouterBuilder<
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
@@ -51,7 +51,7 @@ where
 
 impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta>
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
 {
     pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
@@ -69,7 +69,7 @@ where
 
 impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
@@ -80,13 +80,17 @@ where
         self
     }
 
-    pub fn middleware<TNewLayerCtx, TFut>(
+    pub fn middleware<TNewMiddleware, TNewLayerCtx>(
         self,
-        handler: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
-    ) -> RouterBuilder<TCtx, TMeta, MiddlewareLayer<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware>>
+        builder: impl Fn(MiddlewareRef<TLayerCtx>) -> TNewMiddleware,
+    ) -> RouterBuilder<
+        TCtx,
+        TMeta,
+        MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>,
+    >
     where
-        TNewLayerCtx: Send + 'static,
-        TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+        TNewLayerCtx: Send + Sync + 'static,
+        TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
     {
         let Self {
             config,
@@ -98,11 +102,12 @@ where
             ..
         } = self;
 
+        let mw = builder(MiddlewareRef(PhantomData));
         RouterBuilder {
             config,
-            middleware: MiddlewareLayer {
+            middleware: MiddlewareLayerBuilder {
                 middleware,
-                handler,
+                mw,
                 phantom: PhantomData,
             },
             queries,

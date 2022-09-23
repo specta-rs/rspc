@@ -49,7 +49,7 @@ where
     type Result = T::Result;
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::FutureStreamOrValue(Box::pin(async move {
+        Ok(LayerResult::Future(Box::pin(async move {
             self.await.into_layer_result()?.into_value().await
         })))
     }

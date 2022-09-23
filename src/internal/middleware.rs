@@ -3,14 +3,14 @@ use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use futures::Stream;
 use serde_json::Value;
 
-use crate::ExecError;
+use crate::{ExecError, MiddlewareLike};
 
 pub trait MiddlewareBuilder<TCtx> {
     type LayerContext: 'static;
 
-    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: Middleware<Self::LayerContext>;
+        T: Layer<Self::LayerContext>;
 }
 
 pub struct MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
@@ -34,67 +34,69 @@ where
 {
     type LayerContext = TNewLayerCtx;
 
-    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: Middleware<Self::LayerContext>,
+        T: Layer<Self::LayerContext>,
     {
         self.middleware.build(self.middleware2.build(next))
     }
 }
 
-pub struct MiddlewareLayer<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
+pub struct MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
-    TCtx: Send + 'static,
-    TLayerCtx: Send + 'static,
-    TNewLayerCtx: Send + 'static,
-    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+    TCtx: Send + Sync + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    TNewLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx>,
 {
     pub middleware: TMiddleware,
-    pub handler: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
-    pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx, TFut)>,
+    pub mw: TNewMiddleware,
+    pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx)>,
 }
 
-impl<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware> MiddlewareBuilder<TCtx>
-    for MiddlewareLayer<TCtx, TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
+impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> MiddlewareBuilder<TCtx>
+    for MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
-    TCtx: Send + 'static,
-    TLayerCtx: Send + 'static,
-    TNewLayerCtx: Send + 'static,
-    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
+    TCtx: Send + Sync + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    TNewLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     type LayerContext = TNewLayerCtx;
 
-    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: Middleware<Self::LayerContext> + Sync,
+        T: Layer<Self::LayerContext> + Sync,
     {
-        self.middleware.build(Bruh {
+        self.middleware.build(MiddlewareLayer {
             next: Arc::new(next),
-            handler: self.handler,
+            mw: self.mw.clone(),
+            phantom: PhantomData,
         })
     }
 }
 
-pub struct Bruh<TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
+pub struct MiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + 'static,
     TNewLayerCtx: Send + 'static,
-    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
-    TMiddleware: Middleware<TNewLayerCtx> + 'static,
+    TMiddleware: Layer<TNewLayerCtx> + 'static,
+    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
-    handler: fn(MiddlewareContext<TLayerCtx, TNewLayerCtx>) -> TFut,
+    mw: TNewMiddleware,
+    phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
 }
 
-impl<TLayerCtx, TNewLayerCtx, TFut, TMiddleware> Middleware<TLayerCtx>
-    for Bruh<TLayerCtx, TNewLayerCtx, TFut, TMiddleware>
+impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
+    for MiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
-    TLayerCtx: Send + 'static,
-    TNewLayerCtx: Send + 'static,
-    TFut: Future<Output = Result<Value, ExecError>> + Send + 'static,
-    TMiddleware: Middleware<TNewLayerCtx> + Sync + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    TNewLayerCtx: Send + Sync + 'static,
+    TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
+    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     fn call(
         &self,
@@ -102,14 +104,7 @@ where
         input: Value,
         req: RequestContext,
     ) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::FutureStreamOrValue(Box::pin((self.handler)(
-            MiddlewareContext::<TLayerCtx, TNewLayerCtx> {
-                req,
-                ctx,
-                input,
-                nextmw: self.next.clone(),
-            },
-        ))))
+        self.mw.handle(ctx, input, req, self.next.clone())
     }
 }
 
@@ -132,15 +127,16 @@ where
 {
     type LayerContext = TCtx;
 
-    fn build<T>(&self, next: T) -> Box<dyn Middleware<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: Middleware<Self::LayerContext>,
+        T: Layer<Self::LayerContext>,
     {
         Box::new(next)
     }
 }
 
-pub trait Middleware<TLayerCtx: 'static>: Send + Sync + 'static {
+// TODO: Rename this so it doesn't conflict with the middleware builder struct
+pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
 }
 
@@ -156,7 +152,7 @@ where
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx> Middleware<TLayerCtx> for ResolverLayer<TLayerCtx, T>
+impl<T, TLayerCtx> Layer<TLayerCtx> for ResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
@@ -169,7 +165,7 @@ where
     }
 }
 
-impl<TLayerCtx> Middleware<TLayerCtx> for Box<dyn Middleware<TLayerCtx> + 'static>
+impl<TLayerCtx> Layer<TLayerCtx> for Box<dyn Layer<TLayerCtx> + 'static>
 where
     TLayerCtx: 'static,
 {
@@ -180,6 +176,7 @@ where
 
 // TODO: Is this a duplicate of any type?
 // TODO: Move into public API cause it might be used in middleware
+#[derive(Debug, Clone)]
 pub enum ProcedureKind {
     Query,
     Mutation,
@@ -197,49 +194,27 @@ impl ProcedureKind {
 }
 
 // TODO: Maybe rename to `Request` or something else. Also move into Public API cause it might be used in middleware
+#[derive(Debug, Clone)]
 pub struct RequestContext {
     pub kind: ProcedureKind,
     pub path: String, // TODO: String slice??
 }
 
+// TODO: Remove?
 pub enum LayerResult {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
     Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
-    FutureStreamOrValue(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
+    // FutureStreamOrValue(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     Ready(Result<Value, ExecError>),
 }
 
 impl LayerResult {
-    // TODO: Probs just use `Into<Value>` trait instead
     pub(crate) async fn into_value(self) -> Result<Value, ExecError> {
         match self {
             LayerResult::Stream(_stream) => todo!(), // Ok(StreamOrValue::Stream(stream)),
             LayerResult::Future(fut) => Ok(fut.await?),
-            LayerResult::FutureStreamOrValue(fut) => Ok(fut.await?),
+            // LayerResult::FutureStreamOrValue(fut) => Ok(fut.await?),
             LayerResult::Ready(res) => Ok(res?),
         }
-    }
-}
-
-pub struct MiddlewareContext<TLayerCtx, TNewLayerCtx>
-where
-    TNewLayerCtx: Send,
-{
-    pub req: RequestContext,
-    pub ctx: TLayerCtx,
-    pub input: Value,
-    pub(crate) nextmw: Arc<dyn Middleware<TNewLayerCtx>>,
-}
-
-impl<TLayerCtx, TNewLayerCtx> MiddlewareContext<TLayerCtx, TNewLayerCtx>
-where
-    TLayerCtx: 'static,
-    TNewLayerCtx: Send + 'static,
-{
-    pub async fn next(self, ctx: TNewLayerCtx) -> Result<Value, ExecError> {
-        self.nextmw
-            .call(ctx, self.input, self.req)?
-            .into_value()
-            .await
     }
 }
