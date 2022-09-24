@@ -39,6 +39,7 @@ importers:
       '@rspc/client': workspace:*
       '@rspc/react': workspace:*
       '@rspc/solid': workspace:*
+      '@tanstack/react-query': ^4.0.10
       astro: 1.0.0-rc.2
       react: ^18.2.0
       react-dom: ^18.2.0
@@ -47,6 +48,7 @@ importers:
       '@rspc/client': link:../client
       '@rspc/react': link:../react
       '@rspc/solid': link:../solid
+      '@tanstack/react-query': 4.0.10_biqbaboplfbrettd7655fr4n2y
       astro: 1.0.0-rc.2
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
@@ -1757,6 +1759,25 @@ packages:
 
   /@tanstack/query-core/4.3.4:
     resolution: {integrity: sha512-NLAe3j5Vk1yYEtoPP5fPGPjRzkZPx67KUM3f14L3InziJZJ0wVecCh7uKfgYkbRKJSeq6PlbND7iuCGdTplN6Q==}
+    dev: false
+
+  /@tanstack/react-query/4.0.10_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-Wn5QhZUE5wvr6rGClV7KeQIUsdTmYR9mgmMZen7DSRWauHW2UTynFg3Kkf6pw+XlxxOLsyLWwz/Q6q1lSpM3TQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 4.3.4
+      '@types/use-sync-external-store': 0.0.3
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      use-sync-external-store: 1.2.0_react@18.2.0
     dev: false
 
   /@tanstack/react-query/4.0.10_react@18.2.0:
