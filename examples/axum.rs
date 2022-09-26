@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
 use axum::{extract::Path, routing::get};
@@ -12,9 +12,12 @@ struct Ctx {}
 #[tokio::main]
 async fn main() {
     let router = rspc::Router::<Ctx>::new()
-        .config(Config::new().export_ts_bindings("./packages/example/bindings.ts"))
+        .config(Config::new().export_ts_bindings(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./packages/example/bindings.ts"),
+        ))
         .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
+        .query("echo2", |t| t(|ctx, _: i32| async move { 42 }))
         .query("error", |t| {
             t(|_, _: ()| {
                 Err(rspc::Error::new(

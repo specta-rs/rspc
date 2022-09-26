@@ -1,27 +1,31 @@
-import { ClientTransformer, ProcedureKey, OperationType, RSPCError } from ".";
-
+// TODO: Redo this entire system when links are introduced
 // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
+import { OperationType, RSPCError } from ".";
 
+// TODO
 export interface Transport {
-  transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
-  doRequest(operation: OperationType, key: ProcedureKey): Promise<any>;
+  doRequest(operation: OperationType, key: string, input: any): Promise<any>;
 }
 
+// TODO
 export class FetchTransport implements Transport {
   private url: string;
-  transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
   constructor(url: string) {
     this.url = url;
   }
 
-  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: any
+  ): Promise<any> {
     if (operation === "subscription" || operation === "subscriptionStop") {
       throw new Error(
-        `Subscribing to '${key[0]}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
+        `Subscribing to '${key}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
       );
     }
 
@@ -30,19 +34,18 @@ export class FetchTransport implements Transport {
     let headers = new Headers();
 
     const params = new URLSearchParams();
-    key = this.transformer?.serialize(operation, key) || key;
     if (operation === "query") {
-      if (key[1] !== undefined) {
-        params.append("input", JSON.stringify(key[1]));
+      if (input !== undefined) {
+        params.append("input", JSON.stringify(input));
       }
     } else if (operation === "mutation") {
       method = "POST";
-      body = JSON.stringify(key[1] || {});
+      body = JSON.stringify(input || {});
       headers.set("Content-Type", "application/json");
     }
     const paramsStr = params.toString();
     const resp = await fetch(
-      `${this.url}/${key[0]}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
+      `${this.url}/${key}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
       {
         method,
         body,
@@ -50,13 +53,13 @@ export class FetchTransport implements Transport {
       }
     );
 
-    const respBody = (await resp.json())[0]; // TODO: Batching
+    const respBody = (await resp.json())[0];
     const { type, result } = respBody;
     if (type === "error") {
       const { status_code, message } = respBody;
       throw new RSPCError(status_code, message);
     }
-    return this.transformer?.deserialize(operation, key, result) || result;
+    return result;
   }
 }
 
@@ -68,7 +71,6 @@ export class WebsocketTransport implements Transport {
   private url: string;
   private ws: WebSocket;
   private requestMap = new Map<string, (data: any) => void>();
-  transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
   constructor(url: string) {
@@ -82,7 +84,8 @@ export class WebsocketTransport implements Transport {
       const body = JSON.parse(event.data);
       if (body.type === "event") {
         const { id, key, result } = body;
-        this.clientSubscriptionCallback(id, key, result);
+        if (this.clientSubscriptionCallback)
+          this.clientSubscriptionCallback(id, key, result);
       } else if (body.type === "response") {
         const { id, result } = body;
         if (this.requestMap.has(id)) {
@@ -124,7 +127,11 @@ export class WebsocketTransport implements Transport {
     }, timeout);
   }
 
-  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: any
+  ): Promise<any> {
     if (this.ws.readyState == 0) {
       let resolve: () => void;
       const promise = new Promise((res) => {
@@ -144,14 +151,13 @@ export class WebsocketTransport implements Transport {
     // @ts-ignore
     this.requestMap.set(id, resolve);
 
-    const key2 = this.transformer?.serialize(operation, key) || key;
     this.ws.send(
       JSON.stringify({
         id,
         method: operation,
         params: {
-          path: key2[0],
-          input: key2[1],
+          path: key,
+          input,
         },
       })
     );
@@ -161,14 +167,22 @@ export class WebsocketTransport implements Transport {
       const { status_code, message } = body;
       throw new RSPCError(status_code, message);
     } else if (body.type === "response") {
-      return (
-        this.transformer?.deserialize(operation, key, body.result) ||
-        body.result
-      );
+      return body.result;
     } else {
       throw new Error(
         `RSPC Websocket doRequest received invalid body type '${body?.type}'`
       );
     }
   }
+}
+
+// TODO
+export class NoOpTransport implements Transport {
+  constructor() {}
+
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: string
+  ): Promise<any> {}
 }

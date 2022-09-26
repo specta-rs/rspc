@@ -1,162 +1,244 @@
-import { createContext, useContext } from "solid-js";
+import { JSX, createContext, useContext as _useContext } from "solid-js";
 import {
   Client,
+  inferInfiniteQueries,
+  inferInfiniteQueryResult,
+  inferMutationInput,
   inferMutationResult,
-  inferProcedureKey,
+  inferProcedures,
+  inferQueryInput,
   inferQueryResult,
-  Procedures,
+  inferSubscriptionResult,
+  ProceduresDef,
   RSPCError,
+  _inferInfiniteQueryProcedureHandlerInput,
+  _inferProcedureHandlerInput,
 } from "@rspc/client";
 import {
   QueryClient,
-  QueryObserverOptions,
-  QueryObserverResult,
-  MutationObserverResult,
-  MutationObserverOptions,
-  MutateFunction,
-} from "@tanstack/query-core";
-import {
-  createQuery as _createQuery,
-  createMutation as _createMutation,
-} from "@adeora/solid-query";
-import { inferMutationInput } from "@rspc/client";
+  CreateQueryOptions,
+  CreateQueryResult,
+  createQuery as __createQuery,
+  createInfiniteQuery as __createInfiniteQuery,
+  createMutation as __createMutation,
+  CreateInfiniteQueryOptions,
+  CreateInfiniteQueryResult,
+  CreateMutationOptions,
+  CreateMutationResult,
+  hashQueryKey,
+} from "@tanstack/solid-query";
 
-export { QueryClient } from "@tanstack/query-core";
+export interface BaseOptions<TProcedures extends ProceduresDef> {
+  rspc?: {
+    client?: Client<TProcedures>;
+  };
+}
 
-declare type CreateMutateFunction<
-  TData = unknown,
-  TError = unknown,
-  TVariables = void,
-  TContext = unknown
-> = (
-  ...args: Parameters<MutateFunction<TData, TError, TVariables, TContext>>
-) => void;
+export interface SubscriptionOptions<TOutput> {
+  enabled?: boolean;
+  onStarted?: () => void;
+  onData: (data: TOutput) => void;
+  onError?: (err: RSPCError) => void;
+}
 
-declare type CreateMutateAsyncFunction<
-  TData = unknown,
-  TError = unknown,
-  TVariables = void,
-  TContext = unknown
-> = MutateFunction<TData, TError, TVariables, TContext>;
-
-declare type Override<A, B> = {
-  [K in keyof A]: K extends keyof B ? B[K] : A[K];
-};
-
-interface Context<T extends Procedures> {
-  client: Client<T>;
+interface Context<TProcedures extends ProceduresDef> {
+  client: Client<TProcedures>;
   queryClient: QueryClient;
 }
 
-export function createSolidQueryHooks<Operations extends Procedures>() {
-  const rspcCtx = createContext<Context<Operations>>(undefined!);
-  const ReactQueryContext = createContext<QueryClient>(undefined!);
+export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
+  type TProcedures = inferProcedures<TProceduresLike>;
+  type TBaseOptions = BaseOptions<TProcedures>;
 
-  function useRspcContext() {
-    const ctx = useContext(rspcCtx);
-    if (ctx?.queryClient === undefined) throw new Error("The rspc "); // TODO: Error msg
+  const Context = createContext<Context<TProcedures>>(undefined!);
+
+  function useContext() {
+    const ctx = _useContext(Context);
+    if (ctx?.queryClient === undefined)
+      throw new Error(
+        "The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree."
+      );
     return ctx;
   }
 
-  function createQuery<K extends Operations["queries"]["key"][0]>(
-    key: inferProcedureKey<Operations, "queries", K>,
-    options?: Omit<
-      QueryObserverOptions<inferQueryResult<Operations, K>, RSPCError>,
-      "queryKey" | "queryFn" | "initialData"
-    > & {
-      initialData?: () => undefined;
-    } & {
-      rspc?: {
-        client?: Client<Operations>;
-      };
+  function createQuery<
+    K extends TProcedures["queries"]["key"] & string,
+    TQueryFnData = inferQueryResult<TProcedures, K>,
+    TData = inferQueryResult<TProcedures, K>
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+    ],
+    opts?: Omit<
+      CreateQueryOptions<
+        TQueryFnData,
+        RSPCError,
+        TData,
+        () => [K, inferQueryInput<TProcedures, K>]
+      >,
+      "queryKey" | "queryFn"
+    > &
+      TBaseOptions
+  ): CreateQueryResult<TData, RSPCError> {
+    const { rspc, ...rawOpts } = opts ?? {};
+    let client = rspc?.client;
+    if (!client) {
+      client = useContext().client;
     }
-  ): QueryObserverResult<inferQueryResult<Operations, K>, RSPCError> {
-    const ctx = useRspcContext();
-    // @ts-ignore // TODO
-    return _createQuery(
-      () => key,
-      async () => (options?.rspc?.client || ctx.client).query(key), // TODO: Put this feature of providing custom client into React version
-      // @ts-ignore // TODO
-      {
-        ...options,
-        context: ReactQueryContext,
-      }
+
+    return __createQuery(
+      () => keyAndInput,
+      async () => client!.query(keyAndInput[0], keyAndInput[1]),
+      rawOpts as any
     );
   }
 
-  function createMutation<K extends Operations["mutations"]["key"][0]>(
-    key: K,
-    options?: Omit<
-      MutationObserverOptions<
-        inferMutationResult<Operations, K>,
+  function createInfiniteQuery<
+    K extends inferInfiniteQueries<TProcedures>["key"] & string
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: _inferInfiniteQueryProcedureHandlerInput<TProcedures, K>
+    ],
+    opts?: Omit<
+      CreateInfiniteQueryOptions<
+        inferInfiniteQueryResult<TProcedures, K>,
         RSPCError,
-        inferMutationInput<Operations, K>
+        inferInfiniteQueryResult<TProcedures, K>,
+        inferInfiniteQueryResult<TProcedures, K>,
+        () => [K, inferQueryInput<TProcedures, K>]
       >,
-      "mutationKey" | "mutationFn" | "_defaulted" | "variables"
-    > & {
-      initialData?: () => undefined;
-    } & {
-      rspc?: {
-        client?: Client<Operations>;
-      };
+      "queryKey" | "queryFn"
+    > &
+      TBaseOptions
+  ): CreateInfiniteQueryResult<
+    inferInfiniteQueryResult<TProcedures, K>,
+    RSPCError
+  > {
+    const { rspc, ...rawOpts } = opts ?? {};
+    let client = rspc?.client;
+    if (!client) {
+      client = useContext().client;
     }
-  ): Override<
-    MutationObserverResult<
-      inferMutationResult<Operations, K>,
-      RSPCError,
-      inferMutationInput<Operations, K>
-    >,
-    {
-      mutate: CreateMutateFunction<
-        inferMutationResult<Operations, K>,
-        RSPCError,
-        inferMutationInput<Operations, K>
-      >;
-    }
-  > & {
-    mutateAsync: CreateMutateAsyncFunction<
-      inferMutationResult<Operations, K>,
-      RSPCError,
-      inferMutationInput<Operations, K>
-    >;
-  } {
-    const ctx = useRspcContext();
-    return _createMutation(
-      async (data) =>
-        (options?.rspc?.client || ctx.client).mutation([key, data]),
-      {
-        ...options,
-        context: ReactQueryContext,
-      }
+
+    return __createInfiniteQuery(
+      () => keyAndInput,
+      async () => {
+        throw new Error("TODO"); // TODO: Finish this
+      },
+      rawOpts as any
     );
+  }
+
+  function createMutation<
+    K extends TProcedures["mutations"]["key"] & string,
+    TContext = unknown
+  >(
+    key: K | [K],
+    opts?: CreateMutationOptions<
+      inferMutationResult<TProcedures, K>,
+      RSPCError,
+      inferMutationInput<TProcedures, K> extends never
+        ? undefined
+        : inferMutationInput<TProcedures, K>,
+      TContext
+    > &
+      TBaseOptions
+  ): CreateMutationResult<
+    inferMutationResult<TProcedures, K>,
+    RSPCError,
+    inferMutationInput<TProcedures, K> extends never
+      ? undefined
+      : inferMutationInput<TProcedures, K>,
+    TContext
+  > {
+    const { rspc, ...rawOpts } = opts ?? {};
+    let client = rspc?.client;
+    if (!client) {
+      client = useContext().client;
+    }
+
+    return __createMutation(async (input) => {
+      const actualKey = Array.isArray(key) ? key[0] : key;
+      return client!.mutation(actualKey, input);
+    }, rawOpts as any);
+  }
+
+  function createSubscription<
+    K extends TProcedures["subscriptions"]["key"] & string,
+    TData = inferSubscriptionResult<TProcedures, K>
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+    ],
+    opts: SubscriptionOptions<TData> & TBaseOptions
+  ) {
+    let client = opts?.rspc?.client;
+    if (!client) {
+      client = useContext().client;
+    }
+    const queryKey = hashQueryKey(keyAndInput);
+    const enabled = opts?.enabled ?? true;
+
+    throw new Error("TODO: SolidJS Subscriptions are not supported yet!");
+
+    // return useEffect(() => {
+    //   if (!enabled) {
+    //     return;
+    //   }
+    //   let isStopped = false;
+    //   const unsubscribe = client.addSubscription<K, TData>(
+    //     keyAndInput[0],
+    //     keyAndInput[1],
+    //     {
+    //       onStarted: () => {
+    //         if (!isStopped) {
+    //           opts.onStarted?.();
+    //         }
+    //       },
+    //       onData: (data) => {
+    //         if (!isStopped) {
+    //           opts.onData(data);
+    //         }
+    //       },
+    //       onError: (err) => {
+    //         if (!isStopped) {
+    //           opts.onError?.(err);
+    //         }
+    //       },
+    //     }
+    //   );
+    //   return () => {
+    //     isStopped = true;
+    //     unsubscribe();
+    //   };
+    // }, [queryKey, enabled]);
   }
 
   return {
-    _rspc_def: undefined as Operations, // This allows inferring the operations type from TS helpers
+    _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
     Provider: (props: {
-      children?: any; // TODO: JSX.Element;
-      client: Client<Operations>;
+      children?: JSX.Element;
+      client: Client<TProcedures>;
       queryClient: QueryClient;
-    }) => {
+    }): JSX.Element => {
       return (
-        <rspcCtx.Provider
+        <Context.Provider
           value={{
             client: props.client,
             queryClient: props.queryClient,
           }}
         >
-          <ReactQueryContext.Provider value={props.queryClient}>
-            {props.children}
-          </ReactQueryContext.Provider>
-        </rspcCtx.Provider>
-      );
+          {props.children as any}
+        </Context.Provider>
+      ) as any;
     },
-    ctx: rspcCtx,
-    ReactQueryContext,
+    useContext,
     createQuery,
+    createInfiniteQuery,
     createMutation,
-    // useSubscription, // TODO
-    // useDehydratedState, // TODO
-    // useInfiniteQuery, // TODO
+    createSubscription,
   };
 }

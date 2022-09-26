@@ -99,7 +99,31 @@ where
     }
 }
 
-pub struct MiddlewareRef<TLayerCtx>(pub PhantomData<TLayerCtx>);
+pub struct MiddlewareBuilder<TLayerCtx>(pub PhantomData<TLayerCtx>)
+where
+    TLayerCtx: Send;
+
+impl<TLayerCtx> MiddlewareBuilder<TLayerCtx>
+where
+    TLayerCtx: Send,
+{
+    pub fn middleware<TState, TNewCtx, THandlerFunc, THandlerFut>(
+        &self,
+        handler: THandlerFunc,
+    ) -> Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
+    where
+        TState: Send,
+        THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+        THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+            + Send
+            + 'static,
+    {
+        Middleware {
+            handler,
+            phantom: PhantomData,
+        }
+    }
+}
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
     Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
@@ -111,13 +135,6 @@ where
         + Send
         + 'static,
 {
-    pub fn new(mw: MiddlewareRef<TLayerCtx>, handler: THandlerFunc) -> Self {
-        Self {
-            handler,
-            phantom: PhantomData,
-        }
-    }
-
     pub fn resp<TRespHandlerFunc, TRespHandlerFut>(
         self,
         handler: TRespHandlerFunc,

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rspc::{Config, ErrorCode, Middleware, Router};
+use rspc::{Config, ErrorCode, Middleware, MiddlewareContext, Router};
 
 #[derive(Debug, Clone)]
 pub struct UnauthenticatedContext {
@@ -32,7 +32,7 @@ async fn main() {
             ))
             // Auth middleware
             .middleware(|mw| {
-                Middleware::new(mw, |mw| async move {
+                mw.middleware(|mw| async move {
                     match mw.ctx.session_id {
                         Some(ref session_id) => {
                             let user = db_get_user_from_session(session_id).await;
@@ -53,7 +53,7 @@ async fn main() {
             })
             // Logger middleware
             .middleware(|mw| {
-                Middleware::new(mw, |mw| async move {
+                mw.middleware(|mw| async move {
                     let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
                     Ok(mw.with_state(state))
                 })
@@ -71,5 +71,16 @@ async fn main() {
                     "Another Result!"
                 })
             })
+            // Reject all middleware
+            .middleware(|mw| {
+                mw.middleware(|mw| async move {
+                    Err(rspc::Error::new(
+                        ErrorCode::Unauthorized,
+                        "Unauthorized".into(),
+                    )) as Result<MiddlewareContext<_>, _>
+                })
+            })
+            // Plugin middleware
+            // .middleware(|mw| mw.openapi(OpenAPIConfig {}))
             .build();
 }

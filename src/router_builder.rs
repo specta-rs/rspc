@@ -6,10 +6,10 @@ use specta::{Type, TypeDefs};
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilder, MiddlewareLayerBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    Config, DoubleArgStreamMarker, ExecError, MiddlewareLike, MiddlewareRef, RequestLayer,
+    Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer,
     Resolver, Router, StreamResolver,
 };
 
@@ -20,7 +20,7 @@ pub struct RouterBuilder<
 > where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
-    TMiddleware: MiddlewareBuilder<TCtx> + Send + 'static,
+    TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
     config: Config,
     middleware: TMiddleware,
@@ -72,7 +72,7 @@ where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
     TLayerCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
@@ -82,7 +82,7 @@ where
 
     pub fn middleware<TNewMiddleware, TNewLayerCtx>(
         self,
-        builder: impl Fn(MiddlewareRef<TLayerCtx>) -> TNewMiddleware,
+        builder: impl Fn(MiddlewareBuilder<TLayerCtx>) -> TNewMiddleware,
     ) -> RouterBuilder<
         TCtx,
         TMeta,
@@ -102,7 +102,7 @@ where
             ..
         } = self;
 
-        let mw = builder(MiddlewareRef(PhantomData));
+        let mw = builder(MiddlewareBuilder(PhantomData));
         RouterBuilder {
             config,
             middleware: MiddlewareLayerBuilder {
@@ -222,7 +222,7 @@ where
     where
         TNewLayerCtx: 'static,
         TIncomingMiddleware:
-            MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
+            MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
         if prefix == "" || prefix.starts_with("rpc.") {
             panic!(

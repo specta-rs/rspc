@@ -1,18 +1,10 @@
-import {
-  randomId,
-  ClientTransformer,
-  ProcedureKey,
-  OperationType,
-  Transport,
-  RSPCError,
-} from "@rspc/client";
+import { randomId, OperationType, Transport, RSPCError } from "@rspc/client";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 
 export class TauriTransport implements Transport {
   private requestMap = new Map<string, (data: any) => void>();
   private listener?: Promise<UnlistenFn>;
-  transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
   constructor() {
@@ -20,7 +12,8 @@ export class TauriTransport implements Transport {
       const body = event.payload as any;
       if (body.type === "event") {
         const { id, key, result } = body;
-        this.clientSubscriptionCallback(id, key, result);
+        if (this.clientSubscriptionCallback)
+          this.clientSubscriptionCallback(id, key, result);
       } else if (body.type === "response") {
         const { id, result } = body;
         if (this.requestMap.has(id)) {
@@ -39,7 +32,11 @@ export class TauriTransport implements Transport {
     });
   }
 
-  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: any
+  ): Promise<any> {
     if (!this.listener) {
       await this.listener;
     }
@@ -56,7 +53,7 @@ export class TauriTransport implements Transport {
     await appWindow.emit("plugin:rspc:transport", {
       id,
       operation,
-      key: this.transformer?.serialize(operation, key) || key,
+      key: [key, input], // TODO: Split the params into different fields on the object
     });
 
     const body = (await promise) as any;
@@ -64,10 +61,7 @@ export class TauriTransport implements Transport {
       const { status_code, message } = body;
       throw new RSPCError(status_code, message);
     } else if (body.type === "response") {
-      return (
-        this.transformer?.deserialize(operation, key, body.result) ||
-        body.result
-      );
+      return body.result;
     } else {
       throw new Error(
         `RSPC Tauri doRequest received invalid body type '${body?.type}'`

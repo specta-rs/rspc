@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rspc::{Config, Operation, Router};
+use rspc::{Config, Router};
 use serde_json::json;
 
 #[tokio::main]
@@ -12,23 +12,23 @@ async fn main() {
             .config(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
             ))
-            .middleware(|ctx| async move { ctx.next(42).await })
+            .middleware(|mw| mw.middleware(|ctx| async move { return Ok(ctx.with_ctx(42)) })) // TODO
             .query("version", |t| t(|_, _: ()| "0.1.0"))
             .merge("r1.", r1)
             .build();
 
     // You usually don't use this method directly. An integration will handle this for you. Check out the Axum and Tauri integrations to see how to use them!
-    let v = r
-        .execute((), Operation::Query, "version".into(), None)
-        .await
-        .unwrap();
-    println!("{:?}", v);
-    assert_eq!(v, json!("0.1.0"));
+    // let v = r
+    //     .execute((), Operation::Query, "version".into(), None)
+    //     .await
+    //     .unwrap();
+    // println!("{:?}", v);
+    // assert_eq!(v, json!("0.1.0"));
 
-    let v = r
-        .execute((), Operation::Query, "r1.demo".into(), None)
-        .await
-        .unwrap();
-    println!("{:?}", v);
-    assert_eq!(v, json!("Merging Routers!"));
+    // let v = r
+    //     .execute((), Operation::Query, "r1.demo".into(), None)
+    //     .await
+    //     .unwrap();
+    // println!("{:?}", v);
+    // assert_eq!(v, json!("Merging Routers!"));
 }

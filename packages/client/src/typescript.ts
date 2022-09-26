@@ -6,25 +6,22 @@ export type OperationType =
   | "subscriptionStop";
 
 /**
- * The key to an operation
- */
-export type ProcedureKey = [string] | [string, /* input */ any];
-
-/**
  * This type represents the Typescript bindings which are generated from the router by Rust.
  */
-export type Procedures = {
-  queries: { key: ProcedureKey; result: any };
-  mutations: { key: ProcedureKey; result: any };
-  subscriptions: { key: ProcedureKey; result: any };
+export type ProceduresDef = {
+  queries: { key: string; input: any; result: any };
+  mutations: { key: string; input: any; result: any };
+  subscriptions: { key: string; input: any; result: any };
 };
 
 /**
  * A type which allows inferring the type of the bindings
  */
-export type ProcedureLike = {
-  _rspc_def: Procedures;
-};
+export type ProceduresLike =
+  | {
+      _rspc_def: ProceduresDef;
+    }
+  | ProceduresDef;
 
 /**
  * This is a helper method to infer the type of bindings for this router off other rspc types.
@@ -33,73 +30,117 @@ export type ProcedureLike = {
  * const rspc = createReactQueryHooks<Operations>();
  * type Bindings = inferBindingsType<typeof rspc>
  */
-export type inferBindingsType<TBindings extends Procedures | ProcedureLike> =
-  TBindings extends ProcedureLike ? TBindings["_rspc_def"] : TBindings;
-
-// TODO
-export type procedureKey<T extends string> = [T] | [T, /* input */ any];
-
-// TODO
-export type inferProcedureResult<
-  TBindings extends Procedures | ProcedureLike,
-  TOperation extends keyof Procedures,
-  T extends inferBindingsType<TBindings>[TOperation]["key"][0]
-> = Extract<
-  inferBindingsType<TBindings>[TOperation],
-  { key: procedureKey<T> }
->["result"];
+export type inferProcedures<TProcedures extends ProceduresLike> =
+  TProcedures extends { _rspc_def: ProceduresDef }
+    ? TProcedures["_rspc_def"]
+    : TProcedures;
 
 // TODO
 export type inferProcedureKey<
-  TBindings extends Procedures | ProcedureLike,
-  TOperation extends keyof Procedures,
-  T extends inferBindingsType<TBindings>[TOperation]["key"][0]
-> = Extract<
-  inferBindingsType<TBindings>[TOperation],
-  { key: procedureKey<T> }
->["key"];
+  TProcedures extends ProceduresLike,
+  TOperation extends keyof ProceduresDef
+> = inferProcedures<TProcedures>[TOperation]["key"];
+
+// TODO
+export type inferProcedure<
+  TProcedures extends ProceduresLike,
+  TOperation extends keyof ProceduresDef,
+  K extends inferProcedureKey<TProcedures, TOperation>
+> = Extract<inferProcedures<TProcedures>[TOperation], { key: K }>;
 
 // TODO
 export type inferProcedureInput<
-  TBindings extends Procedures | ProcedureLike,
-  TOperation extends keyof Procedures,
-  T extends inferBindingsType<TBindings>[TOperation]["key"][0]
-> = inferProcedureKey<TBindings, TOperation, T>[1];
+  TProcedures extends ProceduresLike,
+  TOperation extends keyof ProceduresDef,
+  K extends inferProcedureKey<TProcedures, TOperation>
+> = inferProcedure<TProcedures, TOperation, K>["input"];
 
 // TODO
-export type inferQueryResult<
-  TBindings extends Procedures | ProcedureLike,
-  T extends inferBindingsType<TBindings>["queries"]["key"][0]
-> = inferProcedureResult<inferBindingsType<TBindings>, "queries", T>;
+export type inferProcedureResult<
+  TProcedures extends ProceduresLike,
+  TOperation extends keyof ProceduresDef,
+  K extends inferProcedureKey<TProcedures, TOperation>
+> = inferProcedure<TProcedures, TOperation, K>["result"];
+
+// TODO
+export type _inferProcedureHandlerInput<
+  TProcedures extends ProceduresLike,
+  TOperation extends keyof ProceduresDef,
+  K extends inferProcedures<TProcedures>[TOperation]["key"]
+> = inferProcedure<TProcedures, TOperation, K>["input"] extends never
+  ? []
+  : [inferProcedure<TProcedures, TOperation, K>["input"]];
 
 // TODO
 export type inferQueryInput<
-  TBindings extends Procedures | ProcedureLike,
-  T extends inferBindingsType<TBindings>["queries"]["key"][0]
-> = inferProcedureInput<inferBindingsType<TBindings>, "queries", T>;
+  TProcedures extends ProceduresLike,
+  T extends inferProcedures<TProcedures>["queries"]["key"][0]
+> = inferProcedureInput<inferProcedures<TProcedures>, "queries", T>;
 
 // TODO
-export type inferMutationResult<
-  TBindings extends Procedures | ProcedureLike,
-  T extends inferBindingsType<TBindings>["mutations"]["key"][0]
-> = inferProcedureResult<inferBindingsType<TBindings>, "mutations", T>;
+export type inferQueryResult<
+  TProcedures extends ProceduresLike,
+  T extends inferProcedures<TProcedures>["queries"]["key"][0]
+> = inferProcedureResult<inferProcedures<TProcedures>, "queries", T>;
 
 // TODO
 export type inferMutationInput<
-  TBindings extends Procedures | ProcedureLike,
-  T extends inferBindingsType<TBindings>["mutations"]["key"][0]
-> = inferProcedureInput<inferBindingsType<TBindings>, "mutations", T>;
+  TProcedures extends ProceduresLike,
+  T extends inferProcedures<TProcedures>["mutations"]["key"][0]
+> = inferProcedureInput<inferProcedures<TProcedures>, "mutations", T>;
 
 // TODO
-export type inferSubscriptionResult<
-  TBindings extends Procedures | ProcedureLike,
-  T extends inferBindingsType<TBindings>["subscriptions"]["key"][0]
-> = inferProcedureResult<inferBindingsType<TBindings>, "subscriptions", T>;
+export type inferMutationResult<
+  TProcedures extends ProceduresLike,
+  T extends inferProcedures<TProcedures>["mutations"]["key"][0]
+> = inferProcedureResult<inferProcedures<TProcedures>, "mutations", T>;
 
 // TODO
 export type inferSubscriptionInput<
-  TBindings extends Procedures | ProcedureLike,
-  T extends inferBindingsType<TBindings>["subscriptions"]["key"][0]
-> = inferProcedureInput<inferBindingsType<TBindings>, "subscriptions", T>;
+  TProcedures extends ProceduresLike,
+  T extends inferProcedures<TProcedures>["subscriptions"]["key"][0]
+> = inferProcedureInput<inferProcedures<TProcedures>, "subscriptions", T>;
+
+// TODO
+export type inferSubscriptionResult<
+  TProcedures extends ProceduresLike,
+  T extends inferProcedures<TProcedures>["subscriptions"]["key"][0]
+> = inferProcedureResult<inferProcedures<TProcedures>, "subscriptions", T>;
+
+// TODO
+
+export type inferInfiniteQueries<TProcedures extends ProceduresLike> = Exclude<
+  Extract<inferProcedures<TProcedures>["queries"], { input: { cursor: any } }>,
+  { input: never }
+>;
+
+// TODO
+export type inferInfiniteQuery<
+  TProcedures extends ProceduresLike,
+  K extends inferInfiniteQueries<TProcedures>["key"]
+> = Extract<inferInfiniteQueries<TProcedures>, { key: K }>;
+
+// TODO
+type EmptyObjToNever<T> = keyof T extends never ? never : T;
+export type inferInfiniteQueryInput<
+  TProcedures extends ProceduresLike,
+  K extends inferInfiniteQueries<TProcedures>["key"]
+> = EmptyObjToNever<
+  Omit<inferInfiniteQuery<TProcedures, K>["input"], "cursor">
+>;
+
+// TODO
+export type inferInfiniteQueryResult<
+  TProcedures extends ProceduresLike,
+  K extends inferInfiniteQueries<TProcedures>["key"]
+> = inferInfiniteQuery<TProcedures, K>["result"];
+
+// TODO
+export type _inferInfiniteQueryProcedureHandlerInput<
+  TProcedures extends ProceduresLike,
+  K extends inferInfiniteQueries<TProcedures>["key"]
+> = inferInfiniteQueryInput<TProcedures, K> extends never
+  ? []
+  : [inferInfiniteQueryInput<TProcedures, K>];
 
 // TODO: Extracting subset of operations by name or some shared key

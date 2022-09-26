@@ -1,15 +1,16 @@
 /** @jsxImportSource solid-js */
 
 import { createClient, FetchTransport } from "@rspc/client";
-import { createSolidQueryHooks, QueryClient } from "@rspc/solid";
-import { Operations } from "../../bindings";
+import { createSolidQueryHooks } from "@rspc/solid";
+import { QueryClient } from "@tanstack/solid-query";
+import { Procedures } from "../../bindings";
 
 const fetchQueryClient = new QueryClient();
-const fetchClient = createClient<Operations>({
+const fetchClient = createClient<Procedures>({
   transport: new FetchTransport("http://localhost:4000/rspc"),
 });
 
-const rspc = createSolidQueryHooks<Operations>();
+const rspc = createSolidQueryHooks<Procedures>();
 
 function Example() {
   const echo = rspc.createQuery(["echo", "somevalue"]);

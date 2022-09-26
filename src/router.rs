@@ -148,7 +148,7 @@ where
         writeln!(
             file,
             r#"
-export type Operations = {{
+export type Procedures = {{
     queries: {queries_ts},
     mutations: {mutations_ts},
     subscriptions: {subscriptions_ts}
@@ -186,21 +186,21 @@ fn generate_procedures_ts<Ctx>(procedures: &BTreeMap<String, Procedure<Ctx>>) ->
         _ => procedures
             .iter()
             .map(|(key, operation)| {
-                let arg_ts = match &operation.ty.arg_ty {
+                let input = match &operation.ty.arg_ty {
                     DataType::Tuple(def)
                         // This condition is met with an empty enum or `()`.
                         if def.fields.len() == 0 =>
                     {
-                        "".into()
+                        "never".into()
                     }
-                    ty => format!(", {}", to_ts(ty)),
+                    ty => to_ts(ty),
                 };
                 let result_ts = to_ts(&operation.ty.result_ty);
 
                 // TODO: Specta API
                 format!(
                     r#"
-        {{ key: ["{key}"{arg_ts}], result: {result_ts} }}"#
+        {{ key: "{key}", input: {input}, result: {result_ts} }}"#
                 )
             })
             .collect::<Vec<_>>()

@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::{ExecError, MiddlewareLike};
 
-pub trait MiddlewareBuilder<TCtx> {
+pub trait MiddlewareBuilderLike<TCtx> {
     type LayerContext: 'static;
 
     fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
@@ -15,22 +15,22 @@ pub trait MiddlewareBuilder<TCtx> {
 
 pub struct MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
 where
-    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx>,
-    TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx>,
+    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx>,
+    TIncomingMiddleware: MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx>,
 {
     pub middleware: TMiddleware,
     pub middleware2: TIncomingMiddleware,
     pub phantom: PhantomData<(TCtx, TLayerCtx)>,
 }
 
-impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware> MiddlewareBuilder<TCtx>
+impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware> MiddlewareBuilderLike<TCtx>
     for MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
 where
     TCtx: 'static,
     TLayerCtx: 'static,
     TNewLayerCtx: 'static,
-    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx>,
-    TIncomingMiddleware: MiddlewareBuilder<TLayerCtx, LayerContext = TNewLayerCtx>,
+    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx>,
+    TIncomingMiddleware: MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx>,
 {
     type LayerContext = TNewLayerCtx;
 
@@ -47,7 +47,7 @@ where
     TCtx: Send + Sync + 'static,
     TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx>,
 {
     pub middleware: TMiddleware,
@@ -55,13 +55,13 @@ where
     pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx)>,
 }
 
-impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> MiddlewareBuilder<TCtx>
+impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> MiddlewareBuilderLike<TCtx>
     for MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
     TCtx: Send + Sync + 'static,
     TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilder<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     type LayerContext = TNewLayerCtx;
@@ -121,7 +121,7 @@ where
     }
 }
 
-impl<TCtx> MiddlewareBuilder<TCtx> for BaseMiddleware<TCtx>
+impl<TCtx> MiddlewareBuilderLike<TCtx> for BaseMiddleware<TCtx>
 where
     TCtx: Send + 'static,
 {

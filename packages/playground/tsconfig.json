@@ -1,9 +1,9 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "esModuleInterop": true,
+    "lib": ["ES2017", "DOM"],
     "jsx": "preserve",
-    "lib": ["ES2017", "DOM"]
+    "jsxImportSource": "solid-js"
   },
-  "include": ["src"]
+  "src": ["src"]
 }
