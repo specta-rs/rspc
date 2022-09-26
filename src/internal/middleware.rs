@@ -200,21 +200,23 @@ pub struct RequestContext {
     pub path: String, // TODO: String slice??
 }
 
-// TODO: Remove?
+pub enum ValueOrStream {
+    Value(Value),
+    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+}
+
 pub enum LayerResult {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
     Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
-    // FutureStreamOrValue(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     Ready(Result<Value, ExecError>),
 }
 
 impl LayerResult {
-    pub(crate) async fn into_value(self) -> Result<Value, ExecError> {
+    pub async fn into_value_or_stream(self) -> Result<ValueOrStream, ExecError> {
         match self {
-            LayerResult::Stream(_stream) => todo!(), // Ok(StreamOrValue::Stream(stream)),
-            LayerResult::Future(fut) => Ok(fut.await?),
-            // LayerResult::FutureStreamOrValue(fut) => Ok(fut.await?),
-            LayerResult::Ready(res) => Ok(res?),
+            LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
+            LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
+            LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
         }
     }
 }

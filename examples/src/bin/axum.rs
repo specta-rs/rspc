@@ -11,7 +11,7 @@ async fn main() {
 
     let router = <rspc::Router>::new()
         .config(Config::new().export_ts_bindings(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./packages/example/bindings.ts"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/example/bindings.ts"),
         ))
         // Basic query
         .query("version", |t| {

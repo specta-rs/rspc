@@ -3,7 +3,10 @@ use std::{future::Future, marker::PhantomData};
 use serde::Serialize;
 use specta::Type;
 
-use crate::{internal::LayerResult, Error, ExecError};
+use crate::{
+    internal::{LayerResult, ValueOrStream},
+    Error, ExecError,
+};
 
 pub trait RequestLayer<TMarker> {
     type Result: Type;
@@ -50,7 +53,15 @@ where
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
         Ok(LayerResult::Future(Box::pin(async move {
-            self.await.into_layer_result()?.into_value().await
+            match self
+                .await
+                .into_layer_result()?
+                .into_value_or_stream()
+                .await?
+            {
+                ValueOrStream::Stream(_) => todo!(),
+                ValueOrStream::Value(v) => Ok(v),
+            }
         })))
     }
 }

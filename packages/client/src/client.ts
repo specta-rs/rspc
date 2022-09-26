@@ -11,7 +11,7 @@ import {
   inferProcedures,
   inferSubscriptionResult,
 } from ".";
-import { Transport } from "./transport";
+import { randomId, Transport } from "./transport";
 
 // TODO
 export interface SubscriptionOptions<TOutput> {
@@ -42,7 +42,7 @@ export class Client<TProcedures extends ProceduresDef> {
 
   constructor(args: ClientArgs) {
     this.transport = args.transport;
-    this.transport.clientSubscriptionCallback = (id, key, value) => {
+    this.transport.clientSubscriptionCallback = (id, value) => {
       const func = this.subscriptionMap?.get(id);
       if (func !== undefined) func(value);
     };
@@ -59,9 +59,8 @@ export class Client<TProcedures extends ProceduresDef> {
     } catch (err) {
       if (this.onError) {
         this.onError(err as RSPCError);
-      } else {
-        throw err;
       }
+      throw err;
     }
   }
 
@@ -74,9 +73,8 @@ export class Client<TProcedures extends ProceduresDef> {
     } catch (err) {
       if (this.onError) {
         this.onError(err as RSPCError);
-      } else {
-        throw err;
       }
+      throw err;
     }
   }
 
@@ -90,7 +88,7 @@ export class Client<TProcedures extends ProceduresDef> {
     opts: SubscriptionOptions<TData>
   ): () => void {
     try {
-      let subscriptionId: string = undefined!;
+      let subscriptionId = randomId();
       let unsubscribed = false;
 
       const cleanup = () => {
@@ -98,21 +96,16 @@ export class Client<TProcedures extends ProceduresDef> {
         if (subscriptionId) {
           this.transport.doRequest(
             "subscriptionStop",
-            subscriptionId,
-            undefined
+            undefined!,
+            subscriptionId
           );
         }
       };
 
-      this.transport.doRequest("subscription", key, input).then((id) => {
-        subscriptionId = id;
-        if (unsubscribed) {
-          cleanup();
-        } else {
-          if (opts.onStarted) opts.onStarted();
-          this.subscriptionMap?.set(subscriptionId, opts.onData);
-        }
-      });
+      this.transport.doRequest("subscription", key, [subscriptionId, input]);
+
+      if (opts.onStarted) opts.onStarted();
+      this.subscriptionMap?.set(subscriptionId, opts.onData);
 
       return () => {
         unsubscribed = true;
@@ -121,8 +114,6 @@ export class Client<TProcedures extends ProceduresDef> {
     } catch (err) {
       if (this.onError) {
         this.onError(err as RSPCError);
-      } else {
-        throw err;
       }
 
       return () => {};

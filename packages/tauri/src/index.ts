@@ -5,15 +5,15 @@ import { appWindow } from "@tauri-apps/api/window";
 export class TauriTransport implements Transport {
   private requestMap = new Map<string, (data: any) => void>();
   private listener?: Promise<UnlistenFn>;
-  clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
+  clientSubscriptionCallback?: (id: string, value: any) => void;
 
   constructor() {
     this.listener = listen("plugin:rspc:transport:resp", (event) => {
       const body = event.payload as any;
       if (body.type === "event") {
-        const { id, key, result } = body;
+        const { id, result } = body;
         if (this.clientSubscriptionCallback)
-          this.clientSubscriptionCallback(id, key, result);
+          this.clientSubscriptionCallback(id, result);
       } else if (body.type === "response") {
         const { id, result } = body;
         if (this.requestMap.has(id)) {
@@ -21,9 +21,9 @@ export class TauriTransport implements Transport {
           this.requestMap.delete(id);
         }
       } else if (body.type === "error") {
-        const { id, message, status_code } = body;
+        const { id, message, code } = body;
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "error", message, status_code });
+          this.requestMap.get(id)?.({ type: "error", message, code });
           this.requestMap.delete(id);
         }
       } else {
@@ -58,8 +58,8 @@ export class TauriTransport implements Transport {
 
     const body = (await promise) as any;
     if (body.type === "error") {
-      const { status_code, message } = body;
-      throw new RSPCError(status_code, message);
+      const { code, message } = body;
+      throw new RSPCError(code, message);
     } else if (body.type === "response") {
       return body.result;
     } else {

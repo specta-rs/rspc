@@ -53,13 +53,13 @@ export class FetchTransport implements Transport {
       }
     );
 
-    const respBody = (await resp.json())[0];
-    const { type, result } = respBody;
+    const respBody = await resp.json();
+    const { type, data } = respBody.result;
     if (type === "error") {
-      const { status_code, message } = respBody;
-      throw new RSPCError(status_code, message);
+      const { code, message } = data;
+      throw new RSPCError(code, message);
     }
-    return result;
+    return data;
   }
 }
 
@@ -71,7 +71,7 @@ export class WebsocketTransport implements Transport {
   private url: string;
   private ws: WebSocket;
   private requestMap = new Map<string, (data: any) => void>();
-  clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
+  clientSubscriptionCallback?: (id: string, value: any) => void;
 
   constructor(url: string) {
     this.url = url;
@@ -81,25 +81,23 @@ export class WebsocketTransport implements Transport {
 
   attachEventListeners() {
     this.ws.addEventListener("message", (event) => {
-      const body = JSON.parse(event.data);
-      if (body.type === "event") {
-        const { id, key, result } = body;
+      const { id, result } = JSON.parse(event.data);
+      if (result.type === "event") {
         if (this.clientSubscriptionCallback)
-          this.clientSubscriptionCallback(id, key, result);
-      } else if (body.type === "response") {
-        const { id, result } = body;
+          this.clientSubscriptionCallback(id, result.data);
+      } else if (result.type === "response") {
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "response", result });
+          this.requestMap.get(id)?.({ type: "response", result: result.data });
           this.requestMap.delete(id);
         }
-      } else if (body.type === "error") {
-        const { id, message, status_code } = body;
+      } else if (result.type === "error") {
+        const { message, code } = result.data;
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "error", message, status_code });
+          this.requestMap.get(id)?.({ type: "error", message, code });
           this.requestMap.delete(id);
         }
       } else {
-        console.error(`Received event of unknown type '${body.type}'`);
+        console.error(`Received event of unknown type '${result.type}'`);
       }
     });
 
@@ -130,7 +128,10 @@ export class WebsocketTransport implements Transport {
   async doRequest(
     operation: OperationType,
     key: string,
-    input: any
+    input: any,
+    opts?: {
+      id?: string;
+    }
   ): Promise<any> {
     if (this.ws.readyState == 0) {
       let resolve: () => void;
@@ -164,8 +165,8 @@ export class WebsocketTransport implements Transport {
 
     const body = (await promise) as any;
     if (body.type === "error") {
-      const { status_code, message } = body;
-      throw new RSPCError(status_code, message);
+      const { code, message } = body;
+      throw new RSPCError(code, message);
     } else if (body.type === "response") {
       return body.result;
     } else {
@@ -184,5 +185,7 @@ export class NoOpTransport implements Transport {
     operation: OperationType,
     key: string,
     input: string
-  ): Promise<any> {}
+  ): Promise<any> {
+    return new Promise(() => {});
+  }
 }

@@ -6,15 +6,15 @@ use httpz::{
     ConcreteRequest, Endpoint, EndpointResult, GenericEndpoint, HttpEndpoint, QueryParms,
 };
 use serde_json::Value;
-use std::{collections::BTreeMap, sync::Arc};
-use tokio::sync::mpsc;
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     internal::{
-        jsonrpc::{self, RequestInner, ResponseInner},
-        Procedure, ProcedureKind, RequestContext,
+        jsonrpc::{self, RequestId, RequestInner, ResponseInner},
+        ProcedureKind, RequestContext, ValueOrStream,
     },
-    Router,
+    ExecError, Router,
 };
 
 struct Ctx<TCtxFn, TCtx, TMeta>
@@ -55,12 +55,8 @@ where
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/rspc/ws") => handle_websocket(ctx_fn(), req, router),
         // TODO: `/jsonrpc` compatible endpoint for both GET and POST & maybe websocket?
-        (&Method::GET, _) => {
-            handle_http(ctx_fn(), ProcedureKind::Query, req, router.queries()).await
-        }
-        (&Method::POST, _) => {
-            handle_http(ctx_fn(), ProcedureKind::Mutation, req, router.mutations()).await
-        }
+        (&Method::GET, _) => handle_http(ctx_fn(), ProcedureKind::Query, req, &router).await,
+        (&Method::POST, _) => handle_http(ctx_fn(), ProcedureKind::Mutation, req, &router).await,
         _ => unreachable!(),
     }
 }
@@ -85,11 +81,11 @@ where
     }
 }
 
-pub async fn handle_http<TCtx>(
+pub async fn handle_http<TCtx, TMeta>(
     ctx: TCtx,
     kind: ProcedureKind,
     req: ConcreteRequest,
-    procedures: &BTreeMap<String, Procedure<TCtx>>,
+    router: &Arc<Router<TCtx, TMeta>>,
 ) -> Result<Response<Vec<u8>>, httpz::Error> {
     let key = match req.uri().path().strip_prefix("/rspc/") {
         Some(key) => key,
@@ -143,102 +139,175 @@ pub async fn handle_http<TCtx>(
         input
     );
 
-    todo!();
+    let mut resp = Sender::Response(None);
+    handle_json_rpc(
+        ctx,
+        jsonrpc::Request {
+            jsonrpc: None,
+            id: RequestId::Null,
+            inner: match kind {
+                ProcedureKind::Query => jsonrpc::RequestInner::Query {
+                    path: key.to_string(),
+                    input,
+                },
+                ProcedureKind::Mutation => jsonrpc::RequestInner::Mutation {
+                    path: key.to_string(),
+                    input,
+                },
+                ProcedureKind::Subscription => todo!(),
+            },
+        },
+        &router,
+        &mut resp,
+    )
+    .await;
+
+    match resp {
+        Sender::Response(Some(resp)) => Ok(Response::builder()
+            .status(StatusCode::OK)
+            .header("Content-Type", "application/json")
+            .body(serde_json::to_vec(&resp).unwrap())
+            .unwrap()),
+        Sender::Response(None) => todo!(),
+        _ => unreachable!(),
+    }
 }
 
-pub async fn handle_json_rpc<TCtx>(
+pub enum Sender<'a> {
+    Channel(
+        (
+            &'a mut mpsc::Sender<jsonrpc::Response>,
+            &'a mut HashMap<RequestId, oneshot::Sender<()>>,
+        ),
+    ),
+    Response(Option<jsonrpc::Response>),
+}
+
+impl<'a> Sender<'a> {
+    pub async fn send(
+        &mut self,
+        resp: jsonrpc::Response,
+    ) -> Result<(), mpsc::error::SendError<jsonrpc::Response>> {
+        match self {
+            Sender::Channel((tx, _)) => tx.send(resp).await?,
+            Sender::Response(o) => *o = Some(resp),
+        }
+
+        Ok(())
+    }
+}
+
+pub async fn handle_json_rpc<TCtx, TMeta>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    operations: &BTreeMap<String, Procedure<TCtx>>,
-) -> Result<jsonrpc::Response, ()>
-where
+    router: &Arc<Router<TCtx, TMeta>>,
+    tx: &mut Sender<'_>,
+) where
     TCtx: 'static,
 {
     if !req.jsonrpc.is_none() && req.jsonrpc.as_deref() != Some("2.0") {
-        // return Err(ExecError::InvalidJsonRpcVersion);
-        todo!();
+        tx.send(jsonrpc::Response {
+            jsonrpc: "2.0",
+            id: req.id.clone(),
+            result: ResponseInner::Error(ExecError::InvalidJsonRpcVersion.into()),
+        })
+        .await
+        .unwrap();
     }
 
-    // TODO: Remove duplication
-    match req.inner {
-        RequestInner::Query { path, input } => {
-            let y = operations
-                .get(&path)
-                // .ok_or(ExecError::OperationNotFound(path))?
-                .unwrap()
-                // .unwrap()
-                .exec
-                .call(
-                    ctx,
-                    input.unwrap_or(Value::Null),
-                    RequestContext {
-                        kind: ProcedureKind::Query,
-                        path,
-                    },
-                )
-                .unwrap()
-                .into_value()
-                .await
-                .unwrap();
-
-            Ok(jsonrpc::Response {
-                jsonrpc: "2.0",
-                id: req.id,
-                inner: ResponseInner::Ok { result: y },
-            })
-        }
-        RequestInner::Mutation { path, input } => {
-            let y = operations
-                .get(&path)
-                // .ok_or(ExecError::OperationNotFound(path))?
-                .unwrap()
-                // .unwrap()
-                .exec
-                .call(
-                    ctx,
-                    input.unwrap_or(Value::Null),
-                    RequestContext {
-                        kind: ProcedureKind::Mutation,
-                        path,
-                    },
-                )
-                .unwrap()
-                .into_value()
-                .await
-                .unwrap();
-
-            Ok(jsonrpc::Response {
-                jsonrpc: "2.0",
-                id: req.id,
-                inner: ResponseInner::Ok { result: y },
-            })
-        }
+    let (path, input, procedures, sub_id) = match req.inner {
+        RequestInner::Query { path, input } => (path, input, router.queries(), None),
+        RequestInner::Mutation { path, input } => (path, input, router.mutations(), None),
         RequestInner::Subscription { path, input } => {
-            // let y = operations
-            //     .get(&path)
-            //     // .ok_or(ExecError::OperationNotFound(path))?
-            //     .unwrap()
-            //     // .unwrap()
-            //     .exec
-            //     .call(
-            //         ctx,
-            //         input.unwrap_or(Value::Null),
-            //         RequestContext {
-            //             kind: ProcedureKind::Mutation,
-            //             path,
-            //         },
-            //     )
-            //     .unwrap()
-            //     .into_value()
-            //     .await
-            //     .unwrap();
+            (path, input.1, router.subscriptions(), Some(input.0))
+        }
+        RequestInner::SubscriptionStop { input } => {
+            match tx {
+                Sender::Channel((_, subscriptions)) => {
+                    subscriptions.remove(&input);
+                }
+                Sender::Response(_) => {}
+            }
 
-            todo!();
+            return;
         }
-        RequestInner::StopSubscription => {
-            todo!();
-        }
-    }
+    };
+
+    let result = match procedures
+        .get(&path)
+        .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
+        .and_then(|v| {
+            v.exec.call(
+                ctx,
+                input.unwrap_or(Value::Null),
+                RequestContext {
+                    kind: ProcedureKind::Query,
+                    path,
+                },
+            )
+        }) {
+        Ok(op) => match op.into_value_or_stream().await {
+            Ok(ValueOrStream::Value(v)) => ResponseInner::Response(v),
+            Ok(ValueOrStream::Stream(mut stream)) => {
+                let (tx, subscriptions) = match tx {
+                    Sender::Channel((tx, subscriptions)) => (tx.clone(), subscriptions),
+                    Sender::Response(_) => {
+                        todo!();
+                    }
+                };
+
+                let id = sub_id.unwrap();
+                if matches!(id, RequestId::Null) {
+                    todo!();
+                } else if subscriptions.contains_key(&id) {
+                    todo!();
+                }
+
+                let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+                subscriptions.insert(id.clone(), shutdown_tx);
+                tokio::spawn(async move {
+                    loop {
+                        tokio::select! {
+                            biased; // Note: Order matters
+                            _ = &mut shutdown_rx => {
+                                #[cfg(feature = "tracing")]
+                                tracing::debug!("Removing subscription with id '{:?}'", id);
+                                break;
+                            }
+                            v = stream.next() => {
+                                match v {
+                                    Some(v) => {
+                                        tx.send(jsonrpc::Response {
+                                            jsonrpc: "2.0",
+                                            id: id.clone(),
+                                            result: ResponseInner::Event(v.unwrap()),
+                                        })
+                                        .await
+                                        .unwrap();
+                                    }
+                                    None => {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return;
+            }
+            Err(err) => ResponseInner::Error(err.into()),
+        },
+        Err(err) => ResponseInner::Error(err.into()),
+    };
+
+    tx.send(jsonrpc::Response {
+        jsonrpc: "2.0",
+        id: req.id,
+        result,
+    })
+    .await
+    .unwrap();
 }
 
 pub fn handle_websocket<TCtx, TMeta>(
@@ -254,8 +323,8 @@ where
     tracing::debug!("Accepting websocket connection");
 
     WebsocketUpgrade::from_req(req, move |mut socket| async move {
-        // let subscriptions = HashMap::new();
-        let (tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
+        let mut subscriptions = HashMap::new();
+        let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
 
         loop {
             tokio::select! {
@@ -268,7 +337,6 @@ where
                         Some(Ok(msg) )=> {
                             match msg {
                                 Message::Text(text) => {
-                                    println!("{:?}", text);
                                     serde_json::from_str::<jsonrpc::Request>(&text)
                                 }
                                 Message::Binary(binary) => {
@@ -282,15 +350,15 @@ where
                             .unwrap() // TODO: Error handling
                         }
                         Some(Err(err)) => {
-                            // #[cfg(feature = "tracing")]
-                            // tracing::error!("Error in websocket: {}", err);
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error in websocket: {}", err);
 
                             todo!();
                         },
                         None => return,
                     };
 
-                    socket.send(Message::Text(serde_json::to_string(&handle_json_rpc(ctx.clone(), req, router.subscriptions()).await.unwrap()).unwrap())).await.unwrap();
+                    handle_json_rpc(ctx.clone(), req, &router, &mut Sender::Channel((&mut tx, &mut subscriptions))).await;
                 }
             }
         }

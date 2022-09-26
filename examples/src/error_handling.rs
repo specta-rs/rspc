@@ -1,7 +1,6 @@
 use std::{error, fmt};
 
-use rspc::{Config, Error, ErrorCode, ExecError, Router, RouterBuilder};
-use serde_json::json;
+use rspc::{Error, ErrorCode, Router, RouterBuilder};
 
 pub enum MyCustomError {
     IAmBroke,

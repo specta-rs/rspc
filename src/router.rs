@@ -7,13 +7,11 @@ use std::{
     sync::Arc,
 };
 
-use futures::Stream;
-use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext},
-    Config, ExecError, ExportError,
+    internal::{Procedure, ProcedureStore},
+    Config, ExportError,
 };
 
 /// TODO
@@ -40,51 +38,51 @@ impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: 'static,
 {
-    pub async fn exec(
-        &self,
-        ctx: TCtx,
-        kind: ExecKind,
-        key: String,
-        input: Option<Value>,
-    ) -> Result<Value, ExecError> {
-        let (operations, kind) = match kind {
-            ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
-            ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
-        };
+    // pub async fn exec(
+    //     &self,
+    //     ctx: TCtx,
+    //     kind: ExecKind,
+    //     key: String,
+    //     input: Option<Value>,
+    // ) -> Result<Value, ExecError> {
+    //     let (operations, kind) = match kind {
+    //         ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
+    //         ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
+    //     };
 
-        operations
-            .get(&key)
-            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-            .exec
-            .call(
-                ctx,
-                input.unwrap_or(Value::Null),
-                RequestContext { kind, path: key },
-            )?
-            .into_value()
-            .await
-    }
+    //     operations
+    //         .get(&key)
+    //         .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+    //         .exec
+    //         .call(
+    //             ctx,
+    //             input.unwrap_or(Value::Null),
+    //             RequestContext { kind, path: key },
+    //         )?
+    //         .into_value()
+    //         .await
+    // }
 
-    pub async fn exec_subscription(
-        &self,
-        ctx: TCtx,
-        key: String,
-        input: Option<Value>,
-    ) -> Result<Box<dyn Stream<Item = Value>>, ExecError> {
-        // operations
-        //     .get(&key)
-        //     .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-        //     .exec
-        //     .call(
-        //         ctx,
-        //         input.unwrap_or(Value::Null),
-        //         RequestContext { kind, path: key },
-        //     )?
-        //     .into_value()
-        //     .await;
+    // pub async fn exec_subscription(
+    //     &self,
+    //     ctx: TCtx,
+    //     key: String,
+    //     input: Option<Value>,
+    // ) -> Result<Box<dyn Stream<Item = Value>>, ExecError> {
+    //     // operations
+    //     //     .get(&key)
+    //     //     .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+    //     //     .exec
+    //     //     .call(
+    //     //         ctx,
+    //     //         input.unwrap_or(Value::Null),
+    //     //         RequestContext { kind, path: key },
+    //     //     )?
+    //     //     .into_value()
+    //     //     .await;
 
-        todo!()
-    }
+    //     todo!()
+    // }
 
     /// TODO: Docs
     // pub async fn execute(
@@ -162,22 +160,6 @@ export type Procedures = {{
         Ok(())
     }
 }
-
-// impl<TCtx, TMeta> RequestRouter for Router<TCtx, TMeta> {
-//     type Ctx = TCtx;
-
-//     fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-//         &self.queries.store
-//     }
-
-//     fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-//         &self.mutations.store
-//     }
-
-//     fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-//         &self.subscriptions.store
-//     }
-// }
 
 // TODO: Move this out into a Specta API
 fn generate_procedures_ts<Ctx>(procedures: &BTreeMap<String, Procedure<Ctx>>) -> String {

@@ -20,10 +20,10 @@ const wsClient = createClient<Procedures>({
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
   const { data: version } = rspc.useQuery(["version"]);
-  const { data: transformMe } = rspc.useQuery(["transformMe"]);
-  const { data: echo } = rspc.useQuery(["echo", "Hello From Frontend!"]);
-  const { mutate, isLoading } = rspc.useMutation("sendMsg");
-  const { error } = rspc.useQuery(["error"], {
+  const { data: transformMe } = rspc.useQuery(["basic.transformMe"]);
+  const { data: echo } = rspc.useQuery(["basic.echo", "Hello From Frontend!"]);
+  const { mutate, isLoading } = rspc.useMutation("basic.sendMsg");
+  const { error } = rspc.useQuery(["basic.error"], {
     retry: false,
   });
 
@@ -53,7 +53,7 @@ function Example({ name }: { name: string }) {
 
 function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
   const [i, setI] = useState(0);
-  rspc.useSubscription(["pings"], {
+  rspc.useSubscription(["subscriptions.pings"], {
     onData(msg) {
       setI((i) => i + 1);
     },
@@ -75,11 +75,11 @@ export default function App() {
         }}
       >
         <h1>React</h1>
-        <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
-          <QueryClientProvider client={fetchQueryClient}>
+        <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
+          <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
             <Example name="Fetch Transport" />
-          </QueryClientProvider>
-        </rspc.Provider>
+          </rspc.Provider>
+        </QueryClientProvider>
         <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />

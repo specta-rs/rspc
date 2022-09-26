@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
 use crate::{
-    internal::{Layer, LayerResult, RequestContext},
+    internal::{Layer, LayerResult, RequestContext, ValueOrStream},
     ExecError,
 };
 
@@ -237,15 +237,19 @@ where
             ctx,
             input,
             req,
-            // new_ctx: None,
             phantom: PhantomData,
         });
 
         Ok(LayerResult::Future(Box::pin(async move {
             let handler = handler.await?;
-            next.call(handler.ctx, handler.input, handler.req)?
-                .into_value()
-                .await
+            match next
+                .call(handler.ctx, handler.input, handler.req)?
+                .into_value_or_stream()
+                .await?
+            {
+                ValueOrStream::Value(v) => Ok(v),
+                ValueOrStream::Stream(s) => todo!(),
+            }
         })))
     }
 }

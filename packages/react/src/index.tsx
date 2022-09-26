@@ -97,7 +97,9 @@ export function createReactQueryHooks<
 
     return __useQuery(
       keyAndInput,
-      async () => client!.query(keyAndInput[0], keyAndInput[1]),
+      async () => {
+        return await client!.query(keyAndInput[0], keyAndInput[1]);
+      },
       rawOpts as any
     );
   }
