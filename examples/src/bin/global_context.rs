@@ -6,10 +6,11 @@ use std::{
     },
 };
 
-use rspc::{Config, OperationKey, OperationKind, Router, StreamOrValue, Type};
+use rspc::{Config, Router, Type};
 use serde::Serialize;
 use serde_json::{json, Value};
 
+#[derive(Clone)]
 pub struct MyCtx {
     count: Arc<AtomicU16>,
 }
@@ -33,7 +34,8 @@ async fn main() {
     // `Arc<Mutex<T>>`. This could be your database connecton or any other value.
     let count = Arc::new(AtomicU16::new(0));
 
-    let app = axum::Router::new().route("/rspc/:id", router.axum_handler(move || MyCtx { count }));
+    let app =
+        axum::Router::new().route("/rspc/:id", router.endpoint(move || MyCtx { count }).axum());
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("listening on http://{}/rspc/hit", addr);

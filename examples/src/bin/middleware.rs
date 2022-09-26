@@ -1,3 +1,5 @@
+// TODO: This example does nothing but show code. Fix that.
+
 use std::path::PathBuf;
 
 use rspc::{Config, ErrorCode, Middleware, MiddlewareContext, Router};
