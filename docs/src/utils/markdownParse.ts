@@ -7,6 +7,7 @@ import { exec } from "node:child_process";
 import prism from "prismjs";
 import "prismjs/components/prism-rust";
 import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-diff";
 
 marked.setOptions({
   highlight: (code, lang) => {

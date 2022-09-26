@@ -58,7 +58,7 @@ let app = axum::Router::new()
 
 ```typescript
 import { FetchTransport, WebsocketTransport, createClient } from '@rspc/client';
-import type { Operations } from "./ts/bindings"; // These were the bindings exported from your Rust code!
+import type { Procedures } from "./ts/bindings"; // These were the bindings exported from your Rust code!
 
 // For fetch transport
 const client = createClient<Operations>({

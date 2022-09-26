@@ -26,7 +26,7 @@ Then you can use the `@rspc/client` package to consume your API.
 
 ```ts
 import { createClient, FetchTransport } from "@rspc/client";
-import type { Operations } from "./ts/index"; // These were the bindings exported from your Rust code!
+import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 
 // You must provide the generated types as a generic and create a transport (in this example we are using HTTP Fetch) so that the client knows how to communicate with your API.
 const client = createClient<Operations>({
@@ -41,3 +41,7 @@ const userTwo = await client.mutation("addUser", { name: "Monty Beaumont" });
 ```
 
 [View full example](https://github.com/oscartbeaumont/rspc/tree/main/packages/example/react.tsx)
+
+## Websockets
+
+TODO: Document using websocket transport

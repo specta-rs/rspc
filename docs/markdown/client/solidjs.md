@@ -15,12 +15,12 @@ pnpm i @rspc/solid # The SolidJS integration
 
 Then you can do the following:
 
-```tsx
+```ts
 import { QueryClient } from '@tanstack/react-query';
 import { FetchTransport, createClient } from '@rspc/client';
 import { createSolidQueryHooks } from '@rspc/solid';
 
-import type { Operations } from "./ts/index"; // These were the bindings exported from your Rust code!
+import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 
 // You must provide the generated types as a generic and create a transport (in this example we are using HTTP Fetch) so that the client knows how to communicate with your API.
 const client = createClient<Operations>({

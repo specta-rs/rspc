@@ -34,7 +34,7 @@ tauri::Builder::default()
 ```typescript
 import { createClient } from '@rspc/client';
 import { TauriTransport } from '@rspc/tauri';
-import type { Operations } from "./ts/bindings"; // These were the bindings exported from your Rust code!
+import type { Procedures } from "./ts/bindings"; // These were the bindings exported from your Rust code!
 
 const client = createClient<Operations>({
 	transport: new TauriTransport()

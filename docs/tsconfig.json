@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
-    "types": ["astro/client"]
+    "types": ["astro/client"],
+    "strict": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js"
   },
   "extends": "astro/tsconfigs/base"
 }
