@@ -2,6 +2,7 @@
 
 mod execute;
 pub mod jsonrpc;
+mod jsonrpc_exec;
 mod middleware;
 mod procedure_builder;
 mod procedure_store;

@@ -5,7 +5,7 @@ use crate::{
 
 use super::Type;
 
-pub fn ts_inline_ref<T: Type>(t: &T) -> String {
+pub fn ts_inline_ref<T: Type>(_t: &T) -> String {
     ts_inline::<T>()
 }
 
@@ -19,7 +19,7 @@ pub fn ts_inline<T: Type>() -> String {
     ))
 }
 
-pub fn ts_ref_ref<T: Type>(t: &T) -> String {
+pub fn ts_ref_ref<T: Type>(_t: &T) -> String {
     ts_inline::<T>()
 }
 
@@ -33,7 +33,7 @@ pub fn ts_ref<T: Type>() -> String {
     ))
 }
 
-pub fn ts_export_ref<T: Type>(t: &T) -> String {
+pub fn ts_export_ref<T: Type>(_t: &T) -> String {
     ts_inline::<T>()
 }
 

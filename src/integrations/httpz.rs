@@ -1,18 +1,18 @@
 use futures::{Future, SinkExt, StreamExt};
 use httpz::{
-    axum::axum::extract::{FromRequest, Path, RequestParts},
-    http::{self, Method, Response, StatusCode},
+    axum::axum::extract::{FromRequest, RequestParts},
+    http::{Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
     ConcreteRequest, Endpoint, EndpointResult, GenericEndpoint, HttpEndpoint, QueryParms,
 };
 use serde_json::Value;
-use std::{any::Any, collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
-use tokio::sync::{mpsc, oneshot, Mutex};
+use std::{collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
+use tokio::sync::{mpsc, Mutex};
 
 use crate::{
     internal::{
-        jsonrpc::{self, RequestId, RequestInner, ResponseInner},
-        ProcedureKind, RequestContext, ValueOrStream,
+        jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
+        ProcedureKind,
     },
     ExecError, Router,
 };
@@ -281,18 +281,6 @@ where
     }
 }
 
-// TODO: Move this into httpz
-pub fn clone_req(req: &RequestParts<Vec<u8>>) -> RequestParts<Vec<u8>> {
-    RequestParts::new(
-        http::Request::builder()
-            .method(req.method().clone())
-            .uri(req.uri().clone())
-            .version(req.version().clone())
-            .body(req.body().unwrap().clone())
-            .unwrap(),
-    )
-}
-
 async fn handler<'a, TCtxFn, TCtx, TMeta, TCtxFnMarker>(
     Ctx { router, ctx_fn, .. }: Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>,
     req: ConcreteRequest,
@@ -303,11 +291,8 @@ where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
-    let mut req = RequestParts::new(req);
-
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/rspc/ws") => handle_websocket(ctx_fn, req, cookies, router),
-        // // TODO: `/jsonrpc` compatible endpoint for both GET and POST & maybe websocket?
         (&Method::GET, _) => handle_http(ctx_fn, ProcedureKind::Query, req, cookies, &router).await,
         (&Method::POST, _) => {
             handle_http(ctx_fn, ProcedureKind::Mutation, req, cookies, &router).await
@@ -340,7 +325,7 @@ where
 pub async fn handle_http<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
-    mut req: RequestParts<Vec<u8>>,
+    req: ConcreteRequest,
     cookies: CookieJar,
     router: &Arc<Router<TCtx, TMeta>>,
 ) -> EndpointResult
@@ -372,9 +357,8 @@ where
             .unwrap_or(Ok(None as Option<Value>)),
         Method::POST => req
             .body()
-            .unwrap()
             .is_empty()
-            .then(|| serde_json::from_slice(&req.body().unwrap()))
+            .then(|| serde_json::from_slice(&req.body()))
             .unwrap_or(Ok(None)),
         _ => unreachable!(),
     };
@@ -411,19 +395,10 @@ where
     let mut resp = Sender::Response(None);
     let cookies = Arc::new(Mutex::new(cookies)); // TODO: Avoid arcing in the future -> Allow ctx to how refs.
     handle_json_rpc(
-        match ctx_fn.exec(&mut req) {
+        match ctx_fn.exec(&mut RequestParts::new(req)) {
             TCtxFuncResult::Value(v) => v.unwrap(),
             TCtxFuncResult::Future(v) => v.await.unwrap(),
         },
-        // (
-        //     &http::Request::builder()
-        //         .method(req.method().clone())
-        //         .uri(req.uri().clone())
-        //         .version(req.version().clone())
-        //         .body(req.body().unwrap().clone())
-        //         .unwrap(),
-        //     cookies.clone(),
-        // ),
         jsonrpc::Request {
             jsonrpc: None,
             id: RequestId::Null,
@@ -441,6 +416,7 @@ where
         },
         &router,
         &mut resp,
+        &mut SubscriptionMap::None,
     )
     .await;
 
@@ -458,146 +434,9 @@ where
     }
 }
 
-pub enum Sender<'a> {
-    Channel(
-        (
-            &'a mut mpsc::Sender<jsonrpc::Response>,
-            &'a mut HashMap<RequestId, oneshot::Sender<()>>,
-        ),
-    ),
-    Response(Option<jsonrpc::Response>),
-}
-
-impl<'a> Sender<'a> {
-    pub async fn send(
-        &mut self,
-        resp: jsonrpc::Response,
-    ) -> Result<(), mpsc::error::SendError<jsonrpc::Response>> {
-        match self {
-            Sender::Channel((tx, _)) => tx.send(resp).await?,
-            Sender::Response(o) => *o = Some(resp),
-        }
-
-        Ok(())
-    }
-}
-
-pub async fn handle_json_rpc<TCtx, TMeta>(
-    ctx: TCtx,
-    req: jsonrpc::Request,
-    router: &Arc<Router<TCtx, TMeta>>,
-    tx: &mut Sender<'_>,
-) where
-    TCtx: 'static,
-{
-    if !req.jsonrpc.is_none() && req.jsonrpc.as_deref() != Some("2.0") {
-        tx.send(jsonrpc::Response {
-            jsonrpc: "2.0",
-            id: req.id.clone(),
-            result: ResponseInner::Error(ExecError::InvalidJsonRpcVersion.into()),
-        })
-        .await
-        .unwrap();
-    }
-
-    let (path, input, procedures, sub_id) = match req.inner {
-        RequestInner::Query { path, input } => (path, input, router.queries(), None),
-        RequestInner::Mutation { path, input } => (path, input, router.mutations(), None),
-        RequestInner::Subscription { path, input } => {
-            (path, input.1, router.subscriptions(), Some(input.0))
-        }
-        RequestInner::SubscriptionStop { input } => {
-            match tx {
-                Sender::Channel((_, subscriptions)) => {
-                    subscriptions.remove(&input);
-                }
-                Sender::Response(_) => {}
-            }
-
-            return;
-        }
-    };
-
-    let result = match procedures
-        .get(&path)
-        .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
-        .and_then(|v| {
-            v.exec.call(
-                ctx,
-                input.unwrap_or(Value::Null),
-                RequestContext {
-                    kind: ProcedureKind::Query,
-                    path,
-                },
-            )
-        }) {
-        Ok(op) => match op.into_value_or_stream().await {
-            Ok(ValueOrStream::Value(v)) => ResponseInner::Response(v),
-            Ok(ValueOrStream::Stream(mut stream)) => {
-                let (tx, subscriptions) = match tx {
-                    Sender::Channel((tx, subscriptions)) => (tx.clone(), subscriptions),
-                    Sender::Response(_) => {
-                        todo!();
-                    }
-                };
-
-                let id = sub_id.unwrap();
-                if matches!(id, RequestId::Null) {
-                    todo!();
-                } else if subscriptions.contains_key(&id) {
-                    todo!();
-                }
-
-                let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-                subscriptions.insert(id.clone(), shutdown_tx);
-                tokio::spawn(async move {
-                    loop {
-                        tokio::select! {
-                            biased; // Note: Order matters
-                            _ = &mut shutdown_rx => {
-                                #[cfg(feature = "tracing")]
-                                tracing::debug!("Removing subscription with id '{:?}'", id);
-                                break;
-                            }
-                            v = stream.next() => {
-                                match v {
-                                    Some(v) => {
-                                        tx.send(jsonrpc::Response {
-                                            jsonrpc: "2.0",
-                                            id: id.clone(),
-                                            result: ResponseInner::Event(v.unwrap()),
-                                        })
-                                        .await
-                                        .unwrap();
-                                    }
-                                    None => {
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                return;
-            }
-            Err(err) => ResponseInner::Error(err.into()),
-        },
-        Err(err) => ResponseInner::Error(err.into()),
-    };
-
-    tx.send(jsonrpc::Response {
-        jsonrpc: "2.0",
-        id: req.id,
-        result,
-    })
-    .await
-    .unwrap();
-}
-
 pub fn handle_websocket<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
-    req: RequestParts<Vec<u8>>,
+    req: ConcreteRequest,
     cookies: CookieJar,
     router: Arc<Router<TCtx, TMeta>>,
 ) -> EndpointResult
@@ -609,57 +448,50 @@ where
     #[cfg(feature = "tracing")]
     tracing::debug!("Accepting websocket connection");
 
-    let mut req2 = clone_req(&req);
-    let cookies2 = cookies.clone();
+    WebsocketUpgrade::from_req(req, cookies, move |req, mut socket| async move {
+        let mut subscriptions = HashMap::new();
+        let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
+        let mut req = RequestParts::new(req);
 
-    // TODO: Cookies are read only for websocket connections. This should be enforced in the public API?
-    let cookies = Arc::new(Mutex::new(cookies));
-    WebsocketUpgrade::from_req(
-        req.try_into_request().unwrap(),
-        cookies2,
-        move |mut socket| async move {
-            let mut subscriptions = HashMap::new();
-            let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
-
-            loop {
-                tokio::select! {
-                    biased; // Note: Order is important here
-                    msg = rx.recv() => {
-                        socket.send(Message::Text(serde_json::to_string(&msg).unwrap())).await.unwrap();
-                    }
-                    msg = socket.next() => {
-                        let request = match msg {
-                            Some(Ok(msg) )=> {
-                                match msg {
-                                    Message::Text(text) => {
-                                        serde_json::from_str::<jsonrpc::Request>(&text)
-                                    }
-                                    Message::Binary(binary) => {
-                                        serde_json::from_slice::<jsonrpc::Request>(&binary)
-                                    }
-                                    Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
-                                        continue;
-                                    }
-                                    Message::Frame(_) => unreachable!(),
+        loop {
+            tokio::select! {
+                biased; // Note: Order is important here
+                msg = rx.recv() => {
+                    socket.send(Message::Text(serde_json::to_string(&msg).unwrap())).await.unwrap();
+                }
+                msg = socket.next() => {
+                    let request = match msg {
+                        Some(Ok(msg) )=> {
+                            match msg {
+                                Message::Text(text) => {
+                                    serde_json::from_str::<jsonrpc::Request>(&text)
                                 }
-                                .unwrap() // TODO: Error handling
+                                Message::Binary(binary) => {
+                                    serde_json::from_slice::<jsonrpc::Request>(&binary)
+                                }
+                                Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
+                                    continue;
+                                }
+                                Message::Frame(_) => unreachable!(),
                             }
-                            Some(Err(err)) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Error in websocket: {}", err);
+                            .unwrap() // TODO: Error handling
+                        }
+                        Some(Err(err)) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error in websocket: {}", err);
 
-                                todo!();
-                            },
-                            None => return,
-                        };
+                            todo!();
+                        },
+                        None => return,
+                    };
 
-                        handle_json_rpc(match ctx_fn.exec(&mut req2) {
-                            TCtxFuncResult::Value(v) => v.unwrap(),
-                            TCtxFuncResult::Future(v) => v.await.unwrap(),
-                        }, request, &router, &mut Sender::Channel((&mut tx, &mut subscriptions))).await;
-                    }
+                    handle_json_rpc(match ctx_fn.exec(&mut req) {
+                        TCtxFuncResult::Value(v) => v.unwrap(),
+                        TCtxFuncResult::Future(v) => v.await.unwrap(),
+                    }, request, &router, &mut Sender::Channel(&mut tx),
+                    &mut SubscriptionMap::Ref(&mut subscriptions)).await;
                 }
             }
-        },
-    )
+        }
+    })
 }

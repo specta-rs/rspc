@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use specta::Type;
 
+pub use super::jsonrpc_exec::*;
+
 #[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq, Eq, Hash)]
 #[serde(untagged)]
 pub enum RequestId {

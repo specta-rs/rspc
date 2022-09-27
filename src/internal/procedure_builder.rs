@@ -6,7 +6,7 @@ pub struct UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
 }
 
 impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             deref_handler: |resolver| BuiltProcedureBuilder { resolver },
             phantom: PhantomData,
@@ -27,5 +27,5 @@ impl<TLayerCtx, TResolver> Deref for UnbuiltProcedureBuilder<TLayerCtx, TResolve
 }
 
 pub struct BuiltProcedureBuilder<TResolver> {
-    pub(crate) resolver: TResolver,
+    pub resolver: TResolver,
 }
