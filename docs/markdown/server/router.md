@@ -32,7 +32,7 @@ Use the `.query` method to attach a query operation to the router.
 
 ```rust
 let router = <Router>::new()
-    .query("version", |ctx, arg: ()| "1.0.0")
+    .query("version", |ctx, input: ()| "1.0.0")
     .build(); // Ensure you build once you have added all your operations.
 ```
 
@@ -44,7 +44,7 @@ Use the `.mutation` method to attach a mutation operation to the router.
 
 ```rust
 let router = <Router>::new()
-    .mutation("createUser", |ctx, arg: ()| todo!())
+    .mutation("createUser", |ctx, input: ()| todo!())
     .build(); // Ensure you build once you have added all your operations.
 ```
 
@@ -58,7 +58,7 @@ Use the `.subscription` method to attach a subscription operation to the router.
 // This example uses the `async_stream` crate.
 
 let router = <Router>::new()
-    .subscription("pings", |ctx, arg: ()| async_stream::stream! {
+    .subscription("pings", |ctx, input: ()| async_stream::stream! {
         println!("Client subscribed to 'pings'");
         for i in 0..5 {
             yield "ping".to_string();
@@ -78,7 +78,7 @@ When building an API server, you will often want to split up your endpoints into
 
 ```rust
 let users_router = <Router>::new()
-        .query("list", |ctx, arg: ()| vec![] as Vec<()>);
+        .query("list", |ctx, input: ()| vec![] as Vec<()>);
 
 let router = <Router>::new()
     .query("version", |_ctx, _: ()| "1.0.0")
@@ -99,16 +99,16 @@ When combining multiple operations, you must ensure you chain the method calls o
 ```rust
 // Chaining method calls
 let router = <Router>::new()
-    .query("version", |ctx, arg: ()| "1.0.0")
-    .mutation("createUser", |ctx, arg: ()| todo!())
+    .query("version", |ctx, input: ()| "1.0.0")
+    .mutation("createUser", |ctx, input: ()| todo!())
     .build();
 
 // Shadowing variable
 let router = <Router>::new()
-    .query("version", |ctx, arg: ()| "1.0.0")
-    .mutation("createUser", |ctx, arg: ()| todo!());
+    .query("version", |ctx, input: ()| "1.0.0")
+    .mutation("createUser", |ctx, input: ()| todo!());
 let router = router
-    .mutation("deleteUser", |ctx, arg: ()| todo!());
+    .mutation("deleteUser", |ctx, input: ()| todo!());
 let router = router.build();
 ```
 

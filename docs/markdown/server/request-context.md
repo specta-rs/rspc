@@ -16,7 +16,7 @@ struct MyCtx {
 }
 
 let router = Router<MyCtx>::new()
-    .query("myQuery", |ctx, arg: ()| {
+    .query("myQuery", |ctx, input: ()| {
         assert_eq!(ctx.some_value, "Hello World");
     })
     .build();

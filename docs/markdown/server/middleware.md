@@ -38,7 +38,7 @@ let router = <Router>::new()
     // The context defaults to `()`. The `ctx` parameters type will be inferred.
     .middleware(|ctx: MiddlewareContext<(), i32>| async move { ctx.next(42).await })
     // See how the context is now an i32
-    .query("version", |ctx: i32, arg: ()| "1.0.0")
+    .query("version", |ctx: i32, input: ()| "1.0.0")
     .build();
 ```
 

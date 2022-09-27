@@ -79,24 +79,24 @@ The new procedure syntax is one of the biggest changes with this release. It is 
 
 ```diff
 let router = Router::new()
-- .query("version", |ctx, arg: ()| "1.0.0")
-+ .query("version", |t| t(|ctx, arg: ()| "1.0.0"))
+- .query("version", |ctx, input: ()| "1.0.0")
++ .query("version", |t| t(|ctx, input: ()| "1.0.0"))
 ```
 
 #### Mutation
 
 ```diff
 let router = Router::new()
-- .mutation("demo", |ctx, arg: ()| async move { todo!() })
-+ .mutation("demo", |t| t(|ctx, arg: ()| async move { todo!() })
+- .mutation("demo", |ctx, input: ()| async move { todo!() })
++ .mutation("demo", |t| t(|ctx, input: ()| async move { todo!() })
 ```
 
 #### Subscription
 
 ```diff
 let router = Router::new()
-- .subscription("version", |ctx, arg: ()| stream! { yield 42; })
-+ .subscription("version", |t| t(|ctx, arg: ()| stream! { yield 42; }))
+- .subscription("version", |ctx, input: ()| stream! { yield 42; })
++ .subscription("version", |t| t(|ctx, input: ()| stream! { yield 42; }))
 ```
 
 ### Minor changes/new features
