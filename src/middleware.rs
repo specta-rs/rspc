@@ -316,21 +316,23 @@ where
                                         let mut s = s;
                                         let ctx = handler.state;
                                         while let Some(v) = s.next().await {
-                                            __yield_tx
-                                                .send(f(ctx.clone(), v.unwrap()).await.map_err(
-                                                    |err| ExecError::ErrResolverError(err),
-                                                ))
-                                                .await;
+                                            match v {
+                                                Ok(v) => {
+                                                    __yield_tx
+                                                        .send(
+                                                            f(ctx.clone(), v).await.map_err(
+                                                                ExecError::ErrResolverError,
+                                                            ),
+                                                        )
+                                                        .await;
+                                                }
+                                                Err(err) => {
+                                                    __yield_tx.send(Err(err)).await;
+                                                }
+                                            }
                                         }
                                     })
                                 },
-                                // stream! {
-                                //     let mut s = s;
-                                //     let ctx = handler.state;
-                                //     while let Some(v) = s.next().await {
-                                //         yield f(ctx.clone(), v.unwrap()).await.map_err(|err| ExecError::ErrResolverError(err));
-                                //     }
-                                // },
                             ))
                         }
                     },

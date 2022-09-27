@@ -31,7 +31,8 @@ impl<TCtx> ProcedureStore<TCtx> {
     }
 
     pub fn append(&mut self, key: String, exec: Box<dyn Layer<TCtx>>, ty: ProcedureDataType) {
-        if key == "" || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
+        #[allow(clippy::panic)]
+        if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
             panic!(
                 "rspc error: attempted to create {} operation named '{}', however this name is not allowed.",
                 self.name,
@@ -39,7 +40,7 @@ impl<TCtx> ProcedureStore<TCtx> {
             );
         }
 
-        let key = key.to_string();
+        #[allow(clippy::panic)]
         if self.store.contains_key(&key) {
             panic!(
                 "rspc error: {} operation already has resolver with name '{}'",

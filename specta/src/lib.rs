@@ -1,4 +1,7 @@
+//! specta: Easily export your Rust types to other languages
 #![forbid(unsafe_code)]
+#![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
+// #![warn(missing_docs)]
 
 mod datatype;
 mod r#enum;
@@ -209,7 +212,7 @@ impl<'a, T: Type> Type for &'a [T] {
     }
 }
 
-impl<'a, const N: usize, T: Type> Type for [T; N] {
+impl<const N: usize, T: Type> Type for [T; N] {
     const NAME: &'static str = "&[T; N]";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
@@ -229,23 +232,27 @@ impl<T: Type> Type for Option<T> {
     const NAME: &'static str = "Option";
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
-            DefOpts {
-                parent_inline: false,
-                type_map: opts.type_map,
-            },
-            generics,
-        ))))
+        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or_else(|| {
+            T::inline(
+                DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map,
+                },
+                generics,
+            )
+        })))
     }
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or(T::reference(
-            DefOpts {
-                parent_inline: false,
-                type_map: opts.type_map,
-            },
-            generics,
-        ))))
+        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or_else(|| {
+            T::reference(
+                DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map,
+                },
+                generics,
+            )
+        })))
     }
 
     fn definition(_: DefOpts) -> DataType {

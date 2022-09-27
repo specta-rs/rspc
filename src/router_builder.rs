@@ -31,15 +31,16 @@ pub struct RouterBuilder<
     phantom: PhantomData<TMeta>,
 }
 
+#[allow(clippy::new_without_default, clippy::new_ret_no_self)]
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
+    pub fn new() -> RouterBuilder {
         RouterBuilder {
             config: Config::new(),
-            middleware: BaseMiddleware::new(),
+            middleware: BaseMiddleware::default(),
             queries: ProcedureStore::new("query"),
             mutations: ProcedureStore::new("mutation"),
             subscriptions: ProcedureStore::new("subscription"),
@@ -49,15 +50,16 @@ where
     }
 }
 
+#[allow(clippy::new_without_default)]
 impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
-        RouterBuilder {
+    pub fn new() -> Self {
+        Self {
             config: Config::new(),
-            middleware: BaseMiddleware::new(),
+            middleware: BaseMiddleware::default(),
             queries: ProcedureStore::new("query"),
             mutations: ProcedureStore::new("mutation"),
             subscriptions: ProcedureStore::new("subscription"),
@@ -130,7 +132,7 @@ where
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.queries.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -159,7 +161,7 @@ where
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.mutations.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -193,7 +195,7 @@ where
             + Sync
             + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new()).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -224,7 +226,8 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
-        if prefix == "" || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
+        #[allow(clippy::panic)]
+        if prefix.is_empty() || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
             panic!(
                 "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
                 prefix
@@ -305,6 +308,7 @@ where
         };
 
         #[cfg(debug_assertions)]
+        #[allow(clippy::unwrap_used)]
         if let Some(export_path) = export_path {
             router.export_ts(export_path).unwrap();
         }

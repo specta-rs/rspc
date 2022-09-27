@@ -1,8 +1,7 @@
 //! rspc: A blazingly fast and easy to use TRPC-like server for Rust.
 #![forbid(unsafe_code)]
-#![warn(clippy::all, clippy::unwrap_used)]
-// #![warn(missing_docs)] // TODO
-// TODO: Warn when using unwrap
+#![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
+// #![warn(missing_docs)]
 
 mod config;
 mod error;
@@ -29,11 +28,13 @@ pub mod internal;
 pub use specta::RSPCType as Type;
 
 #[cfg(debug_assertions)]
+#[allow(clippy::panic)]
 pub fn test_result_type<T: specta::Type + serde::Serialize>() {
     panic!("You should not call `test_type` at runtime. This is just a debugging tool.");
 }
 
 #[cfg(debug_assertions)]
+#[allow(clippy::panic)]
 pub fn test_result_value<T: specta::Type + serde::Serialize>(_: T) {
     panic!("You should not call `test_type` at runtime. This is just a debugging tool.");
 }

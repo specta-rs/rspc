@@ -24,7 +24,7 @@ pub enum DataType {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimitiveType {
     Never,
     i8,

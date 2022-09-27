@@ -165,7 +165,7 @@ fn generate_procedures_ts<Ctx>(procedures: &BTreeMap<String, Procedure<Ctx>>) ->
                 let input = match &operation.ty.arg_ty {
                     DataType::Tuple(def)
                         // This condition is met with an empty enum or `()`.
-                        if def.fields.len() == 0 =>
+                        if def.fields.is_empty() =>
                     {
                         "never".into()
                     }

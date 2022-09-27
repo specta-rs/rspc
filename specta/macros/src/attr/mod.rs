@@ -45,7 +45,7 @@ impl TryFrom<String> for Inflection {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
-        Ok(match &*value.to_lowercase().replace("_", "") {
+        Ok(match &*value.to_lowercase().replace('_', "") {
             "lowercase" => Self::Lower,
             "uppercase" => Self::Upper,
             "camelcase" => Self::Camel,

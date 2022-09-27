@@ -37,7 +37,7 @@ where
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
         Ok(LayerResult::Ready(Ok(serde_json::to_value(
-            self.map_err(|err| ExecError::ErrResolverError(err))?,
+            self.map_err(ExecError::ErrResolverError)?,
         )
         .map_err(ExecError::SerializingResultErr)?)))
     }

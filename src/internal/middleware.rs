@@ -112,11 +112,11 @@ pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
 where
     TCtx: 'static;
 
-impl<TCtx> BaseMiddleware<TCtx>
+impl<TCtx> Default for BaseMiddleware<TCtx>
 where
     TCtx: 'static,
 {
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self(PhantomData)
     }
 }

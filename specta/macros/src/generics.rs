@@ -79,7 +79,7 @@ pub fn construct_datatype(
             let elems = t.elems.iter().enumerate().map(|(i, el)| {
                 construct_datatype(
                     format_ident!("{}_{}", var_ident, i),
-                    &el,
+                    el,
                     generic_idents,
                     crate_ref,
                     inline,
@@ -165,8 +165,8 @@ pub fn construct_datatype(
     let generic_vars = generic_args.iter().map(|(i, path)| {
         construct_datatype(
             format_ident!("{}_{}", &var_ident, i),
-            &path,
-            &generic_idents,
+            path,
+            generic_idents,
             crate_ref,
             false,
         )

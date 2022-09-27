@@ -1,18 +1,10 @@
 use std::path::PathBuf;
 
 /// TODO
+#[derive(Default)]
 pub struct Config {
     pub(crate) export_bindings_on_build: Option<PathBuf>,
     pub(crate) bindings_header: Option<&'static str>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            export_bindings_on_build: None,
-            bindings_header: None,
-        }
-    }
 }
 
 impl Config {

@@ -48,7 +48,7 @@ pub fn ts_export<T: Type>() -> Result<String, String> {
 }
 
 pub fn to_ts_export(def: &DataType) -> Result<String, String> {
-    let inline_ts = to_ts(&def);
+    let inline_ts = to_ts(def);
 
     Ok(match &def {
         // Named struct
@@ -62,10 +62,7 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
             _ => {
                 let generics = match generics.len() {
                     0 => "".into(),
-                    _ => format!(
-                        "<{}>",
-                        generics.iter().map(|g| *g).collect::<Vec<_>>().join(", ")
-                    ),
+                    _ => format!("<{}>", generics.to_vec().join(", ")),
                 };
 
                 format!("export interface {name}{generics} {inline_ts}")
@@ -75,10 +72,7 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
         DataType::Enum(EnumType { name, generics, .. }) => {
             let generics = match generics.len() {
                 0 => "".into(),
-                _ => format!(
-                    "<{}>",
-                    generics.iter().map(|g| *g).collect::<Vec<_>>().join(", ")
-                ),
+                _ => format!("<{}>", generics.to_vec().join(", ")),
             };
 
             format!("export type {name}{generics} = {inline_ts}")
@@ -105,14 +99,14 @@ pub fn to_ts(typ: &DataType) -> String {
         primitive_def!(String char) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
         primitive_def!(Never) => "never".into(),
-        DataType::Nullable(def) => format!("{} | null", to_ts(&def)),
+        DataType::Nullable(def) => format!("{} | null", to_ts(def)),
         DataType::Record(def) => {
             format!("Record<{}, {}>", to_ts(&def.0), to_ts(&def.1))
         }
-        DataType::List(def) => format!("Array<{}>", to_ts(&def)),
+        DataType::List(def) => format!("Array<{}>", to_ts(def)),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
-            [ty] => to_ts(&ty),
+            [ty] => to_ts(ty),
             tys => format!("[{}]", tys.iter().map(to_ts).collect::<Vec<_>>().join(", ")),
         },
         DataType::Object(ObjectType {
@@ -181,11 +175,7 @@ pub fn to_ts(typ: &DataType) -> String {
         DataType::Reference { name, generics, .. } => match &generics[..] {
             [] => name.to_string(),
             generics => {
-                let generics = generics
-                    .iter()
-                    .map(|g| to_ts(&g))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let generics = generics.iter().map(to_ts).collect::<Vec<_>>().join(", ");
 
                 format!("{name}<{generics}>")
             }
@@ -205,13 +195,13 @@ pub fn object_fields(fields: &[ObjectField]) -> Vec<String> {
                     format!("{}?", field_name_safe),
                     match &field.ty {
                         DataType::Nullable(ty) => ty.as_ref(),
-                        ty => &ty,
+                        ty => ty,
                     },
                 ),
                 false => (field_name_safe, &field.ty),
             };
 
-            format!("{key}: {}", to_ts(&ty))
+            format!("{key}: {}", to_ts(ty))
         })
         .collect::<Vec<_>>()
 }

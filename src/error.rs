@@ -24,22 +24,22 @@ pub enum ExecError {
     ErrResolverError(#[from] Error),
 }
 
-impl Into<Error> for ExecError {
-    fn into(self) -> Error {
-        match self {
+impl From<ExecError> for Error {
+    fn from(v: ExecError) -> Error {
+        match v {
             ExecError::OperationNotFound(_) => Error {
                 code: ErrorCode::NotFound,
-                message: format!("the requested operation is not supported by this server"),
+                message: "the requested operation is not supported by this server".to_string(),
                 cause: None,
             },
             ExecError::DeserializingArgErr(err) => Error {
                 code: ErrorCode::BadRequest,
-                message: format!("error deserializing procedure arguments"),
+                message: "error deserializing procedure arguments".to_string(),
                 cause: Some(Arc::new(err)),
             },
             ExecError::SerializingResultErr(err) => Error {
                 code: ErrorCode::InternalServerError,
-                message: format!("error serializing procedure result"),
+                message: "error serializing procedure result".to_string(),
                 cause: Some(Arc::new(err)),
             },
             #[cfg(feature = "axum")]
@@ -59,9 +59,9 @@ impl Into<Error> for ExecError {
     }
 }
 
-impl Into<JsonRPCError> for ExecError {
-    fn into(self) -> JsonRPCError {
-        let x: Error = self.into();
+impl From<ExecError> for JsonRPCError {
+    fn from(err: ExecError) -> Self {
+        let x: Error = err.into();
         x.into()
     }
 }
@@ -81,11 +81,11 @@ pub struct Error {
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl Into<JsonRPCError> for Error {
-    fn into(self) -> JsonRPCError {
+impl From<Error> for JsonRPCError {
+    fn from(err: Error) -> Self {
         JsonRPCError {
-            code: self.code.to_status_code() as i32,
-            message: self.message,
+            code: err.code.to_status_code() as i32,
+            message: err.message,
             data: None,
         }
     }

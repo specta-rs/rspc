@@ -58,7 +58,7 @@ pub fn parse_enum(
         .map(|(variant, attrs)| {
             let variant_ident_str = unraw_raw_ident(&variant.ident);
 
-            let variant_name_str = match (attrs.rename.clone(), container_attrs.rename_all) {
+            let variant_name_str = match (attrs.rename, container_attrs.rename_all) {
                 (Some(name), _) => name,
                 (_, Some(inflection)) => inflection.apply(&variant_ident_str),
                 (_, _) => variant_ident_str,
@@ -109,8 +109,7 @@ pub fn parse_enum(
 
                         let field_name = field_attrs
                             .rename
-                            .clone()
-                            .unwrap_or(unraw_raw_ident(field.ident.as_ref().unwrap()));
+                            .unwrap_or_else(|| unraw_raw_ident(field.ident.as_ref().unwrap()));
 
                         quote!(#crate_ref::ObjectField {
                             name: #field_name.to_string(),

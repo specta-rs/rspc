@@ -79,8 +79,7 @@ where
     type Result = TResult;
 
     fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
-        let input =
-            serde_json::from_value(input).map_err(|err| ExecError::DeserializingArgErr(err))?;
+        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
         self(ctx, input).into_layer_result()
     }
 
@@ -122,10 +121,9 @@ where
     TResult: Serialize + Type,
 {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
-        let input =
-            serde_json::from_value(input).map_err(|err| ExecError::DeserializingArgErr(err))?;
+        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
         Ok(LayerResult::Stream(Box::pin(self(ctx, input).map(|v| {
-            serde_json::to_value(&v).map_err(|err| ExecError::SerializingResultErr(err))
+            serde_json::to_value(&v).map_err(ExecError::SerializingResultErr)
         }))))
     }
 

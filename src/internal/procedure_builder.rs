@@ -5,14 +5,16 @@ pub struct UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
     phantom: PhantomData<TLayerCtx>,
 }
 
-impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
-    pub fn new() -> Self {
+impl<TLayerCtx, TResolver> Default for UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
+    fn default() -> Self {
         Self {
             deref_handler: |resolver| BuiltProcedureBuilder { resolver },
             phantom: PhantomData,
         }
     }
+}
 
+impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
     pub fn resolver(self, resolver: TResolver) -> BuiltProcedureBuilder<TResolver> {
         (self.deref_handler)(resolver)
     }
