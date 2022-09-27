@@ -37,16 +37,8 @@ where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
 {
-    pub fn new() -> RouterBuilder {
-        RouterBuilder {
-            config: Config::new(),
-            middleware: BaseMiddleware::default(),
-            queries: ProcedureStore::new("query"),
-            mutations: ProcedureStore::new("mutation"),
-            subscriptions: ProcedureStore::new("subscription"),
-            typ_store: TypeDefs::new(),
-            phantom: PhantomData,
-        }
+    pub fn new() -> RouterBuilder<TCtx, TMeta> {
+        RouterBuilder::<TCtx, TMeta>::new()
     }
 }
 
