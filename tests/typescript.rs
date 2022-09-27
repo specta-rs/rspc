@@ -56,9 +56,9 @@ fn export_rspc_types() {
             })
         })
         .subscription("singleArgSubscription", |t| {
-            t(|_ctx, arg: bool| {
+            t(|_ctx, input: bool| {
                 stream! {
-                    yield arg;
+                    yield input;
                 }
             })
         })

@@ -13,7 +13,7 @@ use crate::{
 pub trait Resolver<TCtx, TMarker> {
     type Result;
 
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -78,9 +78,10 @@ where
 {
     type Result = TResult;
 
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
-        let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
-        self(ctx, arg).into_layer_result()
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
+        let input =
+            serde_json::from_value(input).map_err(|err| ExecError::DeserializingArgErr(err))?;
+        self(ctx, input).into_layer_result()
     }
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
@@ -104,7 +105,7 @@ where
 }
 
 pub trait StreamResolver<TCtx, TMarker> {
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -120,9 +121,10 @@ where
     TStream: Stream<Item = TResult> + Send + Sync + 'static,
     TResult: Serialize + Type,
 {
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
-        let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
-        Ok(LayerResult::Stream(Box::pin(self(ctx, arg).map(|v| {
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
+        let input =
+            serde_json::from_value(input).map_err(|err| ExecError::DeserializingArgErr(err))?;
+        Ok(LayerResult::Stream(Box::pin(self(ctx, input).map(|v| {
             serde_json::to_value(&v).map_err(|err| ExecError::SerializingResultErr(err))
         }))))
     }

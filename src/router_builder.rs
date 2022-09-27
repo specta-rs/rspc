@@ -134,10 +134,10 @@ where
         self.queries.append(
             key.into(),
             self.middleware.build(ResolverLayer {
-                func: move |ctx, arg, _| {
+                func: move |ctx, input, _| {
                     resolver.exec(
                         ctx,
-                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
                 },
                 phantom: PhantomData,
@@ -163,10 +163,10 @@ where
         self.mutations.append(
             key.into(),
             self.middleware.build(ResolverLayer {
-                func: move |ctx, arg, _| {
+                func: move |ctx, input, _| {
                     resolver.exec(
                         ctx,
-                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
                 },
                 phantom: PhantomData,
@@ -197,10 +197,10 @@ where
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
-                func: move |ctx, arg, _| {
+                func: move |ctx, input, _| {
                     resolver.exec(
                         ctx,
-                        serde_json::from_value(arg).map_err(ExecError::DeserializingArgErr)?,
+                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
                 },
                 phantom: PhantomData,
