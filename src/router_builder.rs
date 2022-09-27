@@ -144,7 +144,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         }
     }
 
-    pub fn query<TResolver, TArg, TResult, TResultMarker>(
+    pub fn query<TResolver, TArg, TResult, TResultMarker, TResultMarker2>(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -158,7 +158,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             + Sync
             + 'static,
         TArg: DeserializeOwned + Type,
-        TResult: IntoLayerResult<TResultMarker>,
+        TResult: IntoLayerResult<TResultMarker2>,
     {
         if key == "ws" {
             panic!(
@@ -191,7 +191,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
         self
     }
 
-    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+    pub fn mutation<TResolver, TArg, TResult, TResultMarker, TResultMarker2>(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -205,7 +205,7 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
             + Sync
             + 'static,
         TArg: DeserializeOwned + Type,
-        TResult: IntoLayerResult<TResultMarker>,
+        TResult: IntoLayerResult<TResultMarker2>,
     {
         if key == "ws" {
             panic!(
@@ -247,8 +247,11 @@ impl<TCtx, TMeta, TLayerCtx> RouterBuilder<TCtx, TMeta, TLayerCtx> {
     ) -> Self
     where
         TArg: DeserializeOwned + Type,
-        TResolver:
-            Fn(TCtx, TArg) -> TStream + StreamResolver<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TResolver: Fn(TLayerCtx, TArg) -> TStream
+            + StreamResolver<TLayerCtx, TMarker>
+            + Send
+            + Sync
+            + 'static,
         TStream: Stream<Item = TResult> + Send + 'static,
         TResult: Serialize + Type,
     {
