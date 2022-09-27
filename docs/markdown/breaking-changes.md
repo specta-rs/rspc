@@ -5,7 +5,7 @@ index: 3
 
 # Breaking Changes
 
-# 0.0.6 to 0.0.7
+# 0.0.5 to 0.0.6 - rspc
 
 This release comes with a huge amount of breaking changes. These changes are going to allow for many benefits in the future such as a rich plugin ecosystem. If your having trouble upgrading open a GitHub Issue or jump in the Discord server.
 
@@ -106,8 +106,15 @@ let router = Router::new()
  - `@rspc/solid` now supports subscriptions
  - `@rspc/solid` has been upgraded to the new `@tanstack/solid-query`.
  - `router.execute` now returns a `serde_json::Value` and does not support subscriptions. Use `router.execute_subscription` to execute a subscription.
+ - The Axum body type is now `Vec<u8>` not `hyper::Body`. This may cause issues if your extractors aren't generic enough.
+ - Support for up to 5 Axum extractors. This limit will increase to 16 in a future release.
+ 
+### Warning on unstable API's
 
-# 0.0.5 to 0.0.6
+ - Support for Axum extractors will likely change or be removed in the future when support for other HTTP servers is added. It exists in this release for backwards compatibility.
+ - `cookies` are currently passed as `Arc<Mutex<CookieJar>>`. This will change in the future to either pass by reference or hide from the user the `Mutex` and `Arc`. The cookie API also supports writing cookies while connected via websockets which will likely be an error in the future.
+
+# 0.0.5 to 0.0.6 - @rspc/client
 
 All of the frontend code have been split up into multiple npm packages. We now have [`@rspc/client`](https://www.npmjs.com/package/@rspc/client), [`@rspc/react`](https://www.npmjs.com/package/@rspc/react) and [`@rspc/tauri`](https://www.npmjs.com/package/@rspc/tauri). This will help with SSR and reducing project dependencies.
 

@@ -224,7 +224,7 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
-        if prefix == "" || prefix.starts_with("rpc.") {
+        if prefix == "" || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
             panic!(
                 "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
                 prefix

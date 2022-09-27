@@ -1,6 +1,7 @@
 use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 
-use futures::Stream;
+use async_stream::stream;
+use futures::{Stream, StreamExt};
 use serde_json::Value;
 
 use crate::{ExecError, MiddlewareLike};
@@ -205,9 +206,26 @@ pub enum ValueOrStream {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
-pub enum LayerResult {
+pub enum ValueOrStreamOrFutureStream {
+    Value(Value),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+    FutureStream(
+        Pin<
+            Box<
+                dyn Stream<Item = Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>>
+                    + Send,
+            >,
+        >,
+    ),
+}
+
+pub enum LayerResult {
     Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
+    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+    FutureValueOrStream(Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>),
+    FutureValueOrStreamOrFutureStream(
+        Pin<Box<dyn Future<Output = Result<ValueOrStreamOrFutureStream, ExecError>> + Send>>,
+    ),
     Ready(Result<Value, ExecError>),
 }
 
@@ -216,6 +234,20 @@ impl LayerResult {
         match self {
             LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
             LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
+            LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
+            LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
+                ValueOrStreamOrFutureStream::Value(val) => ValueOrStream::Value(val),
+                ValueOrStreamOrFutureStream::Stream(stream) => ValueOrStream::Stream(stream),
+
+                ValueOrStreamOrFutureStream::FutureStream(fut_stream) => {
+                    // ValueOrStream::Stream(Box::pin(stream! {
+                    //     while let Some(fut) = fut_stream.next().await {
+                    //         yield fut.await?;
+                    //     }
+                    // }))
+                    todo!();
+                }
+            }),
             LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
         }
     }

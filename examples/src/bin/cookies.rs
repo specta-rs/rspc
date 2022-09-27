@@ -1,28 +1,38 @@
-use example::{basic, selection, subscriptions};
-use std::path::PathBuf;
+//! Using tower_cookies as an Axum extractor right now is the best way to work with cookies from rspc.
+//! An official API will likely exist in the future but this works well for now.
+use std::{ops::Add, path::PathBuf};
 
 use axum::{extract::Path, routing::get};
-use rspc::{Config, Router};
+use rspc::Config;
+use time::OffsetDateTime;
+use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
+
+pub struct Ctx {
+    cookies: Cookies,
+}
 
 #[tokio::main]
 async fn main() {
-    let r1 = Router::<i32>::new().query("demo", |t| t(|_, _: ()| "Merging Routers!"));
-
-    let router = <rspc::Router>::new()
+    let router = rspc::Router::<Ctx>::new()
         .config(Config::new().export_ts_bindings(
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/example/bindings.ts"),
         ))
-        // Basic query
-        .query("version", |t| {
-            t(|ctx, _: ()| async move { env!("CARGO_PKG_VERSION") })
+        .query("getCookie", |t| {
+            t(|ctx, _: ()| {
+                ctx.cookies
+                    .get("myDemoCookie")
+                    .map(|c| c.value().to_string())
+            })
         })
-        .merge("basic.", basic::mount())
-        .merge("subscriptions.", subscriptions::mount())
-        .merge("selection.", selection::mount())
-        // This middleware changes the TCtx (context type) from `()` to `i32`. All routers being merge under need to take `i32` as their context type.
-        .middleware(|mw| mw.middleware(|ctx| async move { return Ok(ctx.with_ctx(42i32)) }))
-        .merge("r1.", r1)
+        .mutation("setCookie", |t| {
+            t(|ctx, new_value: String| {
+                let mut cookie = Cookie::new("myDemoCookie", new_value);
+                cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
+                cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
+                ctx.cookies.add(cookie);
+            })
+        })
         .build()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.
 
@@ -32,12 +42,13 @@ async fn main() {
         .route(
             "/rspc/:id",
             router
-                .endpoint(|path: Path<String>| {
+                .endpoint(|path: Path<String>, cookies: Cookies| {
                     println!("Client requested operation '{}'", *path);
-                    ()
+                    Ctx { cookies }
                 })
                 .axum(),
         )
+        .layer(CookieManagerLayer::new())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(
             CorsLayer::new()

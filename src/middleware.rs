@@ -1,13 +1,15 @@
+use async_stream::stream;
+use futures::StreamExt;
 use serde_json::Value;
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
 use crate::{
-    internal::{Layer, LayerResult, RequestContext, ValueOrStream},
+    internal::{Layer, LayerResult, RequestContext, ValueOrStream, ValueOrStreamOrFutureStream},
     ExecError,
 };
 
 pub trait MiddlewareLike<TLayerCtx>: Clone {
-    type State: Send;
+    type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
@@ -148,7 +150,7 @@ where
         TRespHandlerFut,
     >
     where
-        TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone,
+        TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
         TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
     {
         MiddlewareWithResponseHandler {
@@ -174,7 +176,7 @@ pub struct MiddlewareWithResponseHandler<
     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut,
+    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
 {
     handler: THandlerFunc,
@@ -199,7 +201,7 @@ where
     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone,
+    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
 {
     fn clone(&self) -> Self {
@@ -214,7 +216,7 @@ where
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> MiddlewareLike<TLayerCtx>
     for Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
 where
-    TState: Send,
+    TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send,
     TNewCtx: Send + 'static,
     THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
@@ -240,16 +242,11 @@ where
             phantom: PhantomData,
         });
 
-        Ok(LayerResult::Future(Box::pin(async move {
+        Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
             let handler = handler.await?;
-            match next
-                .call(handler.ctx, handler.input, handler.req)?
+            next.call(handler.ctx, handler.input, handler.req)?
                 .into_value_or_stream()
-                .await?
-            {
-                ValueOrStream::Value(v) => Ok(v),
-                ValueOrStream::Stream(s) => todo!(),
-            }
+                .await
         })))
     }
 }
@@ -266,14 +263,14 @@ impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TR
         TRespHandlerFut,
     >
 where
-    TState: Send,
-    TLayerCtx: Send,
+    TState: Clone + Send + Sync + 'static,
+    TLayerCtx: Send + 'static,
     TNewCtx: Send + 'static,
     THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone,
+    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
 {
     type State = TState;
@@ -297,19 +294,50 @@ where
 
         let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
 
-        Ok(LayerResult::Future(Box::pin(async move {
-            let handler = handler.await?;
+        Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
+            async move {
+                let handler = handler.await?;
 
-            // f(
-            //     handler.state,
-            //     next.call(handler.ctx, handler.input, handler.req)?
-            //         .into_value()
-            //         .await,
-            // )
-            // .await
-
-            todo!();
-        })))
+                Ok(
+                    match next
+                        .call(handler.ctx, handler.input, handler.req)?
+                        .into_value_or_stream()
+                        .await?
+                    {
+                        ValueOrStream::Value(v) => {
+                            ValueOrStreamOrFutureStream::Value(f(handler.state, v).await?)
+                        }
+                        ValueOrStream::Stream(s) => {
+                            ValueOrStreamOrFutureStream::Stream(Box::pin(
+                                // This follow code is expanded from the `async_stream::stream!` macro shown below. Using the macro causes borrow errors.
+                                {
+                                    let (mut __yield_tx, __yield_rx) =
+                                        ::async_stream::yielder::pair();
+                                    ::async_stream::AsyncStream::new(__yield_rx, async move {
+                                        let mut s = s;
+                                        let ctx = handler.state;
+                                        while let Some(v) = s.next().await {
+                                            __yield_tx
+                                                .send(f(ctx.clone(), v.unwrap()).await.map_err(
+                                                    |err| ExecError::ErrResolverError(err),
+                                                ))
+                                                .await;
+                                        }
+                                    })
+                                },
+                                // stream! {
+                                //     let mut s = s;
+                                //     let ctx = handler.state;
+                                //     while let Some(v) = s.next().await {
+                                //         yield f(ctx.clone(), v.unwrap()).await.map_err(|err| ExecError::ErrResolverError(err));
+                                //     }
+                                // },
+                            ))
+                        }
+                    },
+                )
+            },
+        )))
     }
 }
 

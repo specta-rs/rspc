@@ -19,7 +19,7 @@ pub enum ExecError {
     #[error("invalid JSON-RPC version")]
     InvalidJsonRpcVersion,
     #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
-    UnsupportedMethod(&'static str),
+    UnsupportedMethod(String),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
 }

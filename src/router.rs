@@ -4,14 +4,17 @@ use std::{
     io::Write,
     marker::PhantomData,
     path::{Path, PathBuf},
+    pin::Pin,
     sync::Arc,
 };
 
+use futures::Stream;
+use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{Procedure, ProcedureStore},
-    Config, ExportError,
+    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext, ValueOrStream},
+    Config, ExecError, ExportError,
 };
 
 /// TODO
@@ -38,74 +41,65 @@ impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: 'static,
 {
-    // pub async fn exec(
-    //     &self,
-    //     ctx: TCtx,
-    //     kind: ExecKind,
-    //     key: String,
-    //     input: Option<Value>,
-    // ) -> Result<Value, ExecError> {
-    //     let (operations, kind) = match kind {
-    //         ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
-    //         ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
-    //     };
+    pub async fn exec(
+        &self,
+        ctx: TCtx,
+        kind: ExecKind,
+        key: String,
+        input: Option<Value>,
+    ) -> Result<Value, ExecError> {
+        let (operations, kind) = match kind {
+            ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
+            ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
+        };
 
-    //     operations
-    //         .get(&key)
-    //         .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-    //         .exec
-    //         .call(
-    //             ctx,
-    //             input.unwrap_or(Value::Null),
-    //             RequestContext { kind, path: key },
-    //         )?
-    //         .into_value()
-    //         .await
-    // }
+        match operations
+            .get(&key)
+            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+            .exec
+            .call(
+                ctx,
+                input.unwrap_or(Value::Null),
+                RequestContext {
+                    kind,
+                    path: key.clone(),
+                },
+            )?
+            .into_value_or_stream()
+            .await?
+        {
+            ValueOrStream::Value(v) => Ok(v),
+            ValueOrStream::Stream(_) => Err(ExecError::UnsupportedMethod(key)),
+        }
+    }
 
-    // pub async fn exec_subscription(
-    //     &self,
-    //     ctx: TCtx,
-    //     key: String,
-    //     input: Option<Value>,
-    // ) -> Result<Box<dyn Stream<Item = Value>>, ExecError> {
-    //     // operations
-    //     //     .get(&key)
-    //     //     .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-    //     //     .exec
-    //     //     .call(
-    //     //         ctx,
-    //     //         input.unwrap_or(Value::Null),
-    //     //         RequestContext { kind, path: key },
-    //     //     )?
-    //     //     .into_value()
-    //     //     .await;
-
-    //     todo!()
-    // }
-
-    /// TODO: Docs
-    // pub async fn execute(
-    //     &self,
-    //     ctx: TCtx,
-    //     kind: T,
-    //     key: String,
-    //     input: Option<Value>,
-    //     // TODO: Use T::Result
-    // ) -> Result<Value, ExecError> {
-    //     // Request {
-    //     //     jsonrpc: None,
-    //     //     id: RequestId::Null,
-    //     //     inner: match T::KIND {
-    //     //         OperationKind::Query => RequestInner::Query { path: key, input },
-    //     //         OperationKind::Mutation => RequestInner::Mutation { path: key, input },
-    //     //         OperationKind::Subscription => todo!(),
-    //     //     },
-    //     // }
-    //     // .execute(self, ctx)
-    //     // .await
-    //     todo!();
-    // }
+    pub async fn exec_subscription(
+        &self,
+        ctx: TCtx,
+        key: String,
+        input: Option<Value>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
+        match self
+            .subscriptions
+            .store
+            .get(&key)
+            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+            .exec
+            .call(
+                ctx,
+                input.unwrap_or(Value::Null),
+                RequestContext {
+                    kind: ProcedureKind::Subscription,
+                    path: key.clone(),
+                },
+            )?
+            .into_value_or_stream()
+            .await?
+        {
+            ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),
+            ValueOrStream::Stream(s) => Ok(s),
+        }
+    }
 
     pub fn arced(self) -> Arc<Self> {
         Arc::new(self)

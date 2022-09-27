@@ -31,7 +31,7 @@ impl<TCtx> ProcedureStore<TCtx> {
     }
 
     pub fn append(&mut self, key: String, exec: Box<dyn Layer<TCtx>>, ty: ProcedureDataType) {
-        if key == "" || key == "ws" || key.starts_with("rpc.") {
+        if key == "" || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
             panic!(
                 "rspc error: attempted to create {} operation named '{}', however this name is not allowed.",
                 self.name,
