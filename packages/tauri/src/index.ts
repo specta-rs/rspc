@@ -9,25 +9,23 @@ export class TauriTransport implements Transport {
 
   constructor() {
     this.listener = listen("plugin:rspc:transport:resp", (event) => {
-      const body = event.payload as any;
-      if (body.type === "event") {
-        const { id, result } = body;
+      const { id, result } = event.payload as any;
+      if (result.type === "event") {
         if (this.clientSubscriptionCallback)
-          this.clientSubscriptionCallback(id, result);
-      } else if (body.type === "response") {
-        const { id, result } = body;
+          this.clientSubscriptionCallback(id, result.data);
+      } else if (result.type === "response") {
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "response", result });
+          this.requestMap.get(id)?.({ type: "response", result: result.data });
           this.requestMap.delete(id);
         }
-      } else if (body.type === "error") {
-        const { id, message, code } = body;
+      } else if (result.type === "error") {
+        const { message, code } = result.data;
         if (this.requestMap.has(id)) {
           this.requestMap.get(id)?.({ type: "error", message, code });
           this.requestMap.delete(id);
         }
       } else {
-        console.error(`Received event of unknown method '${body.type}'`);
+        console.error(`Received event of unknown method '${result.type}'`);
       }
     });
   }
@@ -52,8 +50,11 @@ export class TauriTransport implements Transport {
 
     await appWindow.emit("plugin:rspc:transport", {
       id,
-      operation,
-      key: [key, input], // TODO: Split the params into different fields on the object
+      method: operation,
+      params: {
+        path: key,
+        input,
+      },
     });
 
     const body = (await promise) as any;
