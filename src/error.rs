@@ -22,6 +22,10 @@ pub enum ExecError {
     UnsupportedMethod(String),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
+    #[error("error creating subscription with null id")]
+    ErrSubscriptionWithNullId,
+    #[error("error creating subscription with duplicate id")]
+    ErrSubscriptionDuplicateId,
 }
 
 impl From<ExecError> for Error {
@@ -54,7 +58,21 @@ impl From<ExecError> for Error {
                 cause: None,
             },
             ExecError::ErrResolverError(err) => err,
-            _ => todo!(),
+            ExecError::UnsupportedMethod(_) => Error {
+                code: ErrorCode::BadRequest,
+                message: "unsupported metho".into(),
+                cause: None,
+            },
+            ExecError::ErrSubscriptionWithNullId => Error {
+                code: ErrorCode::BadRequest,
+                message: "error creating subscription with null request id".into(),
+                cause: None,
+            },
+            ExecError::ErrSubscriptionDuplicateId => Error {
+                code: ErrorCode::BadRequest,
+                message: "error creating subscription with duplicate id".into(),
+                cause: None,
+            },
         }
     }
 }

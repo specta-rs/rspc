@@ -8,6 +8,8 @@ license = "MIT"
 include = ["/src", "/examples", "/LICENCE", "/README.md"]
 repository = "https://github.com/oscartbeaumont/rspc/tree/main/specta"
 documentation = "https://docs.rs/specta/latest/specta"
+keywords = ["async", "specta", "rspc", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
 
 [features]
 default = ["serde"]

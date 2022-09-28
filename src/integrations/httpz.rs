@@ -7,7 +7,7 @@ use httpz::{
 };
 use serde_json::Value;
 use std::{collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
 use crate::{
     internal::{
@@ -351,14 +351,13 @@ where
         Method::GET => req
             .uri()
             .query_pairs()
-            .map(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
-            .flatten()
+            .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
             .map(|v| serde_json::from_str(&v))
             .unwrap_or(Ok(None as Option<Value>)),
         Method::POST => req
             .body()
             .is_empty()
-            .then(|| serde_json::from_slice(&req.body()))
+            .then(|| serde_json::from_slice(req.body()))
             .unwrap_or(Ok(None)),
         _ => unreachable!(),
     };
@@ -393,12 +392,28 @@ where
     );
 
     let mut resp = Sender::Response(None);
-    let cookies = Arc::new(Mutex::new(cookies)); // TODO: Avoid arcing in the future -> Allow ctx to how refs.
+    let ctx = match ctx_fn.exec(&mut RequestParts::new(req)) {
+        TCtxFuncResult::Value(v) => v,
+        TCtxFuncResult::Future(v) => v.await,
+    };
+    let ctx = match ctx {
+        Ok(v) => v,
+        Err(e) => {
+            #[cfg(feature = "tracing")]
+            tracing::error!("Error executing context function: {}", e);
+
+            return Ok((
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "application/json")
+                    .body(b"[]".to_vec())?,
+                cookies,
+            ));
+        }
+    };
+
     handle_json_rpc(
-        match ctx_fn.exec(&mut RequestParts::new(req)) {
-            TCtxFuncResult::Value(v) => v.unwrap(),
-            TCtxFuncResult::Future(v) => v.await.unwrap(),
-        },
+        ctx,
         jsonrpc::Request {
             jsonrpc: None,
             id: RequestId::Null,
@@ -411,10 +426,21 @@ where
                     path: key.to_string(),
                     input,
                 },
-                ProcedureKind::Subscription => todo!(),
+                ProcedureKind::Subscription => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Attempted to execute a subscription operation with HTTP");
+
+                    return Ok((
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .header("Content-Type", "application/json")
+                            .body(b"[]".to_vec())?,
+                        cookies,
+                    ));
+                }
             },
         },
-        &router,
+        router,
         &mut resp,
         &mut SubscriptionMap::None,
     )
@@ -422,14 +448,23 @@ where
 
     match resp {
         Sender::Response(Some(resp)) => Ok((
-            Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "application/json")
-                .body(serde_json::to_vec(&resp).unwrap())
-                .unwrap(),
-            (*cookies.lock().await).clone(),
+            match serde_json::to_vec(&resp) {
+                Ok(v) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "application/json")
+                    .body(v)?,
+                Err(e) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Error serializing response: {}", e);
+
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .header("Content-Type", "application/json")
+                        .body(b"[]".to_vec())?
+                }
+            },
+            cookies,
         )),
-        Sender::Response(None) => todo!(),
         _ => unreachable!(),
     }
 }
@@ -457,12 +492,28 @@ where
             tokio::select! {
                 biased; // Note: Order is important here
                 msg = rx.recv() => {
-                    socket.send(Message::Text(serde_json::to_string(&msg).unwrap())).await.unwrap();
+                    match socket.send(Message::Text(match serde_json::to_string(&msg) {
+                        Ok(v) => v,
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error serializing websocket message: {}", err);
+
+                            continue;
+                        }
+                    })).await {
+                        Ok(_) => {}
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error sending websocket message: {}", err);
+
+                            continue;
+                        }
+                    }
                 }
                 msg = socket.next() => {
                     let request = match msg {
                         Some(Ok(msg) )=> {
-                            match msg {
+                           let res = match msg {
                                 Message::Text(text) => {
                                     serde_json::from_str::<jsonrpc::Request>(&text)
                                 }
@@ -473,21 +524,40 @@ where
                                     continue;
                                 }
                                 Message::Frame(_) => unreachable!(),
+                            };
+
+                            match res {
+                                Ok(v) => v,
+                                Err(err) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!("Error parsing websocket message: {}", err);
+
+                                    continue;
+                                }
                             }
-                            .unwrap() // TODO: Error handling
                         }
                         Some(Err(err)) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!("Error in websocket: {}", err);
 
-                            todo!();
+                            continue;
                         },
-                        None => return,
+                        None => continue,
                     };
 
-                    handle_json_rpc(match ctx_fn.exec(&mut req) {
-                        TCtxFuncResult::Value(v) => v.unwrap(),
-                        TCtxFuncResult::Future(v) => v.await.unwrap(),
+                    let ctx = match ctx_fn.exec(&mut req) {
+                        TCtxFuncResult::Value(v) => v,
+                        TCtxFuncResult::Future(v) => v.await,
+                    };
+
+                    handle_json_rpc(match ctx {
+                        Ok(v) => v,
+                        Err(e) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error executing context function: {}", e);
+
+                            continue;
+                        }
                     }, request, &router, &mut Sender::Channel(&mut tx),
                     &mut SubscriptionMap::Ref(&mut subscriptions)).await;
                 }

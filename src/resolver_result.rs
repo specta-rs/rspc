@@ -59,7 +59,7 @@ where
                 .into_value_or_stream()
                 .await?
             {
-                ValueOrStream::Stream(_) => todo!(),
+                ValueOrStream::Stream(_) => unreachable!(),
                 ValueOrStream::Value(v) => Ok(v),
             }
         })))

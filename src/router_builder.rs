@@ -37,13 +37,13 @@ where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta> {
-        RouterBuilder::<TCtx, TMeta>::new()
+    pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
+        RouterBuilder::new()
     }
 }
 
 #[allow(clippy::new_without_default)]
-impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta>
+impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + 'static,

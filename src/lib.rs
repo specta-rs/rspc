@@ -1,7 +1,14 @@
 //! rspc: A blazingly fast and easy to use TRPC-like server for Rust.
 #![forbid(unsafe_code)]
-#![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
-// #![warn(missing_docs)]
+#![warn(
+    clippy::all,
+    clippy::cargo,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::todo,
+    clippy::panic_in_result_fn,
+    // missing_docs
+)]
 
 mod config;
 mod error;

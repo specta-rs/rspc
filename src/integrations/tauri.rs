@@ -42,16 +42,40 @@ where
                 let app_handle = app_handle.clone();
                 tokio::spawn(async move {
                     while let Some(event) = resp_rx.recv().await {
-                        app_handle
+                        let _ = app_handle
                             .emit_all("plugin:rspc:transport:resp", event)
-                            .unwrap();
+                            .map_err(|err| {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("failed to emit JSON-RPC response: {}", err);
+                            });
                     }
                 });
             }
 
             app_handle.listen_global("plugin:rspc:transport", move |event| {
-                tx.send(serde_json::from_str(event.payload().unwrap()).unwrap())
-                    .unwrap();
+                let _ = tx
+                    .send(
+                        match serde_json::from_str(match event.payload() {
+                            Some(v) => v,
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Tauri event payload is empty");
+
+                                return;
+                            }
+                        }) {
+                            Ok(v) => v,
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                return;
+                            }
+                        },
+                    )
+                    .map_err(|err| {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("failed to send JSON-RPC request: {}", err);
+                    });
             });
 
             Ok(())

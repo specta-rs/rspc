@@ -37,8 +37,12 @@ You define a `rspc` router and attach resolvers to it like below. This will be v
 
 ```rust
 let router = <rspc::Router>::new()
-    .query("version", |_| "0.0.1")
-    .mutation("helloWorld", |_| async { "Hello World!" });
+    .query("version", |t| {
+        t(|ctx, input: ()| "0.0.1")
+    })
+    .mutation("helloWorld", |t| {
+        t(|ctx, input: ()| async { "Hello World!" })
+    });
 ```
 
 ## Features:

@@ -8,6 +8,8 @@ license = "MIT"
 include = ["/src", "/LICENCE", "/README.md"]
 repository = "https://github.com/oscartbeaumont/rspc"
 documentation = "https://docs.rs/rspc/latest/rspc"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
 
 [features]
 default = []

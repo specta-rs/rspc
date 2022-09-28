@@ -176,14 +176,50 @@ pub async fn handle_json_rpc<TCtx, TMeta>(
                 if matches!(sender, Sender::Response(_))
                     || matches!(subscriptions, SubscriptionMap::None)
                 {
-                    todo!();
+                    let _ = sender
+                        .send(jsonrpc::Response {
+                            jsonrpc: "2.0",
+                            id: req.id.clone(),
+                            result: ResponseInner::Error(
+                                ExecError::UnsupportedMethod("Subscription".to_string()).into(),
+                            ),
+                        })
+                        .await
+                        .map_err(|_err| {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Failed to send response: {}", _err);
+                        });
                 }
 
                 if let Some(id) = sub_id {
                     if matches!(id, RequestId::Null) {
-                        todo!();
+                        let _ = sender
+                            .send(jsonrpc::Response {
+                                jsonrpc: "2.0",
+                                id: req.id.clone(),
+                                result: ResponseInner::Error(
+                                    ExecError::ErrSubscriptionWithNullId.into(),
+                                ),
+                            })
+                            .await
+                            .map_err(|_err| {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Failed to send response: {}", _err);
+                            });
                     } else if subscriptions.has_subscription(&id).await {
-                        todo!();
+                        let _ = sender
+                            .send(jsonrpc::Response {
+                                jsonrpc: "2.0",
+                                id: req.id.clone(),
+                                result: ResponseInner::Error(
+                                    ExecError::ErrSubscriptionDuplicateId.into(),
+                                ),
+                            })
+                            .await
+                            .map_err(|_err| {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Failed to send response: {}", _err);
+                            });
                     }
 
                     let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
