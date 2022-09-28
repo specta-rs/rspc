@@ -98,7 +98,7 @@ export function createReactQueryHooks<
     return __useQuery(
       keyAndInput,
       async () => {
-        return await client!.query(keyAndInput[0], keyAndInput[1]);
+        return await client!.query(keyAndInput);
       },
       rawOpts as any
     );
@@ -171,7 +171,7 @@ export function createReactQueryHooks<
 
     return __useMutation(async (input) => {
       const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation(actualKey, input);
+      return client!.mutation([actualKey, input] as any);
     }, rawOpts as any);
   }
 
@@ -199,8 +199,7 @@ export function createReactQueryHooks<
       }
       let isStopped = false;
       const unsubscribe = client!.addSubscription<K, TData>(
-        keyAndInput[0],
-        keyAndInput[1],
+        keyAndInput as any,
         {
           onStarted: () => {
             if (!isStopped) {

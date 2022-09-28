@@ -89,7 +89,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
 
     return __createQuery(
       () => keyAndInput,
-      async () => client!.query(keyAndInput[0], keyAndInput[1]),
+      async () => client!.query(keyAndInput),
       rawOpts as any
     );
   }
@@ -161,7 +161,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
 
     return __createMutation(async (input) => {
       const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation(actualKey, input);
+      return client!.mutation([actualKey, input] as any);
     }, rawOpts as any);
   }
 
@@ -190,8 +190,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     //   }
     //   let isStopped = false;
     //   const unsubscribe = client.addSubscription<K, TData>(
-    //     keyAndInput[0],
-    //     keyAndInput[1],
+    //     keyAndInput,
     //     {
     //       onStarted: () => {
     //         if (!isStopped) {

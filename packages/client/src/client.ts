@@ -4,12 +4,11 @@ import {
   ProceduresLike,
   inferQueryResult,
   ProceduresDef,
-  inferQueryInput,
-  inferMutationInput,
   inferMutationResult,
-  inferSubscriptionInput,
   inferProcedures,
   inferSubscriptionResult,
+  _inferInfiniteQueryProcedureHandlerInput,
+  _inferProcedureHandlerInput,
 } from ".";
 import { randomId, Transport } from "./transport";
 
@@ -51,11 +50,17 @@ export class Client<TProcedures extends ProceduresDef> {
   }
 
   async query<K extends TProcedures["queries"]["key"] & string>(
-    key: K,
-    input: inferQueryInput<TProcedures, K>
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+    ]
   ): Promise<inferQueryResult<TProcedures, K>> {
     try {
-      return await this.transport.doRequest("query", key, input);
+      return await this.transport.doRequest(
+        "query",
+        keyAndInput[0],
+        keyAndInput[1]
+      );
     } catch (err) {
       if (this.onError) {
         this.onError(err as RSPCError);
@@ -65,11 +70,17 @@ export class Client<TProcedures extends ProceduresDef> {
   }
 
   async mutation<K extends TProcedures["mutations"]["key"] & string>(
-    key: K,
-    input: inferMutationInput<TProcedures, K>
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "mutations", K>
+    ]
   ): Promise<inferMutationResult<TProcedures, K>> {
     try {
-      return await this.transport.doRequest("mutation", key, input);
+      return await this.transport.doRequest(
+        "mutation",
+        keyAndInput[0],
+        keyAndInput[1]
+      );
     } catch (err) {
       if (this.onError) {
         this.onError(err as RSPCError);
@@ -83,8 +94,10 @@ export class Client<TProcedures extends ProceduresDef> {
     K extends TProcedures["mutations"]["key"] & string,
     TData = inferSubscriptionResult<TProcedures, K>
   >(
-    key: K,
-    input: inferSubscriptionInput<TProcedures, K>,
+    keyAndInput: [
+      K,
+      _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+    ],
     opts: SubscriptionOptions<TData>
   ): () => void {
     try {
@@ -102,7 +115,10 @@ export class Client<TProcedures extends ProceduresDef> {
         }
       };
 
-      this.transport.doRequest("subscription", key, [subscriptionId, input]);
+      this.transport.doRequest("subscription", keyAndInput[0], [
+        subscriptionId,
+        keyAndInput[1],
+      ]);
 
       if (opts.onStarted) opts.onStarted();
       this.subscriptionMap?.set(subscriptionId, opts.onData);

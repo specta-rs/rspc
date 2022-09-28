@@ -32,6 +32,24 @@ const client = createClient<Operations>({
 });
 ```
 
+### React Query Context
+
+rspc will not mount the React Query context for you anymore so ensure you mount it in your component tree.
+
+```diff
+const queryClient = new QueryClient();
+
+function App() {
+    return (
+         <rspc.Provider client={wsClient} queryClient={queryClient}>
++            <QueryClientProvider client={queryClient}>
+                <h1>My Application</h1>
++            </QueryClientProvider>
+        </rspc.Provider>
+    )
+}
+```
+
 #### Axum extractors
 
 TODO - Document changes here - Currently `cookies` can be access from `httpz` but not access through `TCtx` because it doesn't satisfy `'static`.
@@ -93,10 +111,33 @@ let router = Router::new()
 
 #### Subscription
 
+Rust:
+
 ```diff
 let router = Router::new()
 - .subscription("version", |ctx, input: ()| stream! { yield 42; })
 + .subscription("version", |t| t(|ctx, input: ()| stream! { yield 42; }))
+```
+
+Typescript:
+
+```diff
+rspc.useSubscription(['my.subscription'], {
+-    onNext: (data) => {
++    onData: (data) => {
+        console.log(data)
+    }
+});
+```
+
+### Vanilla client syntax
+
+```diff
+- const data = await client.query("version");
++ const data = await client.query(["version"]);
+
+- const data = await client.query("updateUser", userData);
++ const data = await client.query(["version", userData]);
 ```
 
 ### Minor changes/new features
