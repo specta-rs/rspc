@@ -16,7 +16,7 @@ pnpm i @rspc/solid # The SolidJS integration
 Then you can do the following:
 
 ```ts
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/solid-query';
 import { FetchTransport, createClient } from '@rspc/client';
 import { createSolidQueryHooks } from '@rspc/solid';
 
@@ -29,7 +29,7 @@ const client = createClient<Operations>({
 });
 
 const queryClient = new QueryClient();
-const rspc = createSolidQueryHooks<Operations>();
+const rspc = createSolidQueryHooks<Procedures>();
 
 function SomeComponent() {
     const echo = rspc.createQuery(["echo", "somevalue"]);

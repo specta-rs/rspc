@@ -25,7 +25,7 @@ import {
   CreateInfiniteQueryResult,
   CreateMutationOptions,
   CreateMutationResult,
-  hashQueryKey,
+  QueryClientProvider,
 } from "@tanstack/solid-query";
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
@@ -66,7 +66,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     TQueryFnData = inferQueryResult<TProcedures, K>,
     TData = inferQueryResult<TProcedures, K>
   >(
-    keyAndInput: [
+    keyAndInput: () => [
       key: K,
       ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
     ],
@@ -88,8 +88,8 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     }
 
     return __createQuery(
-      () => keyAndInput,
-      async () => client!.query(keyAndInput),
+      keyAndInput,
+      async () => client!.query(keyAndInput()),
       rawOpts as any
     );
   }
@@ -97,7 +97,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
   function createInfiniteQuery<
     K extends inferInfiniteQueries<TProcedures>["key"] & string
   >(
-    keyAndInput: [
+    keyAndInput: () => [
       key: K,
       ...input: _inferInfiniteQueryProcedureHandlerInput<TProcedures, K>
     ],
@@ -123,7 +123,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     }
 
     return __createInfiniteQuery(
-      () => keyAndInput,
+      keyAndInput,
       async () => {
         throw new Error("TODO"); // TODO: Finish this
       },
@@ -169,7 +169,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     K extends TProcedures["subscriptions"]["key"] & string,
     TData = inferSubscriptionResult<TProcedures, K>
   >(
-    keyAndInput: [
+    keyAndInput: () => [
       key: K,
       ...input: _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
     ],
@@ -179,8 +179,8 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     if (!client) {
       client = useContext().client;
     }
-    const queryKey = hashQueryKey(keyAndInput);
-    const enabled = opts?.enabled ?? true;
+    // const queryKey = hashQueryKey(keyAndInput);
+    // const enabled = opts?.enabled ?? true;
 
     throw new Error("TODO: SolidJS Subscriptions are not supported yet!");
 
@@ -230,14 +230,16 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
             queryClient: props.queryClient,
           }}
         >
-          {props.children as any}
+          <QueryClientProvider client={props.queryClient}>
+            {props.children as any}
+          </QueryClientProvider>
         </Context.Provider>
       ) as any;
     },
     useContext,
     createQuery,
-    createInfiniteQuery,
+    // createInfiniteQuery,
     createMutation,
-    createSubscription,
+    // createSubscription,
   };
 }

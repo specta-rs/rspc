@@ -16,6 +16,7 @@ import {
   UseInfiniteQueryResult,
   UseInfiniteQueryOptions,
   hashQueryKey,
+  QueryClientProvider,
 } from "@tanstack/react-query";
 import {
   Client,
@@ -242,12 +243,14 @@ export function createReactQueryHooks<
           queryClient,
         }}
       >
-        {children}
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       </Context.Provider>
     ),
     useContext,
     useQuery,
-    useInfiniteQuery,
+    // useInfiniteQuery,
     useMutation,
     useSubscription,
   };

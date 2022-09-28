@@ -32,27 +32,14 @@ const client = createClient<Operations>({
 });
 ```
 
-### React Query Context
-
-rspc will not mount the React Query context for you anymore so ensure you mount it in your component tree.
+### SolidJS
 
 ```diff
-const queryClient = new QueryClient();
+const rspc = createSolidQueryHooks<Procedures>();
 
-function App() {
-    return (
-         <rspc.Provider client={wsClient} queryClient={queryClient}>
-+            <QueryClientProvider client={queryClient}>
-                <h1>My Application</h1>
-+            </QueryClientProvider>
-        </rspc.Provider>
-    )
-}
+- rspc.createQuery(["echo", "somevalue"]);
++ rspc.createQuery(() => ["echo", "somevalue"]);
 ```
-
-#### Axum extractors
-
-TODO - Document changes here - Currently `cookies` can be access from `httpz` but not access through `TCtx` because it doesn't satisfy `'static`.
 
 ### New Typescript bindings format
 

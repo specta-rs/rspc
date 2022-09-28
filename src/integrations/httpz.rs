@@ -354,9 +354,7 @@ where
             .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
             .map(|v| serde_json::from_str(&v))
             .unwrap_or(Ok(None as Option<Value>)),
-        Method::POST => req
-            .body()
-            .is_empty()
+        Method::POST => (!req.body().is_empty())
             .then(|| serde_json::from_slice(req.body()))
             .unwrap_or(Ok(None)),
         _ => unreachable!(),
@@ -542,7 +540,12 @@ where
 
                             continue;
                         },
-                        None => continue,
+                        None => {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!("Shutting down websocket connection");
+
+                            return;
+                        },
                     };
 
                     let ctx = match ctx_fn.exec(&mut req) {
