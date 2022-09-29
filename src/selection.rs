@@ -58,7 +58,7 @@ macro_rules! selection {
                 const NAME: &'static str = "Selection";
 
                 fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    $crate::internal::specta::DataType::List(Box::new($crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
+                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
                         generics: vec![],
@@ -76,7 +76,7 @@ macro_rules! selection {
                             }
                         ),*],
                         type_id: Some(std::any::TypeId::of::<Self>())
-                    })))
+                    })
                 }
 
                 fn reference(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
