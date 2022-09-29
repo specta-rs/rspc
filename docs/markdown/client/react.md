@@ -2,8 +2,6 @@
 title: React
 ---
 
-# React
-
 rspc can be used on the frontend with [React](https://reactjs.org) via the powerful [React Query](https://tanstack.com/query/v4) library which provides caching, refetching and a lot more.
 
 To get started first install the required packages.

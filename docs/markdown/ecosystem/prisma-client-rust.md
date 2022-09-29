@@ -2,6 +2,6 @@
 title: Prisma Client Rust
 ---
 
-# Prisma Client Rust
+More extensive docs coming soon...
 
-Coming soon...
+For now check out the Prisma Client Rust documentation on working with [rspc](https://prisma.brendonovich.dev/extra/rspc).

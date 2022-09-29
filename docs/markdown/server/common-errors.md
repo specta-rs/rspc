@@ -2,8 +2,6 @@
 title: Common errors
 ---
 
-# Common errors
-
 rspc uses traits to allow for any nearly any type to be returned from your resolvers, however this can make the error messages hard to understand so some guidance is provided here.
 
 #### the trait `IntoLayerResult<_>` is not implemented for type

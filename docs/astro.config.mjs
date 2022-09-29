@@ -1,23 +1,13 @@
 import { defineConfig } from "astro/config";
-import solid from "@astrojs/solid-js";
-import rehypeExternalLinks from "rehype-external-links";
-import astro from "astro-compress";
-import sitemap from "@astrojs/sitemap";
 import tailwind from "@astrojs/tailwind";
+import solidJs from "@astrojs/solid-js";
+import sitemap from "@astrojs/sitemap";
+import compress from "astro-compress";
+import rehypeExternalLinks from "rehype-external-links";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://rspc.otbeaumont.me",
-  integrations: [
-    astro(),
-    solid(),
-    sitemap(),
-    tailwind({
-      config: {
-        applyBaseStyles: false,
-      },
-    }),
-  ],
+  site: `https://rspc.otbeaumont.me`,
   markdown: {
     rehypePlugins: [
       [
@@ -29,10 +19,8 @@ export default defineConfig({
       ],
     ],
   },
+  integrations: [tailwind(), solidJs(), sitemap(), compress()],
   vite: {
-    build: {
-      assetsInlineLimit: 0,
-    },
     ssr: {
       external: ["svgo"],
     },

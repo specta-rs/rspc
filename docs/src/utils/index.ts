@@ -1,43 +1,67 @@
 import { config } from "../config";
-import { parseMarkdown } from "./markdownParse";
 
 const baseMarkdownDir = "../../markdown/";
-const markdownFiles = import.meta.glob("../../markdown/**/*.md", {
-  as: "raw",
-  eager: true,
-});
+const markdownFiles = import.meta.glob("../../markdown/**/*.md");
 
-export async function getPageData() {
-  const sidebar = new Map();
+export interface Page {
+  url: string;
+  title: string;
+  header?: string;
+  categoryName: string;
+  categorySlug: string;
+  html: string;
+  headers: {
+    title: string;
+    slug: string;
+  }[];
+  sortByIndex: number;
+}
 
-  for (const [path, rawFile] of Object.entries(await markdownFiles)) {
+export async function getPageData(): Promise<Map<string, Page>> {
+  const sidebar = new Map<string, Page>();
+
+  // TODO
+  for (const [path, fileFn] of Object.entries(await markdownFiles)) {
     const pathElems = path
       .replace(".md", "")
       .replace(baseMarkdownDir, "")
       .split("/");
     if (pathElems.length === 0 || pathElems.length > 2) {
-      throw new Error("TODO");
+      throw new Error("TODO: You broke it stupid.");
     }
-    const { render, metadata } = parseMarkdown(rawFile);
+
+    const file = (await fileFn()) as any;
     const url = pathElems.filter((v) => (v === "index" ? "" : v)).join("/");
     sidebar.set(url, {
       url,
       title:
-        metadata?.title ||
-        toTitleCase(pathElems[1] ? pathElems[1] : pathElems[0]),
+        file.frontmatter?.title ||
+        toTitleCase((pathElems[1] ? pathElems[1] : pathElems[0])!),
+      header: file.frontmatter?.header,
       categoryName:
-        pathElems.length === 1 ? config.seo.title : toTitleCase(pathElems[0]),
-      categorySlug: pathElems.length === 1 ? "" : pathElems[0],
-      html: render,
-      sortByIndex: metadata?.index ?? 100,
+        pathElems.length === 1 ? config.seo.title : toTitleCase(pathElems[0]!),
+      categorySlug: pathElems.length === 1 ? "" : pathElems[0]!,
+      html: file.compiledContent(),
+      headers: file
+        .getHeadings()
+        .filter(({ depth }: any) => depth > 0 && depth < 4)
+        .map((header: any) => ({
+          title: header.text,
+          slug: header.slug,
+        })),
+      sortByIndex: file.frontmatter?.index ?? 100,
     });
   }
 
   return sidebar;
 }
+export interface Category {
+  name: string;
+  children: Page[];
+}
 
-export async function getSidebarData() {
-  let categories = new Map();
+export async function getSidebarData(): Promise<Map<string, Category>> {
+  let categories = new Map<string, Category>();
 
   for (const [, page] of await getPageData()) {
     categories.set(page.categorySlug, {
@@ -55,7 +79,8 @@ export async function getSidebarData() {
         return a;
       })
       .sort(
-        (a, b) => a[1].children[0].sortByIndex - b[1].children[0].sortByIndex
+        (a, b) =>
+          a[1]!.children[0]!.sortByIndex - b[1]!.children[0]!.sortByIndex
       )
   );
 

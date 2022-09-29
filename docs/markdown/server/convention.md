@@ -2,8 +2,6 @@
 title: Convention
 ---
 
-# Convention
-
 This page documents conventions for building application with rspc. You should remember that conventions act as a starting place and you should do whatever makes sense for your project or team, even if it goes against the convention.
 
 ## Capturing variables

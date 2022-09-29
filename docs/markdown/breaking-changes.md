@@ -3,8 +3,6 @@ title: Breaking Changes
 index: 3
 ---
 
-# Breaking Changes
-
 # 0.0.5 to 0.0.6 - rspc
 
 This release comes with a huge amount of breaking changes. These changes are going to allow for many benefits in the future such as a rich plugin ecosystem. If your having trouble upgrading open a GitHub Issue or jump in the Discord server.
@@ -32,14 +30,9 @@ const client = createClient<Operations>({
 });
 ```
 
-### SolidJS
+#### Axum extractors
 
-```diff
-const rspc = createSolidQueryHooks<Procedures>();
-
-- rspc.createQuery(["echo", "somevalue"]);
-+ rspc.createQuery(() => ["echo", "somevalue"]);
-```
+TODO - Document changes here - Currently `cookies` can be access from `httpz` but not access through `TCtx` because it doesn't satisfy `'static`.
 
 ### New Typescript bindings format
 
@@ -115,16 +108,6 @@ rspc.useSubscription(['my.subscription'], {
         console.log(data)
     }
 });
-```
-
-### Vanilla client syntax
-
-```diff
-- const data = await client.query("version");
-+ const data = await client.query(["version"]);
-
-- const data = await client.query("updateUser", userData);
-+ const data = await client.query(["version", userData]);
 ```
 
 ### Minor changes/new features

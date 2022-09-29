@@ -2,8 +2,6 @@
 title: Selection
 ---
 
-# Selection
-
 It is very common when building an API to fetch some data from the database but you only want to expose a subset of the data to the client. With rspc you can use the `selection!` macro to easily return a subset of fields on a struct.
 
 For example say you have a `User` struct like the following:

@@ -17,5 +17,11 @@
     "react": "pnpm --filter @rspc/react -- ",
     "solid": "pnpm --filter @rspc/solid -- ",
     "tauri": "pnpm --filter @rspc/tauri -- "
+  },
+  "engines": {
+    "pnpm": ">=7.0.0",
+    "npm": "pnpm",
+    "yarn": "pnpm",
+    "node": ">=16.0.0"
   }
 }

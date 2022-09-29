@@ -1,6 +1,6 @@
 {
   "name": "@rspc/docs",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -9,24 +9,20 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/tailwind": "^2.0.1",
-    "@geoffcodesthings/tailwind-md-base": "github:oscartbeaumont/tailwind-md-base",
-    "astro-icon": "^0.7.3",
-    "autoprefixer": "^10.4.12",
-    "cssnano": "^5.1.13",
-    "markdown-yaml-metadata-parser": "^3.0.0",
-    "marked": "^4.1.0",
-    "morphdom": "^2.6.1",
-    "prismjs": "^1.29.0",
-    "rehype-external-links": "^2.0.1"
+    "clsx": "^1.2.1",
+    "solid-js": "^1.5.6"
   },
   "devDependencies": {
     "@astrojs/sitemap": "^1.0.0",
     "@astrojs/solid-js": "^1.1.0",
+    "@astrojs/tailwind": "^2.0.2",
+    "@tailwindcss/typography": "^0.5.7",
     "astro": "1.3.1",
     "astro-compress": "^1.0.8",
-    "postcss": "^8.4.16",
-    "solid-js": "^1.5.6",
+    "astro-icon": "^0.7.3",
+    "node-html-parser": "^6.1.1",
+    "rehype-external-links": "^2.0.1",
+    "tailwind-scrollbar": "^2.0.1",
     "tailwindcss": "^3.1.8"
   },
   "engines": {

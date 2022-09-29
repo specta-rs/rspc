@@ -3,8 +3,6 @@ title: Tauri
 index: 30
 ---
 
-# Tauri
-
 **rspc** has a built-in integration with [Tauri](https://tauri.app/) so that you can expose your API to your frontend code using Tauri's IPC.
 
 ### Enable feature

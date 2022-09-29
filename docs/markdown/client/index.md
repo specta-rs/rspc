@@ -1,9 +1,8 @@
 ---
 title: Create Vanilla Client
+header: Vanilla Client
 index: 20
 ---
-
-# Vanilla Client
 
 The vanilla client allows you to consume your API on the frontend. This client is the minimal core and it is recommended that you use the [React](/client/react) or [Solid](/client/solid) integration for building application.
 

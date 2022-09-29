@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://rspc.otbeaumont.me/sitemap-index.xml

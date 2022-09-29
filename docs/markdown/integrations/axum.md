@@ -2,8 +2,6 @@
 title: Axum
 ---
 
-# Axum
-
 **rspc** has a built-in integration with [Axum](https://github.com/tokio-rs/axum) so that you can expose your API over HTTP.
 
 ### Enable feature
