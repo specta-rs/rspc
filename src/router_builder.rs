@@ -112,7 +112,7 @@ where
         }
     }
 
-    pub fn query<TResolver, TArg, TResult, TResultMarker, TResultMarker2>(
+    pub fn query<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -141,7 +141,7 @@ where
         self
     }
 
-    pub fn mutation<TResolver, TArg, TResult, TResultMarker, TResultMarker2>(
+    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
