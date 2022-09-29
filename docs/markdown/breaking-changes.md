@@ -5,7 +5,7 @@ index: 3
 
 # 0.0.5 to 0.0.6 - rspc
 
-This release comes with a huge amount of breaking changes. These changes are going to allow for many benefits in the future such as a rich plugin ecosystem. If your having trouble upgrading open a GitHub Issue or jump in the Discord server.
+This release comes with a huge amount of breaking changes. These changes are going to allow for many benefits in the future such as a rich plugin ecosystem. If your having trouble upgrading open a GitHub Issue or jump in the Discord server. New [rspc vscode extension](https://marketplace.visualstudio.com/items?itemName=oscartbeaumont.rspc-vscode) too!
 
 ### Httpz integration
 
@@ -29,10 +29,6 @@ const client = createClient<Operations>({
 +   transport: new WebsocketTransport("ws://localhost:8080/rspc/ws"),
 });
 ```
-
-#### Axum extractors
-
-TODO - Document changes here - Currently `cookies` can be access from `httpz` but not access through `TCtx` because it doesn't satisfy `'static`.
 
 ### New Typescript bindings format
 

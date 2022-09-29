@@ -1,7 +1,7 @@
 ---
 title: Create Vanilla Client
 header: Vanilla Client
-index: 20
+index: 30
 ---
 
 The vanilla client allows you to consume your API on the frontend. This client is the minimal core and it is recommended that you use the [React](/client/react) or [Solid](/client/solid) integration for building application.
@@ -12,7 +12,7 @@ To get started first install the minimal runtime package.
 npm i @rspc/client
 ```
 
-Next you need to export the Typescript bindings from your `rspc::Router` by using either [export_ts_bindings](/server/router#export_ts_bindings) or [export_ts](/server/router#exporting-the-typescript-bindings).
+Next you need to export the Typescript bindings from your `rspc::Router` by using either [export_ts_bindings](/server/router#exporting-the-typescript-bindings) or [export_ts](/server/router#exporting-the-typescript-bindings).
 
 ```rust
 let router = <rspc::Router>::new()
@@ -39,8 +39,23 @@ const userOne = await client.query(["getUser", 1]);
 const userTwo = await client.mutation(["addUser", { name: "Monty Beaumont" }]);
 ```
 
-[View full example](https://github.com/oscartbeaumont/rspc/tree/main/packages/example/react.tsx)
+# Transports
 
-## Websockets
+rspc has multiple different transports which can be used.
 
-TODO: Document using websocket transport
+```ts
+import { createClient, FetchTransport, WebsocketTransport, NoOpTransport } from "@rspc/client";
+import type { Procedures } from "./bindings.ts"; // The bindings exported from your Rust code!
+
+const fetchClient = createClient<Procedures>({
+  transport: new FetchTransport("http://localhost:4000/rspc"),
+});
+
+const wsClient = createClient<Procedures>({
+  transport: new WebsocketTransport("ws://localhost:8080/rspc/ws"),
+});
+
+
+const noOpClient = createClient<Procedures>({
+  transport: new NoOpTransport(),
+});

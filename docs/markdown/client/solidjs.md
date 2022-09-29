@@ -1,8 +1,9 @@
 ---
 title: SolidJS
+index: 32
 ---
 
-rspc can be used on the frontend with [SolidJS](https://www.solidjs.com/) via [solid-query](https://github.com/ardeora/solid-query) which provides caching, refetching and a lot more. 
+rspc can be used on the frontend with [SolidJS](https://www.solidjs.com/) via [Tanstack Solid Query](https://tanstack.com/query/v4/docs/adapters/solid-query) which provides caching, refetching and a lot more. 
 
 To get started first install the required packages.
 

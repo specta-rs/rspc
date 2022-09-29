@@ -1,13 +1,13 @@
 ---
 title: Tauri
-index: 30
+index: 41
 ---
 
-**rspc** has a built-in integration with [Tauri](https://tauri.app/) so that you can expose your API to your frontend code using Tauri's IPC.
+rspc has a built-in integration with [Tauri](https://tauri.app/) so that you can expose your API to your frontend code using Tauri's IPC.
 
 ### Enable feature
 
-For the integration to work you must enable the `tauri` feature of **rspc**. Ensure the rspc line in your `Cargo.toml` file looks like the following:
+For the integration to work you must enable the `tauri` feature of rspc. Ensure the rspc line in your `Cargo.toml` file looks like the following:
 
 ```toml
 [dependencies]

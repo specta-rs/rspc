@@ -1,12 +1,13 @@
 ---
 title: Axum
+index: 40
 ---
 
-**rspc** has a built-in integration with [Axum](https://github.com/tokio-rs/axum) so that you can expose your API over HTTP.
+rspc has a built-in integration with [Axum](https://github.com/tokio-rs/axum) so that you can expose your API over HTTP.
 
 ### Enable feature
 
-For the integration to work you must enable the `axum` feature of **rspc**. Ensure the rspc line in your `Cargo.toml` file looks like the following:
+For the integration to work you must enable the `axum` feature of rspc. Ensure the rspc line in your `Cargo.toml` file looks like the following:
 
 ```toml
 [dependencies]
@@ -28,8 +29,6 @@ let app = axum::Router::new()
     .route("/rspc/:id", router.endpoint(|| ()).axum())
     .layer(cors);
 ```
-
-[View full example](https://github.com/oscartbeaumont/rspc/blob/main/examples/axum.rs)
 
 ### Extracting Context from Request
 

@@ -1,43 +1,49 @@
 ---
 title: Error Handling
+index: 22
 ---
 
-**rspc** resolvers are allowed to return a `Result<T, rspc::Error>` where `T` can be any type which can be returned from a normal resolver.
+rspc procedures have to return the type `Result<T, rspc::Error>` where `T` can be any type which can be returned from a normal procedure.
 
-It is important to understand that the [question mark operation (`?`)](https://doc.rust-lang.org/rust-by-example/std/result/question_mark.html) in Rust will expand to `return Err(From::from(err))`. We rely on this fact for custom errors.
+The fact that Rust as a language currently requires the error type to be concrete makes error handling slightly annoying. All of the error handling done by rspc relys on the [question mark operator (`?`)](https://doc.rust-lang.org/rust-by-example/std/result/question_mark.html) in Rust to make a reasonable developer experience. The question mark operator will expand into something along the lines of `return Err(From::from(err))` under the hood. This means for any type `T` if you implement `From<T> for rspc::Error` you will be able to rely on the question mark operator to convert it into an `rspc::Error` type.
 
-### Using an `rspc::Error`:
+### An example using the `rspc::Error` type
 
 ```rust
-let router = <rspc:::Router>::new()
-    .query("ok", |t| t(|_, args: ()| {
-        // Rust infers the error type must be `rspc::Error`
-        Ok("Hello World".into())
-    }))
-    .query("err", |t| t(|_, args: ()| {
-        // The `as` is required due this resolver never returning an `Ok` variant,
-        // hence Rust is unable to infer the Results type.
-        Err(Error::new(
-            ErrorCode::BadRequest,
-            "This is a custom error!".into(),
-        )) as Result<String, _ /* Rust can infer the error type */>
-    }))
-    .query("errWithCause", |t| t(|_, args: ()| {
-        Err(Error::with_cause(
-            ErrorCode::BadRequest,
-            "This is a custom error!".into(),
-            // This function must return an error that implements `std::error::Error`
-            some_function_returning_error(),
-        )) as Result<String, Error>
-    }))
-    .query("errUsingQuestionMarkOperator", |t| t(|_, args: ()| {
-        let value = some_function_returning_an_error()?;
-        Ok(value)
-    }))
+use rspc::{Error, Router};
+
+let router = <Router>::new()
+    .query("ok", |t| {
+        t(|_, args: ()| {
+            // Rust infers the return type is `Result<String, rspc::Error>`
+            Ok("Hello World".into())
+        })
+    })
+    .query("err", |t| {
+        t(|_, args: ()| {
+            // Rust is unable to infer the `Ok` variant of the result.
+            // We use the `as` keyword to tell Rust the type of the result.
+            // This situation is rare in real world code.
+            Err(Error::new(
+                ErrorCode::BadRequest,
+                "This is a custom error!".into(),
+            )) as Result<String, _ /* Rust can infer the error type */>
+        })
+    })
+    .query("errWithCause", |t| {
+        t(|_, args: ()| {
+            some_function_returning_error().map_err(|err| {
+                Error::with_cause(
+                    ErrorCode::BadRequest,
+                    "This is a custom error!".into(),
+                    // This error type implements `std::error::Error`
+                    err,
+                )
+            })
+        })
+    })
     .build();
 ```
-
-[View full example](https://github.com/oscartbeaumont/rspc/blob/main/examples/error_handling.rs)
 
 ### Custom error type
 
@@ -53,11 +59,14 @@ impl From<MyCustomError> for rspc::Error {
 }
 
 let router = <Router>::new()
-    .query("returnCustomErrorUsingQuestionMark", |t| t(|_, args: ()| {
-        Ok(Err(MyCustomError::ServerDidABad)?)
-    }))
-     .query("customErrUsingInto", |t| t(|_, _args: ()| {
-        Err(MyCustomError::IAmBroke.into()) as Result<String, Error>
-    }))
+    .query("returnCustomErrorUsingQuestionMark", |t| {
+        t(|_, args: ()| Ok(Err(MyCustomError::ServerDidABad)?))
+    })
+    .query("customErrUsingInto", |t| {
+        t(|_, _args: ()| {
+            let res: Result<String, MyCustomError> = some_function();
+            res.map_err(Into::into) // This is an alternative to using the question mark operator
+        })
+    })
     .build();
 ```

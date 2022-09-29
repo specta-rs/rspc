@@ -3,7 +3,13 @@ title: Quickstart
 index: 2
 ---
 
-**Get rspc up and running in your own project.**
+## Setup your editor
+
+If you are using [Visual Studio Code](https://code.visualstudio.com) you should install the [rspc extension](https://marketplace.visualstudio.com/items?itemName=oscartbeaumont.rspc-vscode) for useful code shortcuts.
+
+## Manual setup
+
+Get rspc up and running in your own project.
 
 ### Create new project (optional)
 
