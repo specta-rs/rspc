@@ -1,6 +1,9 @@
 use std::{error, fmt, sync::Arc};
 
-use crate::Response;
+use serde::Serialize;
+use specta::Type;
+
+use crate::internal::jsonrpc::JsonRPCError;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
@@ -13,26 +16,34 @@ pub enum ExecError {
     #[cfg(feature = "axum")]
     #[error("error in axum extractor")]
     AxumExtractorError,
+    #[error("invalid JSON-RPC version")]
+    InvalidJsonRpcVersion,
+    #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
+    UnsupportedMethod(String),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
+    #[error("error creating subscription with null id")]
+    ErrSubscriptionWithNullId,
+    #[error("error creating subscription with duplicate id")]
+    ErrSubscriptionDuplicateId,
 }
 
-impl ExecError {
-    pub fn into_rspc_err(self) -> Error {
-        match self {
+impl From<ExecError> for Error {
+    fn from(v: ExecError) -> Error {
+        match v {
             ExecError::OperationNotFound(_) => Error {
                 code: ErrorCode::NotFound,
-                message: format!("the requested operation is not supported by this server"),
+                message: "the requested operation is not supported by this server".to_string(),
                 cause: None,
             },
             ExecError::DeserializingArgErr(err) => Error {
                 code: ErrorCode::BadRequest,
-                message: format!("error deserializing procedure arguments"),
+                message: "error deserializing procedure arguments".to_string(),
                 cause: Some(Arc::new(err)),
             },
             ExecError::SerializingResultErr(err) => Error {
                 code: ErrorCode::InternalServerError,
-                message: format!("error serializing procedure result"),
+                message: "error serializing procedure result".to_string(),
                 cause: Some(Arc::new(err)),
             },
             #[cfg(feature = "axum")]
@@ -41,8 +52,35 @@ impl ExecError {
                 message: "Error running Axum extractors on the HTTP request".into(),
                 cause: None,
             },
+            ExecError::InvalidJsonRpcVersion => Error {
+                code: ErrorCode::BadRequest,
+                message: "invalid JSON-RPC version".into(),
+                cause: None,
+            },
             ExecError::ErrResolverError(err) => err,
+            ExecError::UnsupportedMethod(_) => Error {
+                code: ErrorCode::BadRequest,
+                message: "unsupported metho".into(),
+                cause: None,
+            },
+            ExecError::ErrSubscriptionWithNullId => Error {
+                code: ErrorCode::BadRequest,
+                message: "error creating subscription with null request id".into(),
+                cause: None,
+            },
+            ExecError::ErrSubscriptionDuplicateId => Error {
+                code: ErrorCode::BadRequest,
+                message: "error creating subscription with duplicate id".into(),
+                cause: None,
+            },
         }
+    }
+}
+
+impl From<ExecError> for JsonRPCError {
+    fn from(err: ExecError) -> Self {
+        let x: Error = err.into();
+        x.into()
     }
 }
 
@@ -52,20 +90,21 @@ pub enum ExportError {
     IOErr(#[from] std::io::Error),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Type)]
 #[allow(dead_code)]
 pub struct Error {
     pub(crate) code: ErrorCode,
     pub(crate) message: String,
+    #[serde(skip)]
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl Error {
-    pub fn into_response(self, id: Option<String>) -> Response {
-        Response::Error {
-            id,
-            status_code: self.code.to_status_code(),
-            message: self.message,
+impl From<Error> for JsonRPCError {
+    fn from(err: Error) -> Self {
+        JsonRPCError {
+            code: err.code.to_status_code() as i32,
+            message: err.message,
+            data: None,
         }
     }
 }
@@ -108,7 +147,7 @@ impl Error {
 }
 
 /// TODO
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Type, PartialEq, Eq)]
 pub enum ErrorCode {
     BadRequest,
     Unauthorized,

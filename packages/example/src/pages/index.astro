@@ -5,30 +5,28 @@ import SolidComponent from "../components/solid";
 
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="utf-8" />
     <title>rspc example</title>
-    <style global>
-        * {
-            margin: 0;
-        }
+    <style is:global>
+      * {
+        margin: 0;
+      }
 
-        h1,
-        h2,
-        p {
-            padding: 0.5rem;
-        }
+      h1,
+      h2,
+      p {
+        padding: 0.5rem;
+      }
 
-        button {
-            margin: 0.5rem;
-        }
+      button {
+        margin: 0.5rem;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <ReactComponent client:only="react" />
     <SolidComponent client:only="solid" />
-</body>
-
+  </body>
 </html>

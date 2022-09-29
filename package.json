@@ -9,11 +9,19 @@
   "scripts": {
     "dev": "pnpm -r --parallel --filter=!@rspc/docs exec pnpm dev",
     "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example exec pnpm build",
+    "typecheck": "pnpm -r --filter=!@rspc/docs --filter=!rspc-vscode exec tsc --noEmit",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",
     "example": "pnpm --filter @rspc/example -- ",
     "playground": "pnpm --filter @rspc/playground -- ",
     "react": "pnpm --filter @rspc/react -- ",
+    "solid": "pnpm --filter @rspc/solid -- ",
     "tauri": "pnpm --filter @rspc/tauri -- "
+  },
+  "engines": {
+    "pnpm": ">=7.0.0",
+    "npm": "pnpm",
+    "yarn": "pnpm",
+    "node": ">=16.0.0"
   }
 }

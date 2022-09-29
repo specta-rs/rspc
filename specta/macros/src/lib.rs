@@ -46,17 +46,18 @@ fn derive_type_internal(
     let crate_name: TokenStream = container_attrs
         .crate_name
         .clone()
-        .unwrap_or_else(|| default_crate_name)
+        .unwrap_or(default_crate_name)
         .parse()
         .unwrap();
     let crate_ref = quote!(::#crate_name);
 
-    let name_str = container_attrs.rename.clone().unwrap_or(ident.to_string());
+    let name_str = container_attrs
+        .rename
+        .clone()
+        .unwrap_or_else(|| ident.to_string());
 
     let (inlines, reference) = match data {
-        Data::Struct(data) => {
-            parse_struct(&name_str, &container_attrs, &generics, &crate_ref, data)
-        }
+        Data::Struct(data) => parse_struct(&name_str, &container_attrs, generics, &crate_ref, data),
         Data::Enum(data) => {
             let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
 
@@ -64,7 +65,7 @@ fn derive_type_internal(
                 &name_str,
                 &enum_attrs,
                 &container_attrs,
-                &generics,
+                generics,
                 &crate_ref,
                 data,
             )
@@ -80,7 +81,7 @@ fn derive_type_internal(
 
     let flatten_impl = match data {
         Data::Struct(_) => {
-            let heading = impl_heading(quote!(#crate_ref::Flatten), &ident, &generics);
+            let heading = impl_heading(quote!(#crate_ref::Flatten), ident, generics);
 
             Some(quote! {
                 #heading {}
@@ -89,7 +90,7 @@ fn derive_type_internal(
         _ => None,
     };
 
-    let type_impl_heading = impl_heading(quote!(#crate_ref::Type), &ident, &generics);
+    let type_impl_heading = impl_heading(quote!(#crate_ref::Type), ident, generics);
 
     let out = quote! {
         #type_impl_heading {

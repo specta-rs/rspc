@@ -1,127 +1,240 @@
-import React, { ReactElement, useEffect } from "react";
+import {
+  createContext,
+  ReactElement,
+  useContext as _useContext,
+  useEffect,
+} from "react";
 import {
   QueryClient,
-  useQuery as _useQuery,
-  useMutation as _useMutation,
+  useQuery as __useQuery,
+  useInfiniteQuery as __useInfiniteQuery,
+  useMutation as __useMutation,
   UseQueryResult,
   UseQueryOptions,
   UseMutationResult,
   UseMutationOptions,
+  UseInfiniteQueryResult,
+  UseInfiniteQueryOptions,
+  hashQueryKey,
   QueryClientProvider,
 } from "@tanstack/react-query";
-import { Client, Procedures, RSPCError } from "@rspc/client";
+import {
+  Client,
+  ProceduresLike,
+  RSPCError,
+  inferProcedures,
+  _inferProcedureHandlerInput,
+  inferInfiniteQueries,
+  _inferInfiniteQueryProcedureHandlerInput,
+  inferInfiniteQueryResult,
+} from "@rspc/client";
+import { inferQueryInput } from "@rspc/client";
+import { inferQueryResult } from "@rspc/client";
+import { inferMutationResult } from "@rspc/client";
+import { inferMutationInput } from "@rspc/client";
+import { inferSubscriptionResult } from "@rspc/client";
+import { ProceduresDef } from "@rspc/client";
 
-// TODO: Delete these helpers or move them to "./typescript"
-// TODO: Allow passing `{ rspc: { client: ... } }` to override the client -> Like `@rspc/solid` supports
+export interface BaseOptions<TProcedures extends ProceduresDef> {
+  rspc?: {
+    client?: Client<TProcedures>;
+  };
+}
 
-export type OperationKeyArgs<
-  Operations extends Procedures,
-  Type extends keyof Procedures,
-  K extends Operations[Type]["key"][0]
-> = Extract<
-  Operations[Type],
-  { key: [K] | [K, any] }
->["key"][1] extends undefined
-  ? [K]
-  : [K, Extract<Operations[Type], { key: [K, any] }>["key"][1]];
+export interface SubscriptionOptions<TOutput> {
+  enabled?: boolean;
+  onStarted?: () => void;
+  onData: (data: TOutput) => void;
+  onError?: (err: RSPCError) => void;
+}
 
-export type OperationKeyResult<
-  Operations extends Procedures,
-  Type extends keyof Procedures,
-  K extends Operations[Type]["key"][0]
-> = Extract<
-  Operations[Type],
-  { key: [K] | [K, any] }
->["key"][1] extends undefined
-  ? [K]
-  : [K, Extract<Operations[Type], { key: [K, any] }>["key"][1]];
-
-export type Demo<
-  Operations extends Procedures,
-  Type extends keyof Procedures,
-  K
-> = Extract<Operations[Type], { key: [K] | [K, any] }>;
-
-interface Context<T extends Procedures> {
-  client: Client<T>;
+export interface Context<TProcedures extends ProceduresDef> {
+  client: Client<TProcedures>;
   queryClient: QueryClient;
 }
 
-export function createReactQueryHooks<Operations extends Procedures>() {
-  const Context = React.createContext<Context<Operations>>(undefined!);
-  const ReactQueryContext = React.createContext<QueryClient>(undefined!);
+export function createReactQueryHooks<
+  TProceduresLike extends ProceduresLike
+>() {
+  type TProcedures = inferProcedures<TProceduresLike>;
+  type TBaseOptions = BaseOptions<TProcedures>;
 
-  function useRspcContext() {
-    return React.useContext(Context);
+  const Context = createContext<Context<TProcedures>>(undefined!);
+
+  function useContext() {
+    const ctx = _useContext(Context);
+    if (ctx?.queryClient === undefined)
+      throw new Error(
+        "The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree."
+      );
+    return ctx;
   }
 
-  function useQuery<K extends Operations["queries"]["key"][0]>(
-    key: Demo<Operations, "queries", K>["key"],
-    options?: UseQueryOptions<
-      Demo<Operations, "queries", K>["result"],
-      RSPCError
-    >
-  ): UseQueryResult<Demo<Operations, "queries", K>["result"], RSPCError> {
-    const ctx = useRspcContext();
-    return _useQuery(key, async () => ctx.client.query(key), {
-      ...options,
-      context: ReactQueryContext,
-    });
-  }
-
-  function useMutation<K extends Operations["mutations"]["key"]>(
-    key: K[0],
-    options?: UseMutationOptions<
-      Extract<Operations["mutations"], { key: K }>["result"],
-      RSPCError,
-      K[1]
-    >
-  ): UseMutationResult<
-    Extract<Operations["mutations"], { key: K }>["result"],
-    RSPCError,
-    K[1]
-  > {
-    const ctx = useRspcContext();
-    return _useMutation(async (data) => ctx.client.mutation([key, data]), {
-      ...options,
-      context: ReactQueryContext,
-    });
-  }
-
-  type SubscriptionKey = Operations["subscriptions"]["key"][0];
-  type SubscriptionArg<K extends string> = Extract<
-    Operations["subscriptions"],
-    { key: [K] | [K, any] }
-  >["key"][1];
-  type SubscriptionResult<K extends string> = Extract<
-    Operations["subscriptions"],
-    { key: [K] | [K, any] }
-  >["result"];
-
-  function useSubscription<K extends SubscriptionKey>(
-    key: SubscriptionArg<K> extends undefined ? [K] : [K, SubscriptionArg<K>],
-    options?: {
-      onNext(msg: SubscriptionResult<K>);
-      onError?(err: RSPCError);
+  function useQuery<
+    K extends TProcedures["queries"]["key"] & string,
+    TQueryFnData = inferQueryResult<TProcedures, K>,
+    TData = inferQueryResult<TProcedures, K>
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+    ],
+    opts?: Omit<
+      UseQueryOptions<
+        TQueryFnData,
+        RSPCError,
+        TData,
+        [K, inferQueryInput<TProcedures, K>]
+      >,
+      "queryKey" | "queryFn"
+    > &
+      TBaseOptions
+  ): UseQueryResult<TData, RSPCError> {
+    const { rspc, ...rawOpts } = opts ?? {};
+    let client = rspc?.client;
+    if (!client) {
+      client = useContext().client;
     }
-  ) {
-    const ctx = useRspcContext();
 
-    useEffect(() => {
-      const unsub = ctx.client.addSubscription(key, options);
-      return () => unsub();
-    }, []);
+    return __useQuery(
+      keyAndInput,
+      async () => {
+        return await client!.query(keyAndInput);
+      },
+      rawOpts as any
+    );
+  }
+
+  function useInfiniteQuery<
+    K extends inferInfiniteQueries<TProcedures>["key"] & string
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: _inferInfiniteQueryProcedureHandlerInput<TProcedures, K>
+    ],
+    opts?: Omit<
+      UseInfiniteQueryOptions<
+        inferInfiniteQueryResult<TProcedures, K>,
+        RSPCError,
+        inferInfiniteQueryResult<TProcedures, K>,
+        inferInfiniteQueryResult<TProcedures, K>,
+        [K, inferQueryInput<TProcedures, K>]
+      >,
+      "queryKey" | "queryFn"
+    > &
+      TBaseOptions
+  ): UseInfiniteQueryResult<
+    inferInfiniteQueryResult<TProcedures, K>,
+    RSPCError
+  > {
+    const { rspc, ...rawOpts } = opts ?? {};
+    let client = rspc?.client;
+    if (!client) {
+      client = useContext().client;
+    }
+
+    return __useInfiniteQuery(
+      keyAndInput,
+      async () => {
+        throw new Error("TODO"); // TODO: Finish this
+      },
+      rawOpts as any
+    );
+  }
+
+  function useMutation<
+    K extends TProcedures["mutations"]["key"] & string,
+    TContext = unknown
+  >(
+    key: K | [K],
+    opts?: UseMutationOptions<
+      inferMutationResult<TProcedures, K>,
+      RSPCError,
+      inferMutationInput<TProcedures, K> extends never
+        ? undefined
+        : inferMutationInput<TProcedures, K>,
+      TContext
+    > &
+      TBaseOptions
+  ): UseMutationResult<
+    inferMutationResult<TProcedures, K>,
+    RSPCError,
+    inferMutationInput<TProcedures, K> extends never
+      ? undefined
+      : inferMutationInput<TProcedures, K>,
+    TContext
+  > {
+    const { rspc, ...rawOpts } = opts ?? {};
+    let client = rspc?.client;
+    if (!client) {
+      client = useContext().client;
+    }
+
+    return __useMutation(async (input) => {
+      const actualKey = Array.isArray(key) ? key[0] : key;
+      return client!.mutation([actualKey, input] as any);
+    }, rawOpts as any);
+  }
+
+  function useSubscription<
+    K extends TProcedures["subscriptions"]["key"] & string,
+    TData = inferSubscriptionResult<TProcedures, K>
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+    ],
+    opts: SubscriptionOptions<TData> & TBaseOptions
+  ) {
+    let client = opts?.rspc?.client;
+    if (!client) {
+      client = useContext().client;
+    }
+    const queryKey = hashQueryKey(keyAndInput);
+
+    const enabled = opts?.enabled ?? true;
+
+    return useEffect(() => {
+      if (!enabled) {
+        return;
+      }
+      let isStopped = false;
+      const unsubscribe = client!.addSubscription<K, TData>(
+        keyAndInput as any,
+        {
+          onStarted: () => {
+            if (!isStopped) {
+              opts.onStarted?.();
+            }
+          },
+          onData: (data) => {
+            if (!isStopped) {
+              opts.onData(data);
+            }
+          },
+          onError: (err) => {
+            if (!isStopped) {
+              opts.onError?.(err);
+            }
+          },
+        }
+      );
+      return () => {
+        isStopped = true;
+        unsubscribe();
+      };
+    }, [queryKey, enabled]);
   }
 
   return {
-    _rspc_def: undefined as Operations, // This allows inferring the operations type from TS helpers
+    _rspc_def: undefined! as TProcedures, // This allows inferring the operations type from TS helpers
     Provider: ({
       children,
       client,
       queryClient,
     }: {
       children?: ReactElement;
-      client: Client<Operations>;
+      client: Client<TProcedures>;
       queryClient: QueryClient;
     }) => (
       <Context.Provider
@@ -130,19 +243,15 @@ export function createReactQueryHooks<Operations extends Procedures>() {
           queryClient,
         }}
       >
-        <ReactQueryContext.Provider value={queryClient}>
-          <QueryClientProvider client={queryClient}>
-            {children}
-          </QueryClientProvider>
-        </ReactQueryContext.Provider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       </Context.Provider>
     ),
-    useContext: useRspcContext,
+    useContext,
     useQuery,
+    // useInfiniteQuery,
     useMutation,
     useSubscription,
-    // useDehydratedState, // TODO
-    // useInfiniteQuery, // TODO
-    ReactQueryContext,
   };
 }

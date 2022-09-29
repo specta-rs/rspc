@@ -96,6 +96,8 @@ macro_rules! selection {
 
 #[cfg(test)]
 mod tests {
+    use specta::ts_inline_ref;
+
     #[derive(Clone)]
     #[allow(dead_code)]
     struct User {
@@ -119,10 +121,12 @@ mod tests {
         let s1 = selection!(user.clone(), { name, age });
         assert_eq!(s1.name, "Monty Beaumont".to_string());
         assert_eq!(s1.age, 7);
+        assert_eq!(ts_inline_ref(&s1), "{ name: string, age: number }");
 
         let users = vec![user; 3];
         let s2 = selection!(users, [{ name, age }]);
         assert_eq!(s2[0].name, "Monty Beaumont".to_string());
         assert_eq!(s2[0].age, 7);
+        // assert_eq!(ts_inline_ref(&s2), "Array<{ name: string, age: number }>");
     }
 }

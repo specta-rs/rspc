@@ -11,9 +11,9 @@
   "author": "Oscar Beaumont",
   "license": "MIT",
   "dependencies": {
-    "solid-js": "^1.4.8"
+    "solid-js": "^1.5.6"
   },
   "devDependencies": {
-    "vite": "^3.0.3"
+    "vite": "^3.1.4"
   }
 }

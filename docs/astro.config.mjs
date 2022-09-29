@@ -1,16 +1,13 @@
 import { defineConfig } from "astro/config";
-import preact from "@astrojs/preact";
+import tailwind from "@astrojs/tailwind";
+import solidJs from "@astrojs/solid-js";
+import sitemap from "@astrojs/sitemap";
+import compress from "astro-compress";
 import rehypeExternalLinks from "rehype-external-links";
-import astro from "astro-compress";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://rspc.otbeaumont.me",
-  integrations: [
-    // Enable Preact to support Preact JSX components.
-    preact(),
-    astro(),
-  ],
+  site: `https://rspc.otbeaumont.me`,
   markdown: {
     rehypePlugins: [
       [
@@ -22,6 +19,7 @@ export default defineConfig({
       ],
     ],
   },
+  integrations: [tailwind(), solidJs(), sitemap(), compress()],
   vite: {
     ssr: {
       external: ["svgo"],

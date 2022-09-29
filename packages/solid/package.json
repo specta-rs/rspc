@@ -27,16 +27,17 @@
     "prepare": "rollup -c"
   },
   "dependencies": {
-    "@adeora/solid-query": "github:oscartbeaumont/solid-query#1d305d5b3a7f3e2450fb56b3694a648861adfedd",
-    "@tanstack/query-core": "^4.3.1"
+    "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "rollup": "^2.79.0",
+    "@tanstack/solid-query": "^4.7.1",
+    "rollup": "^2.79.1",
     "rollup-preset-solid": "^1.4.0",
-    "typescript": "^4.7.4"
+    "solid-js": "^1.5.6",
+    "typescript": "^4.8.4"
   },
   "peerDependencies": {
-    "@rspc/client": "*",
-    "solid-js": "^1.5.4"
+    "@tanstack/solid-query": "^4.6.0",
+    "solid-js": "^1.5.5"
   }
 }

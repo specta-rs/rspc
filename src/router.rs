@@ -4,26 +4,37 @@ use std::{
     io::Write,
     marker::PhantomData,
     path::{Path, PathBuf},
+    pin::Pin,
     sync::Arc,
 };
 
+use futures::Stream;
 use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    Config, ExecError, ExportError, OperationKey, OperationKind, Procedure, StreamOrValue,
+    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext, ValueOrStream},
+    Config, ExecError, ExportError,
 };
 
+/// TODO
 pub struct Router<TCtx = (), TMeta = ()>
 where
     TCtx: 'static,
 {
     pub(crate) config: Config,
-    pub(crate) queries: BTreeMap<String, Procedure<TCtx>>,
-    pub(crate) mutations: BTreeMap<String, Procedure<TCtx>>,
-    pub(crate) subscriptions: BTreeMap<String, Procedure<TCtx>>,
+    pub(crate) queries: ProcedureStore<TCtx>,
+    pub(crate) mutations: ProcedureStore<TCtx>,
+    pub(crate) subscriptions: ProcedureStore<TCtx>,
     pub(crate) typ_store: TypeDefs,
     pub(crate) phantom: PhantomData<TMeta>,
+}
+
+// TODO: Move this out of this file
+// TODO: Rename??
+pub enum ExecKind {
+    Query,
+    Mutation,
 }
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
@@ -33,52 +44,60 @@ where
     pub async fn exec(
         &self,
         ctx: TCtx,
-        kind: OperationKind,
-        key: OperationKey,
-    ) -> Result<StreamOrValue, ExecError> {
-        // TODO: This function should return either a stream or a value based on the `OperationKind` not an enum that could be both!
-        // TODO: Reduce cloning in this function!
-        match kind {
-            OperationKind::Query => {
-                (self
-                    .queries
-                    .get(&*key.0)
-                    .ok_or(ExecError::OperationNotFound(key.0.clone()))?
-                    .exec)(
-                    ctx,
-                    key.1.clone().unwrap_or(Value::Null),
-                    (OperationKind::Query, key),
-                )?
-                .into_stream_or_value()
-                .await
-            }
-            OperationKind::Mutation => {
-                (self
-                    .mutations
-                    .get(&*key.0)
-                    .ok_or(ExecError::OperationNotFound(key.0.clone()))?
-                    .exec)(
-                    ctx,
-                    key.1.clone().unwrap_or(Value::Null),
-                    (OperationKind::Mutation, key),
-                )?
-                .into_stream_or_value()
-                .await
-            }
-            OperationKind::SubscriptionAdd => {
-                (self
-                    .subscriptions
-                    .get(&*key.0)
-                    .ok_or(ExecError::OperationNotFound(key.0.clone()))?
-                    .exec)(
-                    ctx,
-                    key.1.clone().unwrap_or(Value::Null),
-                    (OperationKind::SubscriptionAdd, key),
-                )?
-                .into_stream_or_value()
-                .await
-            }
-            OperationKind::SubscriptionRemove => todo!(),
+        kind: ExecKind,
+        key: String,
+        input: Option<Value>,
+    ) -> Result<Value, ExecError> {
+        let (operations, kind) = match kind {
+            ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
+            ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
+        };
+
+        match operations
+            .get(&key)
+            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+            .exec
+            .call(
+                ctx,
+                input.unwrap_or(Value::Null),
+                RequestContext {
+                    kind,
+                    path: key.clone(),
+                },
+            )?
+            .into_value_or_stream()
+            .await?
+        {
+            ValueOrStream::Value(v) => Ok(v),
+            ValueOrStream::Stream(_) => Err(ExecError::UnsupportedMethod(key)),
+        }
+    }
+
+    pub async fn exec_subscription(
+        &self,
+        ctx: TCtx,
+        key: String,
+        input: Option<Value>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
+        match self
+            .subscriptions
+            .store
+            .get(&key)
+            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+            .exec
+            .call(
+                ctx,
+                input.unwrap_or(Value::Null),
+                RequestContext {
+                    kind: ProcedureKind::Subscription,
+                    path: key.clone(),
+                },
+            )?
+            .into_value_or_stream()
+            .await?
+        {
+            ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),
+            ValueOrStream::Stream(s) => Ok(s),
         }
     }
 
@@ -86,20 +105,20 @@ where
         Arc::new(self)
     }
 
+    pub fn typ_store(&self) -> TypeDefs {
+        self.typ_store.clone()
+    }
+
     pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.queries
+        &self.queries.store
     }
 
     pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.mutations
+        &self.mutations.store
     }
 
     pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.subscriptions
-    }
-
-    pub fn typ_store(&self) -> TypeDefs {
-        self.typ_store.clone()
+        &self.subscriptions.store
     }
 
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
@@ -113,14 +132,15 @@ where
         }
         writeln!(file, "// This file was generated by [rspc](https://github.com/oscartbeaumont/rspc). Do not edit this file manually.")?;
 
-        let queries_ts = generate_procedures_ts(&self.queries);
-        let mutations_ts = generate_procedures_ts(&self.mutations);
-        let subscriptions_ts = generate_procedures_ts(&self.subscriptions);
+        let queries_ts = generate_procedures_ts(&self.queries.store);
+        let mutations_ts = generate_procedures_ts(&self.mutations.store);
+        let subscriptions_ts = generate_procedures_ts(&self.subscriptions.store);
 
+        // TODO: Specta API
         writeln!(
             file,
             r#"
-export type Operations = {{
+export type Procedures = {{
     queries: {queries_ts},
     mutations: {mutations_ts},
     subscriptions: {subscriptions_ts}
@@ -135,26 +155,28 @@ export type Operations = {{
     }
 }
 
+// TODO: Move this out into a Specta API
 fn generate_procedures_ts<Ctx>(procedures: &BTreeMap<String, Procedure<Ctx>>) -> String {
     match procedures.len() {
         0 => "never".to_string(),
         _ => procedures
             .iter()
             .map(|(key, operation)| {
-                let arg_ts = match &operation.ty.arg_ty {
+                let input = match &operation.ty.arg_ty {
                     DataType::Tuple(def)
                         // This condition is met with an empty enum or `()`.
-                        if def.fields.len() == 0 =>
+                        if def.fields.is_empty() =>
                     {
-                        "".into()
+                        "never".into()
                     }
-                    ty => format!(", {}", to_ts(ty)),
+                    ty => to_ts(ty),
                 };
                 let result_ts = to_ts(&operation.ty.result_ty);
 
+                // TODO: Specta API
                 format!(
                     r#"
-        {{ key: ["{key}"{arg_ts}], result: {result_ts} }}"#
+        {{ key: "{key}", input: {input}, result: {result_ts} }}"#
                 )
             })
             .collect::<Vec<_>>()

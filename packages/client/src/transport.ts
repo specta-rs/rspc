@@ -1,27 +1,31 @@
-import { ClientTransformer, ProcedureKey, OperationType, RSPCError } from ".";
-
+// TODO: Redo this entire system when links are introduced
 // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
+import { OperationType, RSPCError } from ".";
 
+// TODO
 export interface Transport {
-  transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
-  doRequest(operation: OperationType, key: ProcedureKey): Promise<any>;
+  doRequest(operation: OperationType, key: string, input: any): Promise<any>;
 }
 
+// TODO
 export class FetchTransport implements Transport {
   private url: string;
-  transformer?: ClientTransformer;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
 
   constructor(url: string) {
     this.url = url;
   }
 
-  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
-    if (operation === "subscriptionAdd" || operation === "subscriptionRemove") {
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: any
+  ): Promise<any> {
+    if (operation === "subscription" || operation === "subscriptionStop") {
       throw new Error(
-        `Subscribing to '${key[0]}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
+        `Subscribing to '${key}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
       );
     }
 
@@ -30,19 +34,18 @@ export class FetchTransport implements Transport {
     let headers = new Headers();
 
     const params = new URLSearchParams();
-    key = this.transformer?.serialize(operation, key) || key;
     if (operation === "query") {
-      if (key[1] !== undefined) {
-        params.append("input", JSON.stringify(key[1]));
+      if (input !== undefined) {
+        params.append("input", JSON.stringify(input));
       }
     } else if (operation === "mutation") {
       method = "POST";
-      body = JSON.stringify(key[1] || {});
+      body = JSON.stringify(input || {});
       headers.set("Content-Type", "application/json");
     }
     const paramsStr = params.toString();
     const resp = await fetch(
-      `${this.url}/${key[0]}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
+      `${this.url}/${key}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
       {
         method,
         body,
@@ -50,13 +53,13 @@ export class FetchTransport implements Transport {
       }
     );
 
-    const respBody = (await resp.json())[0]; // TODO: Batching
-    const { type, result } = respBody;
+    const respBody = await resp.json();
+    const { type, data } = respBody.result;
     if (type === "error") {
-      const { status_code, message } = respBody;
-      throw new RSPCError(status_code, message);
+      const { code, message } = data;
+      throw new RSPCError(code, message);
     }
-    return this.transformer?.deserialize(operation, key, result) || result;
+    return data;
   }
 }
 
@@ -68,8 +71,7 @@ export class WebsocketTransport implements Transport {
   private url: string;
   private ws: WebSocket;
   private requestMap = new Map<string, (data: any) => void>();
-  transformer?: ClientTransformer;
-  clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
+  clientSubscriptionCallback?: (id: string, value: any) => void;
 
   constructor(url: string) {
     this.url = url;
@@ -79,24 +81,23 @@ export class WebsocketTransport implements Transport {
 
   attachEventListeners() {
     this.ws.addEventListener("message", (event) => {
-      const body = JSON.parse(event.data);
-      if (body.type === "event") {
-        const { id, key, result } = body;
-        this.clientSubscriptionCallback(id, key, result);
-      } else if (body.type === "response") {
-        const { id, result } = body;
+      const { id, result } = JSON.parse(event.data);
+      if (result.type === "event") {
+        if (this.clientSubscriptionCallback)
+          this.clientSubscriptionCallback(id, result.data);
+      } else if (result.type === "response") {
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "response", result });
+          this.requestMap.get(id)?.({ type: "response", result: result.data });
           this.requestMap.delete(id);
         }
-      } else if (body.type === "error") {
-        const { id, message, status_code } = body;
+      } else if (result.type === "error") {
+        const { message, code } = result.data;
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "error", message, status_code });
+          this.requestMap.get(id)?.({ type: "error", message, code });
           this.requestMap.delete(id);
         }
       } else {
-        console.error(`Received event of unknown type '${body.type}'`);
+        console.error(`Received event of unknown type '${result.type}'`);
       }
     });
 
@@ -124,7 +125,14 @@ export class WebsocketTransport implements Transport {
     }, timeout);
   }
 
-  async doRequest(operation: OperationType, key: ProcedureKey): Promise<any> {
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: any,
+    opts?: {
+      id?: string;
+    }
+  ): Promise<any> {
     if (this.ws.readyState == 0) {
       let resolve: () => void;
       const promise = new Promise((res) => {
@@ -147,24 +155,37 @@ export class WebsocketTransport implements Transport {
     this.ws.send(
       JSON.stringify({
         id,
-        operation,
-        key: this.transformer?.serialize(operation, key) || key,
+        method: operation,
+        params: {
+          path: key,
+          input,
+        },
       })
     );
 
     const body = (await promise) as any;
     if (body.type === "error") {
-      const { status_code, message } = body;
-      throw new RSPCError(status_code, message);
+      const { code, message } = body;
+      throw new RSPCError(code, message);
     } else if (body.type === "response") {
-      return (
-        this.transformer?.deserialize(operation, key, body.result) ||
-        body.result
-      );
+      return body.result;
     } else {
       throw new Error(
         `RSPC Websocket doRequest received invalid body type '${body?.type}'`
       );
     }
+  }
+}
+
+// TODO
+export class NoOpTransport implements Transport {
+  constructor() {}
+
+  async doRequest(
+    operation: OperationType,
+    key: string,
+    input: string
+  ): Promise<any> {
+    return new Promise(() => {});
   }
 }
