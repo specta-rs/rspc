@@ -13,14 +13,14 @@ rspc allows for capturing variables in the closure of a resolver. This is genera
 // NOT-RECOMMEND - Capturing variables
 pub(crate) fn mount(db: DatabaseConn) -> Router {
     <Router>::new()
-        .query("getUsers", move |_, _: ()| async move { db.users().find_all().exec().await });
+        .query("getUsers", move |t| t(move |_, _: ()| async move { db.users().find_all().exec().await }));
 }
 
 // RECOMMEND - Using Request Context
 struct MyCtx { db: DatabaseConn }
 pub(crate) fn mount() -> Router {
-    Router<MyCtx>::new()
-        .query("getUsers", |ctx: MyCtx, _: ()| async move { ctx.db.users().find_all().exec().await });
+    Router::<MyCtx>::new()
+        .query("getUsers", move |t| t(move |ctx: MyCtx, _: ()| async move { ctx.db.users().find_all().exec().await }));
 }
 ```
 
@@ -53,7 +53,7 @@ pub(crate) type RouterBuilder = rspc::RouterBuilder<(), ()>;
 
 pub(crate) fn mount() -> Router {
     Router::new()
-        .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
+        .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .merge("resource1.", resource1::mount())
         .build()
         .arced();
@@ -73,6 +73,6 @@ mod tests {
 ```rust
 pub(crate) fn mount() -> RouterBuilder {
     RouterBuilder::new()
-        .query("someQuery", |_, _: ()| "Hello World")
+        .query("someQuery", |t| t(|_, _: ()| "Hello World"))
 }
 ```

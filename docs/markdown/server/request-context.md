@@ -13,10 +13,10 @@ struct MyCtx {
     some_value: &'static str,
 }
 
-let router = Router<MyCtx>::new()
-    .query("myQuery", |ctx, input: ()| {
+let router = Router::<MyCtx>::new()
+    .query("myQuery", |t| t(|ctx, input: ()| {
         assert_eq!(ctx.some_value, "Hello World");
-    })
+    }))
     .build();
 
 // You will usually provide a closure to the rspc integration which returns this.

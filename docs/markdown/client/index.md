@@ -28,15 +28,15 @@ import { createClient, FetchTransport } from "@rspc/client";
 import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 
 // You must provide the generated types as a generic and create a transport (in this example we are using HTTP Fetch) so that the client knows how to communicate with your API.
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
   // Refer to the integration your using for the correct transport.
   transport: new FetchTransport("http://localhost:4000/rspc"),
 });
 
 // Now use the client in your code!
-const version = await client.query("version"); // The types will be inferred from your backend.
-const userOne = await client.query("getUser", 1);
-const userTwo = await client.mutation("addUser", { name: "Monty Beaumont" });
+const version = await client.query(["version"]); // The types will be inferred from your backend.
+const userOne = await client.query(["getUser", 1]);
+const userTwo = await client.mutation(["addUser", { name: "Monty Beaumont" }]);
 ```
 
 [View full example](https://github.com/oscartbeaumont/rspc/tree/main/packages/example/react.tsx)

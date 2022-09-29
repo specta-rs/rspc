@@ -8,8 +8,8 @@ index: 1
 
 ```rust
 let router = <Router>::new()
-    .query("version", |ctx, args: ()| "1.0.0")
-    .mutation("createUser", |ctx, user_id: i32| User::create(user_id))
+    .query("version", |t| t(|ctx, args: ()| "1.0.0"))
+    .mutation("createUser", |t| t(|ctx, user_id: i32| User::create(user_id)))
     .build();
 ```
 [View more examples](https://github.com/oscartbeaumont/rspc/tree/main/examples)

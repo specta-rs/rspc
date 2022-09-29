@@ -10,30 +10,30 @@ It is important to understand that the [question mark operation (`?`)](https://d
 
 ```rust
 let router = <rspc:::Router>::new()
-    .query("ok", |_, args: ()| {
+    .query("ok", |t| t(|_, args: ()| {
         // Rust infers the error type must be `rspc::Error`
         Ok("Hello World".into())
-    })
-    .query("err", |_, args: ()| {
+    }))
+    .query("err", |t| t(|_, args: ()| {
         // The `as` is required due this resolver never returning an `Ok` variant,
         // hence Rust is unable to infer the Results type.
         Err(Error::new(
             ErrorCode::BadRequest,
             "This is a custom error!".into(),
         )) as Result<String, _ /* Rust can infer the error type */>
-    })
-    .query("errWithCause", |_, args: ()| {
+    }))
+    .query("errWithCause", |t| t(|_, args: ()| {
         Err(Error::with_cause(
             ErrorCode::BadRequest,
             "This is a custom error!".into(),
             // This function must return an error that implements `std::error::Error`
             some_function_returning_error(),
         )) as Result<String, Error>
-    })
-    .query("errUsingQuestionMarkOperator", |_, args: ()| {
+    }))
+    .query("errUsingQuestionMarkOperator", |t| t(|_, args: ()| {
         let value = some_function_returning_an_error()?;
         Ok(value)
-    })
+    }))
     .build();
 ```
 
@@ -53,11 +53,11 @@ impl From<MyCustomError> for rspc::Error {
 }
 
 let router = <Router>::new()
-    .query("returnCustomErrorUsingQuestionMark", |_, args: ()| {
+    .query("returnCustomErrorUsingQuestionMark", |t| t(|_, args: ()| {
         Ok(Err(MyCustomError::ServerDidABad)?)
-    })
-     .query("customErrUsingInto", |_, _args: ()| {
+    }))
+     .query("customErrUsingInto", |t| t(|_, _args: ()| {
         Err(MyCustomError::IAmBroke.into()) as Result<String, Error>
-    })
+    }))
     .build();
 ```

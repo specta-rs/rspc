@@ -20,7 +20,7 @@ If your database returns a `User` struct you are unable to return it directly fr
 
 ```rust
 let router = <Router>::new()
-    .query("me", |_, _: ()| {
+    .query("me", |t| t(|_, _: ()| {
         // This struct would be returned from your database!
         let user = User {
             id: 1,
@@ -31,8 +31,8 @@ let router = <Router>::new()
         };
 
         selection!(user, { name, age }) // We select only the name and age fields to return
-    })
-    .query("users", |_, _: ()| {
+    }))
+    .query("users", |t| t(|_, _: ()| {
         let user = User {
             name: "Monty Beaumont".into(),
             email: "monty@otbeaumont.me".into(),
@@ -45,7 +45,7 @@ let router = <Router>::new()
         let users = vec![user.clone(), user.clone(), user];
         
         selection!(users, [{ name, age }]) // Here we are selecting the fields we want to expose on each item in the list. This is completely type safe!
-    })
+    }))
     .build();
 ```
 

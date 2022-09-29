@@ -34,11 +34,11 @@ import { createClient } from '@rspc/client';
 import { TauriTransport } from '@rspc/tauri';
 import type { Procedures } from "./ts/bindings"; // These were the bindings exported from your Rust code!
 
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
 	transport: new TauriTransport()
 });
 
-client.query('version').then((data) => console.log(data));
+client.query(['version']).then((data) => console.log(data));
 ```
 
 You can use the `client` by itself or integrate with the [Tanstack Query](/client/tanstack-query) hooks.

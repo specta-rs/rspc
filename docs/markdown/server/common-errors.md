@@ -84,9 +84,9 @@ This is probably caused by you incorrectly hardcoding the type for the request c
 ```rust
 // INVALID CODE
 Router<()>::new() // Here we set the context to `()` but we set the closures argument type to `i32`.
-    .query("debug", |ctx: i32, _: ()| {})
+    .query("debug", |t| t(|ctx: i32, _: ()| {}))
 
 // SOLUTION
 Router<()>::new() // Here we don't set the type of the context on the closure and Rust infers it.
-    .query("debug", |ctx, _: ()| {})
+    .query("debug", |t| t(|ctx, _: ()| {}))
 ```

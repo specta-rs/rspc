@@ -59,14 +59,14 @@ import { FetchTransport, WebsocketTransport, createClient } from '@rspc/client';
 import type { Procedures } from "./ts/bindings"; // These were the bindings exported from your Rust code!
 
 // For fetch transport
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
   transport: new FetchTransport("http://localhost:4000/rspc"),
 });
 
 // For websocket transport - Required for subscriptions
-const client = createClient<Operations>({
+const client = createClient<Procedures>({
   transport: new WebsocketTransport("ws://localhost:8080/rspc/ws"),
 });
 
-client.query('version').then((data) => console.log(data));
+client.query(['version']).then((data) => console.log(data));
 ```

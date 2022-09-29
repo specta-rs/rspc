@@ -17,11 +17,11 @@ let router = <Router>::new();
 
 // A router with a custom context struct
 struct MyCtx {}
-let router = Router<MyCtx>::new();
+let router = Router::<MyCtx>::new();
 
 // A router with a custom context and metdata type
 struct MyMeta {}
-let router = Router<MyCtx, MyMeta>::new();
+let router = Router::<MyCtx, MyMeta>::new();
 ```
 
 ### Query operation
@@ -30,7 +30,7 @@ Use the `.query` method to attach a query operation to the router.
 
 ```rust
 let router = <Router>::new()
-    .query("version", |ctx, input: ()| "1.0.0")
+    .query("version", |t| t(|ctx, input: ()| "1.0.0"))
     .build(); // Ensure you build once you have added all your operations.
 ```
 
@@ -42,7 +42,7 @@ Use the `.mutation` method to attach a mutation operation to the router.
 
 ```rust
 let router = <Router>::new()
-    .mutation("createUser", |ctx, input: ()| todo!())
+    .mutation("createUser", |t| t(|ctx, input: ()| todo!()))
     .build(); // Ensure you build once you have added all your operations.
 ```
 
@@ -56,13 +56,13 @@ Use the `.subscription` method to attach a subscription operation to the router.
 // This example uses the `async_stream` crate.
 
 let router = <Router>::new()
-    .subscription("pings", |ctx, input: ()| async_stream::stream! {
+    .subscription("pings", |t| t(|ctx, input: ()| async_stream::stream! {
         println!("Client subscribed to 'pings'");
         for i in 0..5 {
             yield "ping".to_string();
             sleep(Duration::from_secs(1)).await;
         }
-    })
+    }))
     .build(); // Ensure you build once you have added all your operations.
 ```
 
@@ -76,10 +76,10 @@ When building an API server, you will often want to split up your endpoints into
 
 ```rust
 let users_router = <Router>::new()
-        .query("list", |ctx, input: ()| vec![] as Vec<()>);
+        .query("list", |t| t(|ctx, input: ()| vec![] as Vec<()>));
 
 let router = <Router>::new()
-    .query("version", |_ctx, _: ()| "1.0.0")
+    .query("version", |t| t(|_ctx, _: ()| "1.0.0"))
     .merge("users.", users_router) // The first parameter is a prefix to add to all routes in the merged router.
     .build();
 ```
@@ -97,16 +97,16 @@ When combining multiple operations, you must ensure you chain the method calls o
 ```rust
 // Chaining method calls
 let router = <Router>::new()
-    .query("version", |ctx, input: ()| "1.0.0")
-    .mutation("createUser", |ctx, input: ()| todo!())
+    .query("version", |t| |ctx, input: ()| "1.0.0"))
+    .mutation("createUser", |t| t(|ctx, input: ()| todo!()))
     .build();
 
 // Shadowing variable
 let router = <Router>::new()
-    .query("version", |ctx, input: ()| "1.0.0")
-    .mutation("createUser", |ctx, input: ()| todo!());
+    .query("version", |t| t(|ctx, input: ()| "1.0.0"))
+    .mutation("createUser", |t| t(|ctx, input: ()| todo!()));
 let router = router
-    .mutation("deleteUser", |ctx, input: ()| todo!());
+    .mutation("deleteUser", |t| t(|ctx, input: ()| todo!()));
 let router = router.build();
 ```
 
@@ -131,7 +131,7 @@ will automatically export your Typescript bindings when you build the router as 
 ```rust
 let router = <Router>::new()
     .config(Config::new().export_ts_bindings(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts")))
-    .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
+    .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
     .build();
 ```
 
@@ -142,6 +142,6 @@ will add a string you specify to the top of the generated Typescript bindings. T
 ```rust
 let router = <Router>::new()
     .config(Config::new().set_ts_bindings_header("/* eslint-disable */")))
-    .query("version", |_, _: ()| env!("CARGO_PKG_VERSION"))
+    .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
     .build();
 ```

@@ -35,7 +35,7 @@ use rspc::Router;
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
-        .query("version", |ctx, input: ()| env!("CARGO_PKG_VERSION"))
+        .query("version", |t| t(|ctx, input: ()| env!("CARGO_PKG_VERSION")))
         .build();
 }
 ```
@@ -55,7 +55,7 @@ use rspc::Router;
 
 fn router() -> Router {
     <Router>::new()
-        .query("version", |ctx, input: ()| env!("CARGO_PKG_VERSION"))
+        .query("version", |t| t(|ctx, input: ()| env!("CARGO_PKG_VERSION")))
         .build()
 }
 
