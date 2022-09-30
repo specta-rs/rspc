@@ -91,7 +91,7 @@ export class Client<TProcedures extends ProceduresDef> {
 
   // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
   addSubscription<
-    K extends TProcedures["mutations"]["key"] & string,
+    K extends TProcedures["subscriptions"]["key"] & string,
     TData = inferSubscriptionResult<TProcedures, K>
   >(
     keyAndInput: [
