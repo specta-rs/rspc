@@ -18,10 +18,16 @@ const { class: className } = Astro.props;
         <Icon
           name={(link as any).icon}
           class="h-7 w-7 opacity-80 hover:opacity-100 fill-black dark:fill-white"
+          width="1.75rem"
+          height="1.75rem"
         />
       ) : (
         // @ts-expect-error
-        <link.customIcon className="h-7 w-7 opacity-80 hover:opacity-100 fill-black dark:fill-white" />
+        <link.customIcon
+          className="h-7 w-7 opacity-80 hover:opacity-100 fill-black dark:fill-white"
+          width="1.75rem"
+          height="1.75rem"
+        />
       );
 
       return (

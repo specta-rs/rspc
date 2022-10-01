@@ -14,14 +14,19 @@ importers:
       astro: 1.4.2
       astro-compress: ^1.0.9
       astro-icon: ^0.7.3
+      astro-spa: ^1.3.9
       clsx: ^1.2.1
+      morphdom: ^2.6.1
       node-html-parser: ^6.1.1
       rehype-external-links: ^2.0.1
       solid-js: ^1.5.7
+      svgo: ^2.8.0
       tailwind-scrollbar: ^2.0.1
       tailwindcss: ^3.1.8
     dependencies:
+      astro-spa: 1.3.9
       clsx: 1.2.1
+      morphdom: 2.6.1
       solid-js: 1.5.7
     devDependencies:
       '@astrojs/sitemap': 1.0.0
@@ -33,6 +38,7 @@ importers:
       astro-icon: 0.7.3
       node-html-parser: 6.1.1
       rehype-external-links: 2.0.1
+      svgo: 2.8.0
       tailwind-scrollbar: 2.0.1_tailwindcss@3.1.8
       tailwindcss: 3.1.8
 
@@ -1957,6 +1963,10 @@ packages:
       resolve-pkg: 2.0.0
       svgo: 2.8.0
     dev: true
+
+  /astro-spa/1.3.9:
+    resolution: {integrity: sha512-VmXMUsKNHA1gjJYq/SO5EqRAmqifOhBOpOAaXnlH5skgTy0tq9fwANJhh1LJpaahPBGqXAaoIw6Gdq/SBRz9Ww==}
+    dev: false
 
   /astro/1.4.2:
     resolution: {integrity: sha512-v6GxDQoy8edDEJHopPeQg3TY9ghiJhx/n5mWpXdczPIvft3av6GhDn9yNnEKn6u0vHG9eX0sQxNCwXDlZMExAw==}
@@ -4251,6 +4261,10 @@ packages:
   /mkdirp-classic/0.5.3:
     resolution: {integrity: sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==}
     dev: true
+
+  /morphdom/2.6.1:
+    resolution: {integrity: sha512-Y8YRbAEP3eKykroIBWrjcfMw7mmwJfjhqdpSvoqinu8Y702nAwikpXcNFDiIkyvfCLxLM9Wu95RZqo4a9jFBaA==}
+    dev: false
 
   /mri/1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}

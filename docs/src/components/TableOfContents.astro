@@ -42,31 +42,3 @@ headings = [{ depth: 2, slug: "overview", text: title }, ...headings].filter(
     }
   </ul>
 </div>
-
-<script is:inline>
-  // Toggle classes when items are in view
-  document.querySelectorAll("article :is(h1,h2,h3)").forEach((h) => {
-    new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const id = entry.target.id;
-          // have to do "All" here cause we render this component in pageContent for mobile too
-          const tocItem = Array.from(
-            document.querySelectorAll(`a[href="#${id}"]`)
-          ).at(-1);
-          const func = entry.isIntersecting ? "add" : "remove";
-          tocItem.classList[func](
-            "font-medium",
-            "text-sky-700",
-            "dark:text-sky-100"
-          );
-          tocItem.parentElement.classList[func]("border-sky-300/100");
-        });
-      },
-      {
-        rootMargin: "-100px 0% -66%",
-        threshold: 1,
-      }
-    ).observe(h);
-  });
-</script>

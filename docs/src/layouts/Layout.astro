@@ -11,6 +11,10 @@ export interface Props {
 }
 
 const { title } = Astro.props;
+
+const S4 = () =>
+  (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
+const cacheId = S4() + S4() + S4();
 ---
 
 <!DOCTYPE html>
@@ -53,33 +57,41 @@ const { title } = Astro.props;
   </head>
   <body>
     <TopNavbar />
-    <div class="relative">
-      <aside id="grid-left" class="hidden" title="Site Navigation">
-        <div
-          class="fixed top-0 pt-24 h-screen md:pt-0 md:h-auto md:sticky md:top-20 w-full overflow-y-auto z-10"
-        >
-          <nav
-            aria-labelledby="grid-left"
-            class="flex flex-col gap-4 h-full md:h-auto bg-white"
+    <div id="page">
+      <div class="relative">
+        <aside id="grid-left" class="hidden" title="Site Navigation">
+          <div
+            class="fixed top-0 pt-24 h-screen md:pt-0 md:h-auto md:sticky md:top-20 w-full overflow-y-auto z-10"
           >
-            <div
-              class="h-full bg-sky-100/25 dark:bg-[#1A1A1A] pb-4 px-2 pt-6 md:pt-0 overflow-scroll scrollbar-thin scrollbar-thumb-rounded-sm scrollbar-track-rounded-sm scrollbar-thumb-sky-300 scrollbar-track-slate-300 dark:scrollbar-thumb-sky-50 dark:scrollbar-track-slate-600"
+            <nav
+              aria-labelledby="grid-left"
+              class="flex flex-col gap-4 h-full md:h-auto bg-white"
             >
               <div
-                class="hidden items-center justify-center w-full mx-auto px-4 md:px-8 md:flex"
+                class="h-full bg-sky-100/25 dark:bg-[#1A1A1A] pb-4 px-2 pt-6 md:pt-0 overflow-scroll scrollbar-thin scrollbar-thumb-rounded-sm scrollbar-track-rounded-sm scrollbar-thumb-sky-300 scrollbar-track-slate-300 dark:scrollbar-thumb-sky-50 dark:scrollbar-track-slate-600"
               >
-                <QuickLinks />
+                <div
+                  class="hidden items-center justify-center w-full mx-auto px-4 md:px-8 md:flex"
+                >
+                  <QuickLinks />
+                </div>
+                <div class="z-index-1 p-4">
+                  <LeftNavigation currentPage={Astro.url.pathname} />
+                </div>
               </div>
-              <div class="z-index-1 p-4">
-                <LeftNavigation currentPage={Astro.url.pathname} />
-              </div>
-            </div>
-          </nav>
-        </div>
-      </aside>
+            </nav>
+          </div>
+        </aside>
+      </div>
+      <slot />
     </div>
-    <slot />
 
+    <script define:vars={{ cacheId }}>
+      window.cacheId = cacheId;
+    </script>
+    <script>
+      import "../utils/router";
+    </script>
     <script
       defer
       data-domain="rspc.otbeaumont.me"

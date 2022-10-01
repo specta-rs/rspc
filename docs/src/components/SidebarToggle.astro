@@ -17,13 +17,3 @@
   </svg>
   <span class="sr-only">Toggle sidebar</span>
 </button>
-
-<script is:inline>
-  const button = document.querySelector("#sidebar-toggle");
-  const body = document.querySelector("body");
-
-  button.addEventListener("click", () => {
-    body.classList.toggle("mobile-sidebar-toggle");
-    button.toggleAttribute("aria-pressed");
-  });
-</script>

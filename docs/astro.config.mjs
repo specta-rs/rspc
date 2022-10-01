@@ -19,7 +19,16 @@ export default defineConfig({
       ],
     ],
   },
-  integrations: [tailwind(), solidJs(), sitemap(), compress()],
+  integrations: [
+    tailwind(),
+    solidJs(),
+    sitemap(),
+    compress({
+      html: {
+        collapseWhitespace: true,
+      },
+    }),
+  ],
   vite: {
     ssr: {
       external: ["svgo"],
