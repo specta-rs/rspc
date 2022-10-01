@@ -13,7 +13,7 @@ const fetchClient = createClient<Procedures>({
 const rspc = createSolidQueryHooks<Procedures>();
 
 function Example() {
-  const echo = rspc.createQuery(["basic.echo", "somevalue"]);
+  const echo = rspc.createQuery(() => ["basic.echo", "somevalue"]);
   const sendMsg = rspc.createMutation("basic.sendMsg");
 
   sendMsg.mutate("Sending");

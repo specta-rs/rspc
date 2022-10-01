@@ -89,7 +89,7 @@ If you still confused about what rspc is check out [Brendan](http://github.com/b
 ### Production users
 
  - [Spacedrive](https://spacedrive.com)
- - [Twidge](https://github.com/VarunPotti/twidge)
+ - [Twidge](https://twidge.app)
  - [Unreleased] [Mattrax](https://mattrax.app)
 
 ### Inspiration

@@ -38,16 +38,17 @@
     "sourcemap": true
   },
   "dependencies": {
-    "@rspc/client": "workspace:*",
-    "@tanstack/react-query": "^4.7.1"
+    "@rspc/client": "workspace:*"
   },
   "devDependencies": {
+    "@tanstack/react-query": "^4.8.0",
     "@types/react": "^18.0.21",
     "react": "^18.2.0",
     "tsup": "^6.2.3",
     "typescript": "^4.8.4"
   },
   "peerDependencies": {
+    "@tanstack/react-query": "^4.8.0",
     "react": "^16.8.0 || ^17.0.0 || ^18.0.0"
   }
 }

@@ -5,13 +5,16 @@ export type OperationType =
   | "subscription"
   | "subscriptionStop";
 
+// TODO
+export type ProcedureDef = { key: string; input: any; result: any };
+
 /**
  * This type represents the Typescript bindings which are generated from the router by Rust.
  */
 export type ProceduresDef = {
-  queries: { key: string; input: any; result: any };
-  mutations: { key: string; input: any; result: any };
-  subscriptions: { key: string; input: any; result: any };
+  queries: ProcedureDef;
+  mutations: ProcedureDef;
+  subscriptions: ProcedureDef;
 };
 
 /**

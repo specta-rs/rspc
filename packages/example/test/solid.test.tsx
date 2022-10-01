@@ -12,7 +12,7 @@ function assert<T>(t: T) {}
 assert<Client<Procedures>>(rspc.useContext().client);
 
 // createQuery
-const { data, error } = rspc.createQuery(["noArgQuery"], {
+const { data, error } = rspc.createQuery(() => ["noArgQuery"], {
   onSuccess(data) {
     assert<string>(data);
   },
@@ -24,7 +24,7 @@ assert<string | undefined>(data);
 assert<RSPCError | null>(error);
 
 const { data: data2, error: error2 } = rspc.createQuery(
-  ["singleArgQuery", 42],
+  () => ["singleArgQuery", 42],
   {
     onSuccess(data) {
       assert<number>(data);
@@ -76,27 +76,27 @@ assert<RSPCError | null>(error4);
 assert<number | undefined>(data4);
 
 // createSubscription
-rspc.createSubscription(["noArgSubscription"], {
-  onStarted() {},
-  onData(data) {
-    assert<string>(data);
-  },
-  onError(err) {
-    assert<RSPCError>(err);
-  },
-  enabled: false,
-});
+// rspc.createSubscription(() => ["noArgSubscription"], {
+//   onStarted() {},
+//   onData(data) {
+//     assert<string>(data);
+//   },
+//   onError(err) {
+//     assert<RSPCError>(err);
+//   },
+//   enabled: false,
+// });
 
-rspc.createSubscription(["singleArgSubscription", true], {
-  onStarted() {},
-  onData(data) {
-    assert<boolean>(data);
-  },
-  onError(err) {
-    assert<RSPCError>(err);
-  },
-  enabled: false,
-});
+// rspc.createSubscription(() => ["singleArgSubscription", true], {
+//   onStarted() {},
+//   onData(data) {
+//     assert<boolean>(data);
+//   },
+//   onError(err) {
+//     assert<RSPCError>(err);
+//   },
+//   enabled: false,
+// });
 
 // Provider
 const queryClient = new QueryClient();

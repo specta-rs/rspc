@@ -27,6 +27,7 @@ import {
   inferInfiniteQueries,
   _inferInfiniteQueryProcedureHandlerInput,
   inferInfiniteQueryResult,
+  ProcedureDef,
 } from "@rspc/client";
 import { inferQueryInput } from "@rspc/client";
 import { inferQueryResult } from "@rspc/client";
@@ -70,8 +71,65 @@ export function createReactQueryHooks<
     return ctx;
   }
 
+  type CustomQueryHookReturn<TConstrainedProcedures extends ProcedureDef> = <
+    K extends TConstrainedProcedures["key"] & string,
+    TQueryFnData = Extract<TConstrainedProcedures, { key: K }>["result"],
+    TData = Extract<TConstrainedProcedures, { key: K }>["result"]
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: Extract<TConstrainedProcedures, { key: K }>["input"] extends
+        | never
+        | null
+        ? []
+        : [Extract<TConstrainedProcedures, { key: K }>["input"]]
+    ],
+    opts?: Omit<
+      UseQueryOptions<
+        TQueryFnData,
+        RSPCError,
+        TData,
+        [K, Extract<TConstrainedProcedures, { key: K }>["input"]]
+      >,
+      "queryKey" | "queryFn"
+    > &
+      TBaseOptions
+  ) => UseQueryResult<TData, RSPCError>;
+
+  /*
+  [UNDOCUMENTED]: This function IS NOT and will probably never be completely type safe. It is for people doing crazy stuff on top of rspc.
+  By using it you accept the risk involved with a lack of type safety. If you can make this more typesafe a PR would be welcome!
+  */
+  function customQuery<TConstrainedProcedures extends ProcedureDef>(
+    map: (
+      key: [
+        key: TConstrainedProcedures["key"],
+        ...input: TConstrainedProcedures["input"]
+      ]
+    ) => [
+      inferProcedures<TProceduresLike>["queries"]["key"] & string,
+      inferProcedures<TProceduresLike>["queries"]["input"]
+    ]
+  ): CustomQueryHookReturn<TConstrainedProcedures> {
+    return (keyAndInput, opts) => {
+      const { rspc, ...rawOpts } = opts ?? {};
+      let client = rspc?.client;
+      if (!client) {
+        client = useContext().client;
+      }
+
+      return __useQuery(
+        map(keyAndInput as any),
+        async () => {
+          return await client!.query(map(keyAndInput as any) as any);
+        },
+        rawOpts as any
+      );
+    };
+  }
+
   function useQuery<
-    K extends TProcedures["queries"]["key"] & string,
+    K extends inferProcedures<TProceduresLike>["queries"]["key"] & string,
     TQueryFnData = inferQueryResult<TProcedures, K>,
     TData = inferQueryResult<TProcedures, K>
   >(
@@ -142,6 +200,58 @@ export function createReactQueryHooks<
     );
   }
 
+  type CustomMutationHookReturn<TConstrainedProcedures extends ProcedureDef> = <
+    K extends TConstrainedProcedures["key"] & string,
+    TContext = unknown
+  >(
+    key: K | [K],
+    opts?: UseMutationOptions<
+      Extract<TConstrainedProcedures, { key: K }>["result"],
+      RSPCError,
+      Extract<TConstrainedProcedures, { key: K }>["result"] extends never
+        ? undefined
+        : Extract<TConstrainedProcedures, { key: K }>["result"],
+      TContext
+    > &
+      TBaseOptions
+  ) => UseMutationResult<
+    Extract<TConstrainedProcedures, { key: K }>["result"],
+    RSPCError,
+    Extract<TConstrainedProcedures, { key: K }>["input"] extends never
+      ? undefined
+      : Extract<TConstrainedProcedures, { key: K }>["input"],
+    TContext
+  >;
+
+  /*
+  [UNDOCUMENTED]: This function IS NOT and will probably never be completely type safe. It is for people doing crazy stuff on top of rspc.
+  By using it you accept the risk involved with a lack of type safety. If you can make this more typesafe a PR would be welcome!
+  */
+  function customMutation<TConstrainedProcedures extends ProcedureDef>(
+    map: (
+      key: [
+        key: TConstrainedProcedures["key"],
+        ...input: [TConstrainedProcedures["input"]]
+      ]
+    ) => [
+      inferProcedures<TProceduresLike>["mutations"]["key"] & string,
+      inferProcedures<TProceduresLike>["mutations"]["input"]
+    ]
+  ): CustomMutationHookReturn<TConstrainedProcedures> {
+    return (key, opts) => {
+      const { rspc, ...rawOpts } = opts ?? {};
+      let client = rspc?.client;
+      if (!client) {
+        client = useContext().client;
+      }
+
+      return __useMutation(async (input: any) => {
+        const actualKey = Array.isArray(key) ? key[0] : key;
+        return client!.mutation(map([actualKey, input]) as any);
+      }, rawOpts as any);
+    };
+  }
+
   function useMutation<
     K extends TProcedures["mutations"]["key"] & string,
     TContext = unknown
@@ -170,7 +280,7 @@ export function createReactQueryHooks<
       client = useContext().client;
     }
 
-    return __useMutation(async (input) => {
+    return __useMutation(async (input: any) => {
       const actualKey = Array.isArray(key) ? key[0] : key;
       return client!.mutation([actualKey, input] as any);
     }, rawOpts as any);
@@ -249,8 +359,10 @@ export function createReactQueryHooks<
       </Context.Provider>
     ),
     useContext,
+    customQuery,
     useQuery,
     // useInfiniteQuery,
+    customMutation,
     useMutation,
     useSubscription,
   };

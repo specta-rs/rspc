@@ -264,9 +264,18 @@ pub async fn handle_json_rpc<TCtx, TMeta>(
 
                 return;
             }
-            Err(err) => ResponseInner::Error(err.into()),
+            Err(err) => {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Error executing operation: {:?}", err);
+
+                ResponseInner::Error(err.into())
+            }
         },
-        Err(err) => ResponseInner::Error(err.into()),
+        Err(err) => {
+            #[cfg(feature = "tracing")]
+            tracing::error!("Error executing operation: {:?}", err);
+            ResponseInner::Error(err.into())
+        }
     };
 
     let _ = sender
