@@ -1,3 +1,5 @@
+import { JSX } from "solid-js";
+
 export interface Config {
   repository: string;
   seo: {
@@ -32,7 +34,6 @@ export const config: Config = {
       {
         alt: "crates.io",
         href: "https://crates.io/crates/rspc",
-        // @ts-expect-error
         customIcon: ({ className }) => (
           <svg
             aria-hidden="true"
