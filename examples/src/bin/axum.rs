@@ -1,8 +1,7 @@
 use example::{basic, selection, subscriptions};
-use std::path::PathBuf;
 
 use axum::{extract::Path, routing::get};
-use rspc::{Config, Router};
+use rspc::Router;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -10,12 +9,12 @@ async fn main() {
     let r1 = Router::<i32>::new().query("demo", |t| t(|_, _: ()| "Merging Routers!"));
 
     let router = <rspc::Router>::new()
-        .config(Config::new().export_ts_bindings(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/example/bindings.ts"),
-        ))
+        // .config(Config::new().export_ts_bindings(
+        //     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        // ))
         // Basic query
         .query("version", |t| {
-            t(|ctx, _: ()| async move { env!("CARGO_PKG_VERSION") })
+            t(|_, _: ()| async move { env!("CARGO_PKG_VERSION") })
         })
         .merge("basic.", basic::mount())
         .merge("subscriptions.", subscriptions::mount())

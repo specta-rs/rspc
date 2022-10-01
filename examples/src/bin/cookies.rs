@@ -14,27 +14,28 @@ pub struct Ctx {
 
 #[tokio::main]
 async fn main() {
-    let router = rspc::Router::<Ctx>::new()
-        .config(Config::new().export_ts_bindings(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packages/example/bindings.ts"),
-        ))
-        .query("getCookie", |t| {
-            t(|ctx, _: ()| {
-                ctx.cookies
-                    .get("myDemoCookie")
-                    .map(|c| c.value().to_string())
+    let router =
+        rspc::Router::<Ctx>::new()
+            .config(Config::new().export_ts_bindings(
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            ))
+            .query("getCookie", |t| {
+                t(|ctx, _: ()| {
+                    ctx.cookies
+                        .get("myDemoCookie")
+                        .map(|c| c.value().to_string())
+                })
             })
-        })
-        .mutation("setCookie", |t| {
-            t(|ctx, new_value: String| {
-                let mut cookie = Cookie::new("myDemoCookie", new_value);
-                cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
-                cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
-                ctx.cookies.add(cookie);
+            .mutation("setCookie", |t| {
+                t(|ctx, new_value: String| {
+                    let mut cookie = Cookie::new("myDemoCookie", new_value);
+                    cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
+                    cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
+                    ctx.cookies.add(cookie);
+                })
             })
-        })
-        .build()
-        .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+            .build()
+            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))

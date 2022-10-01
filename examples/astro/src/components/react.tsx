@@ -3,7 +3,7 @@ import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
-import type { Procedures } from "../../bindings";
+import type { Procedures } from "../../../bindings";
 
 export const rspc = createReactQueryHooks<Procedures>();
 
@@ -20,10 +20,10 @@ const wsClient = createClient<Procedures>({
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
   const { data: version } = rspc.useQuery(["version"]);
-  const { data: transformMe } = rspc.useQuery(["basic.transformMe"]);
-  const { data: echo } = rspc.useQuery(["basic.echo", "Hello From Frontend!"]);
-  const { mutate, isLoading } = rspc.useMutation("basic.sendMsg");
-  const { error } = rspc.useQuery(["basic.error"], {
+  const { data: transformMe } = rspc.useQuery(["transformMe"]);
+  const { data: echo } = rspc.useQuery(["echo", "Hello From Frontend!"]);
+  const { mutate, isLoading } = rspc.useMutation("sendMsg");
+  const { error } = rspc.useQuery(["error"], {
     retry: false,
   });
 
@@ -53,7 +53,7 @@ function Example({ name }: { name: string }) {
 
 function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
   const [i, setI] = useState(0);
-  rspc.useSubscription(["subscriptions.pings"], {
+  rspc.useSubscription(["pings"], {
     onData(msg) {
       setI((i) => i + 1);
     },

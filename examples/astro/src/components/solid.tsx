@@ -3,7 +3,7 @@
 import { createClient, FetchTransport } from "@rspc/client";
 import { createSolidQueryHooks } from "@rspc/solid";
 import { QueryClient } from "@tanstack/solid-query";
-import { Procedures } from "../../bindings";
+import { Procedures } from "../../../bindings";
 
 const fetchQueryClient = new QueryClient();
 const fetchClient = createClient<Procedures>({
@@ -13,8 +13,8 @@ const fetchClient = createClient<Procedures>({
 const rspc = createSolidQueryHooks<Procedures>();
 
 function Example() {
-  const echo = rspc.createQuery(() => ["basic.echo", "somevalue"]);
-  const sendMsg = rspc.createMutation("basic.sendMsg");
+  const echo = rspc.createQuery(() => ["echo", "somevalue"]);
+  const sendMsg = rspc.createMutation("sendMsg");
 
   sendMsg.mutate("Sending");
 

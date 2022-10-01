@@ -26,12 +26,9 @@ pub struct MyPaginatedData {
 
 fn export_rspc_types() {
     let _r = <Router>::new()
-        .config(
-            Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                    .join("./packages/example/src/test/bindings.ts"),
-            ),
-        )
+        .config(Config::new().export_ts_bindings(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./examples/astro/test/bindings.ts"),
+        ))
         .query("noArgQuery", |t| t(|_, _: ()| "demo"))
         .query("singleArgQuery", |t| t(|_, i: i32| i))
         .query("paginatedQueryOnlyCursor", |t| {
@@ -93,17 +90,17 @@ fn tsc(file: &str, jsx_mode: JSXMode) {
 #[test]
 fn test_typescript_client() {
     export_rspc_types();
-    tsc("packages/example/test/client.test.ts", JSXMode::React);
+    tsc("examples/astro/test/client.test.ts", JSXMode::React);
 }
 
 #[test]
 fn test_typescript_react() {
     export_rspc_types();
-    tsc("packages/example/test/react.test.tsx", JSXMode::React);
+    tsc("examples/astro/test/react.test.tsx", JSXMode::React);
 }
 
 #[test]
 fn test_typescript_sold() {
     export_rspc_types();
-    tsc("packages/example/test/solid.test.tsx", JSXMode::Solid);
+    tsc("examples/astro/test/solid.test.tsx", JSXMode::Solid);
 }

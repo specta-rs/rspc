@@ -57,6 +57,7 @@ async-stream = "0.3.3"
 members = [
     "./create-rspc-app",
     "./examples",
+    "./examples/axum",
     "./specta",
     "./specta/macros"
 ]
