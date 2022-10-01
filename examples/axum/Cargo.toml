@@ -1,7 +1,8 @@
 [package]
-name = "rspc_examples-axum"
+name = "example-axum"
 version = "0.0.0"
 edition = "2021"
+publish = false
 
 [dependencies]
 rspc = { path = "../../", features = ["axum"] }

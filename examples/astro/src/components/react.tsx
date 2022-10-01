@@ -1,41 +1,20 @@
-import {
-  ClientTransformer,
-  createClient,
-  FetchTransport,
-  OperationKey,
-  OperationType,
-  WebsocketTransport,
-} from "@rspc/client";
+import { createClient, FetchTransport, WebsocketTransport } from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
-import type { Operations } from "../../bindings";
+import type { Procedures } from "../../../bindings";
 
-export const rspc = createReactQueryHooks<Operations>();
-
-const myCustomTransformer: ClientTransformer = {
-  serialize(type: OperationType, key: OperationKey) {
-    return key;
-  },
-  deserialize(type: OperationType, key: OperationKey, data: any) {
-    if (key[0] === "transformMe") {
-      data += " transformed";
-    }
-    return data;
-  },
-};
+export const rspc = createReactQueryHooks<Procedures>();
 
 export const fetchQueryClient = new QueryClient();
-const fetchClient = createClient<Operations>({
+const fetchClient = createClient<Procedures>({
   transport: new FetchTransport("http://localhost:4000/rspc"),
-  transformer: myCustomTransformer,
 });
 
 export const wsQueryClient = new QueryClient();
-const wsClient = createClient<Operations>({
-  transport: new WebsocketTransport("ws://localhost:4000/rspcws"),
-  transformer: myCustomTransformer,
+const wsClient = createClient<Procedures>({
+  transport: new WebsocketTransport("ws://localhost:4000/rspc/ws"),
 });
 
 function Example({ name }: { name: string }) {
@@ -75,7 +54,7 @@ function Example({ name }: { name: string }) {
 function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
   const [i, setI] = useState(0);
   rspc.useSubscription(["pings"], {
-    onNext(msg) {
+    onData(msg) {
       setI((i) => i + 1);
     },
   });
@@ -96,11 +75,15 @@ export default function App() {
         }}
       >
         <h1>React</h1>
-        <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
-          <Example name="Fetch Transport" />
-        </rspc.Provider>
+        <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
+          <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
+            <Example name="Fetch Transport" />
+          </rspc.Provider>
+        </QueryClientProvider>
         <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
-          <Example name="Websocket Transport" />
+          <QueryClientProvider client={wsQueryClient}>
+            <Example name="Websocket Transport" />
+          </QueryClientProvider>
         </rspc.Provider>
       </div>
     </React.StrictMode>

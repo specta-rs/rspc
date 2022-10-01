@@ -1,95 +1,138 @@
-import { Transport } from "./transport";
+// TODO: Redo this entire system when links are introduced
+import {
+  RSPCError,
+  ProceduresLike,
+  inferQueryResult,
+  ProceduresDef,
+  inferMutationResult,
+  inferProcedures,
+  inferSubscriptionResult,
+  _inferInfiniteQueryProcedureHandlerInput,
+  _inferProcedureHandlerInput,
+} from ".";
+import { randomId, Transport } from "./transport";
 
-export type OperationType =
-  | "query"
-  | "mutation"
-  | "subscriptionAdd"
-  | "subscriptionRemove";
-
-export type OperationKey = [string] | [string, /* args */ any];
-
-export type OperationsDef = {
-  queries: { key: OperationKey; result: any };
-  mutations: { key: OperationKey; result: any };
-  subscriptions: { key: OperationKey; result: any };
-};
-
-export interface ClientTransformer {
-  serialize(type: OperationType, key: OperationKey): OperationKey;
-  deserialize(type: OperationType, key: OperationKey, data: any): any;
+// TODO
+export interface SubscriptionOptions<TOutput> {
+  onStarted?: () => void;
+  onData: (data: TOutput) => void;
+  onError?: (err: RSPCError) => void;
 }
+
+// TODO
 export interface ClientArgs {
   transport: Transport;
-  transformer?: ClientTransformer;
+  onError?: (err: RSPCError) => void | Promise<void>;
 }
 
-export function createClient<T extends OperationsDef>(
+// TODO
+export function createClient<TProcedures extends ProceduresLike>(
   args: ClientArgs
-): Client<T> {
+): Client<inferProcedures<TProcedures>> {
   return new Client(args);
 }
 
-export class Client<T extends OperationsDef> {
+// TODO
+export class Client<TProcedures extends ProceduresDef> {
+  public _rspc_def: ProceduresDef = undefined!;
   private transport: Transport;
   private subscriptionMap = new Map<string, (data: any) => void>();
+  private onError?: (err: RSPCError) => void | Promise<void>;
 
   constructor(args: ClientArgs) {
     this.transport = args.transport;
-    this.transport.transformer = args.transformer;
-    this.transport.clientSubscriptionCallback = (id, key, value) => {
+    this.transport.clientSubscriptionCallback = (id, value) => {
       const func = this.subscriptionMap?.get(id);
       if (func !== undefined) func(value);
     };
     this.subscriptionMap = new Map();
+    this.onError = args.onError;
   }
 
-  async query<K extends T["queries"]["key"]>(
-    key: K
-  ): Promise<Extract<T["queries"], { key: K }>["result"]> {
-    return await this.transport.doRequest("query", key);
-  }
-
-  async mutation<K extends T["mutations"]["key"][0]>(
-    key: [K, Extract<T["mutations"], { key: [K, any] }>["key"][1]]
-  ): Promise<Extract<T["mutations"], { key: K }>["result"]> {
-    return await this.transport.doRequest("mutation", key);
-  }
-
-  // TODO: Redesign this, i'm sure it probably has race conditions but it functions for now
-  addSubscription<K extends T["subscriptions"]["key"][0]>(
-    key: Extract<
-      T["subscriptions"]["key"],
-      { key: [K, any] }
-    >[1] extends undefined
-      ? [K]
-      : [K, Extract<T["subscriptions"]["key"], { key: [K, any] }>[1]],
-    options: {
-      onNext(msg: Extract<T["subscriptions"], { key: [K, any] }>["result"]);
-      onError?(err: never);
+  async query<K extends TProcedures["queries"]["key"] & string>(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+    ]
+  ): Promise<inferQueryResult<TProcedures, K>> {
+    try {
+      return await this.transport.doRequest(
+        "query",
+        keyAndInput[0],
+        keyAndInput[1]
+      );
+    } catch (err) {
+      if (this.onError) {
+        this.onError(err as RSPCError);
+      }
+      throw err;
     }
+  }
+
+  async mutation<K extends TProcedures["mutations"]["key"] & string>(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<TProcedures, "mutations", K>
+    ]
+  ): Promise<inferMutationResult<TProcedures, K>> {
+    try {
+      return await this.transport.doRequest(
+        "mutation",
+        keyAndInput[0],
+        keyAndInput[1]
+      );
+    } catch (err) {
+      if (this.onError) {
+        this.onError(err as RSPCError);
+      }
+      throw err;
+    }
+  }
+
+  // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
+  addSubscription<
+    K extends TProcedures["subscriptions"]["key"] & string,
+    TData = inferSubscriptionResult<TProcedures, K>
+  >(
+    keyAndInput: [
+      K,
+      _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+    ],
+    opts: SubscriptionOptions<TData>
   ): () => void {
-    let subscriptionId = undefined;
-    let unsubscribed = false;
+    try {
+      let subscriptionId = randomId();
+      let unsubscribed = false;
 
-    const cleanup = () => {
-      this.subscriptionMap?.delete(subscriptionId);
-      if (subscriptionId) {
-        this.transport.doRequest("subscriptionRemove", [subscriptionId]);
-      }
-    };
+      const cleanup = () => {
+        this.subscriptionMap?.delete(subscriptionId);
+        if (subscriptionId) {
+          this.transport.doRequest(
+            "subscriptionStop",
+            undefined!,
+            subscriptionId
+          );
+        }
+      };
 
-    this.transport.doRequest("subscriptionAdd", key).then((id) => {
-      subscriptionId = id;
-      if (unsubscribed) {
+      this.transport.doRequest("subscription", keyAndInput[0], [
+        subscriptionId,
+        keyAndInput[1],
+      ]);
+
+      if (opts.onStarted) opts.onStarted();
+      this.subscriptionMap?.set(subscriptionId, opts.onData);
+
+      return () => {
+        unsubscribed = true;
         cleanup();
-      } else {
-        this.subscriptionMap?.set(subscriptionId, options.onNext);
+      };
+    } catch (err) {
+      if (this.onError) {
+        this.onError(err as RSPCError);
       }
-    });
 
-    return () => {
-      unsubscribed = true;
-      cleanup();
-    };
+      return () => {};
+    }
   }
 }

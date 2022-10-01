@@ -5,10 +5,15 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::{DefOpts, Type, TypeDefs};
 
-use crate::{ExecError, IntoLayerResult, LayerResult, ProcedureDataType};
+use crate::{
+    internal::{LayerResult, ProcedureDataType},
+    ExecError, RequestLayer,
+};
 
 pub trait Resolver<TCtx, TMarker> {
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
+    type Result;
+
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -69,11 +74,13 @@ impl<TFunc, TCtx, TArg, TResult, TResultMarker> Resolver<TCtx, DoubleArgMarker<T
 where
     TArg: DeserializeOwned + Type,
     TFunc: Fn(TCtx, TArg) -> TResult,
-    TResult: IntoLayerResult<TResultMarker>,
+    TResult: RequestLayer<TResultMarker>,
 {
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
-        let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
-        self(ctx, arg).into_layer_result()
+    type Result = TResult;
+
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
+        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
+        self(ctx, input).into_layer_result()
     }
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
@@ -97,7 +104,7 @@ where
 }
 
 pub trait StreamResolver<TCtx, TMarker> {
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError>;
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -110,13 +117,13 @@ impl<TFunc, TCtx, TArg, TResult, TStream>
 where
     TArg: DeserializeOwned + Type,
     TFunc: Fn(TCtx, TArg) -> TStream,
-    TStream: Stream<Item = TResult> + Send + 'static,
+    TStream: Stream<Item = TResult> + Send + Sync + 'static,
     TResult: Serialize + Type,
 {
-    fn exec(&self, ctx: TCtx, arg: Value) -> Result<LayerResult, ExecError> {
-        let arg = serde_json::from_value(arg).map_err(|err| ExecError::DeserializingArgErr(err))?;
-        Ok(LayerResult::Stream(Box::pin(self(ctx, arg).map(|v| {
-            serde_json::to_value(&v).map_err(|err| ExecError::SerializingResultErr(err))
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
+        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
+        Ok(LayerResult::Stream(Box::pin(self(ctx, input).map(|v| {
+            serde_json::to_value(&v).map_err(ExecError::SerializingResultErr)
         }))))
     }
 

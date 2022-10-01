@@ -12,14 +12,24 @@
   "dependencies": {
     "@rspc/client": "workspace:*",
     "@rspc/react": "workspace:*",
-    "@tanstack/react-query": "^4.0.10",
-    "astro": "1.0.0-rc.2",
+    "@rspc/solid": "workspace:*",
+    "@tanstack/react-query": "^4.8.0",
+    "@tanstack/solid-query": "^4.8.0",
+    "astro": "1.4.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "solid-js": "^1.4.8"
+    "solid-js": "^1.5.7"
   },
   "devDependencies": {
-    "@astrojs/react": "^0.4.3",
-    "@astrojs/solid-js": "^0.4.1"
+    "@astrojs/react": "^1.1.4",
+    "@astrojs/solid-js": "^1.1.0",
+    "@types/react": "^18.0.21"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "@babel/core"
+      ]
+    }
   }
 }

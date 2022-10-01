@@ -8,12 +8,20 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* exec pnpm build",
+    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* exec pnpm build",
+    "typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",
     "examples": "pnpm --filter @rspc/examples-* -- ",
     "playground": "pnpm --filter @rspc/playground -- ",
     "react": "pnpm --filter @rspc/react -- ",
+    "solid": "pnpm --filter @rspc/solid -- ",
     "tauri": "pnpm --filter @rspc/tauri -- "
+  },
+  "engines": {
+    "pnpm": ">=7.0.0",
+    "npm": "pnpm",
+    "yarn": "pnpm",
+    "node": ">=16.0.0"
   }
 }

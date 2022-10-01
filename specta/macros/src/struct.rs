@@ -26,8 +26,6 @@ pub fn parse_struct(
         .collect::<Vec<_>>();
 
     let reference_generics = generic_idents.iter().map(|(i, ident)| {
-        let ident = &ident.clone();
-
         quote! {
             generics.get(#i).cloned().unwrap_or(
                 <#ident as #crate_ref::Type>::reference(
@@ -41,11 +39,9 @@ pub fn parse_struct(
         }
     });
 
-    let definition_generics = generic_idents.iter().map(|(_, ident)| {
-        let ident = &ident.clone();
-
-        quote!(stringify!(#ident))
-    });
+    let definition_generics = generic_idents
+        .iter()
+        .map(|(_, ident)| quote!(stringify!(#ident)));
 
     let definition = match &data.fields {
         Fields::Named(_) => {
@@ -69,11 +65,10 @@ pub fn parse_struct(
                 let field_name = match (field_attrs.rename, container_attrs.rename_all) {
                     (Some(name), _) => name,
                     (_, Some(inflection)) => inflection.apply(&field_ident_str),
-                    (_, _) => field_ident_str.to_string(),
+                    (_, _) => field_ident_str,
                 };
 
                 let optional = field_attrs.optional;
-
 
                 if field_attrs.flatten {
                     let field_ty = &field.ty;

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2017", "DOM"],
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js"
+  },
+  "src": ["src"]
+}

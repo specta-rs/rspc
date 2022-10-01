@@ -57,9 +57,7 @@ fn add_type_to_where_clause(ty: &TokenStream, generics: &Generics) -> Option<Whe
         None => Some(parse_quote! { where #( #generic_types : #ty + 'static ),* }),
         Some(ref w) => {
             let bounds = w.predicates.iter();
-            Some(
-                parse_quote! { where #(#bounds,)* #( #generic_types : #ty + 'static ),* },
-            )
+            Some(parse_quote! { where #(#bounds,)* #( #generic_types : #ty + 'static ),* })
         }
     }
 }
@@ -81,7 +79,7 @@ pub fn construct_datatype(
             let elems = t.elems.iter().enumerate().map(|(i, el)| {
                 construct_datatype(
                     format_ident!("{}_{}", var_ident, i),
-                    &el,
+                    el,
                     generic_idents,
                     crate_ref,
                     inline,
@@ -155,7 +153,7 @@ pub fn construct_datatype(
             .args
             .iter()
             .enumerate()
-            .filter_map(|(i, arg)| match arg {
+            .filter_map(|(i, input)| match input {
                 GenericArgument::Type(ty) => Some((i, ty)),
                 _ => todo!("one"),
             })
@@ -167,8 +165,8 @@ pub fn construct_datatype(
     let generic_vars = generic_args.iter().map(|(i, path)| {
         construct_datatype(
             format_ident!("{}_{}", &var_ident, i),
-            &path,
-            &generic_idents,
+            path,
+            generic_idents,
             crate_ref,
             false,
         )

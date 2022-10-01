@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
@@ -6,7 +6,10 @@ use tauri::{
 };
 use tokio::sync::mpsc;
 
-use crate::{ClientContext, Request, Response, Router};
+use crate::{
+    internal::jsonrpc::{self, handle_json_rpc, Sender, SubscriptionMap},
+    Router,
+};
 
 pub fn plugin<R: Runtime, TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
@@ -18,41 +21,61 @@ where
 {
     Builder::new("rspc")
         .setup(|app_handle| {
-            let (tx, mut rx) = mpsc::unbounded_channel::<Request>();
-            let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<Response>();
-            let client_ctx = ClientContext::new();
+            let (tx, mut rx) = mpsc::unbounded_channel::<jsonrpc::Request>();
+            let (mut resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
+            let mut subscriptions = HashMap::new();
 
-            {
-                let app_handle = app_handle.clone();
-                tokio::spawn(async move {
-                    while let Some(event) = rx.recv().await {
-                        let result = event
-                            .handle(ctx_fn(), &router, &client_ctx, Some(&resp_tx))
-                            .await;
-
-                        if !matches!(result, Response::None) {
-                            app_handle
-                                .emit_all("plugin:rspc:transport:resp", result)
-                                .unwrap();
-                        }
-                    }
-                });
-            }
+            tokio::spawn(async move {
+                while let Some(req) = rx.recv().await {
+                    handle_json_rpc(
+                        ctx_fn(),
+                        req,
+                        &router,
+                        &mut Sender::ResponseChannel(&mut resp_tx),
+                        &mut SubscriptionMap::Ref(&mut subscriptions),
+                    )
+                    .await;
+                }
+            });
 
             {
                 let app_handle = app_handle.clone();
                 tokio::spawn(async move {
                     while let Some(event) = resp_rx.recv().await {
-                        app_handle
+                        let _ = app_handle
                             .emit_all("plugin:rspc:transport:resp", event)
-                            .unwrap();
+                            .map_err(|err| {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("failed to emit JSON-RPC response: {}", err);
+                            });
                     }
                 });
             }
 
             app_handle.listen_global("plugin:rspc:transport", move |event| {
-                tx.send(serde_json::from_str(event.payload().unwrap()).unwrap())
-                    .unwrap();
+                let _ = tx
+                    .send(
+                        match serde_json::from_str(match event.payload() {
+                            Some(v) => v,
+                            None => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Tauri event payload is empty");
+
+                                return;
+                            }
+                        }) {
+                            Ok(v) => v,
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                return;
+                            }
+                        },
+                    )
+                    .map_err(|err| {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("failed to send JSON-RPC request: {}", err);
+                    });
             });
 
             Ok(())

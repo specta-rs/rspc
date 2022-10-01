@@ -1,13 +1,13 @@
-import '../styles/globals.css'
-import type { AppProps } from 'next/app'
-import { client, queryClient, RSPCProvider } from '../src/rspc'
+import "../styles/globals.css";
+import type { AppProps } from "next/app";
+import { client, queryClient, RSPCProvider } from "../src/rspc";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <RSPCProvider client={ client } queryClient={ queryClient }>
+    <RSPCProvider client={client} queryClient={queryClient}>
       <Component {...pageProps} />
     </RSPCProvider>
-  )
+  );
 }
 
-export default MyApp
+export default MyApp;

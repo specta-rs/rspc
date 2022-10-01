@@ -1,7 +1,7 @@
-import type { NextPage } from 'next'
-import Head from 'next/head'
-import Link from 'next/link'
-import styles from '../styles/Home.module.css'
+import type { NextPage } from "next";
+import Head from "next/head";
+import Link from "next/link";
+import styles from "../styles/Home.module.css";
 
 const Home: NextPage = () => (
   <div className={styles.container}>
@@ -11,7 +11,14 @@ const Home: NextPage = () => (
 
     <main className={styles.main}>
       <h1 className={styles.title}>
-        Welcome to <a href="https://rspc.otbeaumont.me" target="_blank">RSPC</a> with <a href="https://nextjs.org" target="_blank">Next.js!</a>
+        Welcome to{" "}
+        <a href="https://rspc.otbeaumont.me" target="_blank">
+          RSPC
+        </a>{" "}
+        with{" "}
+        <a href="https://nextjs.org" target="_blank">
+          Next.js!
+        </a>
       </h1>
 
       <div className={styles.grid}>
@@ -41,6 +48,6 @@ const Home: NextPage = () => (
       </div>
     </main>
   </div>
-)
+);
 
-export default Home
+export default Home;

@@ -1,3 +1,6 @@
+<p align="center">
+ <img width="150" height="150" src="/docs/public/logo.png" alt="Logo">
+</p>
 <h1 align="center">rspc</h1>
 <p align="center">🚧 Work in progress 🚧</p>
 <div align="center">
@@ -33,12 +36,16 @@
 
 ## Example
 
-You define a `rspc` router and attach resolvers to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
+You define a `rspc` router and attach procedures to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
 
 ```rust
 let router = <rspc::Router>::new()
-    .query("version", |_| "0.0.1")
-    .mutation("helloWorld", |_| async { "Hello World!" });
+    .query("version", |t| {
+        t(|ctx, input: ()| "0.0.1")
+    })
+    .mutation("helloWorld", |t| {
+        t(|ctx, input: ()| async { "Hello World!" })
+    });
 ```
 
 ## Features:
