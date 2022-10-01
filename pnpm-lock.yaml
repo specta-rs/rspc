@@ -71,9 +71,6 @@ importers:
       '@astrojs/solid-js': 1.1.0_solid-js@1.5.7
       '@types/react': 18.0.21
 
-  examples/axum:
-    specifiers: {}
-
   examples/nextjs:
     specifiers:
       '@rspc/client': workspace:*

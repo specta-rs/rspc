@@ -396,9 +396,9 @@ where
     };
     let ctx = match ctx {
         Ok(v) => v,
-        Err(e) => {
+        Err(_err) => {
             #[cfg(feature = "tracing")]
-            tracing::error!("Error executing context function: {}", e);
+            tracing::error!("Error executing context function: {}", _err);
 
             return Ok((
                 Response::builder()
@@ -451,9 +451,9 @@ where
                     .status(StatusCode::OK)
                     .header("Content-Type", "application/json")
                     .body(v)?,
-                Err(e) => {
+                Err(_err) => {
                     #[cfg(feature = "tracing")]
-                    tracing::error!("Error serializing response: {}", e);
+                    tracing::error!("Error serializing response: {}", _err);
 
                     Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -492,17 +492,17 @@ where
                 msg = rx.recv() => {
                     match socket.send(Message::Text(match serde_json::to_string(&msg) {
                         Ok(v) => v,
-                        Err(err) => {
+                        Err(_err) => {
                             #[cfg(feature = "tracing")]
-                            tracing::error!("Error serializing websocket message: {}", err);
+                            tracing::error!("Error serializing websocket message: {}", _err);
 
                             continue;
                         }
                     })).await {
                         Ok(_) => {}
-                        Err(err) => {
+                        Err(_err) => {
                             #[cfg(feature = "tracing")]
-                            tracing::error!("Error sending websocket message: {}", err);
+                            tracing::error!("Error sending websocket message: {}", _err);
 
                             continue;
                         }
@@ -526,17 +526,17 @@ where
 
                             match res {
                                 Ok(v) => v,
-                                Err(err) => {
+                                Err(_err) => {
                                     #[cfg(feature = "tracing")]
-                                    tracing::error!("Error parsing websocket message: {}", err);
+                                    tracing::error!("Error parsing websocket message: {}", _err);
 
                                     continue;
                                 }
                             }
                         }
-                        Some(Err(err)) => {
+                        Some(Err(_err)) => {
                             #[cfg(feature = "tracing")]
-                            tracing::error!("Error in websocket: {}", err);
+                            tracing::error!("Error in websocket: {}", _err);
 
                             continue;
                         },
@@ -555,9 +555,9 @@ where
 
                     handle_json_rpc(match ctx {
                         Ok(v) => v,
-                        Err(e) => {
+                        Err(_err) => {
                             #[cfg(feature = "tracing")]
-                            tracing::error!("Error executing context function: {}", e);
+                            tracing::error!("Error executing context function: {}", _err);
 
                             continue;
                         }

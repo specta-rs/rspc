@@ -91,7 +91,7 @@ async fn main() {
             })
             // Reject all middleware
             .middleware(|mw| {
-                mw.middleware(|mw| async move {
+                mw.middleware(|_mw| async move {
                     Err(rspc::Error::new(
                         ErrorCode::Unauthorized,
                         "Unauthorized".into(),
