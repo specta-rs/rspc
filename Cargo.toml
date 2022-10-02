@@ -26,6 +26,7 @@ actix-web = ["httpz/actix-web"]
 rocket = ["httpz/rocket"]
 # warp = ["httpz/warp"]
 lambda = ["httpz/lambda"]
+workers = ["httpz/workers"]
 
 # Specta
 uuid = ["specta/uuid"]
