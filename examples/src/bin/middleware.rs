@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
 use axum::routing::get;
-use rspc::{Config, ErrorCode, MiddlewareContext, Router};
+use rspc::{Config, ErrorCode, MiddlewareState, Router};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -95,7 +95,7 @@ async fn main() {
                     Err(rspc::Error::new(
                         ErrorCode::Unauthorized,
                         "Unauthorized".into(),
-                    )) as Result<MiddlewareContext<_>, _>
+                    )) as Result<MiddlewareState<_>, _>
                 })
             })
             // Plugin middleware // TODO: Coming soon!

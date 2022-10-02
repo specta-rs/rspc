@@ -6,14 +6,14 @@ use serde_json::Value;
 use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{
-    internal::{LayerResult, ProcedureDataType},
+    internal::{ProcedureDataType, RequestFuture, StreamFuture},
     ExecError, RequestLayer,
 };
 
 pub trait Resolver<TCtx, TMarker> {
     type Result;
 
-    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<RequestFuture, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -78,9 +78,9 @@ where
 {
     type Result = TResult;
 
-    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<RequestFuture, ExecError> {
         let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
-        self(ctx, input).into_layer_result()
+        self(ctx, input).into_request_future()
     }
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
@@ -104,7 +104,7 @@ where
 }
 
 pub trait StreamResolver<TCtx, TMarker> {
-    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -120,9 +120,9 @@ where
     TStream: Stream<Item = TResult> + Send + Sync + 'static,
     TResult: Serialize + Type,
 {
-    fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError> {
+    fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError> {
         let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
-        Ok(LayerResult::Stream(Box::pin(self(ctx, input).map(|v| {
+        Ok(StreamFuture::Stream(Box::pin(self(ctx, input).map(|v| {
             serde_json::to_value(&v).map_err(ExecError::SerializingResultErr)
         }))))
     }

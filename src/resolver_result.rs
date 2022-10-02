@@ -3,15 +3,12 @@ use std::{future::Future, marker::PhantomData};
 use serde::Serialize;
 use specta::Type;
 
-use crate::{
-    internal::{LayerResult, ValueOrStream},
-    Error, ExecError,
-};
+use crate::{internal::RequestFuture, Error, ExecError};
 
 pub trait RequestLayer<TMarker> {
     type Result: Type;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError>;
+    fn into_request_future(self) -> Result<RequestFuture, ExecError>;
 }
 
 pub struct SerializeMarker(PhantomData<()>);
@@ -21,8 +18,8 @@ where
 {
     type Result = T;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Ready(Ok(
+    fn into_request_future(self) -> Result<RequestFuture, ExecError> {
+        Ok(RequestFuture::Ready(Ok(
             serde_json::to_value(self).map_err(ExecError::SerializingResultErr)?
         )))
     }
@@ -35,8 +32,8 @@ where
 {
     type Result = T;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Ready(Ok(serde_json::to_value(
+    fn into_request_future(self) -> Result<RequestFuture, ExecError> {
+        Ok(RequestFuture::Ready(Ok(serde_json::to_value(
             self.map_err(ExecError::ErrResolverError)?,
         )
         .map_err(ExecError::SerializingResultErr)?)))
@@ -51,17 +48,9 @@ where
 {
     type Result = T::Result;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Future(Box::pin(async move {
-            match self
-                .await
-                .into_layer_result()?
-                .into_value_or_stream()
-                .await?
-            {
-                ValueOrStream::Stream(_) => unreachable!(),
-                ValueOrStream::Value(v) => Ok(v),
-            }
+    fn into_request_future(self) -> Result<RequestFuture, ExecError> {
+        Ok(RequestFuture::Future(Box::pin(async move {
+            self.await.into_request_future()?.exec().await
         })))
     }
 }

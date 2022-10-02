@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
 use crate::{
-    internal::{Layer, LayerResult, RequestContext, ValueOrStream, ValueOrStreamOrFutureStream},
+    internal::{Layer, LayerFuture, LayerReturn, RequestContext, RequestFuture, StreamFuture},
     ExecError,
 };
 
@@ -17,7 +17,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Result<LayerResult, ExecError>;
+    ) -> LayerFuture;
 }
 pub struct MiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
@@ -153,9 +153,11 @@ where
         TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
     {
         MiddlewareWithResponseHandler {
-            handler: self.handler,
+            inner: Middleware {
+                handler: self.handler,
+                phantom: PhantomData,
+            },
             resp_handler: handler,
-            phantom: PhantomData,
         }
     }
 }
@@ -178,9 +180,8 @@ pub struct MiddlewareWithResponseHandler<
     TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
 {
-    handler: THandlerFunc,
+    inner: Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>,
     resp_handler: TRespHandlerFunc,
-    phantom: PhantomData<(TState, TLayerCtx)>,
 }
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut> Clone
@@ -205,9 +206,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            handler: self.handler.clone(),
+            inner: self.inner.clone(),
             resp_handler: self.resp_handler.clone(),
-            phantom: PhantomData,
         }
     }
 }
@@ -232,7 +232,7 @@ where
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Result<LayerResult, ExecError> {
+    ) -> LayerFuture {
         let handler = (self.handler)(MiddlewareContext {
             state: (),
             ctx,
@@ -241,12 +241,10 @@ where
             phantom: PhantomData,
         });
 
-        Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
+        LayerFuture::Wrapped(Box::pin(async move {
             let handler = handler.await?;
-            next.call(handler.ctx, handler.input, handler.req)?
-                .into_value_or_stream()
-                .await
-        })))
+            next.call(handler.ctx, handler.input, handler.req)
+        }))
     }
 }
 
@@ -281,8 +279,8 @@ where
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Result<LayerResult, ExecError> {
-        let handler = (self.handler)(MiddlewareContext {
+    ) -> LayerFuture {
+        let handler = (self.inner.handler)(MiddlewareContext {
             state: (),
             ctx,
             input,
@@ -293,52 +291,38 @@ where
 
         let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
 
-        Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
-            async move {
-                let handler = handler.await?;
+        LayerFuture::Wrapped(Box::pin(async move {
+            let handler = handler.await?;
+            let handler_state = handler.state;
 
-                Ok(
-                    match next
-                        .call(handler.ctx, handler.input, handler.req)?
-                        .into_value_or_stream()
-                        .await?
-                    {
-                        ValueOrStream::Value(v) => {
-                            ValueOrStreamOrFutureStream::Value(f(handler.state, v).await?)
-                        }
-                        ValueOrStream::Stream(s) => {
-                            ValueOrStreamOrFutureStream::Stream(Box::pin(
-                                // This follow code is expanded from the `async_stream::stream!` macro shown below. Using the macro causes borrow errors.
-                                {
-                                    let (mut __yield_tx, __yield_rx) =
-                                        ::async_stream::yielder::pair();
-                                    ::async_stream::AsyncStream::new(__yield_rx, async move {
-                                        let mut s = s;
-                                        let ctx = handler.state;
-                                        while let Some(v) = s.next().await {
-                                            match v {
-                                                Ok(v) => {
-                                                    __yield_tx
-                                                        .send(
-                                                            f(ctx.clone(), v).await.map_err(
-                                                                ExecError::ErrResolverError,
-                                                            ),
-                                                        )
-                                                        .await;
-                                                }
-                                                Err(err) => {
-                                                    __yield_tx.send(Err(err)).await;
-                                                }
-                                            }
-                                        }
-                                    })
-                                },
-                            ))
-                        }
-                    },
-                )
-            },
-        )))
+            Ok(
+                match next
+                    .call(handler.ctx, handler.input, handler.req)?
+                    .into_layer_return()
+                    .await?
+                {
+                    LayerReturn::Request(v) => {
+                        RequestFuture::Ready(f(handler_state, v).await.map_err(Into::into)).into()
+                    }
+                    LayerReturn::Stream(s) => {
+                        StreamFuture::Stream(Box::pin(async_stream::stream! {
+                            let mut s = s;
+                            while let Some(v) = s.next().await {
+                                match v {
+                                    Ok(v) => {
+                                        yield f(handler_state.clone(), v)
+                                            .await
+                                            .map_err(ExecError::ErrResolverError);
+                                    }
+                                    e => yield e
+                                }
+                            }
+                        }))
+                        .into()
+                    }
+                },
+            )
+        }))
     }
 }
 

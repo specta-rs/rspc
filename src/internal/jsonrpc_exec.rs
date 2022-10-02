@@ -8,7 +8,7 @@ use crate::{internal::jsonrpc, ExecError, Router};
 
 use super::{
     jsonrpc::{RequestId, RequestInner, ResponseInner},
-    ProcedureKind, RequestContext, ValueOrStream,
+    LayerReturn, ProcedureKind, RequestContext,
 };
 
 // TODO: Deduplicate this function with the httpz integration
@@ -170,9 +170,9 @@ pub async fn handle_json_rpc<TCtx, TMeta>(
                 },
             )
         }) {
-        Ok(op) => match op.into_value_or_stream().await {
-            Ok(ValueOrStream::Value(v)) => ResponseInner::Response(v),
-            Ok(ValueOrStream::Stream(mut stream)) => {
+        Ok(op) => match op.into_layer_return().await {
+            Ok(LayerReturn::Request(v)) => ResponseInner::Response(v),
+            Ok(LayerReturn::Stream(mut stream)) => {
                 if matches!(sender, Sender::Response(_))
                     || matches!(subscriptions, SubscriptionMap::None)
                 {

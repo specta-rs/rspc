@@ -129,10 +129,13 @@ where
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .map(Into::into)
                 },
                 phantom: PhantomData,
             }),
@@ -158,10 +161,13 @@ where
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .map(Into::into)
                 },
                 phantom: PhantomData,
             }),
@@ -192,10 +198,13 @@ where
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .map(Into::into)
                 },
                 phantom: PhantomData,
             }),

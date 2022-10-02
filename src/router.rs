@@ -13,7 +13,7 @@ use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext, ValueOrStream},
+    internal::{LayerReturn, Procedure, ProcedureKind, ProcedureStore, RequestContext},
     Config, ExecError, ExportError,
 };
 
@@ -65,11 +65,11 @@ where
                     path: key.clone(),
                 },
             )?
-            .into_value_or_stream()
+            .into_layer_return()
             .await?
         {
-            ValueOrStream::Value(v) => Ok(v),
-            ValueOrStream::Stream(_) => Err(ExecError::UnsupportedMethod(key)),
+            LayerReturn::Request(v) => Ok(v),
+            LayerReturn::Stream(_) => Err(ExecError::UnsupportedMethod(key)),
         }
     }
 
@@ -93,11 +93,11 @@ where
                     path: key.clone(),
                 },
             )?
-            .into_value_or_stream()
+            .into_layer_return()
             .await?
         {
-            ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),
-            ValueOrStream::Stream(s) => Ok(s),
+            LayerReturn::Request(_) => Err(ExecError::UnsupportedMethod(key)),
+            LayerReturn::Stream(s) => Ok(s),
         }
     }
 
