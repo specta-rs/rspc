@@ -66,6 +66,20 @@ where
     }
 }
 
+#[cfg(feature = "workers")]
+pub struct NoArgMarker(PhantomData<()>);
+
+#[cfg(feature = "workers")]
+impl<TCtx, TFunc> TCtxFunc<TCtx, NoArgMarker> for TFunc
+where
+    TCtx: Send + Sync + 'static,
+    TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
+{
+    fn exec<'a>(&self) -> TCtxFuncResult<'a, TCtx> {
+        TCtxFuncResult::Value(Ok(self.clone()()))
+    }
+}
+
 #[cfg(not(feature = "workers"))]
 pub struct OneArgAxumRequestMarker<T1>(PhantomData<T1>);
 
