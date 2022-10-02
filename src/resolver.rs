@@ -122,9 +122,10 @@ where
 {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError> {
         let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
-        Ok(StreamFuture::Stream(Box::pin(self(ctx, input).map(|v| {
+
+        Ok(Box::pin(self(ctx, input).map(|v| {
             serde_json::to_value(&v).map_err(ExecError::SerializingResultErr)
-        }))))
+        })))
     }
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {

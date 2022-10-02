@@ -212,18 +212,7 @@ impl RequestFuture {
 }
 
 pub type StreamItem = ExecResult<Value>;
-
-pub enum StreamFuture {
-    Stream(BoxStream<'static, StreamItem>),
-}
-
-impl StreamFuture {
-    pub async fn exec(self) -> ExecResult<BoxStream<'static, StreamItem>> {
-        match self {
-            Self::Stream(stream) => Ok(stream),
-        }
-    }
-}
+pub type StreamFuture = BoxStream<'static, StreamItem>;
 
 pub enum LayerFuture {
     Request(RequestFuture),
@@ -241,7 +230,7 @@ impl LayerFuture {
         Box::pin(async {
             match self {
                 Self::Request(req) => req.exec().await.map(LayerReturn::Request),
-                Self::Stream(stream) => stream.exec().await.map(LayerReturn::Stream),
+                Self::Stream(stream) => Ok(LayerReturn::Stream(stream)),
                 Self::Wrapped(fut) => fut.await?.into_layer_return().await,
             }
         })

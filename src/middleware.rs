@@ -304,22 +304,19 @@ where
                     LayerReturn::Request(v) => {
                         RequestFuture::Ready(f(handler_state, v).await.map_err(Into::into)).into()
                     }
-                    LayerReturn::Stream(s) => {
-                        StreamFuture::Stream(Box::pin(async_stream::stream! {
-                            let mut s = s;
-                            while let Some(v) = s.next().await {
-                                match v {
-                                    Ok(v) => {
-                                        yield f(handler_state.clone(), v)
-                                            .await
-                                            .map_err(ExecError::ErrResolverError);
-                                    }
-                                    e => yield e
+                    LayerReturn::Stream(s) => StreamFuture::into(Box::pin(async_stream::stream! {
+                        let mut s = s;
+                        while let Some(v) = s.next().await {
+                            match v {
+                                Ok(v) => {
+                                    yield f(handler_state.clone(), v)
+                                        .await
+                                        .map_err(ExecError::ErrResolverError);
                                 }
+                                e => yield e
                             }
-                        }))
-                        .into()
-                    }
+                        }
+                    })),
                 },
             )
         }))
