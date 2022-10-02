@@ -1,8 +1,13 @@
+// TODO: This file having feature flags is a sign that httpz needs more work!!!
+
 use futures::{Future, SinkExt, StreamExt};
+#[cfg(not(feature = "workers"))]
 use httpz::{
     axum::axum::extract::{FromRequest, RequestParts},
-    http::{Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
+};
+use httpz::{
+    http::{Method, Response, StatusCode},
     ConcreteRequest, Endpoint, EndpointResult, GenericEndpoint, HttpEndpoint, QueryParms,
 };
 use serde_json::Value;
@@ -30,6 +35,7 @@ pub enum TCtxFuncResult<'a, TCtx> {
     Future(Pin<Box<dyn Future<Output = Result<TCtx, ExecError>> + Send + 'a>>),
 }
 
+#[cfg(not(feature = "workers"))]
 pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
 where
     TCtx: Send + 'static,
@@ -37,7 +43,19 @@ where
     fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx>;
 }
 
+#[cfg(feature = "workers")]
+pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
+where
+    TCtx: Send + 'static,
+{
+    // TODO: Support extracting `httpz::Request` and `httpz::Cookies`
+    fn exec<'a>(&self) -> TCtxFuncResult<'a, TCtx>;
+}
+
+#[cfg(not(feature = "workers"))]
 pub struct NoArgMarker(PhantomData<()>);
+
+#[cfg(not(feature = "workers"))]
 impl<TCtx, TFunc> TCtxFunc<TCtx, NoArgMarker> for TFunc
 where
     TCtx: Send + Sync + 'static,
@@ -48,7 +66,10 @@ where
     }
 }
 
+#[cfg(not(feature = "workers"))]
 pub struct OneArgAxumRequestMarker<T1>(PhantomData<T1>);
+
+#[cfg(not(feature = "workers"))]
 impl<T1, TCtx, TFunc> TCtxFunc<TCtx, OneArgAxumRequestMarker<T1>> for TFunc
 where
     TCtx: Send + Sync + 'static,
@@ -71,7 +92,10 @@ where
     }
 }
 
+#[cfg(not(feature = "workers"))]
 pub struct TwoArgAxumRequestMarker<T1, T2>(PhantomData<(T1, T2)>);
+
+#[cfg(not(feature = "workers"))]
 impl<T1, T2, TCtx, TFunc> TCtxFunc<TCtx, TwoArgAxumRequestMarker<T1, T2>> for TFunc
 where
     TCtx: Send + Sync + 'static,
@@ -103,7 +127,10 @@ where
     }
 }
 
+#[cfg(not(feature = "workers"))]
 pub struct ThreeArgAxumRequestMarker<T1, T2, T3>(PhantomData<(T1, T2, T3)>);
+
+#[cfg(not(feature = "workers"))]
 impl<T1, T2, T3, TCtx, TFunc> TCtxFunc<TCtx, ThreeArgAxumRequestMarker<T1, T2, T3>> for TFunc
 where
     TCtx: Send + Sync + 'static,
@@ -144,7 +171,10 @@ where
     }
 }
 
+#[cfg(not(feature = "workers"))]
 pub struct FourArgAxumRequestMarker<T1, T2, T3, T4>(PhantomData<(T1, T2, T3, T4)>);
+
+#[cfg(not(feature = "workers"))]
 impl<T1, T2, T3, T4, TCtx, TFunc> TCtxFunc<TCtx, FourArgAxumRequestMarker<T1, T2, T3, T4>> for TFunc
 where
     TCtx: Send + Sync + 'static,
@@ -194,7 +224,10 @@ where
     }
 }
 
+#[cfg(not(feature = "workers"))]
 pub struct FiveArgAxumRequestMarker<T1, T2, T3, T4, T5>(PhantomData<(T1, T2, T3, T4, T5)>);
+
+#[cfg(not(feature = "workers"))]
 impl<T1, T2, T3, T4, T5, TCtx, TFunc> TCtxFunc<TCtx, FiveArgAxumRequestMarker<T1, T2, T3, T4, T5>>
     for TFunc
 where
@@ -441,10 +474,18 @@ where
     );
 
     let mut resp = Sender::Response(None);
+
+    #[cfg(not(feature = "workers"))]
     let ctx = match ctx_fn.exec(&mut RequestParts::new(req)) {
         TCtxFuncResult::Value(v) => v,
         TCtxFuncResult::Future(v) => v.await,
     };
+    #[cfg(feature = "workers")]
+    let ctx = match ctx_fn.exec() {
+        TCtxFuncResult::Value(v) => v,
+        TCtxFuncResult::Future(v) => v.await,
+    };
+
     let ctx = match ctx {
         Ok(v) => v,
         Err(_err) => {
@@ -532,6 +573,10 @@ where
     #[cfg(feature = "tracing")]
     tracing::debug!("Accepting websocket connection");
 
+    #[cfg(feature = "workers")]
+    todo!();
+
+    #[cfg(not(feature = "workers"))]
     WebsocketUpgrade::from_req(req, cookies, move |req, mut socket| async move {
         let mut subscriptions = HashMap::new();
         let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);

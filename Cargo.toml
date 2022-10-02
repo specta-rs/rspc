@@ -15,17 +15,17 @@ categories = ["web-programming", "asynchronous"]
 default = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
-httpz = ["dep:httpz", "httpz/tokio-ws", "httpz/axum"] # Axum feature always enabled because we use the extractors regardless of webserver
+httpz = ["dep:httpz"]
 # openapi = ["dep:openapiv3"]
 # playground = []
 
-# Webservers
-axum = ["httpz/axum"]
-actix-web = ["httpz/actix-web"]
+# Webservers # Axum feature basically always enabled because we use the extractors regardless of webserver
+axum = ["httpz/axum", "httpz/tokio-ws", "httpz/axum"]
+actix-web = ["httpz/actix-web", "httpz/tokio-ws", "httpz/axum"]
 # poem = ["httpz/poem"]
-rocket = ["httpz/rocket"]
+rocket = ["httpz/rocket", "httpz/tokio-ws", "httpz/axum"]
 # warp = ["httpz/warp"]
-lambda = ["httpz/lambda"]
+lambda = ["httpz/lambda", "httpz/tokio-ws", "httpz/axum"]
 workers = ["httpz/workers"]
 
 # Specta
