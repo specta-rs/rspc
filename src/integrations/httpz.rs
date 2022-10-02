@@ -261,6 +261,7 @@ where
     TMeta: Send + Sync + 'static,
 {
     router: Arc<Router<TCtx, TMeta>>,
+    url_prefix: Option<&'static str>,
     ctx_fn: TCtxFn,
     phantom: PhantomData<TCtxFnMarker>,
 }
@@ -275,6 +276,7 @@ where
     fn clone(&self) -> Self {
         Self {
             router: self.router.clone(),
+            url_prefix: self.url_prefix,
             ctx_fn: self.ctx_fn.clone(),
             phantom: PhantomData,
         }
@@ -282,7 +284,12 @@ where
 }
 
 async fn handler<'a, TCtxFn, TCtx, TMeta, TCtxFnMarker>(
-    Ctx { router, ctx_fn, .. }: Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>,
+    Ctx {
+        router,
+        url_prefix,
+        ctx_fn,
+        ..
+    }: Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>,
     req: ConcreteRequest,
     cookies: CookieJar,
 ) -> EndpointResult
@@ -291,11 +298,32 @@ where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
+    let websocket_url = format!("{}/ws", url_prefix.unwrap_or("/rspc"));
     match (req.method(), req.uri().path()) {
-        (&Method::GET, "/rspc/ws") => handle_websocket(ctx_fn, req, cookies, router),
-        (&Method::GET, _) => handle_http(ctx_fn, ProcedureKind::Query, req, cookies, &router).await,
+        (&Method::GET, url) if url == websocket_url => {
+            handle_websocket(ctx_fn, req, cookies, router)
+        }
+        (&Method::GET, _) => {
+            handle_http(
+                ctx_fn,
+                &format!("{}/", url_prefix.unwrap_or("/rspc")),
+                ProcedureKind::Query,
+                req,
+                cookies,
+                &router,
+            )
+            .await
+        }
         (&Method::POST, _) => {
-            handle_http(ctx_fn, ProcedureKind::Mutation, req, cookies, &router).await
+            handle_http(
+                ctx_fn,
+                &format!("{}/", url_prefix.unwrap_or("/rspc")),
+                ProcedureKind::Mutation,
+                req,
+                cookies,
+                &router,
+            )
+            .await
         }
         _ => unreachable!(),
     }
@@ -313,6 +341,27 @@ where
         GenericEndpoint::new(
             Ctx {
                 router: self,
+                url_prefix: None,
+                ctx_fn,
+                phantom: PhantomData,
+            },
+            [Method::GET, Method::POST],
+            handler,
+        )
+    }
+
+    pub fn endpoint_with_prefix<
+        TCtxFnMarker: Send + Sync + 'static,
+        TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+    >(
+        self: Arc<Self>,
+        url_prefix: &'static str,
+        ctx_fn: TCtxFn,
+    ) -> Endpoint<impl HttpEndpoint> {
+        GenericEndpoint::new(
+            Ctx {
+                router: self,
+                url_prefix: Some(url_prefix),
                 ctx_fn,
                 phantom: PhantomData,
             },
@@ -324,6 +373,7 @@ where
 
 pub async fn handle_http<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
+    url_prefix: &str,
     kind: ProcedureKind,
     req: ConcreteRequest,
     cookies: CookieJar,
@@ -334,7 +384,8 @@ where
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
     let uri = req.uri().clone();
-    let key = match uri.path().strip_prefix("/rspc/") {
+
+    let key = match uri.path().strip_prefix(url_prefix) {
         Some(key) => key,
         None => {
             return Ok((
