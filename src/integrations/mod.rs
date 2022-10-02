@@ -3,7 +3,8 @@
     feature = "axum",
     feature = "actix-web",
     feature = "rocket",
-    feature = "lambda"
+    feature = "lambda",
+    feature = "workers"
 ))]
 pub mod httpz;
 
