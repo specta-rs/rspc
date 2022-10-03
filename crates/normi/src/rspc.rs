@@ -71,7 +71,7 @@ where
 
             async {
                 let x = val?.exec().await.unwrap();
-                Ok(x.normalize())
+                Ok(x.normalize().unwrap())
             }
         },
     }
