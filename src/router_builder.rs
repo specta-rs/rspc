@@ -1,4 +1,9 @@
-use std::marker::PhantomData;
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    marker::PhantomData,
+    sync::{Arc, RwLock},
+};
 
 use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
@@ -13,6 +18,8 @@ use crate::{
     RequestResult, Router, StreamResolver,
 };
 
+pub type GlobalData = Arc<RwLock<HashMap<TypeId, Box<dyn Any>>>>;
+
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
     TMeta = (),
@@ -22,6 +29,7 @@ pub struct RouterBuilder<
     TMeta: Send + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
+    data: GlobalData,
     config: Config,
     middleware: TMiddleware,
     queries: ProcedureStore<TCtx>,
@@ -50,6 +58,7 @@ where
 {
     pub fn new() -> Self {
         Self {
+            data: GlobalData::default(),
             config: Config::new(),
             middleware: BaseMiddleware::default(),
             queries: ProcedureStore::new("query"),
@@ -87,6 +96,7 @@ where
         TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
     {
         let Self {
+            data,
             config,
             middleware,
             queries,
@@ -98,6 +108,7 @@ where
 
         let mw = builder(MiddlewareBuilder(PhantomData));
         RouterBuilder {
+            data,
             config,
             middleware: MiddlewareLayerBuilder {
                 middleware,
@@ -131,7 +142,7 @@ where
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::new(self.data.clone())).resolver;
 
         self.queries.append(
             key.into(),
@@ -171,7 +182,7 @@ where
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::new(self.data.clone())).resolver;
         self.mutations.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -208,7 +219,7 @@ where
             + Sync
             + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::new(self.data.clone())).resolver;
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -251,6 +262,7 @@ where
         }
 
         let Self {
+            data,
             config,
             middleware,
             mut queries,
@@ -289,6 +301,7 @@ where
         }
 
         RouterBuilder {
+            data,
             config,
             middleware: MiddlewareMerger {
                 middleware,

@@ -1,22 +1,30 @@
 use std::{marker::PhantomData, ops::Deref};
 
+use crate::GlobalData;
+
 pub struct UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
+    data: GlobalData,
     deref_handler: fn(TResolver) -> BuiltProcedureBuilder<TResolver>,
     phantom: PhantomData<TLayerCtx>,
 }
 
-impl<TLayerCtx, TResolver> Default for UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
-    fn default() -> Self {
+impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
+    pub fn new(data: GlobalData) -> Self {
         Self {
-            deref_handler: |resolver| BuiltProcedureBuilder { resolver },
+            data,
+            deref_handler: |resolver| BuiltProcedureBuilder {
+                data: None,
+                resolver,
+            },
             phantom: PhantomData,
         }
     }
-}
 
-impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
     pub fn resolver(self, resolver: TResolver) -> BuiltProcedureBuilder<TResolver> {
-        (self.deref_handler)(resolver)
+        BuiltProcedureBuilder {
+            data: Some(self.data),
+            resolver,
+        }
     }
 }
 
@@ -29,6 +37,8 @@ impl<TLayerCtx, TResolver> Deref for UnbuiltProcedureBuilder<TLayerCtx, TResolve
 }
 
 pub struct BuiltProcedureBuilder<TResolver> {
+    // TODO: This shouldn't be an option
+    pub data: Option<GlobalData>,
     pub resolver: TResolver,
 }
 

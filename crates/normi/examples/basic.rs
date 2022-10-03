@@ -18,10 +18,25 @@ use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Serialize, Type, Object)]
 pub struct User {
-    // #[normi(id)]
+    #[normi(id)]
     pub id: String,
     pub name: String,
 }
+
+// TODO: Unit test this
+// mod bruh {
+//     use axum::routing::get;
+//     use normi::{typed, Object};
+//     use rspc::{Router, Type};
+//     use serde::Serialize;
+
+//     #[derive(Serialize, Type, Object)]
+//     pub struct User {
+//         // #[normi(id)]
+//         pub id: String,
+//         pub name: String,
+//     }
+// }
 
 // #[derive(Serialize, Type, Object)]
 // pub struct CompositeId {
@@ -36,14 +51,14 @@ async fn main() {
     let router = <Router>::new()
         .query("version", |t| t(|_, _: ()| "0.1.0"))
         .query("userSync", |t| {
-            t(|_, _: ()| User {
+            t.resolver(|_, _: ()| User {
                 id: "1".to_string(),
                 name: "Monty Beaumont".to_string(),
             })
             .map(typed)
         })
         .query("user", |t| {
-            t(|_, _: ()| async move {
+            t.resolver(|_, _: ()| async move {
                 Ok(User {
                     id: "1".to_string(),
                     name: "Monty Beaumont".to_string(),

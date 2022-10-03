@@ -12,7 +12,7 @@ rspc = { path = "../../", optional = true }
 normi-macros = { path = "./macros" }
 serde = "1.0.145"
 serde_json = "1.0.85"
-specta = { version = "0.0.4", path = "../../specta" }
+specta = { version = "0.0.4", path = "../specta" }
 
 [dev-dependencies]
 rspc = { path = "../../", features = ["axum"] }

@@ -4,7 +4,7 @@ use specta::Type;
 use std::any::type_name;
 
 /// TODO
-pub trait Object {
+pub trait Object: 'static {
     type NormalizedResult: Serialize + Type + Send;
 
     /// is used to determine the type of the current object. It will define to Rust's debug type name but you SHOULD override it.
