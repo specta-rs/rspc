@@ -63,6 +63,24 @@ async fn main() {
                 data: T,
             }
 
+            // pub trait Normalize {}
+
+            // #[derive(Object)]
+            // pub struct Wrapper {
+            //     pub scalar: i32,
+            //     #[ref]
+            //     pub ref_this: String,
+            //     #[ref]
+            //     pub wrapper_2: Wrapper2,
+            //     pub vec_ref: Vec<AnotherObject>
+            // }
+
+            // #[derive(Object)]
+            // pub struct Wrapper2 {
+            //     #[ref]
+            //     pub vec_ref: Vec<AnotherObject>
+            // };
+
             fn typed<TResolver, TLayerCtx, TArg, TResolverMarker, TResultMarker>(
                 builder: BuiltProcedureBuilder<TResolver>,
             ) -> BuiltProcedureBuilder<
@@ -93,10 +111,17 @@ async fn main() {
             }
 
             |t| {
-                typed(t(|_ctx, _: ()| {
+                t(|_ctx, _: ()| {
                     println!("ANOTHER QUERY");
                     env!("CARGO_PKG_VERSION")
-                }))
+                })
+                .map(typed)
+                .map(|_| BuiltProcedureBuilder {
+                    resolver: |_, _| {
+                        println!("This resolver has been overwritten to an int!");
+                        0
+                    },
+                })
             }
         })
         // Auth middleware

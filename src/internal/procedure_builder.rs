@@ -31,3 +31,12 @@ impl<TLayerCtx, TResolver> Deref for UnbuiltProcedureBuilder<TLayerCtx, TResolve
 pub struct BuiltProcedureBuilder<TResolver> {
     pub resolver: TResolver,
 }
+
+impl<TResolver> BuiltProcedureBuilder<TResolver> {
+    pub fn map<TOutResolver>(
+        self,
+        func: impl Fn(Self) -> BuiltProcedureBuilder<TOutResolver>,
+    ) -> BuiltProcedureBuilder<TOutResolver> {
+        func(self)
+    }
+}
