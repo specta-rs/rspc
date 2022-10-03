@@ -1,7 +1,9 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use futures::{future::BoxFuture, stream::BoxStream};
+use serde::Serialize;
 use serde_json::Value;
+use specta::Type;
 
 use crate::{ExecError, MiddlewareLike};
 
@@ -204,6 +206,40 @@ pub enum RequestFuture {
 
 impl RequestFuture {
     pub async fn exec(self) -> ExecResult<Value> {
+        match self {
+            Self::Ready(res) => res,
+            Self::Future(fut) => fut.await,
+        }
+    }
+}
+
+pub trait RequestResultData: Serialize + Type + Send + 'static {}
+impl<T: Serialize + Type + Send + 'static> RequestResultData for T {}
+
+pub enum TypedRequestFuture<T> {
+    Ready(ExecResult<T>),
+    Future(BoxFuture<'static, ExecResult<T>>),
+}
+
+impl<T> TypedRequestFuture<T>
+where
+    T: RequestResultData,
+{
+    pub fn to_request_future(self) -> RequestFuture {
+        match self {
+            Self::Ready(val) => RequestFuture::Ready({
+                val.map(|v| serde_json::to_value(v).map_err(ExecError::DeserializingArgErr))
+                    .and_then(|v| v)
+            }),
+            Self::Future(fut) => RequestFuture::Future(Box::pin(async move {
+                fut.await
+                    .map(serde_json::to_value)?
+                    .map_err(ExecError::DeserializingArgErr)
+            })),
+        }
+    }
+
+    pub async fn exec(self) -> ExecResult<T> {
         match self {
             Self::Ready(res) => res,
             Self::Future(fut) => fut.await,

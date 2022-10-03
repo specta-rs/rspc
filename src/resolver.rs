@@ -6,15 +6,19 @@ use serde_json::Value;
 use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{
-    internal::{ProcedureDataType, RequestFuture, StreamFuture},
+    internal::{ProcedureDataType, StreamFuture, TypedRequestFuture},
     ExecError, RequestResult,
 };
 
-pub trait RequestResolver<TCtx, TMarker>: Send + Sync + 'static {
+pub trait RequestResolver<TCtx, TMarker, TResultMarker>: Send + Sync + 'static {
     type Arg: DeserializeOwned + Type;
-    type Result;
+    type Result: RequestResult<TResultMarker>;
 
-    fn exec(&self, ctx: TCtx, input: Self::Arg) -> Result<RequestFuture, ExecError>;
+    fn exec(
+        &self,
+        ctx: TCtx,
+        input: Self::Arg,
+    ) -> Result<TypedRequestFuture<<Self::Result as RequestResult<TResultMarker>>::Data>, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
 }
@@ -23,7 +27,7 @@ pub struct DoubleArgMarker<TArg, TResultMarker>(
     /* private */ PhantomData<(TArg, TResultMarker)>,
 );
 impl<TFunc, TCtx, TArg, TResult, TResultMarker>
-    RequestResolver<TCtx, DoubleArgMarker<TArg, TResultMarker>> for TFunc
+    RequestResolver<TCtx, DoubleArgMarker<TArg, TResultMarker>, TResultMarker> for TFunc
 where
     TArg: DeserializeOwned + Type,
     TFunc: Fn(TCtx, TArg) -> TResult + Send + Sync + 'static,
@@ -32,7 +36,11 @@ where
     type Result = TResult;
     type Arg = TArg;
 
-    fn exec(&self, ctx: TCtx, input: Self::Arg) -> Result<RequestFuture, ExecError> {
+    fn exec(
+        &self,
+        ctx: TCtx,
+        input: Self::Arg,
+    ) -> Result<TypedRequestFuture<TResult::Data>, ExecError> {
         self(ctx, input).into_request_future()
     }
 

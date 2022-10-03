@@ -1,42 +1,39 @@
 use std::{future::Future, marker::PhantomData};
 
-use serde::Serialize;
-use specta::Type;
-
-use crate::{internal::RequestFuture, Error, ExecError};
+use crate::{
+    internal::{RequestResultData, TypedRequestFuture},
+    Error, ExecError,
+};
 
 pub trait RequestResult<TMarker> {
-    type Data: Type;
+    type Data: RequestResultData;
 
-    fn into_request_future(self) -> Result<RequestFuture, ExecError>;
+    fn into_request_future(self) -> Result<TypedRequestFuture<Self::Data>, ExecError>;
 }
 
 pub struct SerializeMarker(PhantomData<()>);
 impl<T> RequestResult<SerializeMarker> for T
 where
-    T: Serialize + Type,
+    T: RequestResultData,
 {
     type Data = T;
 
-    fn into_request_future(self) -> Result<RequestFuture, ExecError> {
-        Ok(RequestFuture::Ready(Ok(
-            serde_json::to_value(self).map_err(ExecError::SerializingResultErr)?
-        )))
+    fn into_request_future(self) -> Result<TypedRequestFuture<Self::Data>, ExecError> {
+        Ok(TypedRequestFuture::Ready(Ok(self)))
     }
 }
 
 pub struct ResultMarker(PhantomData<()>);
 impl<T> RequestResult<ResultMarker> for Result<T, Error>
 where
-    T: Serialize + Type,
+    T: RequestResultData,
 {
     type Data = T;
 
-    fn into_request_future(self) -> Result<RequestFuture, ExecError> {
-        Ok(RequestFuture::Ready(Ok(serde_json::to_value(
-            self.map_err(ExecError::ErrResolverError)?,
-        )
-        .map_err(ExecError::SerializingResultErr)?)))
+    fn into_request_future(self) -> Result<TypedRequestFuture<Self::Data>, ExecError> {
+        Ok(TypedRequestFuture::Ready(Ok(
+            self.map_err(ExecError::ErrResolverError)?
+        )))
     }
 }
 
@@ -48,8 +45,8 @@ where
 {
     type Data = T::Data;
 
-    fn into_request_future(self) -> Result<RequestFuture, ExecError> {
-        Ok(RequestFuture::Future(Box::pin(async move {
+    fn into_request_future(self) -> Result<TypedRequestFuture<Self::Data>, ExecError> {
+        Ok(TypedRequestFuture::Future(Box::pin(async move {
             self.await.into_request_future()?.exec().await
         })))
     }

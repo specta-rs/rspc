@@ -112,7 +112,14 @@ where
         }
     }
 
-    pub fn query<TBuiltResolver, TResultMarker, TUnbuiltResolver, TUnbuiltResult, TInResultMarker>(
+    pub fn query<
+        TUnbuiltResolver,
+        TUnbuiltResult,
+        TUnbuiltResultMarker,
+        TBuiltResolver,
+        TBuiltResolverMarker,
+        TBuiltResultMarker,
+    >(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -121,8 +128,8 @@ where
     ) -> Self
     where
         TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
-        TUnbuiltResult: RequestResult<TInResultMarker>,
-        TBuiltResolver: RequestResolver<TLayerCtx, TResultMarker>,
+        TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
+        TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
 
@@ -136,7 +143,7 @@ where
                             serde_json::from_value(input)
                                 .map_err(ExecError::DeserializingArgErr)?,
                         )
-                        .map(Into::into)
+                        .map(|v| v.to_request_future().into())
                 },
                 phantom: PhantomData,
             }),
@@ -146,11 +153,12 @@ where
     }
 
     pub fn mutation<
-        TBuiltResolver,
-        TResultMarker,
         TUnbuiltResolver,
         TUnbuiltResult,
-        TInResultMarker,
+        TUnbuiltResultMarker,
+        TBuiltResolver,
+        TBuiltResolverMarker,
+        TBuiltResultMarker,
     >(
         mut self,
         key: &'static str,
@@ -160,8 +168,8 @@ where
     ) -> Self
     where
         TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
-        TUnbuiltResult: RequestResult<TInResultMarker>,
-        TBuiltResolver: RequestResolver<TLayerCtx, TResultMarker>,
+        TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
+        TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.mutations.append(
@@ -174,7 +182,7 @@ where
                             serde_json::from_value(input)
                                 .map_err(ExecError::DeserializingArgErr)?,
                         )
-                        .map(Into::into)
+                        .map(|v| v.to_request_future().into())
                 },
                 phantom: PhantomData,
             }),
