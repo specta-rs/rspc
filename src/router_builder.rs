@@ -9,8 +9,8 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer,
-    Resolver, Router, StreamResolver,
+    Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestResolver,
+    Router, StreamResolver,
 };
 
 pub struct RouterBuilder<
@@ -112,7 +112,7 @@ where
         }
     }
 
-    pub fn query<TResolver, TArg, TResult, TResultMarker>(
+    pub fn query<TResolver, TResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -120,11 +120,10 @@ where
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
-        TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        TResolver: RequestResolver<TLayerCtx, TResultMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+
         self.queries.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -144,7 +143,7 @@ where
         self
     }
 
-    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+    pub fn mutation<TResolver, TResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
@@ -152,9 +151,7 @@ where
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
     where
-        TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        TResolver: RequestResolver<TLayerCtx, TResultMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.mutations.append(

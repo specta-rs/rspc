@@ -5,18 +5,18 @@ use specta::Type;
 
 use crate::{internal::RequestFuture, Error, ExecError};
 
-pub trait RequestLayer<TMarker> {
-    type Result: Type;
+pub trait RequestResult<TMarker> {
+    type Data: Type;
 
     fn into_request_future(self) -> Result<RequestFuture, ExecError>;
 }
 
 pub struct SerializeMarker(PhantomData<()>);
-impl<T> RequestLayer<SerializeMarker> for T
+impl<T> RequestResult<SerializeMarker> for T
 where
     T: Serialize + Type,
 {
-    type Result = T;
+    type Data = T;
 
     fn into_request_future(self) -> Result<RequestFuture, ExecError> {
         Ok(RequestFuture::Ready(Ok(
@@ -26,11 +26,11 @@ where
 }
 
 pub struct ResultMarker(PhantomData<()>);
-impl<T> RequestLayer<ResultMarker> for Result<T, Error>
+impl<T> RequestResult<ResultMarker> for Result<T, Error>
 where
     T: Serialize + Type,
 {
-    type Result = T;
+    type Data = T;
 
     fn into_request_future(self) -> Result<RequestFuture, ExecError> {
         Ok(RequestFuture::Ready(Ok(serde_json::to_value(
@@ -41,12 +41,12 @@ where
 }
 
 pub struct FutureMarker<TMarker>(PhantomData<TMarker>);
-impl<TFut, T, TMarker> RequestLayer<FutureMarker<TMarker>> for TFut
+impl<TFut, T, TMarker> RequestResult<FutureMarker<TMarker>> for TFut
 where
     TFut: Future<Output = T> + Send + 'static,
-    T: RequestLayer<TMarker> + Send,
+    T: RequestResult<TMarker> + Send,
 {
-    type Result = T::Result;
+    type Data = T::Data;
 
     fn into_request_future(self) -> Result<RequestFuture, ExecError> {
         Ok(RequestFuture::Future(Box::pin(async move {

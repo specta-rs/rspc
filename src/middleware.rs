@@ -19,7 +19,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         next: Arc<TMiddleware>,
     ) -> LayerFuture;
 }
-pub struct MiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
+pub struct MiddlewareState<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
     TState: Send,
 {
@@ -31,15 +31,15 @@ where
 }
 
 // This will match were TState is the default (`()`) so it shouldn't let you call it if you've already swapped the generic
-impl<TLayerCtx, TNewCtx> MiddlewareContext<TLayerCtx, TNewCtx, ()>
+impl<TLayerCtx, TNewCtx> MiddlewareState<TLayerCtx, TNewCtx, ()>
 where
     TLayerCtx: Send,
 {
-    pub fn with_state<TState>(self, state: TState) -> MiddlewareContext<TLayerCtx, TNewCtx, TState>
+    pub fn with_state<TState>(self, state: TState) -> MiddlewareState<TLayerCtx, TNewCtx, TState>
     where
         TState: Send,
     {
-        MiddlewareContext {
+        MiddlewareState {
             state,
             input: self.input,
             ctx: self.ctx,
@@ -50,7 +50,7 @@ where
 }
 
 // This will match were TNewCtx is the default (`TCtx`) so it shouldn't let you call it if you've already swapped the generic
-impl<TLayerCtx, TState> MiddlewareContext<TLayerCtx, TLayerCtx, TState>
+impl<TLayerCtx, TState> MiddlewareState<TLayerCtx, TLayerCtx, TState>
 where
     TLayerCtx: Send,
     TState: Send,
@@ -58,8 +58,8 @@ where
     pub fn with_ctx<TNewCtx>(
         self,
         new_ctx: TNewCtx,
-    ) -> MiddlewareContext<TLayerCtx, TNewCtx, TState> {
-        MiddlewareContext {
+    ) -> MiddlewareState<TLayerCtx, TNewCtx, TState> {
+        MiddlewareState {
             state: self.state,
             input: self.input,
             ctx: new_ctx,
@@ -73,8 +73,8 @@ pub struct Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
 where
     TState: Send,
     TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
 {
@@ -87,8 +87,8 @@ impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> Clone
 where
     TState: Send,
     TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
 {
@@ -114,8 +114,8 @@ where
     ) -> Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
     where
         TState: Send,
-        THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-        THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+        THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+        THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
             + Send
             + 'static,
     {
@@ -131,8 +131,8 @@ impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
 where
     TState: Send,
     TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
 {
@@ -173,8 +173,8 @@ pub struct MiddlewareWithResponseHandler<
 > where
     TState: Send,
     TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
     TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
@@ -197,8 +197,8 @@ impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TR
 where
     TState: Send,
     TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
     TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
@@ -218,8 +218,8 @@ where
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send,
     TNewCtx: Send + 'static,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
 {
@@ -233,7 +233,7 @@ where
         req: RequestContext,
         next: Arc<TMiddleware>,
     ) -> LayerFuture {
-        let handler = (self.handler)(MiddlewareContext {
+        let handler = (self.handler)(MiddlewareState {
             state: (),
             ctx,
             input,
@@ -263,8 +263,8 @@ where
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send + 'static,
     TNewCtx: Send + 'static,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    THandlerFunc: Fn(MiddlewareState<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    THandlerFut: Future<Output = Result<MiddlewareState<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
     TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
@@ -280,7 +280,7 @@ where
         req: RequestContext,
         next: Arc<TMiddleware>,
     ) -> LayerFuture {
-        let handler = (self.inner.handler)(MiddlewareContext {
+        let handler = (self.inner.handler)(MiddlewareState {
             state: (),
             ctx,
             input,

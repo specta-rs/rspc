@@ -7,15 +7,53 @@ use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{ProcedureDataType, RequestFuture, StreamFuture},
-    ExecError, RequestLayer,
+    ExecError, RequestResult,
 };
 
-pub trait Resolver<TCtx, TMarker> {
+pub trait RequestResolver<TCtx, TMarker>: Send + Sync + 'static {
+    type Arg: DeserializeOwned + Type;
     type Result;
 
-    fn exec(&self, ctx: TCtx, input: Value) -> Result<RequestFuture, ExecError>;
+    fn exec(&self, ctx: TCtx, input: Self::Arg) -> Result<RequestFuture, ExecError>;
 
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
+}
+
+pub struct DoubleArgMarker<TArg, TResultMarker>(
+    /* private */ PhantomData<(TArg, TResultMarker)>,
+);
+impl<TFunc, TCtx, TArg, TResult, TResultMarker>
+    RequestResolver<TCtx, DoubleArgMarker<TArg, TResultMarker>> for TFunc
+where
+    TArg: DeserializeOwned + Type,
+    TFunc: Fn(TCtx, TArg) -> TResult + Send + Sync + 'static,
+    TResult: RequestResult<TResultMarker>,
+{
+    type Result = TResult;
+    type Arg = TArg;
+
+    fn exec(&self, ctx: TCtx, input: Self::Arg) -> Result<RequestFuture, ExecError> {
+        self(ctx, input).into_request_future()
+    }
+
+    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+        ProcedureDataType {
+            arg_ty: <TArg as Type>::reference(
+                DefOpts {
+                    parent_inline: false,
+                    type_map: defs,
+                },
+                &[],
+            ),
+            result_ty: <TResult::Data as Type>::reference(
+                DefOpts {
+                    parent_inline: false,
+                    type_map: defs,
+                },
+                &[],
+            ),
+        }
+    }
 }
 
 // pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
@@ -65,43 +103,6 @@ pub trait Resolver<TCtx, TMarker> {
 //         }
 //     }
 // }
-
-pub struct DoubleArgMarker<TArg, TResultMarker>(
-    /* private */ PhantomData<(TArg, TResultMarker)>,
-);
-impl<TFunc, TCtx, TArg, TResult, TResultMarker> Resolver<TCtx, DoubleArgMarker<TArg, TResultMarker>>
-    for TFunc
-where
-    TArg: DeserializeOwned + Type,
-    TFunc: Fn(TCtx, TArg) -> TResult,
-    TResult: RequestLayer<TResultMarker>,
-{
-    type Result = TResult;
-
-    fn exec(&self, ctx: TCtx, input: Value) -> Result<RequestFuture, ExecError> {
-        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
-        self(ctx, input).into_request_future()
-    }
-
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-        ProcedureDataType {
-            arg_ty: <TArg as Type>::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: defs,
-                },
-                &[],
-            ),
-            result_ty: <TResult::Result as Type>::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: defs,
-                },
-                &[],
-            ),
-        }
-    }
-}
 
 pub trait StreamResolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError>;
