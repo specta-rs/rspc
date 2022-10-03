@@ -10,7 +10,7 @@ use crate::{
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
     Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestResolver,
-    Router, StreamResolver,
+    RequestResult, Router, StreamResolver,
 };
 
 pub struct RouterBuilder<
@@ -112,15 +112,17 @@ where
         }
     }
 
-    pub fn query<TResolver, TResultMarker>(
+    pub fn query<TBuiltResolver, TResultMarker, TUnbuiltResolver, TUnbuiltResult, TInResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
+            UnbuiltProcedureBuilder<TLayerCtx, TUnbuiltResolver>,
+        ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TResolver: RequestResolver<TLayerCtx, TResultMarker>,
+        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResult: RequestResult<TInResultMarker>,
+        TBuiltResolver: RequestResolver<TLayerCtx, TResultMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
 
@@ -138,20 +140,28 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            TBuiltResolver::typedef(&mut self.typ_store),
         );
         self
     }
 
-    pub fn mutation<TResolver, TResultMarker>(
+    pub fn mutation<
+        TBuiltResolver,
+        TResultMarker,
+        TUnbuiltResolver,
+        TUnbuiltResult,
+        TInResultMarker,
+    >(
         mut self,
         key: &'static str,
         builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
+            UnbuiltProcedureBuilder<TLayerCtx, TUnbuiltResolver>,
+        ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TResolver: RequestResolver<TLayerCtx, TResultMarker>,
+        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResult: RequestResult<TInResultMarker>,
+        TBuiltResolver: RequestResolver<TLayerCtx, TResultMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.mutations.append(
@@ -168,7 +178,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            TBuiltResolver::typedef(&mut self.typ_store),
         );
         self
     }
