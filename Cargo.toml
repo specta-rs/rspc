@@ -57,6 +57,8 @@ async-stream = "0.3.3"
 
 [workspace]
 members = [
+    "./crates/normi",
+    "./crates/normi/macros",
     "./create-rspc-app",
     "./examples",
     "./examples/axum",

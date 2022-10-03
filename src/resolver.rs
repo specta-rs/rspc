@@ -13,6 +13,7 @@ use crate::{
 pub trait RequestResolver<TCtx, TMarker, TResultMarker>: Send + Sync + 'static {
     type Arg: DeserializeOwned + Type;
     type Result: RequestResult<TResultMarker>;
+    type Data;
 
     fn exec(
         &self,
@@ -35,6 +36,7 @@ where
 {
     type Result = TResult;
     type Arg = TArg;
+    type Data = TResult::Data;
 
     fn exec(
         &self,
@@ -63,54 +65,6 @@ where
         }
     }
 }
-
-// pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
-// impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, NoArgMarker<TResultMarker>> for TFunc
-// where
-//     TFunc: Fn() -> TResult,
-//     TResult: IntoLayerResult<TResultMarker> + Type,
-// {
-//     fn exec(&self, _ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
-//         self().into_layer_result()
-//     }
-//
-//     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-//         ProcedureDataType {
-//             arg_ty: <() as Type>::def(DefOpts {
-//                 parent_inline: true,
-//                 type_map: defs,
-//             }),
-//             result_ty: <TResult as Type>::def(DefOpts {
-//                 parent_inline: true,
-//                 type_map: defs,
-//             }),
-//         }
-//     }
-// }
-//
-// pub struct SingleArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
-// impl<TFunc, TCtx, TResult, TResultMarker> Resolver<TCtx, SingleArgMarker<TResultMarker>> for TFunc
-// where
-//     TFunc: Fn(TCtx) -> TResult,
-//     TResult: IntoLayerResult<TResultMarker>,
-// {
-//     fn exec(&self, ctx: TCtx, _arg: Value) -> Result<LayerResult, ExecError> {
-//         self(ctx).into_layer_result()
-//     }
-//
-//     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-//         ProcedureDataType {
-//             arg_ty: <() as Type>::def(DefOpts {
-//                 parent_inline: true,
-//                 type_map: defs,
-//             }),
-//             result_ty: <TResult::Result as Type>::def(DefOpts {
-//                 parent_inline: true,
-//                 type_map: defs,
-//             }),
-//         }
-//     }
-// }
 
 pub trait StreamResolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError>;
