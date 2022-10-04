@@ -1,12 +1,7 @@
 use std::{any::TypeId, collections::HashMap};
 
-use rspc::{
-    internal::BuiltProcedureBuilder,
-    // TODO: All of these following types should probs be in `rspc::internal`!
-    DoubleArgMarker,
-    FutureMarker,
-    RequestResolver,
-    RequestResult,
+use rspc::internal::{
+    BuiltProcedureBuilder, DoubleArgMarker, FutureMarker, RequestResolver, RequestResult,
     ResultMarker,
 };
 use serde::de::DeserializeOwned;

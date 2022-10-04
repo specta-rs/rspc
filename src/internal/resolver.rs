@@ -6,8 +6,8 @@ use serde_json::Value;
 use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{
-    internal::{ProcedureDataType, StreamFuture, TypedRequestFuture},
-    ExecError, RequestResult,
+    internal::{ProcedureDataType, RequestResult, StreamFuture, TypedRequestFuture},
+    ExecError,
 };
 
 pub trait RequestResolver<TCtx, TMarker, TResultMarker>: Send + Sync + 'static {

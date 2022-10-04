@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_json::Value;
 use specta::Type;
 
-use crate::{ExecError, MiddlewareLike};
+use crate::{internal::MiddlewareLike, ExecError};
 
 pub trait MiddlewareBuilderLike<TCtx> {
     type LayerContext: 'static;

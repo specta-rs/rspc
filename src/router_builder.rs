@@ -14,8 +14,11 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestResolver,
-    RequestResult, Router, StreamResolver,
+    internal::{
+        DoubleArgStreamMarker, MiddlewareBuilder, MiddlewareLike, RequestResolver, RequestResult,
+        StreamResolver,
+    },
+    Config, ExecError, Router,
 };
 
 pub type GlobalData = Arc<RwLock<HashMap<TypeId, Box<dyn Any>>>>;
