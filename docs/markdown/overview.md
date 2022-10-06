@@ -4,7 +4,7 @@ header: rspc
 index: 1
 ---
 
-rspc is a typesafe router which allows you to build APIs in Rust which have end to end typesafey. You define your logic in a Rust function on your backend and use the React hooks or Typescript client to call it. Your rspc router is transport agnostic which means you can serve it from any HTTP server of your choice such as [Axum](https://github.com/tokio-rs/axum) or even from [Tauri](https://tauri.app).
+rspc is a typesafe router which allows you to build APIs in Rust which have end to end typesafety. You define your logic in a Rust function on your backend and use the React hooks or Typescript client to call it. Your rspc router is transport agnostic which means you can serve it from any HTTP server of your choice such as [Axum](https://github.com/tokio-rs/axum) or even from [Tauri](https://tauri.app).
 
 Why rspc?
 - ✅ **Typesafety** - allows your team to move faster and **eliminate** a whole class of common bugs
@@ -13,7 +13,7 @@ Why rspc?
 - ✅ **Middleware** - For easily extending your procedures with **auth, logging and more**
 - 🚧 **Work in progress** - rspc is still **early in development**. It's stable but you may find use cases which aren't well supported.
 
-You get the type safety of [GraphQL](https://graphql.org) without the complexity of it.
+rspc gives you the typesafety of [GraphQL](https://graphql.org) without the complexity of it.
 
 Let's skip the talk and get to the code. Let's start with the Rust side.
 
