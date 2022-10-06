@@ -26,6 +26,10 @@ impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
             resolver,
         }
     }
+
+    pub fn data(&self) -> GlobalData {
+        self.data.clone()
+    }
 }
 
 impl<TLayerCtx, TResolver> Deref for UnbuiltProcedureBuilder<TLayerCtx, TResolver> {

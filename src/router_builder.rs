@@ -136,7 +136,7 @@ where
     >(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TUnbuiltResolver>,
         ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
@@ -176,7 +176,7 @@ where
     >(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TUnbuiltResolver>,
         ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
@@ -208,7 +208,7 @@ where
     pub fn subscription<TResolver, TArg, TStream, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self

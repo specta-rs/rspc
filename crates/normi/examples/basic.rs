@@ -5,7 +5,7 @@ use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Serialize, Type, Object)]
-// #[normi(rename = "org")]
+#[normi(rename = "org")]
 pub struct Organisation {
     #[normi(id)]
     pub id: String,

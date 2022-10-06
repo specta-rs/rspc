@@ -19,3 +19,5 @@ rspc = { path = "../../", features = ["axum"] }
 axum = "0.5.16"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
 tower-http = { version = "0.3.4", default-features = false, features = ["cors"] }
+trybuild = "1.0.65"
+assert-json-diff = "2.0.2"

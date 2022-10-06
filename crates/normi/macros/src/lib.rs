@@ -1,85 +1,13 @@
+use attrs::FieldAttrs;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, Attribute, Data, DeriveInput, Field};
+use quote::{format_ident, quote};
+use syn::{parse_macro_input, Data, DeriveInput, Index};
 
-macro_rules! syn_err {
-    ($l:literal $(, $a:expr)*) => {
-        syn_err!(proc_macro2::Span::call_site(); $l $(, $a)*)
-    };
-    ($s:expr; $l:literal $(, $a:expr)*) => {
-        return Err(syn::Error::new($s, format!($l $(, $a)*)))
-    };
-}
+use crate::attrs::StructAttrs;
 
-macro_rules! impl_parse {
-    ($i:ident ($input:ident, $out:ident) { $($k:pat => $e:expr),* $(,)? }) => {
-        impl std::convert::TryFrom<&syn::Attribute> for $i {
-            type Error = syn::Error;
-
-            fn try_from(attr: &syn::Attribute) -> syn::Result<Self> { attr.parse_args() }
-        }
-
-        impl syn::parse::Parse for $i {
-            fn parse($input: syn::parse::ParseStream) -> syn::Result<Self> {
-                #[allow(warnings)]
-                let mut $out = $i::default();
-                loop {
-                    let key: syn::Ident = $input.call(syn::ext::IdentExt::parse_any)?;
-                    match &*key.to_string() {
-                        $($k => $e,)*
-                        #[allow(unreachable_patterns)]
-                        _ => syn_err!($input.span(); "unexpected attribute")
-                    }
-
-                    match $input.is_empty() {
-                        true => break,
-                        false => {
-                            $input.parse::<syn::Token![,]>()?;
-                        }
-                    }
-                }
-
-                Ok($out)
-            }
-        }
-    };
-}
-
-fn parse_attrs<'a, A>(attrs: &'a [Attribute]) -> syn::Result<impl Iterator<Item = A>>
-where
-    A: TryFrom<&'a Attribute, Error = syn::Error>,
-{
-    Ok(attrs
-        .iter()
-        .filter(|a| a.path.is_ident("normi"))
-        .map(A::try_from)
-        .collect::<syn::Result<Vec<A>>>()?
-        .into_iter())
-}
-
-#[derive(Default, Clone, Debug)]
-struct FieldAttrs {
-    pub id: bool,
-    pub refr: bool,
-}
-
-impl FieldAttrs {
-    pub fn from_attrs(attrs: &[Attribute]) -> syn::Result<Self> {
-        let mut result = Self::default();
-        parse_attrs(attrs)?.for_each(|a: FieldAttrs| {
-            result.id = a.id || result.id;
-            result.refr = a.refr || result.refr;
-        });
-        Ok(result)
-    }
-}
-
-impl_parse! {
-    FieldAttrs(input, out) {
-        "id" => out.id = true,
-        "refr" => out.refr = true,
-    }
-}
+#[macro_use]
+mod utils;
+mod attrs;
 
 #[proc_macro_derive(Object, attributes(normi))]
 pub fn derive_object(input: TokenStream) -> TokenStream {
@@ -87,107 +15,139 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
     let DeriveInput {
         ident, data, attrs, ..
     } = parse_macro_input!(input);
+    let args = StructAttrs::from_attrs(&attrs).unwrap();
+    let type_name = args.rename.unwrap_or(ident.to_string());
     let normalised_ident = format_ident!("Normalised{}", ident);
-    let type_name = ident.to_string(); // TODO: Allow user to override using macro attribute
 
-    // TODO: Build test suite for what I want out of this macro
-
-    // for v in attrs.iter().filter(|a| a.path.is_ident("specta")) {
-    //     println!("{:?}", v.to_token_stream().to_string());
-    // }
-
-    let mut id_fields = Vec::new();
-    let fields = match data {
+    match data {
         Data::Struct(data) => {
-            for field in data.fields.iter() {
-                match field {
-                    Field {
-                        ident: ident,
-                        attrs,
-                        ..
-                    } => {
-                        let ident = ident.clone().unwrap();
-                        let attrs = FieldAttrs::from_attrs(&attrs).unwrap();
-                        attrs.id.then(|| id_fields.push(ident));
+            let mut fields = data.fields.iter().peekable();
+            let is_tuple_struct = fields.peek().map(|v| v.ident.is_some()).expect("normi::Object requires at least one fields");
+
+            let mut id_fields = Vec::new();
+            for (i, field) in fields.enumerate() {
+                let attrs = FieldAttrs::from_attrs(&field.attrs).unwrap();
+                
+                attrs.id.then(|| id_fields.push(
+                    match &field.ident {
+                        Some(ident) => quote!(self.#ident),
+                        None => {
+                            let i = Index::from(i);
+                            quote!(self.#i)
+                        }
+                    })
+                );
+            }
+            
+            let mut id_fields = id_fields.into_iter().peekable();
+            let _ = id_fields.peek().ok_or_else(|| panic!("normi::Object must have an id field set. Ensure you add `#[normi(id)]`"));
+            let id_impl = id_fields.peek().map(|field| quote! ( #crate_name::internal::to_value(&#field).unwrap() )).unwrap_or(quote! ( #crate_name::internal::to_value(&[#(&#id_fields),*]).unwrap() ));
+
+            let object_impl_decl = {
+                let fields = match is_tuple_struct {
+                    true => {
+                        let fields = data.fields
+                        .iter()
+                        .map(|f| {
+                            let attrs = FieldAttrs::from_attrs(&f.attrs).unwrap();
+                            let ident = f.ident.clone().unwrap();
+                            if attrs.refr {
+                                quote!( #ident: self.#ident.normalize()? )
+                            } else {
+                                quote! ( #ident: self.#ident )
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                        
+                        quote!( #(#fields),* )
+                    },
+                    false => {
+                        let fields = data.fields
+                            .iter()
+                            .enumerate()
+                            .map(|(i, f)| {
+                                let attrs = FieldAttrs::from_attrs(&f.attrs).unwrap();
+                                if attrs.refr {
+                                    quote!( self.#i.normalize()? )
+                                } else {
+                                    let i = Index::from(i);
+                                    quote! ( self.#i )
+                                }
+                            })
+                            .collect::<Vec<_>>();
+                        if fields.len() == 1 {
+                            panic!("You must have more than one field on a tuple struct!");
+                        }
+                        
+                        quote!( data: (#(#fields),*) )
                     }
-                    _ => todo!(),
+                };
+                
+                quote! {
+                    impl #crate_name::Object for #ident {
+                        type NormalizedResult = #normalised_ident;
+
+                        fn type_name() -> &'static str {
+                            #type_name
+                        }
+
+                        fn id(&self) -> Result<#crate_name::internal::Value, #crate_name::internal::Error> {
+                            Ok(#id_impl)
+                        }
+
+                        fn normalize(self) -> Result<Self::NormalizedResult, #crate_name::internal::Error> {
+                            pub use #crate_name::Object;
+
+                            Ok(#normalised_ident {
+                                __type: Self::type_name(),
+                                __id: self.id()?,
+                                #fields
+                            })
+                        }
+                    }
                 }
+            };
+
+            let normalized_struct_decl = {
+                let fields = data.fields.into_iter().map(|f| {
+                    let ty = f.ty;
+                    let vis = f.vis;
+                    let attrs = FieldAttrs::from_attrs(&f.attrs).unwrap();
+
+                    match &f.ident {
+                        Some(ident) => {
+                            if attrs.refr {
+                                quote!( #vis #ident: <#ty as #crate_name::Object>::NormalizedResult )
+                            } else {
+                                quote!( #vis #ident: #ty )
+                            }
+                        },
+                        None => quote!( #ty ),
+                    }
+                });
+
+                let fields = match is_tuple_struct {
+                    true => quote! ( #(#fields),* ),
+                    false => quote! ( data: (#(#fields),*) ),
+                };
+            
+                quote! {
+                    #[derive(#crate_name::internal::Serialize, #crate_name::internal::Type)]
+                    pub struct #normalised_ident {
+                        pub __type: &'static str,
+                        pub __id: #crate_name::internal::Value,
+                        #fields
+                    }
+                }
+            };
+
+            quote! {
+                #normalized_struct_decl
+                #object_impl_decl
             }
-
-            data.fields
+            
         }
-        _ => todo!(),
-    };
-
-    let mut id_fields = id_fields.into_iter().peekable();
-    let id_impl = match (id_fields.next(), id_fields.peek().is_some()) {
-        (None, false) => panic!("TODO"),
-        (None, true) => unreachable!(),
-        (Some(field_ident), false) => {
-            quote! ( #crate_name::internal::normi_to_json_value(&self.#field_ident).unwrap() )
-        }
-        (Some(field_ident), true) => {
-            quote! ( #crate_name::internal::normi_to_json_value(&[&self.#field_ident, #(&self.#id_fields),*]).unwrap() )
-        }
-    };
-
-    let field_map = fields
-        .iter()
-        .map(|f| {
-            let ident = f.ident.clone().unwrap();
-            let attrs = FieldAttrs::from_attrs(&f.attrs).unwrap();
-
-            if attrs.refr {
-                quote!( #ident: self.#ident.normalize()? )
-            } else {
-                quote! ( #ident: self.#ident )
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let field_decls = fields.into_iter().map(|f| {
-        let ident = f.ident.unwrap();
-        let ty = f.ty;
-        let vis = f.vis;
-
-        let attrs = FieldAttrs::from_attrs(&f.attrs).unwrap();
-
-        if attrs.refr {
-            quote!( #vis #ident: <#ty as #crate_name::Object>::NormalizedResult )
-        } else {
-            quote!( #vis #ident: #ty )
-        }
-    });
-
-    quote! {
-        #[derive(#crate_name::internal::NormiSerialize, #crate_name::internal::NormiSpectaType)]
-        pub struct #normalised_ident {
-            pub __type: &'static str,
-            pub __id: #crate_name::internal::NormiSerdeValue,
-            #(#field_decls,)*
-        }
-
-        impl #crate_name::Object for #ident {
-            type NormalizedResult = #normalised_ident;
-
-            fn type_name() -> &'static str {
-                #type_name
-            }
-
-            fn id(&self) -> #crate_name::internal::NormiResult<#crate_name::internal::NormiSerdeValue> {
-                Ok(#id_impl)
-            }
-
-            fn normalize(self) -> #crate_name::internal::NormiResult<Self::NormalizedResult> {
-                pub use #crate_name::Object;
-
-                Ok(#normalised_ident {
-                    __type: Self::type_name(),
-                    __id: self.id()?,
-                    #(#field_map),*
-                })
-            }
-        }
-    }
-    .into()
+        Data::Enum(_) => panic!("TODO: enums not supported"), // TODO
+        Data::Union(_) => panic!("normi::Object can't be derived for unions!"),
+    }.into()
 }

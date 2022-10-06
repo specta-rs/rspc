@@ -21,9 +21,7 @@ pub use object::*;
 
 // plz rename types in this module so they are gonna show up in rust-analyzer recommended imports for external crates
 pub mod internal {
-    pub use serde::Serialize as NormiSerialize;
-    pub use serde_json::to_value as normi_to_json_value;
-    pub use serde_json::Value as NormiSerdeValue;
-    pub use specta::Type as NormiSpectaType;
-    pub type NormiResult<T> = Result<T, serde_json::Error>;
+    pub use serde::Serialize;
+    pub use serde_json::{to_value, Error, Value};
+    pub use specta::Type;
 }

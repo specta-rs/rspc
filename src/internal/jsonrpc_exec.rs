@@ -62,6 +62,11 @@ pub enum Sender<'a> {
     ResponseChannel(&'a mut mpsc::UnboundedSender<jsonrpc::Response>),
     Broadcast(&'a broadcast::Sender<jsonrpc::Response>),
     Response(Option<jsonrpc::Response>),
+    // We don't use this internally but Spacedrive uses it for the React Native bridge.
+    ResponseAndChannel(
+        Option<jsonrpc::Response>,
+        &'a mut mpsc::UnboundedSender<jsonrpc::Response>,
+    ),
 }
 
 pub enum Sender2 {
@@ -107,6 +112,9 @@ impl<'a> Sender<'a> {
             Self::Response(r) => {
                 *r = Some(resp);
             }
+            Self::ResponseAndChannel(r, _) => {
+                *r = Some(resp);
+            }
         }
 
         Ok(())
@@ -118,6 +126,7 @@ impl<'a> Sender<'a> {
             Self::ResponseChannel(tx) => Sender2::ResponseChannel(tx.clone()),
             Self::Broadcast(tx) => Sender2::Broadcast(tx.clone()),
             Self::Response(_) => unreachable!(),
+            Self::ResponseAndChannel(_, tx) => Sender2::ResponseChannel(tx.clone()),
         }
     }
 }
