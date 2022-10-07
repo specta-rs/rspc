@@ -9,6 +9,7 @@ use crate::framework::Framework;
 static REACT_TEMPLATE_TAURI: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/templates/react_base_tauri");
 static REACT_TEMPLATE_AXUM: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/react_base_axum");
+
 static SOLID_TEMPLATE_TAURI: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/templates/solid_base_tauri");
 static SOLID_TEMPLATE_AXUM: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/solid_base_axum");
@@ -66,7 +67,7 @@ impl FrontendFramework {
                         project_name,
                     )?;
                 }
-                FrontendFramework::None => todo!(),
+                FrontendFramework::None => {}
             },
         }
 

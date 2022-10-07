@@ -54,7 +54,7 @@ impl Database {
                 AXUM_BASE_TEMPLATE.extract(path)?;
 
                 replace_in_file(
-                    path.join("src-tauri").join("Cargo.toml").as_path(),
+                    path.join("api").join("Cargo.toml").as_path(),
                     "{{name}}",
                     project_name,
                 )?;

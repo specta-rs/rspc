@@ -17,5 +17,7 @@ pub fn code_generator(
 
     frontend_framework.render(path, project_name, framework)?;
 
+    println!("Generated project at {}", path.display());
+
     Ok(())
 }
