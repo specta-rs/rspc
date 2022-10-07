@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "prisma",
+    "api"
+]
+
+resolver="2"

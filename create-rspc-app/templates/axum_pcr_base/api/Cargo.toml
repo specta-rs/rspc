@@ -1,0 +1,24 @@
+[package]
+name = "{{name}}"
+version = "0.1.0"
+description = "An Axum App"
+authors = ["you"]
+license = ""
+repository = ""
+default-run = "app"
+edition = "2021"
+rust-version = "1.57"
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+axum = "0.5.16"
+rspc = {version="0.1.2", features=["axum"]}
+tokio = {version="1.13.0", features=["full"]}
+log = "0.4.14"
+pretty_env_logger = "0.4.0"
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features=["migrations"] }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev="078919e3724f35cc00c2402c66ba585b61c88d47", features=["migrations"] }
+prisma={path="../prisma"}
+dotenv = "0.15.0"
+tower-http = { version = "0.3.0", features = ["cors"] }

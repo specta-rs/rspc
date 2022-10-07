@@ -3,12 +3,19 @@ use std::{env::current_dir, fs::remove_dir_all, str::FromStr};
 use requestty::{prompt_one, Question};
 use strum::IntoEnumIterator;
 
-use crate::framework::Framework;
+use crate::{
+    database::Database, framework::Framework, frontend_framework::FrontendFramework,
+    generator::code_generator,
+};
 
+mod database;
 mod framework;
+mod frontend_framework;
+mod generator;
 mod utils;
 
-const BANNER: &str = r#"██████╗ ███████╗██████╗  ██████╗
+const BANNER: &str = r#"
+██████╗ ███████╗██████╗  ██████╗
 ██╔══██╗██╔════╝██╔══██╗██╔════╝
 ██████╔╝███████╗██████╔╝██║     
 ██╔══██╗╚════██║██╔═══╝ ██║     
@@ -60,20 +67,42 @@ fn main() {
         }
     }
 
+    // Framework
     let framework = prompt_one(
         Question::select("framework")
-            .message("What framework would you like to use?")
+            .message("What backend framework would you like to use?")
             .choices(Framework::iter().map(|v| v.to_string()))
             .build(),
     )
     .unwrap();
     let framework = Framework::from_str(&framework.as_list_item().unwrap().text).unwrap();
 
-    // TODO: Database selection - Prisma Client Rust, None
+    // Database selection - Prisma Client Rust, None
+    let database = prompt_one(
+        Question::select("database")
+            .message("What database ORM would you like to use?")
+            .choices(Database::iter().map(|v| v.to_string()))
+            .build(),
+    )
+    .unwrap();
+    let database = Database::from_str(&database.as_list_item().unwrap().text).unwrap();
 
-    // TODO: Frontend selection - React, SolidJS, None
+    // Frontend selection - React, SolidJS, None
+    let frontend_framework = prompt_one(
+        Question::select("frontend_framework")
+            .message("What frontend framework would you like to use?")
+            .choices(FrontendFramework::iter().map(|v| v.to_string()))
+            .build(),
+    )
+    .unwrap();
+    let frontend_framework =
+        FrontendFramework::from_str(&frontend_framework.as_list_item().unwrap().text).unwrap();
 
-    // TODO: Extras selection -> Multiselect - TailwindCSS, tracing
-
-    framework.render(path.as_path(), project_name).unwrap();
+    code_generator(
+        framework,
+        database,
+        frontend_framework,
+        &path,
+        &project_name,
+    );
 }
