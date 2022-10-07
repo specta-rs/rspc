@@ -9,3 +9,4 @@ include_dir = "0.7.2"
 requestty = "0.5.0"
 strum =  { version = "0.24.1", features = ["derive"] }
 create-tauri-app = { git = "https://github.com/oscartbeaumont/create-tauri-app" }
+rustc_version = "0.4.0"

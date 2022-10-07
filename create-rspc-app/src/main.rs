@@ -5,7 +5,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     database::Database, framework::Framework, frontend_framework::FrontendFramework,
-    generator::code_generator,
+    generator::code_generator, utils::check_rust_msrv,
 };
 
 mod database;
@@ -23,7 +23,7 @@ const BANNER: &str = r#"
 ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝"#;
 
 fn main() {
-    // TODO: Autoupdate
+    check_rust_msrv();
 
     println!("\n{}\n", BANNER);
 
