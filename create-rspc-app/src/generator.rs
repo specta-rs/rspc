@@ -9,11 +9,6 @@ pub fn code_generator(
     path: &Path,
     project_name: &str,
 ) {
-    println!("Generating code...");
-    println!("Framework: {:?}", framework);
-    println!("Database: {:?}", database);
-    println!("Frontend Framework: {:?}", frontend_framework);
-
     if database == Database::None {
         framework.render(path, project_name).unwrap();
     } else {
@@ -22,5 +17,7 @@ pub fn code_generator(
             .unwrap();
     }
 
-    frontend_framework.render(path, project_name, framework);
+    frontend_framework
+        .render(path, project_name, framework)
+        .unwrap();
 }
