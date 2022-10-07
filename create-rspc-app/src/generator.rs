@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{io, path::Path};
 
 use crate::{database::Database, framework::Framework, frontend_framework::FrontendFramework};
 
@@ -8,16 +8,14 @@ pub fn code_generator(
     frontend_framework: FrontendFramework,
     path: &Path,
     project_name: &str,
-) {
+) -> io::Result<()> {
     if database == Database::None {
-        framework.render(path, project_name).unwrap();
+        framework.render(path, project_name)?;
     } else {
-        database
-            .render(path, project_name, framework.clone())
-            .unwrap();
+        database.render(path, project_name, framework.clone())?;
     }
 
-    frontend_framework
-        .render(path, project_name, framework)
-        .unwrap();
+    frontend_framework.render(path, project_name, framework)?;
+
+    Ok(())
 }

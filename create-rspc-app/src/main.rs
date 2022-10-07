@@ -1,4 +1,4 @@
-use std::{env::current_dir, fs::remove_dir_all, str::FromStr};
+use std::{env::current_dir, fs::remove_dir_all, process::exit, str::FromStr};
 
 use requestty::{prompt_one, Question};
 use strum::IntoEnumIterator;
@@ -98,11 +98,14 @@ fn main() {
     let frontend_framework =
         FrontendFramework::from_str(&frontend_framework.as_list_item().unwrap().text).unwrap();
 
-    code_generator(
+    if let Err(e) = code_generator(
         framework,
         database,
         frontend_framework,
         &path,
         &project_name,
-    );
+    ) {
+        println!("Error: {}", e);
+        exit(1)
+    };
 }
