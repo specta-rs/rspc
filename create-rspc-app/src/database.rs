@@ -7,6 +7,7 @@ use crate::{framework::Framework, utils::replace_in_file};
 
 static AXUM_BASE_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/axum_pcr_base");
 static TAURI_BASE_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/tauri_pcr_base");
+static PCR_BASE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/pcr_base");
 
 #[derive(Debug, EnumIter, PartialEq, Eq)]
 pub enum Database {
@@ -42,20 +43,22 @@ impl Database {
             Framework::Tauri => {
                 create_dir_all(&path).unwrap();
                 TAURI_BASE_TEMPLATE.extract(path)?;
+                PCR_BASE.extract(path)?;
 
                 replace_in_file(
                     path.join("src-tauri").join("Cargo.toml").as_path(),
-                    "{{name}}",
+                    "__name__",
                     project_name,
                 )?;
             }
             Framework::Axum => {
                 create_dir_all(&path).unwrap();
                 AXUM_BASE_TEMPLATE.extract(path)?;
+                PCR_BASE.extract(path)?;
 
                 replace_in_file(
                     path.join("api").join("Cargo.toml").as_path(),
-                    "{{name}}",
+                    "__name__",
                     project_name,
                 )?;
             }

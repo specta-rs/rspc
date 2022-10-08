@@ -1,35 +1,33 @@
 [package]
-name = "{{name}}"
+name = "__name__"
+default-run = "__name__"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
-default-run = "app"
 edition = "2021"
-rust-version = "1.57"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[build-dependencies]
-tauri-build = { version = "1.0.4" }
+rust-version = "1.64"
+publish = false
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.0.5", features = [ "api-all" ] }
-rspc = {version="0.1.2", features=["tauri"]}
-tokio = {version="1.13.0", features=["full"]}
+tauri = { version = "1.0.5", features = ["api-all"] }
+rspc = { version = "0.1.2", features = ["tauri"] }
+tokio = { version = "1.13.0", features = ["full"] }
 log = "0.4.14"
 pretty_env_logger = "0.4.0"
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features=["migrations"] }
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev="078919e3724f35cc00c2402c66ba585b61c88d47", features=["migrations"] }
-prisma={path="../prisma"}
+prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+  "migrations",
+] }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+  "migrations",
+] }
+
+[build-dependencies]
+tauri-build = { version = "1.0.4" }
 
 [features]
 # by default Tauri runs in production mode
 # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
-default = [ "custom-protocol" ]
+default = ["custom-protocol"]
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
-custom-protocol = [ "tauri/custom-protocol" ]
+custom-protocol = ["tauri/custom-protocol"]

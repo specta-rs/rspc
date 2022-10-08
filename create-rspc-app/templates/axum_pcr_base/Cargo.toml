@@ -1,7 +1,4 @@
 [workspace]
-members = [
-    "prisma",
-    "api"
-]
+resolver = "2"
+members = ["prisma", "api"]
 
-resolver="2"

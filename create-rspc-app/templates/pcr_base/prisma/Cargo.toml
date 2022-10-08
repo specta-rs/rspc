@@ -1,24 +1,15 @@
 [package]
-name = "__name__"
-default-run = "__name__"
+name = "prisma-cli"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.64"
-publish = false
 
 [dependencies]
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-axum = "0.5.16"
-rspc = { version = "0.1.2", features = ["axum"] }
-tokio = { version = "1.13.0", features = ["full"] }
-log = "0.4.14"
-pretty_env_logger = "0.4.0"
 prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
   "migrations",
 ] }
 prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
   "migrations",
 ] }
-dotenv = "0.15.0"
-tower-http = { version = "0.3.0", features = ["cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.13.0", features = ["full"] }
