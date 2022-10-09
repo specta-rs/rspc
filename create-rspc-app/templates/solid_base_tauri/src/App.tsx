@@ -1,16 +1,7 @@
-import type { Component } from "solid-js";
-import Comp from "./Comp";
-import rspc from "./query.tauri";
+import { rspc } from "./utils/rspc";
 
-const App: Component = () => {
+function App() {
   const { data } = rspc.createQuery(() => ["version"]);
 
-  return (
-    <>
-      <h1>Hello world!!!! You are running v{data}</h1>
-      <Comp />
-    </>
-  );
-};
-
-export default App;
+  return <h1>Hello world!!!! You are running v{data}</h1>;
+}
