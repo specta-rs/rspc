@@ -1,7 +1,15 @@
 [package]
 name = "create-rspc-app"
+description = "Get started with your next rspc app!"
 version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
+license = "MIT"
+include = ["/src", "/LICENCE", "/README.md"]
+repository = "https://github.com/oscartbeaumont/rspc"
+documentation = "https://docs.rs/create-rspc-app"
+keywords = ["rspc", "prisma-client-rust", "pcr", "tauri", "axum"]
+categories = ["web-programming", "asynchronous"]
 
 [dependencies]
 include_dir = "0.7.2"
