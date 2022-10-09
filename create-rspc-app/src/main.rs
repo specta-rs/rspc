@@ -4,8 +4,11 @@ use requestty::{prompt_one, Question};
 use strum::IntoEnumIterator;
 
 use crate::{
-    database::Database, framework::Framework, frontend_framework::FrontendFramework,
-    generator::code_generator, utils::check_rust_msrv,
+    database::Database,
+    framework::Framework,
+    frontend_framework::FrontendFramework,
+    generator::code_generator,
+    utils::{check_rust_msrv, check_version},
 };
 
 pub(crate) mod database;
@@ -27,6 +30,7 @@ const BANNER: &str = r#"
 fn main() {
     println!("\n{}\n", BANNER);
 
+    check_version();
     check_rust_msrv();
 
     let project_name = prompt_one(
