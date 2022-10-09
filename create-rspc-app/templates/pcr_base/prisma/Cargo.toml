@@ -4,10 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-prisma-client-rust-cli = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
-  "migrations",
-] }
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", rev = "078919e3724f35cc00c2402c66ba585b61c88d47", features = [
+prisma-client-rust-cli = { workspace = true, features = [
   "migrations",
 ] }
 serde = { version = "1.0", features = ["derive"] }

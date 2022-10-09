@@ -7,7 +7,7 @@ use strum::{Display, EnumIter, EnumString};
 static AXUM_BASE_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/axum_base");
 static TAURI_BASE_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/tauri_base");
 
-#[derive(Debug, Display, EnumIter, EnumString, Clone)]
+#[derive(Debug, Clone, Display, EnumIter, EnumString, PartialEq, Eq)]
 pub enum Framework {
     Axum,
     Tauri,

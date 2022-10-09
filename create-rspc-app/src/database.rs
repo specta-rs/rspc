@@ -5,11 +5,12 @@ use strum::EnumIter;
 
 use crate::{framework::Framework, utils::replace_in_file};
 
+static BASE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/base");
+static PCR_BASE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/pcr_base");
 static AXUM_BASE_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/axum_pcr_base");
 static TAURI_BASE_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/tauri_pcr_base");
-static PCR_BASE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/pcr_base");
 
-#[derive(Debug, EnumIter, PartialEq, Eq)]
+#[derive(Debug, Clone, EnumIter, PartialEq, Eq)]
 pub enum Database {
     PrismaClientRust,
     None,
@@ -42,6 +43,7 @@ impl Database {
         match framework {
             Framework::Tauri => {
                 create_dir_all(&path).unwrap();
+                BASE.extract(path)?;
                 TAURI_BASE_TEMPLATE.extract(path)?;
                 PCR_BASE.extract(path)?;
 
@@ -53,6 +55,7 @@ impl Database {
             }
             Framework::Axum => {
                 create_dir_all(&path).unwrap();
+                BASE.extract(path)?;
                 AXUM_BASE_TEMPLATE.extract(path)?;
                 PCR_BASE.extract(path)?;
 

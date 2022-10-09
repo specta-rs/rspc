@@ -1,14 +1,12 @@
 use std::{io, path::Path};
 
-use crate::{
-    database::Database, extras::Extras, framework::Framework, frontend_framework::FrontendFramework,
-};
+use crate::{database::Database, framework::Framework, frontend_framework::FrontendFramework};
 
 pub fn code_generator(
     framework: Framework,
     database: Database,
     frontend_framework: FrontendFramework,
-    extras: Extras,
+    // extras: Extras,
     path: &Path,
     project_name: &str,
 ) -> io::Result<()> {
@@ -20,7 +18,7 @@ pub fn code_generator(
 
     frontend_framework.render(path, project_name, framework)?;
 
-    println!("Generated project at {}", path.display());
+    println!("Generated project at '{}'", path.display());
 
     Ok(())
 }

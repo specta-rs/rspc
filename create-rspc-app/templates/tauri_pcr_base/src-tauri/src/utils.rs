@@ -1,13 +1,14 @@
-use std::path::PathBuf;
+use std::{sync::Arc, fs::{create_dir_all, File}, path::PathBuf};
+use crate::prisma::{self, PrismaClient};
 
-pub async fn load_and_migrate(db_url: PathBuf) -> prisma::PrismaClient {
+pub async fn load_and_migrate(db_url: PathBuf) -> Arc<PrismaClient> {
     let db_dir = db_url.parent().unwrap();
     if !db_dir.exists() {
-        std::fs::create_dir_all(db_dir).unwrap();
+        create_dir_all(db_dir).unwrap()
     }
 
     if !db_url.exists() {
-        std::fs::File::create(db_url.clone()).unwrap();
+        File::create(db_url.clone()).unwrap();
     }
 
     let db_url = format!("file:{}", db_url.to_str().unwrap());
@@ -20,5 +21,5 @@ pub async fn load_and_migrate(db_url: PathBuf) -> prisma::PrismaClient {
     #[cfg(not(debug_assertions))]
     client._migrate_deploy().await.unwrap();
 
-    client
+    Arc::new(client)
 }

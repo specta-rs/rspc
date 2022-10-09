@@ -14,11 +14,11 @@ static SOLID_TEMPLATE_TAURI: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/templates/solid_base_tauri");
 static SOLID_TEMPLATE_AXUM: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/templates/solid_base_axum");
 
-#[derive(Debug, Display, EnumIter, EnumString)]
+#[derive(Debug, Clone, Display, EnumIter, EnumString)]
 pub enum FrontendFramework {
     React,
     SolidJS,
-    None,
+    // None,
 }
 
 impl FrontendFramework {
@@ -45,8 +45,7 @@ impl FrontendFramework {
                         "{{name}}",
                         project_name,
                     )?;
-                }
-                FrontendFramework::None => {}
+                } // FrontendFramework::None => {}
             },
             Framework::Axum => match self {
                 FrontendFramework::React => {
@@ -66,8 +65,7 @@ impl FrontendFramework {
                         "{{name}}",
                         project_name,
                     )?;
-                }
-                FrontendFramework::None => {}
+                } // FrontendFramework::None => {}
             },
         }
 

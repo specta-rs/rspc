@@ -23,11 +23,11 @@ pub fn replace_in_file(path: &Path, from: &str, to: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub fn check_rust_msrv() {
+pub(crate) fn check_rust_msrv() {
     let version = rustc_version::version().unwrap();
 
-    if version.minor < 62 {
-        println!("You are using an unsupported version of Rust, please update to 1.62 or higher.");
+    if version.minor < 64 {
+        println!("You are using an unsupported version of Rust, please update to 1.64 or higher.");
         println!("To update, run `rustup update`.");
         exit(1);
     }

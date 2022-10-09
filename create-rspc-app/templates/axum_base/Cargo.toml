@@ -9,3 +9,4 @@ publish = false
 tokio = { version = "1.21.1", features = ["rt-multi-thread", "macros", "signal"] }
 axum = "0.5.16"
 rspc = { version = "0.1.2", features = ["axum"] }
+dotenv = "0.15.0"

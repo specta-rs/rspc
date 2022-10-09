@@ -4,15 +4,16 @@ use requestty::{prompt_one, Question};
 use strum::IntoEnumIterator;
 
 use crate::{
-    database::Database, extras::Extras, framework::Framework,
-    frontend_framework::FrontendFramework, generator::code_generator, utils::check_rust_msrv,
+    database::Database, framework::Framework, frontend_framework::FrontendFramework,
+    generator::code_generator, utils::check_rust_msrv,
 };
 
-mod database;
-mod extras;
-mod framework;
-mod frontend_framework;
-mod generator;
+pub(crate) mod database;
+pub(crate) mod extras;
+pub(crate) mod framework;
+pub(crate) mod frontend_framework;
+pub(crate) mod generator;
+pub mod internal;
 mod utils;
 
 const BANNER: &str = r#"
@@ -24,9 +25,9 @@ const BANNER: &str = r#"
 ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝"#;
 
 fn main() {
-    check_rust_msrv();
-
     println!("\n{}\n", BANNER);
+
+    check_rust_msrv();
 
     let project_name = prompt_one(
         Question::input("project_name")
@@ -99,20 +100,20 @@ fn main() {
     let frontend_framework =
         FrontendFramework::from_str(&frontend_framework.as_list_item().unwrap().text).unwrap();
 
-    let extras = prompt_one(
-        Question::select("frontend_framework")
-            .message("What frontend framework would you like to use?")
-            .choices(Extras::iter().map(|v| v.to_string()))
-            .build(),
-    )
-    .unwrap();
-    let extras = Extras::from_str(&extras.as_list_item().unwrap().text).unwrap();
+    // let extras = prompt_one(
+    //     Question::select("frontend_framework")
+    //         .message("What frontend framework would you like to use?")
+    //         .choices(Extras::iter().map(|v| v.to_string()))
+    //         .build(),
+    // )
+    // .unwrap();
+    // let extras = Extras::from_str(&extras.as_list_item().unwrap().text).unwrap();
 
     if let Err(e) = code_generator(
         framework,
         database,
         frontend_framework,
-        extras,
+        // extras,
         &path,
         &project_name,
     ) {

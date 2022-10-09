@@ -1,6 +1,6 @@
 use strum::{Display, EnumIter, EnumString};
 
-#[derive(Debug, EnumIter, EnumString, Display)]
+#[derive(Debug, Clone, EnumIter, EnumString, Display)]
 pub enum Extras {
     TailwindCSS,
     Tracing,

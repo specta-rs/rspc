@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::prisma;
 use rspc::Config;
 pub use rspc::RouterBuilder;
 use std::path::PathBuf;

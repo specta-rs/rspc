@@ -7,24 +7,19 @@ use std::sync::Arc;
 
 mod api;
 mod utils;
+mod prisma;
 
 #[tokio::main]
 async fn main() {
-    #[cfg(debug_assertions)]
-    std::env::set_var("RUST_LOG", "debug");
-
-    pretty_env_logger::init();
-
     let router = api::new().build().arced();
-    let data_dir = tauri::api::path::data_dir().unwrap();
-    let db = data_dir.join("my_app").join("app.db");
-    log::info!("Using database at: {:?}", db);
+    let db = tauri::api::path::data_dir().unwrap().join("my_app").join("app.db");
+    println!("Using database at: {:?}", db);
     let client = Arc::new(utils::load_and_migrate(db).await);
 
     tauri::Builder::default()
         .plugin(rspc::integrations::tauri::plugin(router, move || {
             api::Ctx {
-                client: client.clone(),
+                client: Arc::clone(&client),
             }
         }))
         .run(tauri::generate_context!())
