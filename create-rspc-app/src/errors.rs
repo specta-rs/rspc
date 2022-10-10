@@ -12,7 +12,7 @@ pub enum Error {
     #[error("Rustc Error: {0}")]
     RustcError(#[from] rustc_version::Error),
 
-    #[error("Standard Error: {0}")]
+    #[error("Error: {0}")]
     StandardError(#[from] Box<dyn std::error::Error>),
 
     #[error("Other Error: {0}")]

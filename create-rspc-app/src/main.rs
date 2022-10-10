@@ -8,7 +8,7 @@ use crate::{
     framework::Framework,
     frontend_framework::FrontendFramework,
     generator::code_generator,
-    post_gen::PackageManager,
+    post_gen::{run_cargo_steps, PackageManager},
     utils::{check_rust_msrv, check_version},
 };
 
@@ -124,14 +124,16 @@ fn try_main() -> Result<(), errors::Error> {
 
     code_generator(
         framework,
-        database,
+        database.clone(),
         frontend_framework,
         // extras,
         &path,
         &project_name,
     )?;
 
-    package_manager.exec(path)?;
+    package_manager.exec(path.clone())?;
+
+    run_cargo_steps(path, database)?;
 
     Ok(())
 }

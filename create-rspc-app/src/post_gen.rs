@@ -2,6 +2,8 @@ use std::{io, path::PathBuf};
 
 use strum::{Display, EnumIter, EnumString};
 
+use crate::database::Database;
+
 #[derive(Debug, Display, EnumIter, EnumString)]
 pub enum PackageManager {
     NPM,
@@ -10,10 +12,16 @@ pub enum PackageManager {
     None,
 }
 
-pub fn run_cargo_steps(path: PathBuf, cmd: &str) -> io::Result<()> {
+pub fn run_cargo_steps(path: PathBuf, db: Database) -> io::Result<()> {
     std::env::set_current_dir(path.clone())?;
 
-    if path.join("prisma").exists() {
+    let mut cmd = "cmd";
+
+    if cfg!(unix) {
+        cmd = "sh";
+    }
+
+    if db == Database::PrismaClientRust {
         let mut cargo_process = std::process::Command::new(cmd)
             .args(&["/C", "cargo", "prisma", "generate"])
             .spawn()?;
@@ -69,8 +77,6 @@ impl PackageManager {
             }
             PackageManager::None => {}
         };
-
-        run_cargo_steps(path, cmd)?;
 
         Ok(())
     }
