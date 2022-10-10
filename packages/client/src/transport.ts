@@ -1,191 +1,169 @@
-// TODO: Redo this entire system when links are introduced
-// TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
-import { OperationType, RSPCError } from ".";
+// // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
+// import { OperationType, RSPCError } from ".";
 
-// TODO
-export interface Transport {
-  clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
+// // TODO
+// export class FetchTransport implements Transport {
+//   async doRequest(
+//     operation: OperationType,
+//     key: string,
+//     input: any
+//   ): Promise<any> {
+//     if (operation === "subscription" || operation === "subscriptionStop") {
+//       throw new Error(
+//         `Subscribing to '${key}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
+//       );
+//     }
 
-  doRequest(operation: OperationType, key: string, input: any): Promise<any>;
-}
+//     let method = "GET";
+//     let body = undefined as any;
+//     let headers = new Headers();
 
-// TODO
-export class FetchTransport implements Transport {
-  private url: string;
-  clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
+//     const params = new URLSearchParams();
+//     if (operation === "query") {
+//       if (input !== undefined) {
+//         params.append("input", JSON.stringify(input));
+//       }
+//     } else if (operation === "mutation") {
+//       method = "POST";
+//       body = JSON.stringify(input || {});
+//       headers.set("Content-Type", "application/json");
+//     }
+//     const paramsStr = params.toString();
+//     const resp = await fetch(
+//       `${this.url}/${key}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
+//       {
+//         method,
+//         body,
+//         headers,
+//       }
+//     );
 
-  constructor(url: string) {
-    this.url = url;
-  }
+//     const respBody = await resp.json();
+//     const { type, data } = respBody.result;
+//     if (type === "error") {
+//       const { code, message } = data;
+//       throw new RSPCError(code, message);
+//     }
+//     return data;
+//   }
+// }
 
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    input: any
-  ): Promise<any> {
-    if (operation === "subscription" || operation === "subscriptionStop") {
-      throw new Error(
-        `Subscribing to '${key}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
-      );
-    }
+// export const randomId = () => Math.random().toString(36).slice(2);
 
-    let method = "GET";
-    let body = undefined as any;
-    let headers = new Headers();
+// const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 
-    const params = new URLSearchParams();
-    if (operation === "query") {
-      if (input !== undefined) {
-        params.append("input", JSON.stringify(input));
-      }
-    } else if (operation === "mutation") {
-      method = "POST";
-      body = JSON.stringify(input || {});
-      headers.set("Content-Type", "application/json");
-    }
-    const paramsStr = params.toString();
-    const resp = await fetch(
-      `${this.url}/${key}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
-      {
-        method,
-        body,
-        headers,
-      }
-    );
+// export class WebsocketTransport implements Transport {
+//   private url: string;
+//   private ws: WebSocket;
+//   private requestMap = new Map<string, (data: any) => void>();
+//   clientSubscriptionCallback?: (id: string, value: any) => void;
 
-    const respBody = await resp.json();
-    const { type, data } = respBody.result;
-    if (type === "error") {
-      const { code, message } = data;
-      throw new RSPCError(code, message);
-    }
-    return data;
-  }
-}
+//   constructor(url: string) {
+//     this.url = url;
+//     this.ws = new WebSocket(url);
+//     this.attachEventListeners();
+//   }
 
-export const randomId = () => Math.random().toString(36).slice(2);
+//   attachEventListeners() {
+//     this.ws.addEventListener("message", (event) => {
+//       const { id, result } = JSON.parse(event.data);
+//       if (result.type === "event") {
+//         if (this.clientSubscriptionCallback) this.clientSubscriptionCallback(id, result.data);
+//       } else if (result.type === "response") {
+//         if (this.requestMap.has(id)) {
+//           this.requestMap.get(id)?.({ type: "response", result: result.data });
+//           this.requestMap.delete(id);
+//         }
+//       } else if (result.type === "error") {
+//         const { message, code } = result.data;
+//         if (this.requestMap.has(id)) {
+//           this.requestMap.get(id)?.({ type: "error", message, code });
+//           this.requestMap.delete(id);
+//         }
+//       } else {
+//         console.error(`Received event of unknown type '${result.type}'`);
+//       }
+//     });
 
-const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
+//     this.ws.addEventListener("close", (event) => {
+//       this.reconnect();
+//     });
+//   }
 
-export class WebsocketTransport implements Transport {
-  private url: string;
-  private ws: WebSocket;
-  private requestMap = new Map<string, (data: any) => void>();
-  clientSubscriptionCallback?: (id: string, value: any) => void;
+//   async reconnect(timeoutIndex = 0) {
+//     let timeout =
+//       (timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]) +
+//       (Math.floor(Math.random() * 5000 /* 5 Seconds */) + 1);
 
-  constructor(url: string) {
-    this.url = url;
-    this.ws = new WebSocket(url);
-    this.attachEventListeners();
-  }
+//     setTimeout(() => {
+//       let ws = new WebSocket(this.url);
+//       new Promise(function (resolve, reject) {
+//         ws.addEventListener("open", () => resolve(null));
+//         ws.addEventListener("close", reject);
+//       })
+//         .then(() => {
+//           this.ws = ws;
+//           this.attachEventListeners();
+//         })
+//         .catch((err) => this.reconnect(timeoutIndex++));
+//     }, timeout);
+//   }
 
-  attachEventListeners() {
-    this.ws.addEventListener("message", (event) => {
-      const { id, result } = JSON.parse(event.data);
-      if (result.type === "event") {
-        if (this.clientSubscriptionCallback)
-          this.clientSubscriptionCallback(id, result.data);
-      } else if (result.type === "response") {
-        if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "response", result: result.data });
-          this.requestMap.delete(id);
-        }
-      } else if (result.type === "error") {
-        const { message, code } = result.data;
-        if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "error", message, code });
-          this.requestMap.delete(id);
-        }
-      } else {
-        console.error(`Received event of unknown type '${result.type}'`);
-      }
-    });
+//   async doRequest(
+//     operation: OperationType,
+//     key: string,
+//     input: any,
+//     opts?: {
+//       id?: string;
+//     }
+//   ): Promise<any> {
+//     if (this.ws.readyState == 0) {
+//       let resolve: () => void;
+//       const promise = new Promise((res) => {
+//         resolve = () => res(undefined);
+//       });
+//       // @ts-ignore
+//       this.ws.addEventListener("open", resolve);
+//       await promise;
+//     }
 
-    this.ws.addEventListener("close", (event) => {
-      this.reconnect();
-    });
-  }
+//     const id = randomId();
+//     let resolve: (data: any) => void;
+//     const promise = new Promise((res) => {
+//       resolve = res;
+//     });
 
-  async reconnect(timeoutIndex = 0) {
-    let timeout =
-      (timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]) +
-      (Math.floor(Math.random() * 5000 /* 5 Seconds */) + 1);
+//     // @ts-ignore
+//     this.requestMap.set(id, resolve);
 
-    setTimeout(() => {
-      let ws = new WebSocket(this.url);
-      new Promise(function (resolve, reject) {
-        ws.addEventListener("open", () => resolve(null));
-        ws.addEventListener("close", reject);
-      })
-        .then(() => {
-          this.ws = ws;
-          this.attachEventListeners();
-        })
-        .catch((err) => this.reconnect(timeoutIndex++));
-    }, timeout);
-  }
+//     this.ws.send(
+//       JSON.stringify({
+//         id,
+//         method: operation,
+//         params: {
+//           path: key,
+//           input,
+//         },
+//       })
+//     );
 
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    input: any,
-    opts?: {
-      id?: string;
-    }
-  ): Promise<any> {
-    if (this.ws.readyState == 0) {
-      let resolve: () => void;
-      const promise = new Promise((res) => {
-        resolve = () => res(undefined);
-      });
-      // @ts-ignore
-      this.ws.addEventListener("open", resolve);
-      await promise;
-    }
+//     const body = (await promise) as any;
+//     if (body.type === "error") {
+//       const { code, message } = body;
+//       throw new RSPCError(code, message);
+//     } else if (body.type === "response") {
+//       return body.result;
+//     } else {
+//       throw new Error(`RSPC Websocket doRequest received invalid body type '${body?.type}'`);
+//     }
+//   }
+// }
 
-    const id = randomId();
-    let resolve: (data: any) => void;
-    const promise = new Promise((res) => {
-      resolve = res;
-    });
+// // TODO
+// export class NoOpTransport implements Transport {
+//   constructor() {}
 
-    // @ts-ignore
-    this.requestMap.set(id, resolve);
-
-    this.ws.send(
-      JSON.stringify({
-        id,
-        method: operation,
-        params: {
-          path: key,
-          input,
-        },
-      })
-    );
-
-    const body = (await promise) as any;
-    if (body.type === "error") {
-      const { code, message } = body;
-      throw new RSPCError(code, message);
-    } else if (body.type === "response") {
-      return body.result;
-    } else {
-      throw new Error(
-        `RSPC Websocket doRequest received invalid body type '${body?.type}'`
-      );
-    }
-  }
-}
-
-// TODO
-export class NoOpTransport implements Transport {
-  constructor() {}
-
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    input: string
-  ): Promise<any> {
-    return new Promise(() => {});
-  }
-}
+//   async doRequest(operation: OperationType, key: string, input: string): Promise<any> {
+//     return new Promise(() => {});
+//   }
+// }

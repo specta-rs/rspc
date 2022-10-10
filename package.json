@@ -14,6 +14,7 @@
     "client": "pnpm --filter @rspc/client -- ",
     "examples": "pnpm --filter @rspc/examples-* -- ",
     "playground": "pnpm --filter @rspc/playground -- ",
+    "normi": "pnpm --filter @rspc/normi -- ",
     "react": "pnpm --filter @rspc/react -- ",
     "solid": "pnpm --filter @rspc/solid -- ",
     "tauri": "pnpm --filter @rspc/tauri -- "

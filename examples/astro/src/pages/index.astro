@@ -1,6 +1,6 @@
 ---
 import ReactComponent from "../components/react";
-import SolidComponent from "../components/solid";
+// import SolidComponent from "../components/solid";
 ---
 
 <!DOCTYPE html>
@@ -8,7 +8,7 @@ import SolidComponent from "../components/solid";
   <head>
     <meta charset="utf-8" />
     <title>RSPC Example with Astro</title>
-    <style global>
+    <style is:global>
       * {
         margin: 0;
       }
@@ -27,6 +27,6 @@ import SolidComponent from "../components/solid";
 
   <body>
     <ReactComponent client:only="react" />
-    <SolidComponent client:only="solid" />
+    <!-- <SolidComponent client:only="solid" /> -->
   </body>
 </html>

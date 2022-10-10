@@ -1,7 +1,7 @@
 {
-  "name": "@rspc/client",
+  "name": "@rspc/normi",
   "version": "0.1.2",
-  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
+  "description": "A normalised caching layer for rspc.",
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
@@ -22,8 +22,10 @@
     "build": "tsup",
     "prepare": "tsup"
   },
+  "dependencies": {
+    "@rspc/client": "workspace:*"
+  },
   "devDependencies": {
-    "@types/zen-observable": "^0.8.3",
     "tsup": "^6.2.3",
     "typescript": "^4.8.4"
   },
@@ -41,8 +43,5 @@
     "splitting": true,
     "clean": true,
     "sourcemap": true
-  },
-  "dependencies": {
-    "zen-observable": "^0.8.15"
   }
 }
