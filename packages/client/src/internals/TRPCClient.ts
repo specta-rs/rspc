@@ -1,20 +1,11 @@
-// import {
-//   AnyRouter,
-//   ClientDataTransformerOptions,
-//   DataTransformer,
-//   inferProcedureInput,
-//   inferProcedureOutput,
-//   inferSubscriptionOutput,
-// } from '@trpc/server';
+import { RSPCError, ProceduresLike, inferProcedures } from "..";
 import {
   Unsubscribable,
   inferObservableValue,
   observableToPromise,
   share,
-  RSPCError,
-  ProceduresLike,
-  inferProcedures,
-} from "../..";
+} from "../observable/index";
+
 import { createChain } from "../links/internals/createChain";
 import {
   OperationContext,
@@ -130,7 +121,6 @@ export class TRPCClient<TProcedures extends ProceduresLike> {
     path: string;
     context?: OperationContext;
   }) {
-    // @ts-expect-error: TODO: Fix
     const chain$ = createChain<inferProcedures<TProcedures>, TInput, TOutput>({
       links: this.links as OperationLink<any, any, any>[],
       op: {

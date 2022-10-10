@@ -1,8 +1,11 @@
 import {
   createClient,
+  createWSClient,
   httpLink,
+  loggerLink,
   Observable,
   observableToPromise,
+  wsLink,
 } from "@rspc/client";
 // import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -16,17 +19,27 @@ type Procedures = any; // TODO
 export const fetchQueryClient = new QueryClient();
 const fetchClient = createClient<Procedures>({
   links: [
-    // loggerLink(),
+    loggerLink(),
     httpLink({
       url: "http://localhost:4000/rspc",
     }),
   ],
 });
 
-// export const wsQueryClient = new QueryClient();
-// const wsClient = createClient<Procedures>({
-//   // links: [], // new WebsocketTransport("ws://localhost:4000/rspc/ws"),
-// });
+// TODO: Remove this abstraction or keep it?
+const wsClient2 = createWSClient({
+  url: "ws://localhost:4000/rspc/ws",
+});
+
+export const wsQueryClient = new QueryClient();
+const wsClient = createClient<Procedures>({
+  links: [
+    loggerLink(),
+    wsLink({
+      client: wsClient2,
+    }),
+  ],
+});
 
 // function Example({ name }: { name: string }) {
 //   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
@@ -81,6 +94,7 @@ export default function App() {
   useEffect(() => {
     console.log("HERE");
     fetchClient.query("version").then(console.log);
+    wsClient.query("version").then(console.log);
   }, []);
 
   return (

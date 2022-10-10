@@ -1,22 +1,24 @@
-import { AnyRouter } from '@trpc/server';
-import { observable } from '@trpc/server/observable';
-import { createChain } from './internals/createChain';
-import { Operation, TRPCLink } from './types';
+import { observable } from "../observable/index";
+import { ProceduresDef } from "..";
+import { createChain } from "./internals/createChain";
+import { Operation, TRPCLink } from "./types";
 
 function asArray<TType>(value: TType | TType[]) {
   return Array.isArray(value) ? value : [value];
 }
-export function splitLink<TRouter extends AnyRouter = AnyRouter>(opts: {
+export function splitLink<
+  TProcedures extends ProceduresDef = ProceduresDef
+>(opts: {
   condition: (op: Operation) => boolean;
   /**
    * The link to execute next if the test function returns `true`.
    */
-  true: TRPCLink<TRouter> | TRPCLink<TRouter>[];
+  true: TRPCLink<TProcedures> | TRPCLink<TProcedures>[];
   /**
    * The link to execute next if the test function returns `false`.
    */
-  false: TRPCLink<TRouter> | TRPCLink<TRouter>[];
-}): TRPCLink<TRouter> {
+  false: TRPCLink<TProcedures> | TRPCLink<TProcedures>[];
+}): TRPCLink<TProcedures> {
   return (runtime) => {
     const yes = asArray(opts.true).map((link) => link(runtime));
     const no = asArray(opts.false).map((link) => link(runtime));

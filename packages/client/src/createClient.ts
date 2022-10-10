@@ -1,9 +1,9 @@
-import { ProceduresLike } from "..";
+import { ProceduresLike } from ".";
 import {
   TRPCClient as Client,
   CreateTRPCClientOptions,
 } from "./internals/TRPCClient";
-// import { httpBatchLink } from "./links";
+import { httpBatchLink } from "./links";
 
 export function createClient<TProcedures extends ProceduresLike>(
   opts: CreateTRPCClientOptions<TProcedures>
@@ -12,8 +12,7 @@ export function createClient<TProcedures extends ProceduresLike>(
     if ("links" in opts) {
       return opts.links;
     }
-    // return [httpBatchLink(opts)];
-    throw new Error("BRUH");
+    return [httpBatchLink(opts)];
   };
   const client = new Client<TProcedures>({
     transformer: opts.transformer,

@@ -1,24 +1,25 @@
-import { AnyRouter, ProcedureType } from '@trpc/server';
-import { observable } from '@trpc/server/observable';
-import { TRPCClientError } from '../TRPCClientError';
-import { dataLoader } from '../internals/dataLoader';
+import { observable } from "../observable";
+import { dataLoader } from "../internals/dataLoader";
 import {
   HTTPLinkOptions,
   HTTPResult,
   getUrl,
   httpRequest,
   resolveHTTPLinkOptions,
-} from './internals/httpUtils';
-import { transformResult } from './internals/transformResult';
-import { TRPCLink } from './types';
+} from "./internals/httpUtils";
+import { transformResult } from "./internals/transformResult";
+import { TRPCLink } from "./types";
+import { ProceduresDef } from "..";
+
+type ProcedureType = any; // TODO
 
 export interface HttpBatchLinkOptions extends HTTPLinkOptions {
   maxURLLength?: number;
 }
 
-export function httpBatchLink<TRouter extends AnyRouter>(
-  opts: HttpBatchLinkOptions,
-): TRPCLink<TRouter> {
+export function httpBatchLink<TProcedures extends ProceduresDef>(
+  opts: HttpBatchLinkOptions
+): TRPCLink<TProcedures> {
   const resolvedOpts = resolveHTTPLinkOptions(opts);
   // initialized config
   return (runtime) => {
@@ -32,7 +33,7 @@ export function httpBatchLink<TRouter extends AnyRouter>(
           // escape hatch for quick calcs
           return true;
         }
-        const path = batchOps.map((op) => op.path).join(',');
+        const path = batchOps.map((op) => op.path).join(",");
         const inputs = batchOps.map((op) => op.input);
 
         const url = getUrl({
@@ -46,7 +47,7 @@ export function httpBatchLink<TRouter extends AnyRouter>(
       };
 
       const fetch = (batchOps: BatchOperation[]) => {
-        const path = batchOps.map((op) => op.path).join(',');
+        const path = batchOps.map((op) => op.path).join(",");
         const inputs = batchOps.map((op) => op.input);
 
         const { promise, cancel } = httpRequest({
@@ -77,12 +78,12 @@ export function httpBatchLink<TRouter extends AnyRouter>(
       return { validate, fetch };
     };
 
-    const query = dataLoader<BatchOperation, HTTPResult>(batchLoader('query'));
+    const query = dataLoader<BatchOperation, HTTPResult>(batchLoader("query"));
     const mutation = dataLoader<BatchOperation, HTTPResult>(
-      batchLoader('mutation'),
+      batchLoader("mutation")
     );
     const subscription = dataLoader<BatchOperation, HTTPResult>(
-      batchLoader('subscription'),
+      batchLoader("subscription")
     );
 
     const loaders = { query, subscription, mutation };
@@ -96,11 +97,12 @@ export function httpBatchLink<TRouter extends AnyRouter>(
             const transformed = transformResult(res.json, runtime);
 
             if (!transformed.ok) {
-              observer.error(
-                TRPCClientError.from(transformed.error, {
-                  meta: res.meta,
-                }),
-              );
+              // observer.error(
+              //   TRPCClientError.from(transformed.error, {
+              //     meta: res.meta,
+              //   })
+              // );
+              throw new Error("BRUH5"); // TODO
               return;
             }
             observer.next({
@@ -109,7 +111,10 @@ export function httpBatchLink<TRouter extends AnyRouter>(
             });
             observer.complete();
           })
-          .catch((err) => observer.error(TRPCClientError.from(err)));
+          .catch((err) => {
+            // observer.error(TRPCClientError.from(err))
+            throw new Error("BRUH6"); // TODO
+          });
 
         return () => {
           cancel();

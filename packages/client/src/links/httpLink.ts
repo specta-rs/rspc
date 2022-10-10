@@ -1,63 +1,55 @@
-// import { RSPCLink } from "..";
+import { observable, ProcedureDef } from "..";
+// import { TRPCClientError } from "../TRPCClientError";
+import {
+  HTTPLinkOptions,
+  httpRequest,
+  resolveHTTPLinkOptions,
+} from "./internals/httpUtils";
+import { transformResult } from "./internals/transformResult";
+import { TRPCLink } from "./types";
 
-import Observable from "zen-observable";
+export function httpLink<TProcedures extends ProcedureDef>(
+  opts: HTTPLinkOptions
+): TRPCLink<TProcedures> {
+  const resolvedOpts = resolveHTTPLinkOptions(opts);
+  return (runtime) =>
+    ({ op }) =>
+      observable((observer) => {
+        const { path, input, type } = op;
+        const { promise, cancel } = httpRequest({
+          ...resolvedOpts,
+          runtime,
+          type,
+          path,
+          input,
+        });
+        promise
+          .then((res) => {
+            const transformed = transformResult(res.json, runtime);
 
-// export interface HttpLinkOptions {
-//   url: string;
-//   headers?: Record<string, string> | (() => Record<string, string>);
-// }
+            if (!transformed.ok) {
+              // observer.error(
+              //   TRPCClientError.from(transformed.error, {
+              //     meta: res.meta,
+              //   })
+              // );
+              throw new Error("BRUH1");
+              return;
+            }
+            observer.next({
+              context: res.meta,
+              result: transformed.result,
+            });
+            observer.complete();
+          })
+          .catch((cause) => {
+            console.error(cause);
+            throw new Error("BRUH2");
+            // observer.error(TRPCClientError.from(cause));
+          });
 
-export const fetchObservable = new Observable((observer) => {
-  const ac = new AbortController();
-
-  const req = fetch("https://jsonplaceholder.typicode.com/posts", {
-    signal: ac.signal,
-  })
-    .then((res) => {
-      if (res.ok) {
-        return res.json();
-      } else {
-        observer.error(new Error("TODO"));
-      }
-    })
-    .then((body) => {
-      observer.next(body);
-      observer.complete();
-    });
-});
-
-// export const httpLink: RSPCLink = ({ url }: HttpLinkOptions) => {
-//   return ({ op }) => {
-//     // const { path, input, type } = op;
-//     // const { promise, cancel } = httpRequest({
-//     //   url,
-//     //   runtime,
-//     //   type,
-//     //   path,
-//     //   input,
-//     // });
-//     // promise
-//     //   .then((res) => {
-//     //   //   const transformed = transformResult(res.json, runtime);
-//     //   //   if (!transformed.ok) {
-//     //   //     observer.error(
-//     //   //       TRPCClientError.from(transformed.error, {
-//     //   //         meta: res.meta,
-//     //   //       })
-//     //   //     );
-//     //   //     return;
-//     //   //   }
-//     //   //   observer.next({
-//     //   //     context: res.meta,
-//     //   //     result: transformed.result,
-//     //   //   });
-//     //   //   observer.complete();
-//     //   // })
-//     //   // .catch((cause) => observer.error(TRPCClientError.from(cause)));
-//     // return () => {
-//     //   cancel();
-//     // };
-//   };
-// };
-
-export {};
+        return () => {
+          cancel();
+        };
+      });
+}
