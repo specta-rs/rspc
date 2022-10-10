@@ -1,4 +1,4 @@
-use std::{env::current_dir, fs::remove_dir_all, io, process::exit, str::FromStr};
+use std::{env::current_dir, fs::remove_dir_all, str::FromStr};
 
 use requestty::{prompt_one, Question};
 use strum::IntoEnumIterator;
@@ -13,12 +13,11 @@ use crate::{
 };
 
 pub(crate) mod database;
-pub(crate) mod extras;
+mod errors;
 pub(crate) mod framework;
 pub(crate) mod frontend_framework;
 pub(crate) mod generator;
 pub mod internal;
-mod errors;
 pub(crate) mod post_gen;
 mod utils;
 
@@ -30,11 +29,11 @@ const BANNER: &str = r#"
 ██║  ██║███████║██║     ╚██████╗
 ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝"#;
 
-fn try_main() -> io::Result<()> {
+fn try_main() -> Result<(), errors::Error> {
     println!("\n{}\n", BANNER);
 
-    check_version();
-    check_rust_msrv();
+    check_rust_msrv()?;
+    check_version()?;
 
     ctrlc::set_handler(|| {
         println!("Operation cancelled by user");
@@ -46,8 +45,7 @@ fn try_main() -> io::Result<()> {
             .message("What will your project be called?")
             .default("my-app")
             .build(),
-    )
-    .unwrap();
+    )?;
     let project_name = project_name.as_string().unwrap();
 
     if !project_name
@@ -72,15 +70,13 @@ fn try_main() -> io::Result<()> {
                 ))
                 .default(false)
                 .build(),
-        )
-        .unwrap();
+        )?;
 
         match !force.as_bool().unwrap() {
             true => {
                 println!("Aborting project creation...");
-                return Err(io::Error::new(
-                    io::ErrorKind::AlreadyExists,
-                    "Directory already exists",
+                return Err(errors::Error::Other(
+                    "Aborting project creation...".to_string(),
                 ));
             }
             false => {
@@ -95,8 +91,7 @@ fn try_main() -> io::Result<()> {
             .message("What backend framework would you like to use?")
             .choices(Framework::iter().map(|v| v.to_string()))
             .build(),
-    )
-    .unwrap();
+    )?;
     let framework = Framework::from_str(&framework.as_list_item().unwrap().text).unwrap();
 
     // Database selection - Prisma Client Rust, None
@@ -105,8 +100,7 @@ fn try_main() -> io::Result<()> {
             .message("What database ORM would you like to use?")
             .choices(Database::iter().map(|v| v.to_string()))
             .build(),
-    )
-    .unwrap();
+    )?;
     let database = Database::from_str(&database.as_list_item().unwrap().text).unwrap();
 
     // Frontend selection - React, SolidJS, None
@@ -115,8 +109,7 @@ fn try_main() -> io::Result<()> {
             .message("What frontend framework would you like to use?")
             .choices(FrontendFramework::iter().map(|v| v.to_string()))
             .build(),
-    )
-    .unwrap();
+    )?;
     let frontend_framework =
         FrontendFramework::from_str(&frontend_framework.as_list_item().unwrap().text).unwrap();
 
@@ -125,8 +118,7 @@ fn try_main() -> io::Result<()> {
             .message("What package manager would you like to use?")
             .choices(PackageManager::iter().map(|v| v.to_string()))
             .build(),
-    )
-    .unwrap();
+    )?;
     let package_manager =
         PackageManager::from_str(&package_manager.as_list_item().unwrap().text).unwrap();
 
@@ -146,7 +138,8 @@ fn try_main() -> io::Result<()> {
 
 fn main() {
     if let Err(e) = try_main() {
-        println!("Error: {}", e);
-        exit(1);
+        println!("\n{}", e);
+        println!("\nNOTE: If this error persists please consider opening an issue at");
+        println!("  https://github.com/oscartbeaumont/rspc/issues\n")
     }
 }

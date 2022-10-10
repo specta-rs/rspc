@@ -1,11 +1,10 @@
+use serde_json::Value;
 use std::{
     fs::File,
     io::{self, Read, Write},
     path::Path,
     process::exit,
 };
-
-use serde_json::Value;
 
 pub fn replace_in_file(path: &Path, from: &str, to: &str) -> io::Result<()> {
     let data = {
@@ -25,14 +24,16 @@ pub fn replace_in_file(path: &Path, from: &str, to: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub(crate) fn check_rust_msrv() {
-    let version = rustc_version::version().unwrap();
+pub(crate) fn check_rust_msrv() -> Result<(), rustc_version::Error> {
+    let version = rustc_version::version()?;
 
     if version.minor < 64 {
         println!("You are using an unsupported version of Rust, please update to 1.64 or higher.");
         println!("To update, run `rustup update`.");
         exit(1);
-    }
+    };
+
+    Ok(())
 }
 
 pub(crate) fn check_version() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,6 +43,7 @@ pub(crate) fn check_version() -> Result<(), Box<dyn std::error::Error>> {
     ))
     .call()?
     .into_json()?;
+
     let latest = resp.get("crate")
         .ok_or_else(|| "Unable to find crate key in response from crates.io, please try again later.")?
         .get("max_version").ok_or_else(|| {

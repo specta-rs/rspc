@@ -1,5 +1,4 @@
 pub(crate) mod database;
-pub(crate) mod extras;
 pub(crate) mod framework;
 pub(crate) mod frontend_framework;
 pub(crate) mod generator;

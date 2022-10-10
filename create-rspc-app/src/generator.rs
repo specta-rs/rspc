@@ -6,7 +6,6 @@ pub fn code_generator(
     framework: Framework,
     database: Database,
     frontend_framework: FrontendFramework,
-    // extras: Extras,
     path: &Path,
     project_name: &str,
 ) -> io::Result<()> {
