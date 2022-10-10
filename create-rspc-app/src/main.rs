@@ -1,4 +1,4 @@
-use std::{env::current_dir, fs::remove_dir_all, process::exit, str::FromStr};
+use std::{env::current_dir, fs::remove_dir_all, io, process::exit, str::FromStr};
 
 use requestty::{prompt_one, Question};
 use strum::IntoEnumIterator;
@@ -8,6 +8,7 @@ use crate::{
     framework::Framework,
     frontend_framework::FrontendFramework,
     generator::code_generator,
+    post_gen::PackageManager,
     utils::{check_rust_msrv, check_version},
 };
 
@@ -17,6 +18,8 @@ pub(crate) mod framework;
 pub(crate) mod frontend_framework;
 pub(crate) mod generator;
 pub mod internal;
+mod errors;
+pub(crate) mod post_gen;
 mod utils;
 
 const BANNER: &str = r#"
@@ -27,11 +30,16 @@ const BANNER: &str = r#"
 ██║  ██║███████║██║     ╚██████╗
 ╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝"#;
 
-fn main() {
+fn try_main() -> io::Result<()> {
     println!("\n{}\n", BANNER);
 
     check_version();
     check_rust_msrv();
+
+    ctrlc::set_handler(|| {
+        println!("Operation cancelled by user");
+    })
+    .expect("Unable to setup ctrl+c handler");
 
     let project_name = prompt_one(
         Question::input("project_name")
@@ -49,7 +57,12 @@ fn main() {
         println!("Aborting your project name may only contain alphanumeric characters along with '-' and '_'...");
     }
 
-    let path = current_dir().unwrap().join(project_name);
+    let dir_path = match std::env::args().nth(1) {
+        Some(value) => value,
+        None => project_name.to_string(),
+    };
+
+    let path = current_dir()?.join(dir_path);
     if path.exists() {
         let force = prompt_one(
             Question::confirm("force_delete")
@@ -65,10 +78,13 @@ fn main() {
         match !force.as_bool().unwrap() {
             true => {
                 println!("Aborting project creation...");
-                return;
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    "Directory already exists",
+                ));
             }
             false => {
-                remove_dir_all(&path).unwrap();
+                remove_dir_all(&path)?;
             }
         }
     }
@@ -104,24 +120,33 @@ fn main() {
     let frontend_framework =
         FrontendFramework::from_str(&frontend_framework.as_list_item().unwrap().text).unwrap();
 
-    // let extras = prompt_one(
-    //     Question::select("frontend_framework")
-    //         .message("What frontend framework would you like to use?")
-    //         .choices(Extras::iter().map(|v| v.to_string()))
-    //         .build(),
-    // )
-    // .unwrap();
-    // let extras = Extras::from_str(&extras.as_list_item().unwrap().text).unwrap();
+    let package_manager = prompt_one(
+        Question::select("package_manager")
+            .message("What package manager would you like to use?")
+            .choices(PackageManager::iter().map(|v| v.to_string()))
+            .build(),
+    )
+    .unwrap();
+    let package_manager =
+        PackageManager::from_str(&package_manager.as_list_item().unwrap().text).unwrap();
 
-    if let Err(e) = code_generator(
+    code_generator(
         framework,
         database,
         frontend_framework,
         // extras,
         &path,
         &project_name,
-    ) {
+    )?;
+
+    package_manager.exec(path)?;
+
+    Ok(())
+}
+
+fn main() {
+    if let Err(e) = try_main() {
         println!("Error: {}", e);
-        exit(1)
-    };
+        exit(1);
+    }
 }
