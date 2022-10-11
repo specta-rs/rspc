@@ -14,6 +14,7 @@ impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
     pub fn new(data: GlobalData) -> Self {
         Self {
             data: data.clone(),
+            // TODO: Make it so this is only boxed in the `Deref` impl so it's a zero cost abstraction!
             deref_handler: Box::new(move |resolver| BuiltProcedureBuilder {
                 data: data.clone(),
                 resolver,

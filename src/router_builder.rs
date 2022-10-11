@@ -23,6 +23,16 @@ use crate::{
 
 pub type GlobalData = Arc<RwLock<HashMap<TypeId, Box<dyn Any>>>>;
 
+pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
+    s.is_empty()
+        || s == "ws"
+        || s.starts_with("rpc.")
+        || s.starts_with("rspc.")
+        || !s
+            .chars()
+            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '.')
+}
+
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
     TMeta = (),
@@ -257,7 +267,7 @@ where
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
         #[allow(clippy::panic)]
-        if prefix.is_empty() || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
+        if is_valid_procedure_name(prefix) {
             panic!(
                 "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
                 prefix

@@ -1,17 +1,14 @@
-// TODO: This file having feature flags is a sign that httpz needs more work!!!
-
-use futures::{Future, SinkExt, StreamExt};
-#[cfg(not(feature = "workers"))]
+pub use super::httpz_extractors::*;
+pub use super::httpz_extractors::*;
+use futures::{SinkExt, StreamExt};
 use httpz::{
-    axum::axum::extract::{FromRequest, RequestParts},
-    ws::{Message, WebsocketUpgrade},
-};
-use httpz::{
+    cookie::CookieJar,
     http::{Method, Response, StatusCode},
-    ConcreteRequest, Endpoint, EndpointResult, GenericEndpoint, HttpEndpoint, QueryParms,
+    ws::{Message, WebsocketUpgrade},
+    Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse, Request,
 };
 use serde_json::Value;
-use std::{collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -19,362 +16,8 @@ use crate::{
         jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
         ProcedureKind,
     },
-    ExecError, Router,
+    Router,
 };
-
-pub use httpz::cookie::CookieJar;
-
-// TODO: This request extractor system needs a huge refactor!!!!
-// TODO: Can we avoid needing to box the extractors????
-// TODO: Support for up to 16 extractors
-// TODO: Debug bounds on `::Rejection` should only happen in the `tracing` feature is enabled
-// TODO: Allow async context functions
-
-pub enum TCtxFuncResult<'a, TCtx> {
-    Value(Result<TCtx, ExecError>),
-    Future(Pin<Box<dyn Future<Output = Result<TCtx, ExecError>> + Send + 'a>>),
-}
-
-#[cfg(not(feature = "workers"))]
-pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
-where
-    TCtx: Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx>;
-}
-
-#[cfg(feature = "workers")]
-pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
-where
-    TCtx: Send + 'static,
-{
-    // TODO: Support extracting `httpz::Request` and `httpz::Cookies`
-    fn exec<'a>(&self) -> TCtxFuncResult<'a, TCtx>;
-}
-
-#[cfg(not(feature = "workers"))]
-pub struct NoArgMarker(PhantomData<()>);
-
-#[cfg(not(feature = "workers"))]
-impl<TCtx, TFunc> TCtxFunc<TCtx, NoArgMarker> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
-{
-    fn exec<'a>(&self, _request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        TCtxFuncResult::Value(Ok(self.clone()()))
-    }
-}
-
-#[cfg(feature = "workers")]
-pub struct NoArgMarker(PhantomData<()>);
-
-#[cfg(feature = "workers")]
-impl<TCtx, TFunc> TCtxFunc<TCtx, NoArgMarker> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
-{
-    fn exec<'a>(&self) -> TCtxFuncResult<'a, TCtx> {
-        TCtxFuncResult::Value(Ok(self.clone()()))
-    }
-}
-
-#[cfg(not(feature = "workers"))]
-pub struct OneArgAxumRequestMarker<T1>(PhantomData<T1>);
-
-#[cfg(not(feature = "workers"))]
-impl<T1, TCtx, TFunc> TCtxFunc<TCtx, OneArgAxumRequestMarker<T1>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1))
-        }))
-    }
-}
-
-#[cfg(not(feature = "workers"))]
-pub struct TwoArgAxumRequestMarker<T1, T2>(PhantomData<(T1, T2)>);
-
-#[cfg(not(feature = "workers"))]
-impl<T1, T2, TCtx, TFunc> TCtxFunc<TCtx, TwoArgAxumRequestMarker<T1, T2>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2))
-        }))
-    }
-}
-
-#[cfg(not(feature = "workers"))]
-pub struct ThreeArgAxumRequestMarker<T1, T2, T3>(PhantomData<(T1, T2, T3)>);
-
-#[cfg(not(feature = "workers"))]
-impl<T1, T2, T3, TCtx, TFunc> TCtxFunc<TCtx, ThreeArgAxumRequestMarker<T1, T2, T3>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2, T3) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-    <T3 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T3: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t3 = T3::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 3: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2, t3))
-        }))
-    }
-}
-
-#[cfg(not(feature = "workers"))]
-pub struct FourArgAxumRequestMarker<T1, T2, T3, T4>(PhantomData<(T1, T2, T3, T4)>);
-
-#[cfg(not(feature = "workers"))]
-impl<T1, T2, T3, T4, TCtx, TFunc> TCtxFunc<TCtx, FourArgAxumRequestMarker<T1, T2, T3, T4>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2, T3, T4) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-    <T3 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T3: FromRequest<Vec<u8>> + Send + 'static,
-    <T4 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T4: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t3 = T3::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 3: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t4 = T4::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 4: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2, t3, t4))
-        }))
-    }
-}
-
-#[cfg(not(feature = "workers"))]
-pub struct FiveArgAxumRequestMarker<T1, T2, T3, T4, T5>(PhantomData<(T1, T2, T3, T4, T5)>);
-
-#[cfg(not(feature = "workers"))]
-impl<T1, T2, T3, T4, T5, TCtx, TFunc> TCtxFunc<TCtx, FiveArgAxumRequestMarker<T1, T2, T3, T4, T5>>
-    for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2, T3, T4, T5) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-    <T3 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T3: FromRequest<Vec<u8>> + Send + 'static,
-    <T4 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T4: FromRequest<Vec<u8>> + Send + 'static,
-    <T5 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T5: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t3 = T3::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 3: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t4 = T4::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 4: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t5 = T5::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 5: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2, t3, t4, t5))
-        }))
-    }
-}
-
-struct Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>
-where
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    router: Arc<Router<TCtx, TMeta>>,
-    url_prefix: Option<&'static str>,
-    ctx_fn: TCtxFn,
-    phantom: PhantomData<TCtxFnMarker>,
-}
-
-// Rust's #[derive(Clone)] would require `Clone` on all the generics even though that isn't strictly required.
-impl<TCtxFn, TCtx, TMeta, TCtxFnMarker> Clone for Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>
-where
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    fn clone(&self) -> Self {
-        Self {
-            router: self.router.clone(),
-            url_prefix: self.url_prefix,
-            ctx_fn: self.ctx_fn.clone(),
-            phantom: PhantomData,
-        }
-    }
-}
-
-async fn handler<'a, TCtxFn, TCtx, TMeta, TCtxFnMarker>(
-    Ctx {
-        router,
-        url_prefix,
-        ctx_fn,
-        ..
-    }: Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>,
-    req: ConcreteRequest,
-    cookies: CookieJar,
-) -> EndpointResult
-where
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    let websocket_url = format!("{}/ws", url_prefix.unwrap_or("/rspc"));
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, url) if url == websocket_url => {
-            handle_websocket(ctx_fn, req, cookies, router)
-        }
-        (&Method::GET, _) => {
-            handle_http(
-                ctx_fn,
-                &format!("{}/", url_prefix.unwrap_or("/rspc")),
-                ProcedureKind::Query,
-                req,
-                cookies,
-                &router,
-            )
-            .await
-        }
-        (&Method::POST, _) => {
-            handle_http(
-                ctx_fn,
-                &format!("{}/", url_prefix.unwrap_or("/rspc")),
-                ProcedureKind::Mutation,
-                req,
-                cookies,
-                &router,
-            )
-            .await
-        }
-        _ => unreachable!(),
-    }
-}
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
@@ -385,16 +28,7 @@ where
         self: Arc<Self>,
         ctx_fn: TCtxFn,
     ) -> Endpoint<impl HttpEndpoint> {
-        GenericEndpoint::new(
-            Ctx {
-                router: self,
-                url_prefix: None,
-                ctx_fn,
-                phantom: PhantomData,
-            },
-            [Method::GET, Method::POST],
-            handler,
-        )
+        self.internal_endpoint(None, ctx_fn)
     }
 
     pub fn endpoint_with_prefix<
@@ -405,16 +39,54 @@ where
         url_prefix: &'static str,
         ctx_fn: TCtxFn,
     ) -> Endpoint<impl HttpEndpoint> {
-        GenericEndpoint::new(
-            Ctx {
-                router: self,
-                url_prefix: Some(url_prefix),
-                ctx_fn,
-                phantom: PhantomData,
-            },
-            [Method::GET, Method::POST],
-            handler,
-        )
+        self.internal_endpoint(Some(url_prefix), ctx_fn)
+    }
+
+    fn internal_endpoint<
+        TCtxFnMarker: Send + Sync + 'static,
+        TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+    >(
+        self: Arc<Self>,
+        url_prefix: Option<&'static str>,
+        ctx_fn: TCtxFn,
+    ) -> Endpoint<impl HttpEndpoint> {
+        GenericEndpoint::new([Method::GET, Method::POST], move |req: Request| {
+            // TODO: It would be nice if these clones weren't per request. Maybe httpz could allow context to be generated per thread and stored in thread local?
+            let router = self.clone();
+            let ctx_fn = ctx_fn.clone();
+
+            async move {
+                let websocket_url = format!("{}/ws", url_prefix.unwrap_or("/rspc"));
+                let cookies = req.cookies();
+
+                match (req.method(), req.uri().path()) {
+                    (&Method::GET, url) if url == websocket_url => {
+                        handle_websocket(ctx_fn, req, cookies, router).into_response()
+                    }
+                    (&Method::GET, _) => handle_http(
+                        ctx_fn,
+                        &format!("{}/", url_prefix.unwrap_or("/rspc")),
+                        ProcedureKind::Query,
+                        req,
+                        cookies,
+                        &router,
+                    )
+                    .await
+                    .into_response(),
+                    (&Method::POST, _) => handle_http(
+                        ctx_fn,
+                        &format!("{}/", url_prefix.unwrap_or("/rspc")),
+                        ProcedureKind::Mutation,
+                        req,
+                        cookies,
+                        &router,
+                    )
+                    .await
+                    .into_response(),
+                    _ => unreachable!(),
+                }
+            }
+        })
     }
 }
 
@@ -422,10 +94,10 @@ pub async fn handle_http<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     url_prefix: &str,
     kind: ProcedureKind,
-    req: ConcreteRequest,
+    req: Request,
     cookies: CookieJar,
     router: &Arc<Router<TCtx, TMeta>>,
-) -> EndpointResult
+) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
@@ -447,7 +119,6 @@ where
 
     let input = match *req.method() {
         Method::GET => req
-            .uri()
             .query_pairs()
             .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
             .map(|v| serde_json::from_str(&v))
@@ -490,7 +161,9 @@ where
     let mut resp = Sender::Response(None);
 
     #[cfg(not(feature = "workers"))]
-    let ctx = match ctx_fn.exec(&mut RequestParts::new(req)) {
+    let ctx = match ctx_fn.exec(&mut httpz::axum::axum::extract::RequestParts::new(
+        req.into(),
+    )) {
         TCtxFuncResult::Value(v) => v,
         TCtxFuncResult::Future(v) => v.await,
     };
@@ -575,10 +248,10 @@ where
 
 pub fn handle_websocket<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
-    req: ConcreteRequest,
+    req: Request,
     cookies: CookieJar,
     router: Arc<Router<TCtx, TMeta>>,
-) -> EndpointResult
+) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
@@ -587,14 +260,21 @@ where
     #[cfg(feature = "tracing")]
     tracing::debug!("Accepting websocket connection");
 
-    #[cfg(feature = "workers")]
-    todo!();
+    #[cfg(not(feature = "axum"))]
+    return {
+        println!("Sorry websocket are not supported on your platform yet!");
+        Ok(Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(vec![])?)
+    };
 
-    #[cfg(not(feature = "workers"))]
-    WebsocketUpgrade::from_req(req, cookies, move |req, mut socket| async move {
+    #[cfg(feature = "axum")]
+    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
+        use httpz::axum::axum::extract::RequestParts;
+
         let mut subscriptions = HashMap::new();
         let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
-        let mut req = RequestParts::new(req);
+        let mut req = RequestParts::new(req.into());
 
         loop {
             tokio::select! {
