@@ -42,7 +42,7 @@ bson = ["specta/bson"]
 
 [dependencies]
 specta = { version = "0.0.4", path = "./crates/specta", features = ["serde"] }
-httpz = { git = "https://github.com/oscartbeaumont/httpz.git", optional = true } # TODO: Move back to crates.io release
+httpz = { git = "https://github.com/oscartbeaumont/httpz.git", rev = "1ddbd9ad594ac7ee3e5b167afe689d1ce1228519", optional = true } # TODO: Move back to crates.io release
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
 thiserror = "1.0.36"

@@ -30,7 +30,7 @@ pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
         || s.starts_with("rspc.")
         || !s
             .chars()
-            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '.')
+            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '.' || c == '_')
 }
 
 pub struct RouterBuilder<
