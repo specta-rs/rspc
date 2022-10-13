@@ -1,4 +1,4 @@
-import { observable } from "../observable";
+import { observable } from "../internals/observable";
 import { dataLoader } from "../internals/dataLoader";
 import {
   HTTPLinkOptions,
@@ -9,7 +9,7 @@ import {
 } from "./internals/httpUtils";
 import { transformResult } from "./internals/transformResult";
 import { TRPCLink } from "./types";
-import { ProceduresDef } from "..";
+import { ProceduresDef, RSPCError } from "..";
 
 type ProcedureType = any; // TODO
 
@@ -97,12 +97,20 @@ export function httpBatchLink<TProcedures extends ProceduresDef>(
             const transformed = transformResult(res.json, runtime);
 
             if (!transformed.ok) {
-              // observer.error(
-              //   TRPCClientError.from(transformed.error, {
-              //     meta: res.meta,
-              //   })
-              // );
-              throw new Error("BRUH5"); // TODO
+              const error = RSPCError.from(transformed.error, {
+                meta: res.meta,
+              });
+
+              // TODO
+              // runtime.onError?.({
+              //   error,
+              //   path,
+              //   input,
+              //   ctx: context,
+              //   type: type,
+              // });
+
+              observer.error(error);
               return;
             }
             observer.next({
@@ -112,8 +120,7 @@ export function httpBatchLink<TProcedures extends ProceduresDef>(
             observer.complete();
           })
           .catch((err) => {
-            // observer.error(TRPCClientError.from(err))
-            throw new Error("BRUH6"); // TODO
+            observer.error(RSPCError.from(err));
           });
 
         return () => {

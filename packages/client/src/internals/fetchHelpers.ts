@@ -1,13 +1,12 @@
-export type Maybe<TType> = TType | undefined | null;
-
 export function getWindow() {
   if (typeof window !== "undefined") {
     return window;
   }
   return globalThis;
 }
+
 export function getAbortController(
-  ac: Maybe<typeof AbortController>
+  ac: typeof AbortController | undefined | null
 ): typeof AbortController | null {
   return ac ?? getWindow().AbortController ?? null;
 }

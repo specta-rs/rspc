@@ -1,6 +1,5 @@
-import { Observer, UnsubscribeFn, observable } from "../observable";
+import { Observer, UnsubscribeFn, observable } from "../internals/observable";
 import { RSPCError } from "../error";
-import { retryDelay } from "../internals/retryDelay";
 import { transformResult } from "./internals/transformResult";
 import { Operation, TRPCLink } from "./types";
 import { ProceduresDef } from "../typescript";
@@ -23,6 +22,9 @@ type WSCallbackObserver<TProcedures extends ProceduresDef, TOutput> = Observer<
   WSCallbackResult<TProcedures, TOutput>,
   RSPCError
 >;
+
+export const retryDelay = (attemptIndex: number) =>
+  attemptIndex === 0 ? 0 : Math.min(1000 * 2 ** attemptIndex, 30000);
 
 export interface WebSocketClientOptions {
   url: string;
@@ -214,12 +216,11 @@ export function createWSClient(opts: WebSocketClientOptions) {
         if (req.ws !== conn) {
           continue;
         }
-        // req.callbacks.error?.(
-        //   TRPCClientError.from(
-        //     new TRPCWebSocketClosedError("WebSocket closed prematurely")
-        //   )
-        // );
-        throw new Error("TODO: Error 10"); // TODO
+        req.callbacks.error?.(
+          RSPCError.from(
+            new TRPCWebSocketClosedError("WebSocket closed prematurely")
+          )
+        );
         if (req.type !== "subscription") {
           delete pendingRequests[key];
           req.callbacks.complete?.();
@@ -262,7 +263,7 @@ export function createWSClient(opts: WebSocketClientOptions) {
       if (op.type === "subscription") {
         outgoing.push({
           id,
-          method: "subscription.stop",
+          method: "subscriptionStop",
         });
         dispatch();
       }
@@ -326,14 +327,13 @@ export function wsLink<TProcedures extends ProceduresDef>(
             complete() {
               if (!isDone) {
                 isDone = true;
-                // observer.error(
-                //   TRPCClientError.from(
-                //     new TRPCSubscriptionEndedError(
-                //       "Operation ended prematurely"
-                //     )
-                //   )
-                // );
-                throw new Error("TODO: No Shot"); // TODO
+                observer.error(
+                  RSPCError.from(
+                    new TRPCSubscriptionEndedError(
+                      "Operation ended prematurely"
+                    )
+                  )
+                );
               } else {
                 observer.complete();
               }
@@ -342,8 +342,15 @@ export function wsLink<TProcedures extends ProceduresDef>(
               const transformed = transformResult(message, runtime);
 
               if (!transformed.ok) {
-                // observer.error(TRPCClientError.from(transformed.error));
-                throw new Error("TODO: No Shot2"); // TODO
+                const error = RSPCError.from(transformed.error);
+                runtime.onError?.({
+                  error,
+                  path,
+                  input,
+                  ctx: context,
+                  type: type,
+                });
+                observer.error(error);
                 return;
               }
               observer.next({

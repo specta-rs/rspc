@@ -1,5 +1,4 @@
-import { observable, ProcedureDef } from "..";
-// import { TRPCClientError } from "../TRPCClientError";
+import { observable, ProcedureDef, RSPCError } from "..";
 import {
   HTTPLinkOptions,
   httpRequest,
@@ -15,7 +14,7 @@ export function httpLink<TProcedures extends ProcedureDef>(
   return (runtime) =>
     ({ op }) =>
       observable((observer) => {
-        const { path, input, type } = op;
+        const { path, input, type, context } = op;
         const { promise, cancel } = httpRequest({
           ...resolvedOpts,
           runtime,
@@ -26,14 +25,20 @@ export function httpLink<TProcedures extends ProcedureDef>(
         promise
           .then((res) => {
             const transformed = transformResult(res.json, runtime);
-
             if (!transformed.ok) {
-              // observer.error(
-              //   TRPCClientError.from(transformed.error, {
-              //     meta: res.meta,
-              //   })
-              // );
-              throw new Error("BRUH1");
+              const error = RSPCError.from(transformed.error, {
+                meta: res.meta,
+              });
+              // TODO
+              runtime.onError?.({
+                error,
+                path,
+                input,
+                ctx: context,
+                type: type,
+              });
+
+              observer.error(error);
               return;
             }
             observer.next({
@@ -43,9 +48,17 @@ export function httpLink<TProcedures extends ProcedureDef>(
             observer.complete();
           })
           .catch((cause) => {
-            console.error(cause);
-            throw new Error("BRUH2");
-            // observer.error(TRPCClientError.from(cause));
+            const error = RSPCError.from(cause);
+            // TODO
+            runtime.onError?.({
+              error,
+              path,
+              input,
+              ctx: context,
+              type: type,
+            });
+
+            observer.error(error);
           });
 
         return () => {

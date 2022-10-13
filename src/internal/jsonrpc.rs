@@ -23,21 +23,10 @@ pub struct Request {
 #[derive(Debug, Clone, Deserialize, Serialize, Type)]
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
 pub enum RequestInner {
-    Query {
-        path: String,
-        input: Option<Value>,
-    },
-    Mutation {
-        path: String,
-        input: Option<Value>,
-    },
-    Subscription {
-        path: String,
-        input: (RequestId, Option<Value>),
-    },
-    SubscriptionStop {
-        input: RequestId,
-    },
+    Query { path: String, input: Option<Value> },
+    Mutation { path: String, input: Option<Value> },
+    Subscription { path: String, input: Option<Value> },
+    SubscriptionStop,
 }
 
 #[derive(Debug, Clone, Serialize)] // TODO: Add `specta::Type` when supported

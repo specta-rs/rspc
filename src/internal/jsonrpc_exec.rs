@@ -158,10 +158,10 @@ pub async fn handle_json_rpc<TCtx, TMeta>(
         RequestInner::Query { path, input } => (path, input, router.queries(), None),
         RequestInner::Mutation { path, input } => (path, input, router.mutations(), None),
         RequestInner::Subscription { path, input } => {
-            (path, input.1, router.subscriptions(), Some(input.0))
+            (path, input, router.subscriptions(), Some(req.id.clone()))
         }
-        RequestInner::SubscriptionStop { input } => {
-            subscriptions.remove(&input).await;
+        RequestInner::SubscriptionStop => {
+            subscriptions.remove(&req.id).await;
             return;
         }
     };

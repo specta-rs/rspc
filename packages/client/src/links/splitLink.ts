@@ -1,4 +1,4 @@
-import { observable } from "../observable/index";
+import { observable } from "../internals/observable/index";
 import { ProceduresDef } from "..";
 import { createChain } from "./internals/createChain";
 import { Operation, TRPCLink } from "./types";

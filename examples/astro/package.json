@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@rspc/client": "workspace:*",
+    "@rspc/normi": "workspace:*",
     "@rspc/react": "workspace:*",
     "@rspc/solid": "workspace:*",
     "@tanstack/react-query": "^4.8.0",

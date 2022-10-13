@@ -3,15 +3,14 @@
 // import { AnyRouter, DataTransformer } from '@trpc/server';
 // import { Observable, Observer } from '@trpc/server/observable';
 // import { TRPCResultMessage, TRPCSuccessResponse } from '@trpc/server/rpc';
-// import { TRPCClientError } from '../TRPCClientError';
 
-import { Observable, Observer } from "../observable";
+import { RSPCError } from "../error";
+import { Observable, Observer } from "../internals/observable";
 
 type AnyRouter = any;
 type DataTransformer = any;
 type TRPCResultMessage<T> = any;
 type TRPCSuccessResponse<T> = any;
-type TRPCClientError<T> = any;
 
 /**
  * @internal
@@ -55,8 +54,18 @@ export type TRPCFetch = (
   options?: RequestInit
 ) => Promise<Response>;
 
+export type OnErrorFunction = (opts: {
+  error: RSPCError;
+  type: string; // TODO: ProcedureType | "unknown";
+  path: string | undefined;
+  // req: TRequest;
+  input: unknown;
+  ctx: undefined | any; // TODO: inferRouterContext<TRouter>;
+}) => void;
+
 export interface TRPCClientRuntime {
   transformer: DataTransformer;
+  onError?: OnErrorFunction;
 }
 
 /**
@@ -75,7 +84,7 @@ export interface OperationResultEnvelope<TOutput> {
 export type OperationResultObservable<
   TRouter extends AnyRouter,
   TOutput
-> = Observable<OperationResultEnvelope<TOutput>, TRPCClientError<TRouter>>;
+> = Observable<OperationResultEnvelope<TOutput>, RSPCError>;
 
 /**
  * @internal
@@ -83,7 +92,7 @@ export type OperationResultObservable<
 export type OperationResultObserver<
   TRouter extends AnyRouter,
   TOutput
-> = Observer<OperationResultEnvelope<TOutput>, TRPCClientError<TRouter>>;
+> = Observer<OperationResultEnvelope<TOutput>, RSPCError>;
 
 /**
  * @internal

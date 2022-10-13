@@ -47,6 +47,7 @@ importers:
       '@astrojs/react': ^1.1.4
       '@astrojs/solid-js': ^1.1.0
       '@rspc/client': workspace:*
+      '@rspc/normi': workspace:*
       '@rspc/react': workspace:*
       '@rspc/solid': workspace:*
       '@tanstack/react-query': ^4.8.0
@@ -58,6 +59,7 @@ importers:
       solid-js: ^1.5.7
     dependencies:
       '@rspc/client': link:../../packages/client
+      '@rspc/normi': link:../../packages/normi
       '@rspc/react': link:../../packages/react
       '@rspc/solid': link:../../packages/solid
       '@tanstack/react-query': 4.8.0_biqbaboplfbrettd7655fr4n2y
@@ -98,25 +100,22 @@ importers:
 
   packages/client:
     specifiers:
-      '@types/zen-observable': ^0.8.3
       tsup: ^6.2.3
       typescript: ^4.8.4
-      zen-observable: ^0.8.15
-    dependencies:
-      zen-observable: 0.8.15
     devDependencies:
-      '@types/zen-observable': 0.8.3
       tsup: 6.2.3_typescript@4.8.4
       typescript: 4.8.4
 
   packages/normi:
     specifiers:
       '@rspc/client': workspace:*
+      '@tanstack/react-query': ^4.8.0
       tsup: ^6.2.3
       typescript: ^4.8.4
     dependencies:
       '@rspc/client': link:../client
     devDependencies:
+      '@tanstack/react-query': 4.8.0
       tsup: 6.2.3_typescript@4.8.4
       typescript: 4.8.4
 
@@ -1830,6 +1829,22 @@ packages:
   /@tanstack/query-core/4.8.0:
     resolution: {integrity: sha512-PVcSqAWboFA86eNgtHTOjfHjBkNuFGAM6kPH82p1ibx1R76f7EjedZ+LZi4ZnW4ppoSl/+hUtCgWsiNQ2ViLTw==}
 
+  /@tanstack/react-query/4.8.0:
+    resolution: {integrity: sha512-e3QzL/S8XeA5MYqOUUABet4oZDBc1MbeUIo32r0cxEDoDJS+9oqx0az9AbBxacZ7SjM/Fy4u/eXQFBjsKGFQ6A==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 4.8.0
+      use-sync-external-store: 1.2.0
+    dev: true
+
   /@tanstack/react-query/4.8.0_biqbaboplfbrettd7655fr4n2y:
     resolution: {integrity: sha512-e3QzL/S8XeA5MYqOUUABet4oZDBc1MbeUIo32r0cxEDoDJS+9oqx0az9AbBxacZ7SjM/Fy4u/eXQFBjsKGFQ6A==}
     peerDependencies:
@@ -2012,10 +2027,6 @@ packages:
 
   /@types/yargs-parser/21.0.0:
     resolution: {integrity: sha512-iO9ZQHkZxHn4mSakYV0vFHAVDyEOIJQrV2uZ06HxEPcx+mt8swXoZHIbaaJ2crJYFfErySgktuTZ3BeLz+XmFA==}
-
-  /@types/zen-observable/0.8.3:
-    resolution: {integrity: sha512-fbF6oTd4sGGy0xjHPKAt+eS2CrxJ3+6gQ3FGcBoIJR2TLAyCkCyI8JqZNy+FeON0AhVgNJoUumVoZQjBFUqHkw==}
-    dev: true
 
   /@vscode/emmet-helper/2.8.4:
     resolution: {integrity: sha512-lUki5QLS47bz/U8IlG9VQ+1lfxMtxMZENmU5nu4Z71eOD5j9FK0SmYGL5NiVJg9WBWeAU0VxRADMY2Qpq7BfVg==}
@@ -5909,6 +5920,12 @@ packages:
       escalade: 3.1.1
       picocolors: 1.0.0
 
+  /use-sync-external-store/1.2.0:
+    resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dev: true
+
   /use-sync-external-store/1.2.0_react@18.2.0:
     resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
     peerDependencies:
@@ -6107,10 +6124,6 @@ packages:
   /yocto-queue/0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
-
-  /zen-observable/0.8.15:
-    resolution: {integrity: sha512-PQ2PC7R9rslx84ndNBZB/Dkv8V8fZEpk83RLgXtYd0fwUgEjseMn1Dgajh2x6S8QbZAFa9p2qVCEuYZNgve0dQ==}
-    dev: false
 
   /zod/3.19.1:
     resolution: {integrity: sha512-LYjZsEDhCdYET9ikFu6dVPGp2YH9DegXjdJToSzD9rO6fy4qiRYFoyEYwps88OseJlPyl2NOe2iJuhEhL7IpEA==}

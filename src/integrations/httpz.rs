@@ -299,34 +299,59 @@ where
                     }
                 }
                 msg = socket.next() => {
-                    let request = match msg {
+                    match msg {
                         Some(Ok(msg) )=> {
                            let res = match msg {
-                                Message::Text(text) => {
-                                    serde_json::from_str::<jsonrpc::Request>(&text)
-                                }
-                                Message::Binary(binary) => {
-                                    serde_json::from_slice::<jsonrpc::Request>(&binary)
-                                }
+                                Message::Text(text) => serde_json::from_str::<Value>(&text),
+                                Message::Binary(binary) => serde_json::from_slice(&binary),
                                 Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
                                     continue;
                                 }
                                 Message::Frame(_) => unreachable!(),
                             };
 
-                            match res {
-                                Ok(v) => v,
+                            match res.and_then(|v| match v.is_array() {
+                                    true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
+                                    false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                                }) {
+                                Ok(reqs) => {
+                                    for request in reqs {
+                                        let ctx = match ctx_fn.exec(&mut req) {
+                                            TCtxFuncResult::Value(v) => v,
+                                            TCtxFuncResult::Future(v) => v.await,
+                                        };
+
+                                        handle_json_rpc(match ctx {
+                                            Ok(v) => v,
+                                            Err(_err) => {
+                                                #[cfg(feature = "tracing")]
+                                                tracing::error!("Error executing context function: {}", _err);
+
+                                                continue;
+                                            }
+                                        }, request, &router, &mut Sender::Channel(&mut tx),
+                                        &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                    }
+                                },
                                 Err(_err) => {
                                     #[cfg(feature = "tracing")]
                                     tracing::error!("Error parsing websocket message: {}", _err);
 
+                                    // TODO: Send report of error to frontend
+
+                                    println!("Error in websocket: {}", _err);
+
                                     continue;
                                 }
-                            }
+                            };
                         }
                         Some(Err(_err)) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!("Error in websocket: {}", _err);
+
+                            println!("Error in websocket: {}", _err);
+
+                            // TODO: Send report of error to frontend
 
                             continue;
                         },
@@ -334,25 +359,11 @@ where
                             #[cfg(feature = "tracing")]
                             tracing::debug!("Shutting down websocket connection");
 
+                            // TODO: Send report of error to frontend
+
                             return;
                         },
-                    };
-
-                    let ctx = match ctx_fn.exec(&mut req) {
-                        TCtxFuncResult::Value(v) => v,
-                        TCtxFuncResult::Future(v) => v.await,
-                    };
-
-                    handle_json_rpc(match ctx {
-                        Ok(v) => v,
-                        Err(_err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Error executing context function: {}", _err);
-
-                            continue;
-                        }
-                    }, request, &router, &mut Sender::Channel(&mut tx),
-                    &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                    }
                 }
             }
         }

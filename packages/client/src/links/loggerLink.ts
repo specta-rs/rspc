@@ -1,4 +1,4 @@
-import { observable, tap } from "../observable";
+import { observable, tap } from "../internals/observable";
 import { ProceduresDef, RSPCError } from "..";
 import { Operation, OperationResultEnvelope, TRPCLink } from "./types";
 
@@ -96,7 +96,6 @@ const defaultLogger =
     const fn: "error" | "log" =
       props.direction === "down" &&
       props.result &&
-      // @ts-expect-error: TODO
       (props.result instanceof Error || "error" in props.result.result)
         ? "error"
         : "log";
