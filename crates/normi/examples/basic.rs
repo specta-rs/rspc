@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use axum::routing::get;
 use normi::{typed, Object};
 use rspc::{Config, Router, Type};
@@ -37,7 +39,9 @@ pub struct CompositeId {
 #[tokio::main]
 async fn main() {
     let router = <Router>::new()
-        .config(Config::new().export_ts_bindings("./bindings.ts"))
+        .config(Config::new().export_ts_bindings(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/bindings.ts"),
+        ))
         .query("version", |t| t(|_, _: ()| "0.1.0"))
         .query("userSync", |t| {
             t.resolver(|_, _: ()| User {

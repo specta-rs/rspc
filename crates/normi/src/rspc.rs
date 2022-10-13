@@ -42,7 +42,7 @@ where
     TArg: Type + DeserializeOwned,
 {
     {
-        let mut data = builder.data.as_ref().unwrap().write().unwrap();
+        let mut data = builder.data.write().unwrap();
 
         let ctx = data
             .entry(TypeId::of::<NormiContext>())

@@ -16,12 +16,11 @@ export const rspc = createReactQueryHooks<Procedures>();
 
 export const fetchQueryClient = new QueryClient();
 const fetchClient = createClient<Procedures>({
-  transformer: normi({ queryClient: fetchQueryClient }),
   // onError(opts) {
-  //   console.error("B", opts);
+  //   console.error("A", opts);
   // },
   links: [
-    loggerLink(),
+    // loggerLink(),
     httpLink({
       url: "http://localhost:4000/rspc",
     }),
@@ -39,8 +38,11 @@ const wsClient2 = createWSClient({
 
 export const wsQueryClient = new QueryClient();
 const wsClient = createClient<Procedures>({
+  // onError(opts) {
+  //   console.error("B", opts);
+  // },
   links: [
-    loggerLink(),
+    // loggerLink(),
     wsLink({
       client: wsClient2,
     }),
