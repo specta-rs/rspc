@@ -13,7 +13,7 @@ use serde_json::Value;
 use specta::{to_ts, to_ts_export, DataType, TypeDefs};
 
 use crate::{
-    internal::{LayerReturn, Procedure, ProcedureKind, ProcedureStore, RequestContext},
+    internal::{GlobalData, LayerReturn, Procedure, ProcedureKind, ProcedureStore, RequestContext},
     Config, ExecError, ExportError,
 };
 
@@ -22,6 +22,7 @@ pub struct Router<TCtx = (), TMeta = ()>
 where
     TCtx: 'static,
 {
+    pub data: GlobalData,
     pub(crate) config: Config,
     pub(crate) queries: ProcedureStore<TCtx>,
     pub(crate) mutations: ProcedureStore<TCtx>,

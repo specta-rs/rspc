@@ -25,6 +25,7 @@ pub use selection::*;
 
 pub mod integrations;
 pub mod internal;
+pub mod plugins;
 
 pub use specta::RSPCType as Type;
 

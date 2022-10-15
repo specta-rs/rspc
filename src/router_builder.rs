@@ -1,9 +1,4 @@
-use std::{
-    any::{Any, TypeId},
-    collections::HashMap,
-    marker::PhantomData,
-    sync::{Arc, RwLock},
-};
+use std::marker::PhantomData;
 
 use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
@@ -15,13 +10,11 @@ use crate::{
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
     internal::{
-        DoubleArgStreamMarker, MiddlewareBuilder, MiddlewareLike, RequestResolver, RequestResult,
-        StreamResolver,
+        DoubleArgStreamMarker, GlobalData, MiddlewareBuilder, MiddlewareLike, RequestResolver,
+        RequestResult, StreamResolver,
     },
     Config, ExecError, Router,
 };
-
-pub type GlobalData = Arc<RwLock<HashMap<TypeId, Box<dyn Any>>>>;
 
 pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
     s.is_empty()
@@ -155,7 +148,7 @@ where
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new(self.data.clone())).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::new(key, self.data.clone())).resolver;
 
         self.queries.append(
             key.into(),
@@ -195,7 +188,7 @@ where
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new(self.data.clone())).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::new(key, self.data.clone())).resolver;
         self.mutations.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -232,7 +225,7 @@ where
             + Sync
             + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new(self.data.clone())).resolver;
+        let resolver = builder(UnbuiltProcedureBuilder::new(key, self.data.clone())).resolver;
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -331,6 +324,7 @@ where
 
     pub fn build(self) -> Router<TCtx, TMeta> {
         let Self {
+            data,
             config,
             queries,
             mutations,
@@ -341,6 +335,7 @@ where
 
         let export_path = config.export_bindings_on_build.clone();
         let router = Router {
+            data,
             config,
             queries,
             mutations,

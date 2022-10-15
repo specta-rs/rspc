@@ -56,7 +56,7 @@ where
             let ctx_fn = ctx_fn.clone();
 
             async move {
-                let websocket_url = format!("{}/ws", url_prefix.unwrap_or("/rspc"));
+                let websocket_url = format!("{}/ws", url_prefix.unwrap_or("/rspc")); // TODO: Match on variable in URL and not not the entire URL??
                 let cookies = req.cookies();
 
                 match (req.method(), req.uri().path()) {
