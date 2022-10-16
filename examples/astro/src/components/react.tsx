@@ -22,10 +22,8 @@ function Example({ name }: { name: string }) {
   const { data: version } = rspc.useQuery(["version"]);
   const { data: transformMe } = rspc.useQuery(["transformMe"]);
   const { data: echo } = rspc.useQuery(["echo", "Hello From Frontend!"]);
-  const { mutate, isLoading } = rspc.useMutation("sendMsg");
-  const { error } = rspc.useQuery(["error"], {
-    retry: false,
-  });
+  const { isLoading } = rspc.useMutation("sendMsg");
+  const { error } = rspc.useQuery(["error"], { retry: false, });
 
   return (
     <div
@@ -44,7 +42,9 @@ function Example({ name }: { name: string }) {
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
       </button>
-      <button onClick={() => mutate("Hello!")} disabled={isLoading}>
+      <button onClick={() => {
+        fetchClient.sendMsg.mutate("Hello using proxy")
+      }} disabled={isLoading}>
         Send Msg!
       </button>
     </div>
