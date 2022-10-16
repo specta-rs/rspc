@@ -9,8 +9,12 @@ import {
   inferSubscriptionResult,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  inferClientProxy,
+  ClientOperationProxyRenames,
+  ClientOperationProxyKey,
 } from ".";
 import { randomId, Transport } from "./transport";
+import { createProxy } from "./utils/createProxy";
 
 // TODO
 export interface SubscriptionOptions<TOutput> {
@@ -24,12 +28,46 @@ export interface ClientArgs {
   transport: Transport;
   onError?: (err: RSPCError) => void | Promise<void>;
 }
-
 // TODO
-export function createClient<TProcedures extends ProceduresLike>(
+export function createClient<TProcedures extends ProceduresDef>(
   args: ClientArgs
-): Client<inferProcedures<TProcedures>> {
-  return new Client(args);
+): inferClientProxy<TProcedures> {
+  let client = new Client(args);
+  let proxy = createProxy(({ keys,params }) => {
+
+    // Return early if a single key is given
+    if (keys.length === 1) {
+      switch (keys[0]) {
+        case "query": return client.query(params[0] as any)
+        case "mutation": return client.mutation(params[0] as any)
+        case "addSubscription": return client.addSubscription(params[0] as any, params[1] as any)
+      }
+    }
+
+    const _keys = [...keys];
+    const caller = _keys.pop()! as ClientOperationProxyKey;
+    const methodName = ClientOperationProxyRenames[caller];
+    const clientMethod  = client[methodName] as any;
+    const key = _keys.join('.');
+
+    // Assuming that always the last params is always an object
+    // representing the extra options.
+    let opts = params.pop();
+
+    // Add it back if it's not an object
+    if (typeof opts !== "object") {
+      params.push(opts);
+      opts = undefined;
+    }
+
+    let input = params.length > 2 ? [...params] : (params.pop() as any[] ?? []);
+
+    console.log({ key, input, opts, })
+
+    return clientMethod([key, ...input] as any, opts)
+  })
+
+  return proxy as inferClientProxy<TProcedures>
 }
 
 // TODO
