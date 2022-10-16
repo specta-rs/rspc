@@ -28,10 +28,13 @@ export interface ClientArgs {
   transport: Transport;
   onError?: (err: RSPCError) => void | Promise<void>;
 }
+type RSPCClient<TProcedures extends ProceduresDef> =
+  inferClientProxy<TProcedures> & Client<TProcedures>
+
 // TODO
 export function createClient<TProcedures extends ProceduresDef>(
   args: ClientArgs
-): inferClientProxy<TProcedures> {
+): RSPCClient<TProcedures> {
   let client = new Client(args);
   let proxy = createProxy(({ keys,params }) => {
     // Return early if a single key is given
@@ -63,7 +66,7 @@ export function createClient<TProcedures extends ProceduresDef>(
     return (client[methodName] as any)([key, ...params] as any, opts)
   })
 
-  return proxy as inferClientProxy<TProcedures>
+  return proxy as any
 }
 
 // TODO
