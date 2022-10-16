@@ -62,6 +62,20 @@ where
                 },
                 &[],
             ),
+            inline_arg_ty: <TArg as Type>::inline(
+                DefOpts {
+                    parent_inline: true,
+                    type_map: defs,
+                },
+                &[],
+            ),
+            inline_result_ty: <TResult::Data as Type>::inline(
+                DefOpts {
+                    parent_inline: true,
+                    type_map: defs,
+                },
+                &[],
+            ),
         }
     }
 }
@@ -103,6 +117,20 @@ where
             result_ty: <TResult as Type>::reference(
                 DefOpts {
                     parent_inline: false,
+                    type_map: defs,
+                },
+                &[],
+            ),
+            inline_arg_ty: <TArg as Type>::inline(
+                DefOpts {
+                    parent_inline: true,
+                    type_map: defs,
+                },
+                &[],
+            ),
+            inline_result_ty: <TResult as Type>::inline(
+                DefOpts {
+                    parent_inline: true,
                     type_map: defs,
                 },
                 &[],

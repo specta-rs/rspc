@@ -6,11 +6,13 @@ use crate::is_valid_procedure_name;
 
 use super::Layer;
 
-// TODO: Make private
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProcedureDataType {
     pub arg_ty: DataType,
     pub result_ty: DataType,
+    /// TODO: Remove these
+    pub inline_arg_ty: DataType,
+    pub inline_result_ty: DataType,
 }
 
 // TODO: Make private

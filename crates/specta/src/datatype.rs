@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use crate::{EnumType, ObjectType, TupleType};
+use crate::{EnumType, ObjectType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
@@ -44,4 +44,11 @@ pub enum PrimitiveType {
     bool,
     char,
     String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TupleType {
+    pub name: String,
+    pub fields: Vec<DataType>,
+    pub generics: Vec<&'static str>,
 }

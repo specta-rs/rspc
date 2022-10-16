@@ -7,7 +7,10 @@
     clippy::panic,
     clippy::todo,
     clippy::panic_in_result_fn,
+    // rustdoc::all,
     // missing_docs
+    // missing_panics_doc
+    // missing_debug_implementations
 )]
 
 mod config;

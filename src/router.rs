@@ -33,6 +33,7 @@ where
 
 // TODO: Move this out of this file
 // TODO: Rename??
+#[derive(Debug, Copy, Clone)]
 pub enum ExecKind {
     Query,
     Mutation,

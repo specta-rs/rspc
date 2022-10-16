@@ -10,8 +10,8 @@ use crate::{
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
     internal::{
-        DoubleArgStreamMarker, GlobalData, MiddlewareBuilder, MiddlewareLike, RequestResolver,
-        RequestResult, StreamResolver,
+        DoubleArgStreamMarker, GlobalData, MiddlewareBuilder, MiddlewareLike, ProcedureKind,
+        RequestResolver, RequestResult, StreamResolver,
     },
     Config, ExecError, Router,
 };
@@ -148,7 +148,13 @@ where
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new(key, self.data.clone())).resolver;
+        let built_procedure = builder(UnbuiltProcedureBuilder::new(
+            key,
+            ProcedureKind::Query,
+            TBuiltResolver::typedef(&mut self.typ_store),
+            self.data.clone(),
+        ));
+        let resolver = built_procedure.resolver;
 
         self.queries.append(
             key.into(),
@@ -164,7 +170,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TBuiltResolver::typedef(&mut self.typ_store),
+            built_procedure.typedef,
         );
         self
     }
@@ -188,7 +194,13 @@ where
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new(key, self.data.clone())).resolver;
+        let built_procedure = builder(UnbuiltProcedureBuilder::new(
+            key,
+            ProcedureKind::Mutation,
+            TBuiltResolver::typedef(&mut self.typ_store),
+            self.data.clone(),
+        ));
+        let resolver = built_procedure.resolver;
         self.mutations.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -203,7 +215,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TBuiltResolver::typedef(&mut self.typ_store),
+            built_procedure.typedef,
         );
         self
     }
@@ -225,7 +237,13 @@ where
             + Sync
             + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::new(key, self.data.clone())).resolver;
+        let built_procedure = builder(UnbuiltProcedureBuilder::new(
+            key,
+            ProcedureKind::Subscription,
+            TResolver::typedef(&mut self.typ_store),
+            self.data.clone(),
+        ));
+        let resolver = built_procedure.resolver;
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
@@ -240,7 +258,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            built_procedure.typedef,
         );
         self
     }
@@ -266,6 +284,8 @@ where
                 prefix
             );
         }
+
+        // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
 
         let Self {
             data,

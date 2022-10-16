@@ -3,13 +3,6 @@
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
 // #![warn(missing_docs)]
 
-mod datatype;
-mod r#enum;
-pub mod impl_type_macros;
-mod object;
-mod tuple;
-mod typescript;
-
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
@@ -33,12 +26,17 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+mod datatype;
+mod r#enum;
+pub mod impl_type_macros;
+mod lang;
+mod object;
+
 pub use datatype::*;
+pub use lang::*;
 pub use object::*;
 pub use r#enum::*;
 pub use specta_macros::*;
-pub use tuple::*;
-pub use typescript::*;
 
 pub type TypeDefs = BTreeMap<&'static str, DataType>;
 

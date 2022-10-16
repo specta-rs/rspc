@@ -16,7 +16,7 @@ default = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies"]
-openapi = ["dep:openapiv3", "dep:httpz", "dep:include_dir", "dep:mime_guess"]
+openapi = ["dep:openapiv3", "dep:httpz", "dep:include_dir", "dep:mime_guess", "specta/openapi"]
 # playground = []
 
 # Webservers # Axum feature basically always enabled because we use the extractors regardless of webserver

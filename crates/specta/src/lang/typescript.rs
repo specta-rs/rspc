@@ -3,7 +3,7 @@ use crate::{
     TupleType, TypeDefs,
 };
 
-use super::Type;
+use crate::Type;
 
 pub fn ts_inline_ref<T: Type>(_t: &T) -> String {
     ts_inline::<T>()
