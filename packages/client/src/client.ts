@@ -34,7 +34,6 @@ export function createClient<TProcedures extends ProceduresDef>(
 ): inferClientProxy<TProcedures> {
   let client = new Client(args);
   let proxy = createProxy(({ keys,params }) => {
-
     // Return early if a single key is given
     if (keys.length === 1) {
       switch (keys[0]) {
@@ -47,7 +46,6 @@ export function createClient<TProcedures extends ProceduresDef>(
     const _keys = [...keys];
     const caller = _keys.pop()! as ClientOperationProxyKey;
     const methodName = ClientOperationProxyRenames[caller];
-    const clientMethod  = client[methodName] as any;
     const key = _keys.join('.');
 
     // Assuming that always the last params is always an object
@@ -55,16 +53,14 @@ export function createClient<TProcedures extends ProceduresDef>(
     let opts = params.pop();
 
     // Add it back if it's not an object
-    if (typeof opts !== "object") {
+    if (typeof opts !== "object" && !Array.isArray(opts)) {
       params.push(opts);
       opts = undefined;
     }
 
-    let input = params.length > 2 ? [...params] : (params.pop() as any[] ?? []);
+    console.log("Running", { key, params: [...params], opts })
 
-    console.log({ key, input, opts, })
-
-    return clientMethod([key, ...input] as any, opts)
+    return (client[methodName] as any)([key, ...params] as any, opts)
   })
 
   return proxy as inferClientProxy<TProcedures>
