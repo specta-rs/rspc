@@ -1,9 +1,10 @@
-import { AnyRouter } from '@trpc/server';
-import { Observable, observable, share } from '@trpc/server/observable';
-import { TRPCLink } from './types';
+import { Observable, observable, share } from "..";
+import { TRPCLink } from "./types";
+
+type AnyRouter = any;
 
 export function dedupeLink<
-  TRouter extends AnyRouter = AnyRouter,
+  TRouter extends AnyRouter = AnyRouter
 >(): TRPCLink<TRouter> {
   // initialized config
   return () => {
@@ -12,7 +13,7 @@ export function dedupeLink<
     return ({ op, next }) => {
       // initialized for request
 
-      if (op.type !== 'query') {
+      if (op.type !== "query") {
         // pass through
         return next(op);
       }

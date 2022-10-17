@@ -1,6 +1,7 @@
-import { AnyRouter } from '@trpc/server';
-import { Unsubscribable, observable } from '@trpc/server/observable';
-import { TRPCLink } from './types';
+import { Unsubscribable, observable } from "..";
+import { TRPCLink } from "./types";
+
+type AnyRouter = any;
 
 export function retryLink<TRouter extends AnyRouter = AnyRouter>(opts: {
   attempts: number;
@@ -26,7 +27,7 @@ export function retryLink<TRouter extends AnyRouter = AnyRouter>(opts: {
               attempt();
             },
             next(result) {
-              if ('result' in result.result) {
+              if ("result" in result.result) {
                 isDone = true;
                 observer.next(result);
                 return;

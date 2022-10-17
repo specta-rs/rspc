@@ -4,7 +4,7 @@ import { useQuery } from "../src/rspc";
 import styles from "../styles/Home.module.css";
 
 const UsingUseQuery: NextPage = () => {
-  const { data, isLoading, error } = useQuery(["echo", "Hello!"]);
+  const { data, isLoading, error } = useQuery(["basic.echo", "Hello!"]);
 
   return (
     <div className={styles.container}>

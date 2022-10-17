@@ -1,11 +1,13 @@
-import { waitFor } from '@testing-library/dom';
-import { OperationLink } from '..';
-import { AnyRouter } from '../../../server/src';
-import { observable } from '../../../server/src/observable';
-import { dedupeLink } from './dedupeLink';
-import { createChain } from './internals/createChain';
+// @ts-nocheck // TODO
 
-test('dedupeLink', async () => {
+import { waitFor } from "@testing-library/dom";
+import { OperationLink } from "..";
+import { AnyRouter } from "../../../server/src";
+import { observable } from "../../../server/src/observable";
+import { dedupeLink } from "./dedupeLink";
+import { createChain } from "./internals/createChain";
+
+test("dedupeLink", async () => {
   const endingLinkTriggered = jest.fn();
   const timerTriggered = jest.fn();
   const links: OperationLink<AnyRouter, any, any>[] = [
@@ -18,7 +20,7 @@ test('dedupeLink', async () => {
           timerTriggered();
           subscribe.next({
             result: {
-              type: 'data',
+              type: "data",
               data: {
                 input: op.input,
               },
@@ -34,10 +36,10 @@ test('dedupeLink', async () => {
     const call1 = createChain<AnyRouter, unknown, unknown>({
       links,
       op: {
-        type: 'query',
+        type: "query",
         id: 1,
-        input: 'world',
-        path: 'hello',
+        input: "world",
+        path: "hello",
         context: {},
       },
     });
@@ -45,10 +47,10 @@ test('dedupeLink', async () => {
     const call2 = createChain<AnyRouter, unknown, unknown>({
       links,
       op: {
-        type: 'query',
+        type: "query",
         id: 1,
-        input: 'world',
-        path: 'hello',
+        input: "world",
+        path: "hello",
         context: {},
       },
     });
@@ -65,7 +67,7 @@ test('dedupeLink', async () => {
   }
 });
 
-test('dedupe - cancel one does not cancel the other', async () => {
+test("dedupe - cancel one does not cancel the other", async () => {
   const endingLinkTriggered = jest.fn();
   const timerTriggered = jest.fn();
   const links: OperationLink<AnyRouter, any, any>[] = [
@@ -78,7 +80,7 @@ test('dedupe - cancel one does not cancel the other', async () => {
           timerTriggered();
           subscribe.next({
             result: {
-              type: 'data',
+              type: "data",
               data: {
                 input: op.input,
               },
@@ -95,10 +97,10 @@ test('dedupe - cancel one does not cancel the other', async () => {
     const call1 = createChain<AnyRouter, unknown, unknown>({
       links,
       op: {
-        type: 'query',
+        type: "query",
         id: 1,
-        input: 'world',
-        path: 'hello',
+        input: "world",
+        path: "hello",
         context: {},
       },
     });
@@ -106,10 +108,10 @@ test('dedupe - cancel one does not cancel the other', async () => {
     const call2 = createChain<AnyRouter, unknown, unknown>({
       links,
       op: {
-        type: 'query',
+        type: "query",
         id: 1,
-        input: 'world',
-        path: 'hello',
+        input: "world",
+        path: "hello",
         context: {},
       },
     });

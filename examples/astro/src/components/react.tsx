@@ -5,17 +5,16 @@ import {
   loggerLink,
   wsLink,
 } from "@rspc/client";
-import { createReactQueryHooks } from "@rspc/react";
-import { normi } from "@rspc/normi";
+import { createReactHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
 import type { Procedures } from "../../../bindings";
 
-export const rspc = createReactQueryHooks<Procedures>();
+export const rspc = createReactHooks<Procedures>();
 
 export const fetchQueryClient = new QueryClient();
-const fetchClient = createClient<Procedures>({
+const fetchClient = rspc.createClient({
   // onError(opts) {
   //   console.error("A", opts);
   // },
@@ -37,7 +36,7 @@ const wsClient2 = createWSClient({
 });
 
 export const wsQueryClient = new QueryClient();
-const wsClient = createClient<Procedures>({
+const wsClient = rspc.createClient({
   // onError(opts) {
   //   console.error("B", opts);
   // },

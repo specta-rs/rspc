@@ -1,9 +1,11 @@
-import { observable } from '@trpc/server/observable';
-import { AnyRouter } from '@trpc/server/src';
-import { createChain } from './createChain';
+// @ts-nocheck // TODO
 
-describe('chain', () => {
-  test('trivial', () => {
+import { observable } from "@trpc/server/observable";
+import { AnyRouter } from "@trpc/server/src";
+import { createChain } from "./createChain";
+
+describe("chain", () => {
+  test("trivial", () => {
     const result$ = createChain<AnyRouter, unknown, unknown>({
       links: [
         ({ next, op }) => {
@@ -19,7 +21,7 @@ describe('chain', () => {
             observer.next({
               context: {},
               result: {
-                type: 'data',
+                type: "data",
                 data: {
                   input: op.input,
                 },
@@ -30,10 +32,10 @@ describe('chain', () => {
         },
       ],
       op: {
-        type: 'query',
+        type: "query",
         id: 1,
-        input: 'world',
-        path: 'hello',
+        input: "world",
+        path: "hello",
         context: {},
       },
     });
@@ -44,7 +46,7 @@ describe('chain', () => {
     // console.log(next.mock.calls);
     expect(next).toHaveBeenCalledTimes(1);
   });
-  test('multiple responses', () => {
+  test("multiple responses", () => {
     const result$ = createChain<AnyRouter, unknown, unknown>({
       links: [
         ({ next, op }) => {
@@ -52,8 +54,8 @@ describe('chain', () => {
             observer.next({
               context: {},
               result: {
-                type: 'data',
-                data: 'from cache',
+                type: "data",
+                data: "from cache",
               },
             });
             const subscription = next(op).subscribe(observer);
@@ -66,7 +68,7 @@ describe('chain', () => {
           return observable((observer) => {
             observer.next({
               result: {
-                type: 'data',
+                type: "data",
                 data: {
                   input: op.input,
                 },
@@ -77,10 +79,10 @@ describe('chain', () => {
         },
       ],
       op: {
-        type: 'query',
+        type: "query",
         id: 1,
-        input: 'world',
-        path: 'hello',
+        input: "world",
+        path: "hello",
         context: {},
       },
     });

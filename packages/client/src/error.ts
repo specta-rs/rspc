@@ -137,6 +137,8 @@ export class RSPCError extends Error {
   public readonly data: any; // TODO; Maybe<inferErrorShape<TRouterOrProcedure>["data"]>;
   public readonly meta;
 
+  public readonly code: number = 0; // TODO: Hook this back up
+
   constructor(
     message: string,
     opts?: {

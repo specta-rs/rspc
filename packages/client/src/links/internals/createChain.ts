@@ -1,5 +1,5 @@
 import { observable } from "../..";
-import { ProcedureDef } from "../../../typescript";
+import { ProcedureDef } from "@rspc/client";
 import { Operation, OperationLink, OperationResultObservable } from "../types";
 
 /** @internal */

@@ -1,7 +1,9 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-import { observable, share, tap } from '.';
+// @ts-nocheck // TODO
 
-test('vanilla observable - complete()', () => {
+/* eslint-disable @typescript-eslint/no-empty-function */
+import { observable, share, tap } from ".";
+
+test("vanilla observable - complete()", () => {
   const obs = observable<number, Error>((observer) => {
     observer.next(1);
     observer.complete();
@@ -21,7 +23,7 @@ test('vanilla observable - complete()', () => {
   expect(next.mock.calls[0]![0]!).toBe(1);
 });
 
-test('vanilla observable - unsubscribe()', () => {
+test("vanilla observable - unsubscribe()", () => {
   const obs$ = observable<number, Error>((observer) => {
     observer.next(1);
   });
@@ -41,7 +43,7 @@ test('vanilla observable - unsubscribe()', () => {
   expect(next.mock.calls[0]![0]!).toBe(1);
 });
 
-test('pipe - combine operators', () => {
+test("pipe - combine operators", () => {
   const taps = {
     next: jest.fn(),
     complete: jest.fn(),
@@ -52,7 +54,7 @@ test('pipe - combine operators', () => {
   }).pipe(
     // operators:
     share(),
-    tap(taps),
+    tap(taps)
   );
   {
     const next = jest.fn();

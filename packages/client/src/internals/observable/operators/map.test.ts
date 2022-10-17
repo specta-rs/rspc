@@ -1,7 +1,9 @@
-import { EventEmitter } from 'events';
-import { expectTypeOf } from 'expect-type';
-import { map } from '.';
-import { observable } from '../observable';
+// @ts-nocheck // TODO
+
+import { EventEmitter } from "events";
+import { expectTypeOf } from "expect-type";
+import { map } from ".";
+import { observable } from "../observable";
 
 interface SubscriptionEvents<TOutput> {
   data: (data: TOutput) => void;
@@ -10,12 +12,12 @@ interface SubscriptionEvents<TOutput> {
 declare interface CustomEventEmitter<TOutput> {
   on<U extends keyof SubscriptionEvents<TOutput>>(
     event: U,
-    listener: SubscriptionEvents<TOutput>[U],
+    listener: SubscriptionEvents<TOutput>[U]
   ): this;
 
   once<U extends keyof SubscriptionEvents<TOutput>>(
     event: U,
-    listener: SubscriptionEvents<TOutput>[U],
+    listener: SubscriptionEvents<TOutput>[U]
   ): this;
 
   emit<U extends keyof SubscriptionEvents<TOutput>>(
@@ -26,17 +28,17 @@ declare interface CustomEventEmitter<TOutput> {
 class CustomEventEmitter<TOutput>
   extends EventEmitter
   implements CustomEventEmitter<TOutput> {}
-test('map', () => {
+test("map", () => {
   type EventShape = { num: number };
   const ee = new CustomEventEmitter<EventShape>();
   const eventObservable = observable<EventShape, unknown>((observer) => {
     const callback = (data: EventShape) => {
       observer.next(data);
     };
-    ee.on('data', callback);
+    ee.on("data", callback);
 
     return () => {
-      ee.off('data', callback);
+      ee.off("data", callback);
     };
   });
   const pipeCalls = jest.fn();
@@ -45,7 +47,7 @@ test('map', () => {
       pipeCalls(...args);
       const [value] = args;
       return value.num;
-    }),
+    })
   );
 
   const next = jest.fn();
@@ -56,8 +58,8 @@ test('map', () => {
     },
   });
   expect(next).not.toHaveBeenCalled();
-  ee.emit('data', { num: 1 });
-  ee.emit('data', { num: 2 });
+  ee.emit("data", { num: 1 });
+  ee.emit("data", { num: 2 });
   expect(next).toHaveBeenCalledTimes(2);
   expect(next.mock.calls).toMatchInlineSnapshot(`
     Array [
@@ -86,7 +88,7 @@ test('map', () => {
     ]
   `);
 
-  expect(ee.listeners('data')).toHaveLength(1);
+  expect(ee.listeners("data")).toHaveLength(1);
   subscription.unsubscribe();
-  expect(ee.listeners('data')).toHaveLength(0);
+  expect(ee.listeners("data")).toHaveLength(0);
 });

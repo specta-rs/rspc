@@ -7,7 +7,7 @@ import styles from "../styles/Home.module.css";
 const UsingUseSubscription: NextPage = () => {
   const [pings, setPings] = useState(0);
 
-  useSubscription(["pings"], {
+  useSubscription(["subscriptions.pings"], {
     onData: () => setPings((currentPings) => currentPings + 1),
   });
 

@@ -1,11 +1,13 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
-import { observable } from '@trpc/server/observable';
-import { splitLink } from '../';
-import { OperationLink, TRPCLink } from '../';
-import { AnyRouter } from '../../../server/src';
-import { createChain } from '../links/internals/createChain';
+// @ts-nocheck // TODO
 
-test('splitLink', () => {
+/* eslint-disable @typescript-eslint/no-empty-function */
+import { observable } from "@trpc/server/observable";
+import { splitLink } from "../";
+import { OperationLink, TRPCLink } from "../";
+import { AnyRouter } from "../../../server/src";
+import { createChain } from "../links/internals/createChain";
+
+test("splitLink", () => {
   const wsLinkSpy = jest.fn();
   const wsLink: TRPCLink<any> = () => () =>
     observable(() => {
@@ -20,7 +22,7 @@ test('splitLink', () => {
     // "dedupe link"
     splitLink({
       condition(op) {
-        return op.type === 'subscription';
+        return op.type === "subscription";
       },
       true: wsLink,
       false: [httpLink],
@@ -30,9 +32,9 @@ test('splitLink', () => {
   createChain({
     links,
     op: {
-      type: 'query',
+      type: "query",
       input: null,
-      path: '.',
+      path: ".",
       id: 0,
       context: {},
     },
@@ -44,9 +46,9 @@ test('splitLink', () => {
   createChain({
     links,
     op: {
-      type: 'subscription',
+      type: "subscription",
       input: null,
-      path: '.',
+      path: ".",
       id: 0,
       context: {},
     },

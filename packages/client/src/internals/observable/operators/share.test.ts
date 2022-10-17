@@ -1,12 +1,14 @@
-/* eslint-disable no-var */
-import { observable } from '../observable';
-import { share } from './share';
+// @ts-nocheck // TODO
 
-test('share', () => {
+/* eslint-disable no-var */
+import { observable } from "../observable";
+import { share } from "./share";
+
+test("share", () => {
   const obs = share()(
     observable<number, Error>((observer) => {
       observer.next(1);
-    }),
+    })
   );
 
   {
