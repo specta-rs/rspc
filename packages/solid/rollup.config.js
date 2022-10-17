@@ -1,4 +1,4 @@
-import withSolid from "rollup-preset-solid";
+const withSolid = require("rollup-preset-solid").default;
 
 export default withSolid({
   targets: ["esm", "cjs"],
