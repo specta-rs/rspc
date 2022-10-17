@@ -69,8 +69,8 @@ export function createWSClient(opts: WebSocketClientOptions) {
   const pendingRequests: Record<number | string, TRequest> =
     Object.create(null);
   let connectAttempt = 0;
-  let dispatchTimer: NodeJS.Timer | number | null = null;
-  let connectTimer: NodeJS.Timer | number | null = null;
+  let dispatchTimer: ReturnType<typeof setTimeout> | number | null = null;
+  let connectTimer: ReturnType<typeof setTimeout> | number | null = null;
   let activeConnection = createWS();
   let state: "open" | "connecting" | "closed" = "connecting";
   /**

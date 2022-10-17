@@ -41,7 +41,7 @@ export function createTauriClient(): TRPCWebSocketClient {
   };
   const pendingRequests: Record<number | string, TRequest> =
     Object.create(null);
-  let dispatchTimer: NodeJS.Timer | number | null = null;
+  let dispatchTimer: ReturnType<typeof setTimeout> | number | null = null;
   let state: "open" | "closed" = "open";
 
   function dispatch() {

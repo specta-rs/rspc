@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
 
+      - name: Generate test bindings
+        run: cargo test -p example tests::test_rspc_router -- --exact
+
       - name: Typecheck
         run: pnpm typecheck
 
