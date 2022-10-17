@@ -12,7 +12,7 @@ const Home: NextPage = () => (
     <main className={styles.main}>
       <h1 className={styles.title}>
         Welcome to{" "}
-        <a href="https://rspc.otbeaumont.me" target="_blank">
+        <a href="https://rspc.dev" target="_blank">
           RSPC
         </a>{" "}
         with{" "}

@@ -1,9 +1,12 @@
 [package]
-name = "{{name}}"
+name = "__name__"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.64"
+publish = false
 
 [dependencies]
 tokio = { version = "1.21.1", features = ["rt-multi-thread", "macros", "signal"] }
 axum = "0.5.16"
-rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "0.0.6", features = ["axum"] }
+rspc = { version = "0.1.2", features = ["axum"] }
+dotenv = "0.15.0"

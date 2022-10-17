@@ -8,7 +8,7 @@
    A blazing fast and easy to use TRPC-like server for Rust.
  </strong>
 </div>
-<a align="center" href="https://rspc.otbeaumont.me">
+<a align="center" href="https://rspc.dev">
   <p>Website</p>
 </a>
 

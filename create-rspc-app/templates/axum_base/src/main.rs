@@ -16,6 +16,8 @@ fn router() -> axum::Router {
 
 #[tokio::main]
 async fn main() {
+    dotenv::dotenv().ok();
+    
     let addr = "[::]:9000".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("{} listening on http://{}", env!("CARGO_CRATE_NAME"), addr);
     axum::Server::bind(&addr)
