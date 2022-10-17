@@ -68,3 +68,41 @@ fn main() {
         )
 }
 ```
+
+# Crate Features
+
+rspc has many [crate features](https://doc.rust-lang.org/cargo/reference/features.html) which are disabled by default. The feature names match the crate which the feature integrates with.
+
+<table>
+<tr>
+</tr>
+<tr>
+<td>
+
+ - [axum](https://github.com/tokio-rs/axum)
+ - [tauri](https://tauri.app)
+ - [uuid](https://github.com/uuid-rs/uuid)
+ - [chrono](https://github.com/chronotope/chrono)
+ - [time](https://github.com/time-rs/time)
+ - [bigdecimal](https://github.com/akubera/bigdecimal-rs)
+
+</td>
+<td>
+
+ - [rust_decimal](https://github.com/paupino/rust-decimal)
+ - [indexmap](https://github.com/bluss/indexmap)
+ - [ipnetwork](https://github.com/achanda/ipnetwork)
+ - [mac_address](https://github.com/repnop/mac_address)
+ - [tracing](https://github.com/tokio-rs/tracing)
+
+</td>
+</tr>
+</table>
+
+To enable a feature you must add it to the features list in your `Cargo.toml` file like the following:
+
+```toml
+[dependencies]
+...
+rspc = { version = "0.0.0", features = ["uuid", "chrono"] }
+```
