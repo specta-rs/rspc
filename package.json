@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* exec pnpm build",
+    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
     "typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",
@@ -17,7 +17,8 @@
     "normi": "pnpm --filter @rspc/normi -- ",
     "react": "pnpm --filter @rspc/react -- ",
     "solid": "pnpm --filter @rspc/solid -- ",
-    "tauri": "pnpm --filter @rspc/tauri -- "
+    "tauri": "pnpm --filter @rspc/tauri -- ",
+    "set-package-versions": "node .github/scripts/setPackageVersions.js"
   },
   "engines": {
     "pnpm": ">=7.0.0",
