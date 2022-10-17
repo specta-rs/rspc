@@ -1,5 +1,5 @@
 const withSolid = require("rollup-preset-solid").default;
 
-export default withSolid({
+module.exports = withSolid({
   targets: ["esm", "cjs"],
 });
