@@ -18,7 +18,7 @@ proc-macro = true
 
 [dependencies]
 Inflector = { version = "0.11.4", default-features = false }
-proc-macro2 = "1.0.44"
+proc-macro2 = "1.0.47"
 quote = "1.0.21"
-syn = { version = "1.0.100", features = ["parsing"] }
+syn = { version = "1.0.102", features = ["parsing"] }
 termcolor = { version = "1.1.3", optional = true }

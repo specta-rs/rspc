@@ -52,7 +52,7 @@ jobs:
         run: pnpm publish -r ${TAG} --no-git-checks --filter "@rspc/*" --access public
         env:
           TAG: ${{ (github.ref == 'refs/heads/main' && '--tag=main') || '' }}
-          NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
 
       # - name: Configure release version
       #   if: github.ref_type == 'tag'
@@ -63,4 +63,4 @@ jobs:
       #   run: pnpm publish -r ${TAG} --no-git-checks --filter "@rspc/*" --access public
       #   env:
       #     TAG: ${{ (contains(github.ref_name, '-beta.') && '--tag=beta') || ''}}
-      #     NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      #     NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}

@@ -12,12 +12,12 @@ keywords = ["rspc", "prisma-client-rust", "pcr", "tauri", "axum"]
 categories = ["web-programming", "asynchronous"]
 
 [dependencies]
-include_dir = "0.7.2"
+include_dir = "0.7.3"
 requestty = "0.5.0"
 strum = { version = "0.24.1", features = ["derive"] }
 rustc_version = "0.4.0"
 ureq = { version = "2.5.0", features = ["json"] }
-serde_json = "1.0.85"
+serde_json = "1.0.86"
 ctrlc = "3.2.3"
 thiserror = "1.0.37"
 
