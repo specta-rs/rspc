@@ -5,6 +5,6 @@
     "moduleResolution": "node",
     "lib": ["esnext", "dom"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "client.ts"],
   "exclude": ["dist/**/*"]
 }

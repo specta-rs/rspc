@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+    # tags:
+    #   - '[0-9]+.[0-9]+.[0-9]+*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/**'
+
+jobs:
+  build-publish:
+    name: Build and Publish to NPM
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.repository == 'oscartbeaumont/rspc'
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Configure main version
+        if: github.ref == 'refs/heads/main'
+        run: pnpm set-package-versions
+        env:
+          RELEASE_COMMIT_SHA: ${{ github.sha }}
+
+      - name: Publish main to npm
+        if: github.ref == 'refs/heads/main'
+        run: pnpm publish -r ${TAG} --no-git-checks --filter "@rspc/*" --access public
+        env:
+          TAG: ${{ (github.ref == 'refs/heads/main' && '--tag=main') || '' }}
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # - name: Configure release version
+      #   if: github.ref_type == 'tag'
+      #   run: pnpm set-package-versions
+
+      # - name: Publish release to npm
+      #   if: github.ref_type == 'tag'
+      #   run: pnpm publish -r ${TAG} --no-git-checks --filter "@rspc/*" --access public
+      #   env:
+      #     TAG: ${{ (contains(github.ref_name, '-beta.') && '--tag=beta') || ''}}
+      #     NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,9 +1,11 @@
-use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 
-use futures::Stream;
+use futures::{future::BoxFuture, stream::BoxStream};
+use serde::Serialize;
 use serde_json::Value;
+use specta::Type;
 
-use crate::{ExecError, MiddlewareLike};
+use crate::{internal::MiddlewareLike, ExecError};
 
 pub trait MiddlewareBuilderLike<TCtx> {
     type LayerContext: 'static;
@@ -98,13 +100,8 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    fn call(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-    ) -> Result<LayerResult, ExecError> {
-        self.mw.handle(ctx, input, req, self.next.clone())
+    fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> ExecResult<LayerFuture> {
+        Ok(self.mw.handle(ctx, input, req, self.next.clone()))
     }
 }
 
@@ -137,13 +134,13 @@ where
 
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerFuture, ExecError>;
 }
 
 pub struct ResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerFuture, ExecError>
         + Send
         + Sync
         + 'static,
@@ -155,12 +152,12 @@ where
 impl<T, TLayerCtx> Layer<TLayerCtx> for ResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerFuture, ExecError>
         + Send
         + Sync
         + 'static,
 {
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerFuture, ExecError> {
         (self.func)(a, b, c)
     }
 }
@@ -169,7 +166,7 @@ impl<TLayerCtx> Layer<TLayerCtx> for Box<dyn Layer<TLayerCtx> + 'static>
 where
     TLayerCtx: 'static,
 {
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerFuture, ExecError> {
         (**self).call(a, b, c)
     }
 }
@@ -200,37 +197,90 @@ pub struct RequestContext {
     pub path: String, // TODO: String slice??
 }
 
-pub enum ValueOrStream {
-    Value(Value),
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+pub type ExecResult<T> = Result<T, ExecError>;
+
+pub enum RequestFuture {
+    Ready(ExecResult<Value>),
+    Future(BoxFuture<'static, ExecResult<Value>>),
 }
 
-pub enum ValueOrStreamOrFutureStream {
-    Value(Value),
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
-}
-
-pub enum LayerResult {
-    Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
-    FutureValueOrStream(Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>),
-    FutureValueOrStreamOrFutureStream(
-        Pin<Box<dyn Future<Output = Result<ValueOrStreamOrFutureStream, ExecError>> + Send>>,
-    ),
-    Ready(Result<Value, ExecError>),
-}
-
-impl LayerResult {
-    pub async fn into_value_or_stream(self) -> Result<ValueOrStream, ExecError> {
+impl RequestFuture {
+    pub async fn exec(self) -> ExecResult<Value> {
         match self {
-            LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
-            LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
-            LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
-            LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
-                ValueOrStreamOrFutureStream::Value(val) => ValueOrStream::Value(val),
-                ValueOrStreamOrFutureStream::Stream(stream) => ValueOrStream::Stream(stream),
-            }),
-            LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
+            Self::Ready(res) => res,
+            Self::Future(fut) => fut.await,
         }
+    }
+}
+
+pub trait RequestResultData: Serialize + Type + Send + 'static {}
+impl<T: Serialize + Type + Send + 'static> RequestResultData for T {}
+
+pub enum TypedRequestFuture<T> {
+    Ready(ExecResult<T>),
+    Future(BoxFuture<'static, ExecResult<T>>),
+}
+
+impl<T> TypedRequestFuture<T>
+where
+    T: RequestResultData,
+{
+    pub fn to_request_future(self) -> RequestFuture {
+        match self {
+            Self::Ready(val) => RequestFuture::Ready({
+                val.map(|v| serde_json::to_value(v).map_err(ExecError::DeserializingArgErr))
+                    .and_then(|v| v)
+            }),
+            Self::Future(fut) => RequestFuture::Future(Box::pin(async move {
+                fut.await
+                    .map(serde_json::to_value)?
+                    .map_err(ExecError::DeserializingArgErr)
+            })),
+        }
+    }
+
+    pub async fn exec(self) -> ExecResult<T> {
+        match self {
+            Self::Ready(res) => res,
+            Self::Future(fut) => fut.await,
+        }
+    }
+}
+
+pub type StreamItem = ExecResult<Value>;
+pub type StreamFuture = BoxStream<'static, StreamItem>;
+
+pub enum LayerFuture {
+    Request(RequestFuture),
+    Stream(StreamFuture),
+    Wrapped(BoxFuture<'static, ExecResult<LayerFuture>>),
+}
+
+pub enum LayerReturn {
+    Request(Value),
+    Stream(BoxStream<'static, StreamItem>),
+}
+
+impl LayerFuture {
+    pub fn into_layer_return(self) -> BoxFuture<'static, ExecResult<LayerReturn>> {
+        Box::pin(async {
+            match self {
+                Self::Request(req) => req.exec().await.map(LayerReturn::Request),
+                Self::Stream(stream) => Ok(LayerReturn::Stream(stream)),
+                Self::Wrapped(fut) => fut.await?.into_layer_return().await,
+            }
+        })
+    }
+}
+
+impl From<RequestFuture> for LayerFuture {
+    fn from(v: RequestFuture) -> Self {
+        Self::Request(v)
+    }
+}
+
+impl From<StreamFuture> for LayerFuture {
+    fn from(v: StreamFuture) -> Self {
+        Self::Stream(v)
     }
 }

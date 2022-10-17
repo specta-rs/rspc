@@ -9,8 +9,14 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "default": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.mjs",
+      "default": "./dist/internal.js"
     }
   },
   "types": "dist/index.d.ts",
@@ -24,7 +30,8 @@
   },
   "tsup": {
     "entry": [
-      "src/index.tsx"
+      "src/index.tsx",
+      "src/internal.ts"
     ],
     "format": [
       "esm",
@@ -41,7 +48,7 @@
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^4.8.0",
+    "@tanstack/react-query": "^4.12.0",
     "@types/react": "^18.0.21",
     "react": "^18.2.0",
     "tsup": "^6.2.3",

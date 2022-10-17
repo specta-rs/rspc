@@ -1,5 +1,12 @@
-import { createClient, FetchTransport, WebsocketTransport } from "@rspc/client";
+import {
+  createClient,
+  createWSClient,
+  httpLink,
+  loggerLink,
+  wsLink,
+} from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";
+import { normi } from "@rspc/normi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
@@ -9,22 +16,53 @@ export const rspc = createReactQueryHooks<Procedures>();
 
 export const fetchQueryClient = new QueryClient();
 const fetchClient = createClient<Procedures>({
-  transport: new FetchTransport("http://localhost:4000/rspc"),
+  // onError(opts) {
+  //   console.error("A", opts);
+  // },
+  links: [
+    // loggerLink(),
+    httpLink({
+      url: "http://localhost:4000/rspc",
+    }),
+    // TODO: Support batching server-side
+    // httpBatchLink({
+    //   url: "http://localhost:4000/rspc",
+    // }),
+  ],
+});
+
+// TODO: Remove this abstraction or keep it?
+const wsClient2 = createWSClient({
+  url: "ws://localhost:4000/rspc/ws",
 });
 
 export const wsQueryClient = new QueryClient();
 const wsClient = createClient<Procedures>({
-  transport: new WebsocketTransport("ws://localhost:4000/rspc/ws"),
+  // onError(opts) {
+  //   console.error("B", opts);
+  // },
+  links: [
+    // loggerLink(),
+    wsLink({
+      client: wsClient2,
+    }),
+  ],
 });
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
   const { data: version } = rspc.useQuery(["version"]);
-  const { data: transformMe } = rspc.useQuery(["transformMe"]);
-  const { data: echo } = rspc.useQuery(["echo", "Hello From Frontend!"]);
-  const { mutate, isLoading } = rspc.useMutation("sendMsg");
-  const { error } = rspc.useQuery(["error"], {
+  const { data: transformMe } = rspc.useQuery(["basic.transformMe"]);
+  const { data: echo } = rspc.useQuery(["basic.echo", "Hello From Frontend!"]);
+  const { mutate, isLoading } = rspc.useMutation("basic.sendMsg");
+  const { error } = rspc.useQuery(["basic.error"], {
     retry: false,
+    onSuccess(v) {
+      console.log("WHY", v);
+    },
+    onError(err) {
+      console.error("A", err);
+    },
   });
 
   return (
@@ -53,7 +91,7 @@ function Example({ name }: { name: string }) {
 
 function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
   const [i, setI] = useState(0);
-  rspc.useSubscription(["pings"], {
+  rspc.useSubscription(["subscriptions.pings"], {
     onData(msg) {
       setI((i) => i + 1);
     },

@@ -1,0 +1,26 @@
+[package]
+name = "normi"
+description = "A normalised caching layer for rspc."
+version = "0.0.1"
+edition = "2021"
+
+[features]
+default = ["rspc"]
+rspc = ["dep:rspc"]
+
+[dependencies]
+rspc = { path = "../../", optional = true }
+normi-macros = { path = "./macros" }
+serde = "1.0.145"
+serde_json = "1.0.85"
+specta = { version = "0.0.4", path = "../specta" }
+
+[dev-dependencies]
+rspc = { path = "../../", features = ["axum"] }
+axum = "0.5.16"
+tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread"] }
+tower-http = { version = "0.3.4", default-features = false, features = [
+  "cors",
+] }
+trybuild = "1.0.65"
+assert-json-diff = "2.0.2"

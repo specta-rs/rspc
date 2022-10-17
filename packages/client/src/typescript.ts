@@ -1,3 +1,5 @@
+import { Client, ClientArgs } from ".";
+
 // TODO: This should come from Rust via Specta
 export type OperationType =
   | "query"
@@ -10,12 +12,87 @@ export type ProcedureDef = { key: string; input: any; result: any };
 
 /**
  * This type represents the Typescript bindings which are generated from the router by Rust.
+ *
+ * @internal
  */
 export type ProceduresDef = {
   queries: ProcedureDef;
   mutations: ProcedureDef;
   subscriptions: ProcedureDef;
 };
+
+/**
+ * TODO
+ *
+ * @internal
+ */
+export type HookCreateFunction<
+  TContext,
+  TBaseProcedures extends ProceduresDef = never,
+  TQueries extends ProcedureDef = TBaseProcedures["queries"],
+  TMutations extends ProcedureDef = TBaseProcedures["mutations"],
+  TSubscriptions extends ProcedureDef = TBaseProcedures["subscriptions"]
+> = (
+  hookOpts?: HookOptions
+) => Hooks<TContext, TBaseProcedures, TQueries, TMutations, TSubscriptions>;
+
+/**
+ * TODO
+ *
+ * @internal
+ */
+export type HookOptions = {
+  /**
+   * TODO
+   *
+   * @internal
+   */
+  internal?: {
+    /**
+     * WARNING: Using these hooks to modify data may result in incorrect types.
+     */
+    customHooks?: () => CustomHooks;
+  };
+};
+
+export interface CustomHooks {
+  mapQueryKey?(keyAndInput: [string] | [string, any]): [string] | [string, any];
+  doQuery?(
+    keyAndInput: [string] | [string, any],
+    next: (keyAndInput: [string] | [string, any]) => Promise<any>
+  ): Promise<any>;
+  doMutation?(
+    keyAndInput: [string] | [string, any],
+    next: (keyAndInput: [string] | [string, any]) => Promise<any>
+  ): Promise<any>;
+  dangerous?: {
+    useQuery?(
+      keyAndInput: [string] | [string, any],
+      handler: () => Promise<any>,
+      opts?: any
+    ): any;
+    useMutation?(handler: (input: any) => Promise<any>, opts?: any): any;
+  };
+}
+
+/**
+ * TODO
+ *
+ * @internal
+ */
+export type Hooks<
+  TContext,
+  TBaseProcedures extends ProceduresDef = never,
+  TQueries extends ProcedureDef = TBaseProcedures["queries"],
+  TMutations extends ProcedureDef = TBaseProcedures["mutations"],
+  TSubscriptions extends ProcedureDef = TBaseProcedures["subscriptions"]
+> = {
+  createClient(
+    opts: ClientArgs
+  ): Client<TBaseProcedures, TQueries, TMutations, TSubscriptions>;
+  useContext(): TContext;
+  // useQuery();
+}; // TODO
 
 /**
  * A type which allows inferring the type of the bindings

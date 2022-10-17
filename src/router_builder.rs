@@ -9,9 +9,22 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer,
-    Resolver, Router, StreamResolver,
+    internal::{
+        DoubleArgStreamMarker, GlobalData, MiddlewareBuilder, MiddlewareLike, ProcedureKind,
+        RequestResolver, RequestResult, StreamResolver,
+    },
+    Config, ExecError, Router,
 };
+
+pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
+    s.is_empty()
+        || s == "ws"
+        || s.starts_with("rpc.")
+        || s.starts_with("rspc.")
+        || !s
+            .chars()
+            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '.' || c == '_')
+}
 
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
@@ -22,6 +35,7 @@ pub struct RouterBuilder<
     TMeta: Send + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
+    data: GlobalData,
     config: Config,
     middleware: TMiddleware,
     queries: ProcedureStore<TCtx>,
@@ -50,6 +64,7 @@ where
 {
     pub fn new() -> Self {
         Self {
+            data: GlobalData::default(),
             config: Config::new(),
             middleware: BaseMiddleware::default(),
             queries: ProcedureStore::new("query"),
@@ -87,6 +102,7 @@ where
         TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
     {
         let Self {
+            data,
             config,
             middleware,
             queries,
@@ -98,6 +114,7 @@ where
 
         let mw = builder(MiddlewareBuilder(PhantomData));
         RouterBuilder {
+            data,
             config,
             middleware: MiddlewareLayerBuilder {
                 middleware,
@@ -112,60 +129,93 @@ where
         }
     }
 
-    pub fn query<TResolver, TArg, TResult, TResultMarker>(
+    pub fn query<
+        TUnbuiltResolver,
+        TUnbuiltResult,
+        TUnbuiltResultMarker,
+        TBuiltResolver,
+        TBuiltResolverMarker,
+        TBuiltResultMarker,
+    >(
         mut self,
         key: &'static str,
-        builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
+        builder: impl FnOnce(
+            UnbuiltProcedureBuilder<TLayerCtx, TUnbuiltResolver>,
+        ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
+        TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        let built_procedure = builder(UnbuiltProcedureBuilder::new(
+            key,
+            ProcedureKind::Query,
+            TBuiltResolver::typedef(&mut self.typ_store),
+            self.data.clone(),
+        ));
+        let resolver = built_procedure.resolver;
+
         self.queries.append(
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .map(|v| v.to_request_future().into())
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            built_procedure.typedef,
         );
         self
     }
 
-    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+    pub fn mutation<
+        TUnbuiltResolver,
+        TUnbuiltResult,
+        TUnbuiltResultMarker,
+        TBuiltResolver,
+        TBuiltResolverMarker,
+        TBuiltResultMarker,
+    >(
         mut self,
         key: &'static str,
-        builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
+        builder: impl FnOnce(
+            UnbuiltProcedureBuilder<TLayerCtx, TUnbuiltResolver>,
+        ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
+        TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        let built_procedure = builder(UnbuiltProcedureBuilder::new(
+            key,
+            ProcedureKind::Mutation,
+            TBuiltResolver::typedef(&mut self.typ_store),
+            self.data.clone(),
+        ));
+        let resolver = built_procedure.resolver;
         self.mutations.append(
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .map(|v| v.to_request_future().into())
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            built_procedure.typedef,
         );
         self
     }
@@ -173,7 +223,7 @@ where
     pub fn subscription<TResolver, TArg, TStream, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
@@ -187,19 +237,28 @@ where
             + Sync
             + 'static,
     {
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        let built_procedure = builder(UnbuiltProcedureBuilder::new(
+            key,
+            ProcedureKind::Subscription,
+            TResolver::typedef(&mut self.typ_store),
+            self.data.clone(),
+        ));
+        let resolver = built_procedure.resolver;
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .map(Into::into)
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            built_procedure.typedef,
         );
         self
     }
@@ -219,14 +278,17 @@ where
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
         #[allow(clippy::panic)]
-        if prefix.is_empty() || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
+        if is_valid_procedure_name(prefix) {
             panic!(
                 "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
                 prefix
             );
         }
 
+        // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
+
         let Self {
+            data,
             config,
             middleware,
             mut queries,
@@ -265,6 +327,7 @@ where
         }
 
         RouterBuilder {
+            data,
             config,
             middleware: MiddlewareMerger {
                 middleware,
@@ -281,6 +344,7 @@ where
 
     pub fn build(self) -> Router<TCtx, TMeta> {
         let Self {
+            data,
             config,
             queries,
             mutations,
@@ -291,6 +355,7 @@ where
 
         let export_path = config.export_bindings_on_build.clone();
         let router = Router {
+            data,
             config,
             queries,
             mutations,

@@ -15,8 +15,8 @@ categories = ["web-programming", "asynchronous"]
 default = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
-httpz = ["dep:httpz"]
-# openapi = ["dep:openapiv3"]
+httpz = ["dep:httpz", "httpz/cookies"]
+openapi = ["dep:openapiv3", "dep:httpz", "dep:include_dir", "dep:mime_guess", "specta/openapi"]
 # playground = []
 
 # Webservers # Axum feature basically always enabled because we use the extractors regardless of webserver
@@ -25,8 +25,8 @@ actix-web = ["httpz/actix-web", "httpz/tokio-ws", "httpz/axum"]
 # poem = ["httpz/poem"]
 rocket = ["httpz/rocket", "httpz/tokio-ws", "httpz/axum"]
 # warp = ["httpz/warp"]
-lambda = ["httpz/lambda", "httpz/tokio-ws", "httpz/axum"]
-workers = ["httpz/workers"]
+lambda = ["httpz/lambda", "httpz/ws", "httpz/axum"]
+workers = ["httpz/workers", "httpz/ws"]
 
 # Specta
 uuid = ["specta/uuid"]
@@ -41,8 +41,8 @@ bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
 
 [dependencies]
-specta = { version = "0.0.4", path = "./specta", features = ["serde"] }
-httpz = { git = "https://github.com/oscartbeaumont/httpz.git", optional = true } # TODO: Move back to crates.io release
+specta = { version = "0.0.4", path = "./crates/specta", features = ["serde"] }
+httpz = { git = "https://github.com/oscartbeaumont/httpz.git", rev = "1ddbd9ad594ac7ee3e5b167afe689d1ce1228519", optional = true } # TODO: Move back to crates.io release
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
 thiserror = "1.0.36"
@@ -51,15 +51,20 @@ tokio = { version = "1.21.2", features = ["sync", "rt", "macros"] }
 tauri = { version = "1.1.1", optional = true }
 tracing = { version = "0.1.36", optional = true }
 async-stream = "0.3.3"
+openapiv3 = { version = "1.0.1", optional = true }
+include_dir = { version = "0.7.2", optional = true, features = ["metadata"] }
+mime_guess = { version = "2.0.4", optional = true }
 
 [dev-dependencies]
 async-stream = "0.3.3"
 
 [workspace]
 members = [
+    "./crates/normi",
+    "./crates/normi/macros",
+    "./crates/specta",
+    "./crates/specta/macros",
     "./create-rspc-app",
     "./examples",
     "./examples/axum",
-    "./specta",
-    "./specta/macros"
 ]

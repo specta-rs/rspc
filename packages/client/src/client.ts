@@ -1,138 +1,278 @@
-// TODO: Redo this entire system when links are introduced
 import {
   RSPCError,
   ProceduresLike,
-  inferQueryResult,
-  ProceduresDef,
-  inferMutationResult,
   inferProcedures,
-  inferSubscriptionResult,
-  _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  ProcedureDef,
 } from ".";
-import { randomId, Transport } from "./transport";
+import {
+  Unsubscribable,
+  inferObservableValue,
+  observableToPromise,
+  share,
+} from "./internals/observable/index";
 
-// TODO
-export interface SubscriptionOptions<TOutput> {
-  onStarted?: () => void;
-  onData: (data: TOutput) => void;
-  onError?: (err: RSPCError) => void;
+import { createChain } from "./links/internals/createChain";
+import {
+  OnErrorFunction,
+  OperationContext,
+  OperationLink,
+  TRPCClientRuntime,
+  TRPCLink,
+} from "./links/types";
+
+/**
+ * @public
+ */
+export type DataTransformer = {
+  serialize(object: any): any;
+  deserialize(object: any): any;
+};
+
+/**
+ * @public
+ */
+export type CombinedDataTransformer = {
+  input: DataTransformer;
+  output: DataTransformer;
+};
+
+/**
+ * @public
+ */
+export type CombinedDataTransformerClient = {
+  input: Pick<DataTransformer, "serialize">;
+  output: Pick<DataTransformer, "deserialize">;
+};
+
+/**
+ * @public
+ */
+export type DataTransformerOptions = DataTransformer | CombinedDataTransformer;
+
+/**
+ * @public
+ */
+export type ClientDataTransformerOptions =
+  | DataTransformer
+  | CombinedDataTransformerClient;
+
+type TRPCType = "subscription" | "query" | "mutation";
+export interface TRPCRequestOptions {
+  /**
+   * Pass additional context to links
+   */
+  context?: OperationContext;
+  signal?: AbortSignal;
 }
 
-// TODO
+export interface TRPCSubscriptionObserver<TValue, TError> {
+  onStarted: () => void;
+  onData: (value: TValue) => void;
+  onError: (err: TError) => void;
+  onStopped: () => void;
+  onComplete: () => void;
+}
+
 export interface ClientArgs {
-  transport: Transport;
-  onError?: (err: RSPCError) => void | Promise<void>;
+  /**
+   * Data transformer
+   * @link https://trpc.io/docs/data-transformers
+   **/
+  transformer?: ClientDataTransformerOptions;
+  /**
+   * TODO
+   * @link https://rspc.dev/todo
+   **/
+  links: TRPCLink<any>[];
+  /**
+   * TODO
+   * @link https://rspc.dev/todo
+   **/
+  onError?: OnErrorFunction;
 }
 
-// TODO
-export function createClient<TProcedures extends ProceduresLike>(
-  args: ClientArgs
-): Client<inferProcedures<TProcedures>> {
-  return new Client(args);
-}
+// TODO: Probs move these into Typescript helpers
+type Procedure<T extends ProcedureDef, K extends T["key"]> = Extract<
+  T,
+  { key: K }
+>;
 
-// TODO
-export class Client<TProcedures extends ProceduresDef> {
-  public _rspc_def: ProceduresDef = undefined!;
-  private transport: Transport;
-  private subscriptionMap = new Map<string, (data: any) => void>();
-  private onError?: (err: RSPCError) => void | Promise<void>;
-
-  constructor(args: ClientArgs) {
-    this.transport = args.transport;
-    this.transport.clientSubscriptionCallback = (id, value) => {
-      const func = this.subscriptionMap?.get(id);
-      if (func !== undefined) func(value);
+function getTransformer(opts: ClientArgs): DataTransformer {
+  if (!opts.transformer)
+    return {
+      serialize: (data) => data,
+      deserialize: (data) => data,
     };
-    this.subscriptionMap = new Map();
-    this.onError = args.onError;
-  }
-
-  async query<K extends TProcedures["queries"]["key"] & string>(
-    keyAndInput: [
-      key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
-    ]
-  ): Promise<inferQueryResult<TProcedures, K>> {
-    try {
-      return await this.transport.doRequest(
-        "query",
-        keyAndInput[0],
-        keyAndInput[1]
-      );
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      throw err;
-    }
-  }
-
-  async mutation<K extends TProcedures["mutations"]["key"] & string>(
-    keyAndInput: [
-      key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "mutations", K>
-    ]
-  ): Promise<inferMutationResult<TProcedures, K>> {
-    try {
-      return await this.transport.doRequest(
-        "mutation",
-        keyAndInput[0],
-        keyAndInput[1]
-      );
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      throw err;
-    }
-  }
-
-  // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
-  addSubscription<
-    K extends TProcedures["subscriptions"]["key"] & string,
-    TData = inferSubscriptionResult<TProcedures, K>
-  >(
-    keyAndInput: [
-      K,
-      _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
-    ],
-    opts: SubscriptionOptions<TData>
-  ): () => void {
-    try {
-      let subscriptionId = randomId();
-      let unsubscribed = false;
-
-      const cleanup = () => {
-        this.subscriptionMap?.delete(subscriptionId);
-        if (subscriptionId) {
-          this.transport.doRequest(
-            "subscriptionStop",
-            undefined!,
-            subscriptionId
-          );
-        }
-      };
-
-      this.transport.doRequest("subscription", keyAndInput[0], [
-        subscriptionId,
-        keyAndInput[1],
-      ]);
-
-      if (opts.onStarted) opts.onStarted();
-      this.subscriptionMap?.set(subscriptionId, opts.onData);
-
-      return () => {
-        unsubscribed = true;
-        cleanup();
-      };
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-
-      return () => {};
-    }
-  }
+  if ("input" in opts.transformer)
+    return {
+      serialize: opts.transformer.input.serialize,
+      deserialize: opts.transformer.output.deserialize,
+    };
+  return opts.transformer;
 }
+
+export function createClient<
+  TBaseProceduresLike extends ProceduresLike,
+  TQueries extends ProcedureDef = inferProcedures<TBaseProceduresLike>["queries"],
+  TMutations extends ProcedureDef = inferProcedures<TBaseProceduresLike>["mutations"],
+  TSubscriptions extends ProcedureDef = inferProcedures<TBaseProceduresLike>["subscriptions"]
+>(opts: ClientArgs) {
+  type TQuery<K extends TQueries["key"] & string> = Extract<
+    TQueries,
+    { key: K }
+  >;
+  type TMutation<K extends TMutations["key"] & string> = Extract<
+    TMutations,
+    { key: K }
+  >;
+  type TSubscription<K extends TSubscriptions["key"] & string> = Extract<
+    TSubscriptions,
+    { key: K }
+  >;
+  const runtime: TRPCClientRuntime = {
+    transformer: getTransformer(opts),
+    onError: opts.onError,
+  };
+  const links: OperationLink<any>[] = opts.links.map((link) => link(runtime));
+  let requestId = 0;
+
+  function $request<TInput = unknown, TOutput = unknown>({
+    type,
+    input,
+    path,
+    context = {},
+  }: {
+    type: TRPCType;
+    input: TInput;
+    path: string;
+    context?: OperationContext;
+  }) {
+    const chain$ = createChain<inferProcedures<any>, TInput, TOutput>({
+      links: links as OperationLink<any, any, any>[],
+      op: {
+        id: ++requestId,
+        type,
+        path,
+        input,
+        context,
+      },
+    });
+    return chain$.pipe(share());
+  }
+
+  function requestAsPromise<TInput = unknown, TOutput = unknown>(opts: {
+    type: TRPCType;
+    input: TInput;
+    path: string;
+    context?: OperationContext;
+    signal?: AbortSignal;
+  }): Promise<TOutput> {
+    const req$ = $request<TInput, TOutput>(opts);
+    type TValue = inferObservableValue<typeof req$>;
+    const { promise, abort } = observableToPromise<TValue>(req$);
+
+    const abortablePromise = new Promise<TOutput>((resolve, reject) => {
+      opts.signal?.addEventListener("abort", abort);
+
+      promise
+        .then((envelope) => {
+          resolve((envelope.result as any).data);
+        })
+        .catch((err) => {
+          reject(RSPCError.from(err));
+        });
+    });
+
+    return abortablePromise;
+  }
+
+  function query<K extends TQueries["key"] & string>(
+    keyAndInput: [
+      key: K,
+      ...input: TQuery<K>["input"] extends never ? [] : [TQuery<K>["input"]]
+    ],
+    opts?: TRPCRequestOptions
+  ): Promise<TQuery<K>["result"]> {
+    return requestAsPromise<any, any>({
+      type: "query",
+      path: keyAndInput[0],
+      input: keyAndInput[1],
+      context: opts?.context,
+      signal: opts?.signal,
+    });
+  }
+
+  function mutation<K extends TMutations["key"] & string>(
+    keyAndInput: [
+      key: K,
+      ...input: TMutation<K>["input"] extends never
+        ? []
+        : [TMutation<K>["input"]]
+    ],
+    opts?: TRPCRequestOptions
+  ): Promise<TMutation<K>["result"]> {
+    return requestAsPromise<any, any>({
+      type: "mutation",
+      path: keyAndInput[0],
+      input: keyAndInput[1],
+      context: opts?.context,
+      signal: opts?.signal,
+    });
+  }
+
+  function subscription<K extends TSubscriptions["key"] & string>(
+    keyAndInput: [
+      key: K,
+      ...input: TSubscription<K>["input"] extends never
+        ? []
+        : [TSubscription<K>["input"]]
+    ],
+    opts: TRPCRequestOptions &
+      Partial<TRPCSubscriptionObserver<TSubscription<K>["result"], RSPCError>>
+  ): Unsubscribable {
+    const observable$ = $request<any, any>({
+      type: "subscription",
+      path: keyAndInput[0],
+      input: keyAndInput[1],
+      context: opts?.context,
+    });
+    return observable$.subscribe({
+      next(envelope) {
+        if (envelope.result.type === "started") {
+          opts.onStarted?.();
+        } else if (envelope.result.type === "stopped") {
+          opts.onStopped?.();
+        } else {
+          opts.onData?.((envelope.result as any).data);
+        }
+      },
+      error(err) {
+        opts.onError?.(err);
+      },
+      complete() {
+        opts.onComplete?.();
+      },
+    });
+  }
+
+  return {
+    _rspc_def: undefined as unknown as {
+      queries: TQueries;
+      mutations: TMutations;
+      subscriptions: TSubscriptions;
+    },
+    query,
+    mutation,
+    subscription,
+  };
+}
+
+export type Client<
+  TBaseProceduresLike extends ProceduresLike,
+  TQueries extends ProcedureDef = inferProcedures<TBaseProceduresLike>["queries"],
+  TMutations extends ProcedureDef = inferProcedures<TBaseProceduresLike>["mutations"],
+  TSubscriptions extends ProcedureDef = inferProcedures<TBaseProceduresLike>["subscriptions"]
+> = ReturnType<
+  typeof createClient<TBaseProceduresLike, TQueries, TMutations, TSubscriptions>
+>;

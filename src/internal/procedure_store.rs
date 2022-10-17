@@ -2,13 +2,17 @@ use std::collections::BTreeMap;
 
 use specta::DataType;
 
+use crate::is_valid_procedure_name;
+
 use super::Layer;
 
-// TODO: Make private
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProcedureDataType {
     pub arg_ty: DataType,
     pub result_ty: DataType,
+    /// TODO: Remove these
+    pub inline_arg_ty: DataType,
+    pub inline_result_ty: DataType,
 }
 
 // TODO: Make private
@@ -32,7 +36,7 @@ impl<TCtx> ProcedureStore<TCtx> {
 
     pub fn append(&mut self, key: String, exec: Box<dyn Layer<TCtx>>, ty: ProcedureDataType) {
         #[allow(clippy::panic)]
-        if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
+        if is_valid_procedure_name(&key) {
             panic!(
                 "rspc error: attempted to create {} operation named '{}', however this name is not allowed.",
                 self.name,

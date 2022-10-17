@@ -7,23 +7,20 @@
     clippy::panic,
     clippy::todo,
     clippy::panic_in_result_fn,
+    // rustdoc::all,
     // missing_docs
+    // missing_panics_doc
+    // missing_debug_implementations
 )]
 
 mod config;
 mod error;
-mod middleware;
-mod resolver;
-mod resolver_result;
 mod router;
 mod router_builder;
 mod selection;
 
 pub use config::*;
 pub use error::*;
-pub use middleware::*;
-pub use resolver::*;
-pub use resolver_result::*;
 pub use router::*;
 pub use router_builder::*;
 
@@ -31,6 +28,7 @@ pub use selection::*;
 
 pub mod integrations;
 pub mod internal;
+pub mod plugins;
 
 pub use specta::RSPCType as Type;
 

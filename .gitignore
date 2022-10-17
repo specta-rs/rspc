@@ -24,3 +24,6 @@ node_modules
 
 # Compiled vscode extension
 *.vsix
+
+# Trybuild
+crates/*/wip
