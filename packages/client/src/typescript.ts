@@ -149,7 +149,16 @@ export type _inferInfiniteQueryProcedureHandlerInput<
 // TODO: Extracting subset of operations by name or some shared key
 
 // Proxy
-import type { SubscriptionOptions } from ".";
+import type { Client, SubscriptionOptions } from ".";
+
+export const ClientOperationProxyRenames: Record<string, keyof Client<any>> = {
+  query: 'query',
+  mutate: 'mutation',
+  subscribe: "addSubscription"
+} as const;
+
+export type ClientOperationProxyKey =
+  keyof typeof ClientOperationProxyRenames;
 
 type Root<Part> = Part extends `${infer ParamName}.${string}` ? ParamName : never;
 
@@ -159,27 +168,12 @@ type inferClientOperationFunction<
   Key extends inferProcedureKey<TProcedures, TOperation>,
   Result = inferProcedureResult<inferProcedures<TProcedures>, TOperation, Key>,
   SubOpts = SubscriptionOptions<inferSubscriptionResult<TProcedures, Key>>,
-> = TOperation extends "queries" ? {
-    query(...args: _inferProcedureHandlerInput<TProcedures, TOperation, Key>): Promise<Result>
-  }
-  : TOperation extends "mutations" ? {
-    mutate(...args: _inferProcedureHandlerInput<TProcedures, TOperation, Key>): Promise<Result>
-  }
-  : TOperation extends "subscriptions" ? {
-    subscribe(args: _inferProcedureHandlerInput<TProcedures, TOperation, Key>, opts: SubOpts): () => void
-  }
+> = TOperation extends "queries" ? { query(...args: _inferProcedureHandlerInput<TProcedures, TOperation, Key>): Promise<Result> }
+  : TOperation extends "mutations" ? { mutate(...args: _inferProcedureHandlerInput<TProcedures, TOperation, Key>): Promise<Result> }
+  : TOperation extends "subscriptions" ? { subscribe(args: _inferProcedureHandlerInput<TProcedures, TOperation, Key>, opts: SubOpts): () => void }
   : never;
 
-export const ClientOperationProxyRenames = {
-  query: 'query',
-  mutate: 'mutation',
-  subscribe: "addSubscription"
-} as const;
-
-export type ClientOperationProxyKey =
-  keyof typeof ClientOperationProxyRenames;
-
-type resolveKey<
+type resolveClientKeyOperation<
   TProcedures extends ProceduresDef,
   TOperation extends keyof ProceduresDef,
   Key extends string,
@@ -187,8 +181,8 @@ type resolveKey<
   isRoot extends boolean = false
 > = Key extends `${infer LHS}.${infer RHS}`
   ? isRoot extends true
-    ? resolveKey<TProcedures, TOperation, RHS, Key>
-    : { [S in LHS]: resolveKey<TProcedures, TOperation, RHS, Key>; }
+    ? resolveClientKeyOperation<TProcedures, TOperation, RHS, Key>
+    : { [S in LHS]: resolveClientKeyOperation<TProcedures, TOperation, RHS, Key>; }
   : isRoot extends true
     ? inferClientOperationFunction<TProcedures, TOperation, Full>
     : { [S in Key]: inferClientOperationFunction<TProcedures, TOperation, Full>; }
@@ -197,9 +191,15 @@ type inferClientOperationProxy<
   TProcedures extends ProceduresDef,
   TOperation extends keyof ProceduresDef,
 > = {
-  [Full in inferProcedureKey<TProcedures, TOperation>
-    as Root<Full> extends never ? Full : Root<Full>
-  ]: resolveKey<TProcedures, TOperation, Full, Root<Full> extends never ? Full : "", true>
+  [Key in inferProcedureKey<TProcedures, TOperation> as
+    Root<Key> extends never ? Key : Root<Key>
+  ]: resolveClientKeyOperation<
+    TProcedures,
+    TOperation,
+    Key,
+    Root<Key> extends never ? Key : "",
+  true
+  >
 }
 
 export type inferClientProxy<TProcedures extends ProceduresDef> =

@@ -28,6 +28,7 @@ export interface ClientArgs {
   transport: Transport;
   onError?: (err: RSPCError) => void | Promise<void>;
 }
+
 type RSPCClient<TProcedures extends ProceduresDef> =
   inferClientProxy<TProcedures> & Client<TProcedures>
 
@@ -36,34 +37,46 @@ export function createClient<TProcedures extends ProceduresDef>(
   args: ClientArgs
 ): RSPCClient<TProcedures> {
   let client = new Client(args);
-  let proxy = createProxy(({ keys,params }) => {
+
+  let execute = (
+    method: keyof typeof client | string,
+    input: [key: string] | [string, any] | [string, [] | [any]],
+    opts: SubscriptionOptions<any> | undefined,
+  ) => {
+    switch (method) {
+      case "query":
+        return client.query(input as [key: string] | [string, any])
+      case "mutation":
+        return client.mutation(input as [key: string] | [string, any])
+      case "addSubscription":
+        return client.addSubscription(input as [string, [] | [any]], opts!)
+    }
+  }
+
+  let proxy = createProxy(({ keys, params }) => {
+
     // Return early if a single key is given
     if (keys.length === 1) {
-      switch (keys[0]) {
-        case "query": return client.query(params[0] as any)
-        case "mutation": return client.mutation(params[0] as any)
-        case "addSubscription": return client.addSubscription(params[0] as any, params[1] as any)
-      }
+      let [method, input, opts]: [string, any, any] = [keys[0], params[0], params[1]];
+
+      console.debug("NonProxy", { method, input, opts })
+      return execute(method, input, opts)
     }
 
-    const _keys = [...keys];
-    const caller = _keys.pop()! as ClientOperationProxyKey;
-    const methodName = ClientOperationProxyRenames[caller];
-    const key = _keys.join('.');
+    const method = ClientOperationProxyRenames[keys.pop()!];
+    const key = keys.join('.');
 
-    // Assuming that always the last params is always an object
-    // representing the extra options.
-    let opts = params.pop();
-
-    // Add it back if it's not an object
+    // Assuming the last params to be an object representing options
+    // .. Add it back if it's not an object
+    let opts: any = params.pop();
     if (typeof opts !== "object" && !Array.isArray(opts)) {
       params.push(opts);
       opts = undefined;
     }
+    const input: any = [key, ...params];
 
-    console.log("Running", { key, params: [...params], opts })
-
-    return (client[methodName] as any)([key, ...params] as any, opts)
+    console.debug("Proxy", { key, input, opts })
+    return execute(method, input, opts);
   })
 
   return proxy as any
