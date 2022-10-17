@@ -46,7 +46,9 @@ where
 
         let ctx = data
             .entry(TypeId::of::<NormiContext>())
-            .or_insert_with(|| Box::new(NormiContext::default()) as Box<dyn std::any::Any>)
+            .or_insert_with(|| {
+                Box::new(NormiContext::default()) as Box<dyn std::any::Any + Send + Sync + 'static>
+            })
             .downcast_mut::<NormiContext>()
             .unwrap();
 
@@ -60,6 +62,9 @@ where
     }
 
     BuiltProcedureBuilder {
+        name: builder.name,
+        kind: builder.kind,
+        typedef: builder.typedef,
         data: builder.data,
         resolver: move |ctx, arg| {
             let val = builder.resolver.exec(ctx, arg);

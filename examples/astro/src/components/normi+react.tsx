@@ -1,59 +1,99 @@
-import { createClient, createWSClient, httpLink, wsLink } from "@rspc/client";
-import { createReactQueryHooks } from "@rspc/react";
-import { normiLink } from "@rspc/normi";
+import {
+  createWSClient,
+  HookCreateFunction,
+  HookOptions,
+  ProcedureDef,
+  ProceduresDef,
+  wsLink,
+} from "@rspc/client";
+// import { createReactHooks } from "@rspc/react";
+// import { createNormiHooks } from "@rspc/normi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 
 import type { Procedures } from "../../../bindings";
 
-export const rspc = createReactQueryHooks<Procedures>();
+// const libraryHooks: HookCreateFunction = <
+//   TBaseProcedures extends ProceduresDef = never,
+//   TQueries extends ProcedureDef = TBaseProcedures["queries"],
+//   TMutations extends ProcedureDef = TBaseProcedures["mutations"],
+//   TSubscriptions extends ProcedureDef = TBaseProcedures["subscriptions"]
+// >(
+//   opts: HookOptions = {}
+// ) =>
+//   createReactHooks<TBaseProcedures, TQueries, TMutations, TSubscriptions>({
+//     internal: {
+//       customHooks() {
+//         const nextHooks = opts.internal?.customHooks?.();
 
-export const fetchQueryClient = new QueryClient();
-const fetchClient = createClient<Procedures>({
-  links: [
-    normiLink({ queryClient: fetchQueryClient, contextSharing: true }),
-    // TODO: Use batch link
-    httpLink({
-      url: "http://localhost:4000/rspc",
-    }),
-  ],
-});
+//         return {
+//           useQuery: (keyAndInput, next) => {
+//             // console.log("SD HOOKS: ", keyAndInput);
+//             return (
+//               nextHooks?.useQuery?.(keyAndInput, next) || next(keyAndInput)
+//             );
+//           },
+//         };
+//       },
+//     },
+//   });
 
-// TODO: Remove this abstraction or keep it?
-const wsClient2 = createWSClient({
-  url: "ws://localhost:4000/rspc/ws",
-});
+// // TODO: Stack normi custom hooks and Spacedrive custom hooks
+// const rspc = createNormiHooks<Procedures>(createReactHooks, {
+//   contextSharing: true,
+// });
 
-export const wsQueryClient = new QueryClient();
-const wsClient = createClient<Procedures>({
-  links: [
-    normiLink({ queryClient: fetchQueryClient, contextSharing: true }),
-    wsLink({
-      client: wsClient2,
-    }),
-  ],
-});
+// export const rspc = createReactHooks<
+//   Procedures,
+//   Exclude<Normalized<Procedures["queries"]>, { key: "version" }>,
+//   Normalized<Procedures["mutations"]>,
+//   Normalized<Procedures["subscriptions"]>
+// >({
+//   internal: {
+//     customHooks: () => {
+//       // TODO: Access to query client here.
+//       // TODO: Subscribing to backend alerts for changes
+//       // TODO: Disable staleness in React Query
 
-function Example() {
-  const { data: version } = rspc.useQuery(["version"]);
-  const { data: user } = rspc.useQuery(["user"]);
-  const { data: org } = rspc.useQuery(["org"]);
+//       return {
+//         async useQuery(keyAndInput, next) {
+//           console.log("Hello World");
+//           const data = await next(keyAndInput);
+//           console.log("AA", keyAndInput, data);
+//           return data;
+//         },
+//         // TODO: useMutation
+//         // TODO: useSubscription
+//       };
+//     },
+//   },
+// });
 
-  console.log(user);
-  console.log(org);
+// function Demo() {
+//   const { data: version } = rspc.useQuery(["version"]);
+//   const { data: user } = rspc.useQuery(["user"]);
 
-  console.log(window.normiCache);
+//   return (
+//     <>
+//       <h1>Hello World</h1>
+//       <p>Version: {version}</p>
+//       <p>User: {JSON.stringify(user)}</p>
+//     </>
+//   );
+// }
 
-  return (
-    <div
-      style={{
-        border: "black 1px solid",
-      }}
-    >
-      <h1>Version: {version}</h1>
-    </div>
-  );
-}
+// const queryClient = new QueryClient();
+// const wsClient = createWSClient({
+//   url: "ws://localhost:4000/rspc/ws",
+// });
+
+// const client = rspc.createClient({
+//   links: [
+//     wsLink({
+//       client: wsClient,
+//     }),
+//   ],
+// });
 
 export default function App() {
   return (
@@ -64,15 +104,8 @@ export default function App() {
         }}
       >
         <h1>React</h1>
-        <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
-          <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
-            <Example />
-          </rspc.Provider>
-        </QueryClientProvider>
-        {/* <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
-          <QueryClientProvider client={wsQueryClient}>
-            <Example name="Websocket Transport" />
-          </QueryClientProvider>
+        {/* <rspc.Provider client={client} queryClient={queryClient}>
+          <Demo />
         </rspc.Provider> */}
       </div>
     </React.StrictMode>

@@ -7,21 +7,21 @@ import { ProceduresDef } from "../typescript";
 // TODO
 type TRPCClientIncomingMessage = any;
 type TRPCClientIncomingRequest = any;
-type TRPCClientOutgoingMessage = any;
-type TRPCRequestMessage = any;
-type TRPCResponseMessage<A = unknown, B = unknown> = any;
+export type TRPCClientOutgoingMessage = any;
+export type TRPCRequestMessage = any;
+export type TRPCResponseMessage<A = unknown, B = unknown> = any;
 type inferRouterError<A> = any;
-type ProcedureType = any;
+export type ProcedureType = any;
 
 type WSCallbackResult<
   TProcedures extends ProceduresDef,
   TOutput
 > = TRPCResponseMessage<TOutput, inferRouterError<TProcedures>>;
 
-type WSCallbackObserver<TProcedures extends ProceduresDef, TOutput> = Observer<
-  WSCallbackResult<TProcedures, TOutput>,
-  RSPCError
->;
+export type WSCallbackObserver<
+  TProcedures extends ProceduresDef,
+  TOutput
+> = Observer<WSCallbackResult<TProcedures, TOutput>, RSPCError>;
 
 export const retryDelay = (attemptIndex: number) =>
   attemptIndex === 0 ? 0 : Math.min(1000 * 2 ** attemptIndex, 30000);
@@ -33,6 +33,8 @@ export interface WebSocketClientOptions {
   onOpen?: () => void;
   onClose?: (cause?: { code?: number }) => void;
 }
+
+export type TCallbacks = WSCallbackObserver<ProceduresDef, unknown>;
 
 export function createWSClient(opts: WebSocketClientOptions) {
   const {
@@ -55,7 +57,6 @@ export function createWSClient(opts: WebSocketClientOptions) {
   /**
    * pending outgoing requests that are awaiting callback
    */
-  type TCallbacks = WSCallbackObserver<ProceduresDef, unknown>;
   type TRequest = {
     /**
      * Reference to the WebSocket instance this request was made to
@@ -283,7 +284,11 @@ export function createWSClient(opts: WebSocketClientOptions) {
     },
   };
 }
-export type TRPCWebSocketClient = ReturnType<typeof createWSClient>;
+
+export type TRPCWebSocketClient = {
+  close(): void;
+  request(op: Operation, callbacks: TCallbacks): UnsubscribeFn;
+};
 
 export interface WebSocketLinkOptions {
   client: TRPCWebSocketClient;

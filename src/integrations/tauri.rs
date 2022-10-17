@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use serde_json::Value;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
@@ -53,29 +54,33 @@ where
             }
 
             app_handle.listen_global("plugin:rspc:transport", move |event| {
-                let _ = tx
-                    .send(
-                        match serde_json::from_str(match event.payload() {
-                            Some(v) => v,
-                            None => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Tauri event payload is empty");
+                let req = match serde_json::from_str::<Value>(match event.payload() {
+                    Some(v) => v,
+                    None => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Tauri event payload is empty");
 
-                                return;
-                            }
-                        }) {
-                            Ok(v) => v,
-                            Err(err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("failed to parse JSON-RPC request: {}", err);
-                                return;
-                            }
-                        },
-                    )
-                    .map_err(|err| {
+                        return;
+                    }
+                })
+                .and_then(|v| match v.is_array() {
+                    true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
+                    false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                }) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("failed to decode JSON-RPC request: {}", err);
+                        return;
+                    }
+                };
+
+                for req in req {
+                    let _ = tx.send(req).map_err(|err| {
                         #[cfg(feature = "tracing")]
                         tracing::error!("failed to send JSON-RPC request: {}", err);
                     });
+                }
             });
 
             Ok(())

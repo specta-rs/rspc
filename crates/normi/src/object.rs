@@ -24,6 +24,7 @@ pub trait Object: 'static {
 
 #[derive(Serialize, Type)]
 pub struct NormalizedVec<T> {
+    #[serde(rename = "$type")]
     __type: &'static str,
     edges: Vec<T>,
 }
@@ -87,6 +88,7 @@ impl<T: Object> Object for Option<T> {
 
 #[derive(Serialize, Type)]
 pub struct NormalizedVecDeque<T> {
+    #[serde(rename = "$type")]
     __type: &'static str,
     edges: VecDeque<T>,
 }
@@ -118,6 +120,7 @@ pub struct NormalizedBinaryHeap<T>
 where
     T: Ord,
 {
+    #[serde(rename = "$type")]
     __type: &'static str,
     edges: BinaryHeap<T>,
 }
@@ -152,6 +155,7 @@ pub struct NormalizedLinkedList<T>
 where
     T: Ord,
 {
+    #[serde(rename = "$type")]
     __type: &'static str,
     edges: LinkedList<T>,
 }
@@ -186,6 +190,7 @@ pub struct NormalizedHashSet<T>
 where
     T: Hash + Eq,
 {
+    #[serde(rename = "$type")]
     __type: &'static str,
     edges: HashSet<T>,
 }
@@ -220,6 +225,7 @@ pub struct NormalizedBTreeSet<T>
 where
     T: Ord,
 {
+    #[serde(rename = "$type")]
     __type: &'static str,
     edges: BTreeSet<T>,
 }

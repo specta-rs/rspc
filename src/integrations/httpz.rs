@@ -316,21 +316,27 @@ where
                                 }) {
                                 Ok(reqs) => {
                                     for request in reqs {
-                                        let ctx = match ctx_fn.exec(&mut req) {
-                                            TCtxFuncResult::Value(v) => v,
-                                            TCtxFuncResult::Future(v) => v.await,
-                                        };
+                                        #[cfg(feature = "workers")]
+                                        compile_error!("You can't have the 'axum' and 'workers' features enabled at the same time!");
+                                        #[cfg(not(feature = "workers"))]
+                                        {
+                                            let ctx = match ctx_fn.exec(&mut req) {
+                                                TCtxFuncResult::Value(v) => v,
+                                                TCtxFuncResult::Future(v) => v.await,
+                                            };
 
-                                        handle_json_rpc(match ctx {
-                                            Ok(v) => v,
-                                            Err(_err) => {
-                                                #[cfg(feature = "tracing")]
-                                                tracing::error!("Error executing context function: {}", _err);
 
-                                                continue;
-                                            }
-                                        }, request, &router, &mut Sender::Channel(&mut tx),
-                                        &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                            handle_json_rpc(match ctx {
+                                                Ok(v) => v,
+                                                Err(_err) => {
+                                                    #[cfg(feature = "tracing")]
+                                                    tracing::error!("Error executing context function: {}", _err);
+
+                                                    continue;
+                                                }
+                                            }, request, &router, &mut Sender::Channel(&mut tx),
+                                            &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                        }
                                     }
                                 },
                                 Err(_err) => {

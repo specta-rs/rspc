@@ -134,7 +134,9 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
                 quote! {
                     #[derive(#crate_name::internal::Serialize, #crate_name::internal::Type)]
                     pub struct #normalised_ident {
+                        #[serde(rename = "$type")]
                         pub __type: &'static str,
+                        #[serde(rename = "$id")]
                         pub __id: #crate_name::internal::Value,
                         #fields
                     }

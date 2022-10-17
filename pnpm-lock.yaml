@@ -50,7 +50,7 @@ importers:
       '@rspc/normi': workspace:*
       '@rspc/react': workspace:*
       '@rspc/solid': workspace:*
-      '@tanstack/react-query': ^4.8.0
+      '@tanstack/react-query': ^4.12.0
       '@tanstack/solid-query': ^4.8.0
       '@types/react': ^18.0.21
       astro: 1.4.2
@@ -62,7 +62,7 @@ importers:
       '@rspc/normi': link:../../packages/normi
       '@rspc/react': link:../../packages/react
       '@rspc/solid': link:../../packages/solid
-      '@tanstack/react-query': 4.8.0_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query': 4.12.0_biqbaboplfbrettd7655fr4n2y
       '@tanstack/solid-query': 4.8.0_solid-js@1.5.7
       astro: 1.4.2
       react: 18.2.0
@@ -77,7 +77,7 @@ importers:
     specifiers:
       '@rspc/client': workspace:*
       '@rspc/react': workspace:*
-      '@tanstack/react-query': ^4.0.10
+      '@tanstack/react-query': ^4.12.0
       '@types/node': ^18.7.16
       '@types/react': ^18.0.19
       '@types/react-dom': ^18.0.6
@@ -88,7 +88,7 @@ importers:
     dependencies:
       '@rspc/client': link:../../packages/client
       '@rspc/react': link:../../packages/react
-      '@tanstack/react-query': 4.8.0_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query': 4.12.0_biqbaboplfbrettd7655fr4n2y
       next: 12.3.1_biqbaboplfbrettd7655fr4n2y
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
@@ -109,13 +109,11 @@ importers:
   packages/normi:
     specifiers:
       '@rspc/client': workspace:*
-      '@tanstack/react-query': ^4.8.0
       tsup: ^6.2.3
       typescript: ^4.8.4
     dependencies:
       '@rspc/client': link:../client
     devDependencies:
-      '@tanstack/react-query': 4.8.0
       tsup: 6.2.3_typescript@4.8.4
       typescript: 4.8.4
 
@@ -131,7 +129,7 @@ importers:
   packages/react:
     specifiers:
       '@rspc/client': workspace:*
-      '@tanstack/react-query': ^4.8.0
+      '@tanstack/react-query': ^4.12.0
       '@types/react': ^18.0.21
       react: ^18.2.0
       tsup: ^6.2.3
@@ -139,7 +137,7 @@ importers:
     dependencies:
       '@rspc/client': link:../client
     devDependencies:
-      '@tanstack/react-query': 4.8.0_react@18.2.0
+      '@tanstack/react-query': 4.12.0_react@18.2.0
       '@types/react': 18.0.21
       react: 18.2.0
       tsup: 6.2.3_typescript@4.8.4
@@ -1826,11 +1824,14 @@ packages:
       tailwindcss: 3.1.8
     dev: true
 
+  /@tanstack/query-core/4.12.0:
+    resolution: {integrity: sha512-KEiFPNLMFByhNL2s6RBFL6Z5cNdwwQzFpW/II3GY+rEuQ343ZEoVyQ48zlUXXkEkbamQFIFg2onM8Pxf0Yo01A==}
+
   /@tanstack/query-core/4.8.0:
     resolution: {integrity: sha512-PVcSqAWboFA86eNgtHTOjfHjBkNuFGAM6kPH82p1ibx1R76f7EjedZ+LZi4ZnW4ppoSl/+hUtCgWsiNQ2ViLTw==}
 
-  /@tanstack/react-query/4.8.0:
-    resolution: {integrity: sha512-e3QzL/S8XeA5MYqOUUABet4oZDBc1MbeUIo32r0cxEDoDJS+9oqx0az9AbBxacZ7SjM/Fy4u/eXQFBjsKGFQ6A==}
+  /@tanstack/react-query/4.12.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-prchV1q+CJ0ZVo8Rts2cOF3azDfQizZZySmH6XXsXRcPTbir0sgb9fp0vY/5l5ZkSYjTvWt/OL8WQhAhYMSvrA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
@@ -1841,30 +1842,14 @@ packages:
       react-native:
         optional: true
     dependencies:
-      '@tanstack/query-core': 4.8.0
-      use-sync-external-store: 1.2.0
-    dev: true
-
-  /@tanstack/react-query/4.8.0_biqbaboplfbrettd7655fr4n2y:
-    resolution: {integrity: sha512-e3QzL/S8XeA5MYqOUUABet4oZDBc1MbeUIo32r0cxEDoDJS+9oqx0az9AbBxacZ7SjM/Fy4u/eXQFBjsKGFQ6A==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-    dependencies:
-      '@tanstack/query-core': 4.8.0
+      '@tanstack/query-core': 4.12.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
     dev: false
 
-  /@tanstack/react-query/4.8.0_react@18.2.0:
-    resolution: {integrity: sha512-e3QzL/S8XeA5MYqOUUABet4oZDBc1MbeUIo32r0cxEDoDJS+9oqx0az9AbBxacZ7SjM/Fy4u/eXQFBjsKGFQ6A==}
+  /@tanstack/react-query/4.12.0_react@18.2.0:
+    resolution: {integrity: sha512-prchV1q+CJ0ZVo8Rts2cOF3azDfQizZZySmH6XXsXRcPTbir0sgb9fp0vY/5l5ZkSYjTvWt/OL8WQhAhYMSvrA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
@@ -1875,7 +1860,7 @@ packages:
       react-native:
         optional: true
     dependencies:
-      '@tanstack/query-core': 4.8.0
+      '@tanstack/query-core': 4.12.0
       react: 18.2.0
       use-sync-external-store: 1.2.0_react@18.2.0
     dev: true
@@ -5919,12 +5904,6 @@ packages:
       browserslist: 4.21.4
       escalade: 3.1.1
       picocolors: 1.0.0
-
-  /use-sync-external-store/1.2.0:
-    resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-    dev: true
 
   /use-sync-external-store/1.2.0_react@18.2.0:
     resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
