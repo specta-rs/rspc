@@ -183,7 +183,6 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     // const enabled = opts?.enabled ?? true;
 
     throw new Error("TODO: SolidJS Subscriptions are not supported yet!");
-    
 
     // return useEffect(() => {
     //   if (!enabled) {

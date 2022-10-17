@@ -20,6 +20,8 @@ jobs:
     if: github.event_name == 'push' && github.repository == 'oscartbeaumont/rspc'
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v2.2.4
         with:
@@ -29,6 +31,9 @@ jobs:
         with:
           node-version: '16'
           cache: 'pnpm'
+      
+      - name: Setup npmrc
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
 
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
@@ -53,7 +58,7 @@ jobs:
         run: pnpm publish -r ${TAG} --no-git-checks --filter "@rspc/*" --access public
         env:
           TAG: ${{ (github.ref == 'refs/heads/main' && '--tag=main') || '' }}
-          NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # - name: Configure release version
       #   if: github.ref_type == 'tag'
