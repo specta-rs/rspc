@@ -4,6 +4,7 @@
 // #![warn(missing_docs)]
 
 use std::{
+    any::TypeId,
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
@@ -357,5 +358,101 @@ impl_as!(
     bson::Uuid as String
 );
 
-// TODO: bson::Bson
+#[cfg(feature = "uhlc")]
+pub use uhlc_impls::*;
+
+#[cfg(feature = "uhlc")]
+mod uhlc_impls {
+    use super::*;
+    use uhlc::*;
+
+    impl_as!(
+        NTP64 as u64
+        ID as NonZeroU128
+    );
+
+    impl Type for Timestamp {
+        const NAME: &'static str = "Timestamp";
+        fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+            DataType::Object(ObjectType {
+                name: "Timestamp".to_string(),
+                generics: vec![],
+                fields: vec![
+                    ObjectField {
+                        name: "id".to_string(),
+                        optional: false,
+                        ty: {
+                            let ty = <ID as Type>::reference(
+                                DefOpts {
+                                    parent_inline: false,
+                                    type_map: opts.type_map,
+                                },
+                                &[],
+                            );
+                            ty
+                        },
+                    },
+                    ObjectField {
+                        name: "time".to_string(),
+                        optional: false,
+                        ty: {
+                            let ty = <NTP64 as Type>::reference(
+                                DefOpts {
+                                    parent_inline: false,
+                                    type_map: opts.type_map,
+                                },
+                                &[],
+                            );
+                            ty
+                        },
+                    },
+                ],
+                tag: None,
+                type_id: Some(TypeId::of::<Self>()),
+            })
+        }
+
+        fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
+            if !opts.type_map.contains_key(&Self::NAME) {
+                Self::definition(DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map,
+                });
+            }
+            DataType::Reference {
+                name: "Timestamp".to_string(),
+                generics: vec![],
+                type_id: TypeId::of::<Self>(),
+            }
+        }
+
+        fn definition(opts: DefOpts) -> DataType {
+            if !opts.type_map.contains_key(Self::NAME) {
+                opts.type_map.insert(
+                    Self::NAME,
+                    DataType::Object(ObjectType {
+                        name: "Timestamp".to_string(),
+                        generics: vec![],
+                        fields: vec![],
+                        tag: None,
+                        type_id: Some(TypeId::of::<Self>()),
+                    }),
+                );
+                let def = Self::inline(
+                    DefOpts {
+                        parent_inline: false,
+                        type_map: opts.type_map,
+                    },
+                    &[],
+                );
+                opts.type_map.insert(Self::NAME, def.clone());
+            }
+            opts.type_map.get(Self::NAME).unwrap().clone()
+        }
+    }
+
+    impl Flatten for Timestamp {}
+}
+
+// TODO: bson::bson
 // TODO: bson::Document
