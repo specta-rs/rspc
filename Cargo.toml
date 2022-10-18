@@ -39,7 +39,7 @@ ipnetwork = ["specta/ipnetwork"]
 mac_address = ["specta/mac_address"]
 bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
-rspc = ["specta/rspc"]
+uhlc = ["specta/uhlc"]
 
 [dependencies]
 specta = { version = "0.0.4", path = "./crates/specta", features = ["serde"] }
