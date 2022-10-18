@@ -94,6 +94,7 @@ rspc has many [crate features](https://doc.rust-lang.org/cargo/reference/feature
  - [ipnetwork](https://github.com/achanda/ipnetwork)
  - [mac_address](https://github.com/repnop/mac_address)
  - [tracing](https://github.com/tokio-rs/tracing)
+ - [uhlc](https://github.com/atolab/uhlc-rs)
 
 </td>
 </tr>
