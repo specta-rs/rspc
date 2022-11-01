@@ -33,7 +33,7 @@ fn try_main() -> Result<(), errors::Error> {
     println!("\n{}\n", BANNER);
 
     check_rust_msrv()?;
-    // check_version()?;
+    check_version()?;
 
     ctrlc::set_handler(|| {
         println!("Operation cancelled by user");
