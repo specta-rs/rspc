@@ -128,7 +128,7 @@ async fn _test(base_dir: &Path) -> Result<(), String> {
                     let cfg = Config::new(shell, cwd.clone(),  homedir(&cwd).unwrap());
 
                     let ws =
-                        &Workspace::new(dir.join("Cargo.toml").as_path(), &cfg).map_err(|err| {
+                        &Workspace::new(dir.join("Cargo__toml").as_path(), &cfg).map_err(|err| {
                             format!(
                                 "Error({:?}-{:?}-{:?}): Failed to load workspace: {}",
                                 framework, database, frontend, err

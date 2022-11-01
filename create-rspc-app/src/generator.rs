@@ -1,5 +1,7 @@
 use std::{io, path::Path};
 
+use walkdir::WalkDir;
+
 use crate::{database::Database, framework::Framework, frontend_framework::FrontendFramework};
 
 pub fn code_generator(
@@ -16,6 +18,13 @@ pub fn code_generator(
     }
 
     frontend_framework.render(path, project_name, framework)?;
+
+    for entry in WalkDir::new(path) {
+        let entry = entry.unwrap();
+        if entry.file_name().to_str() == Some("Cargo__toml") {
+            std::fs::rename(entry.path(), entry.path().with_file_name("Cargo.toml"))?;
+        }
+    }
 
     println!("Generated project at '{}'", path.display());
 

@@ -33,7 +33,7 @@ fn try_main() -> Result<(), errors::Error> {
     println!("\n{}\n", BANNER);
 
     check_rust_msrv()?;
-    check_version()?;
+    // check_version()?;
 
     ctrlc::set_handler(|| {
         println!("Operation cancelled by user");
@@ -55,6 +55,7 @@ fn try_main() -> Result<(), errors::Error> {
         println!("Aborting your project name may only contain alphanumeric characters along with '-' and '_'...");
     }
 
+    // First argument is the path where the project has to be created
     let dir_path = match std::env::args().nth(1) {
         Some(value) => value,
         None => project_name.to_string(),
