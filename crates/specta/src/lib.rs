@@ -4,7 +4,6 @@
 // #![warn(missing_docs)]
 
 use std::{
-    any::TypeId,
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
@@ -364,6 +363,7 @@ pub use uhlc_impls::*;
 #[cfg(feature = "uhlc")]
 mod uhlc_impls {
     use super::*;
+    use std::any::TypeId;
     use uhlc::*;
 
     impl_as!(

@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use serde_json::Value;
 use tauri::{
+    async_runtime::Mutex,
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
 };
@@ -22,22 +23,8 @@ where
 {
     Builder::new("rspc")
         .setup(|app_handle| {
-            let (tx, mut rx) = mpsc::unbounded_channel::<jsonrpc::Request>();
-            let (mut resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
-            let mut subscriptions = HashMap::new();
-
-            tokio::spawn(async move {
-                while let Some(req) = rx.recv().await {
-                    handle_json_rpc(
-                        ctx_fn(),
-                        req,
-                        &router,
-                        &mut Sender::ResponseChannel(&mut resp_tx),
-                        &mut SubscriptionMap::Ref(&mut subscriptions),
-                    )
-                    .await;
-                }
-            });
+            let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
+            let subscriptions = Arc::new(Mutex::new(HashMap::new()));
 
             {
                 let app_handle = app_handle.clone();
@@ -45,9 +32,9 @@ where
                     while let Some(event) = resp_rx.recv().await {
                         let _ = app_handle
                             .emit_all("plugin:rspc:transport:resp", event)
-                            .map_err(|err| {
+                            .map_err(|_err| {
                                 #[cfg(feature = "tracing")]
-                                tracing::error!("failed to emit JSON-RPC response: {}", err);
+                                tracing::error!("failed to emit JSON-RPC response: {}", _err);
                             });
                     }
                 });
@@ -68,17 +55,27 @@ where
                     false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
                 }) {
                     Ok(v) => v,
-                    Err(err) => {
+                    Err(_err) => {
                         #[cfg(feature = "tracing")]
-                        tracing::error!("failed to decode JSON-RPC request: {}", err);
+                        tracing::error!("failed to decode JSON-RPC request: {}", _err);
                         return;
                     }
                 };
 
                 for req in req {
-                    let _ = tx.send(req).map_err(|err| {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("failed to send JSON-RPC request: {}", err);
+                    let ctx = ctx_fn();
+                    let router = router.clone();
+                    let mut resp_tx = resp_tx.clone();
+                    let subscriptions = subscriptions.clone();
+                    tokio::spawn(async move {
+                        handle_json_rpc(
+                            ctx,
+                            req,
+                            &router,
+                            &mut Sender::ResponseChannel(&mut resp_tx),
+                            &mut SubscriptionMap::Mutex(&subscriptions),
+                        )
+                        .await;
                     });
                 }
             });
