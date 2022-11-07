@@ -21,7 +21,10 @@ macro_rules! impl_primitives {
 
 #[macro_export]
 macro_rules! impl_tuple {
-    (($($i:ident),*)) => {
+    ( impl $i:ident ) => {
+        impl_tuple!(impl); // This does tuple struct
+    }; // T = (T1)
+    ( impl $($i:ident),* ) => {
         #[allow(non_snake_case)]
         impl<$($i: Type + 'static),*> Type for ($($i),*) {
             const NAME: &'static str = stringify!(($($i::NAME),*));
@@ -50,6 +53,11 @@ macro_rules! impl_tuple {
             }
         }
     };
+    ( $i2:ident $(, $i:ident)* ) => {
+        impl_tuple!(impl $i2 $(, $i)* );
+        impl_tuple!($($i),*);
+    };
+    () => {};
 }
 
 #[macro_export]
