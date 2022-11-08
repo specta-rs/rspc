@@ -1,6 +1,6 @@
 use crate::{
-    DataType, DefOpts, EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType, PrimitiveType,
-    TupleType, TypeDefs,
+    DataType, DefOpts, EnumRepr, EnumType, EnumVariant, LiteralType, ObjectField, ObjectType,
+    PrimitiveType, TupleType, TypeDefs,
 };
 
 use crate::Type;
@@ -98,7 +98,7 @@ pub fn to_ts(typ: &DataType) -> String {
         primitive_def!(i64 u64 i128 u128) => "bigint".into(),
         primitive_def!(String char) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
-        primitive_def!(Never) => "never".into(),
+        DataType::Literal(literal) => literal.to_ts(),
         DataType::Nullable(def) => format!("{} | null", to_ts(def)),
         DataType::Record(def) => {
             format!("Record<{}, {}>", to_ts(&def.0), to_ts(&def.1))
@@ -181,6 +181,24 @@ pub fn to_ts(typ: &DataType) -> String {
             }
         },
         DataType::Generic(ident) => ident.to_string(),
+    }
+}
+
+impl LiteralType {
+    fn to_ts(&self) -> String {
+        match self {
+            Self::i8(v) => v.to_string(),
+            Self::i16(v) => v.to_string(),
+            Self::i32(v) => v.to_string(),
+            Self::u8(v) => v.to_string(),
+            Self::u16(v) => v.to_string(),
+            Self::u32(v) => v.to_string(),
+            Self::f32(v) => v.to_string(),
+            Self::f64(v) => v.to_string(),
+            Self::bool(v) => v.to_string(),
+            Self::String(v) => format!(r#""{v}""#),
+            Self::None => "null".to_string(),
+        }
     }
 }
 

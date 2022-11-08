@@ -147,7 +147,7 @@ export type _inferProcedureHandlerInput<
   TProcedures extends ProceduresLike,
   TOperation extends keyof ProceduresDef,
   K extends inferProcedures<TProcedures>[TOperation]["key"]
-> = inferProcedure<TProcedures, TOperation, K>["input"] extends never
+> = inferProcedure<TProcedures, TOperation, K>["input"] extends null
   ? []
   : [inferProcedure<TProcedures, TOperation, K>["input"]];
 
@@ -219,7 +219,7 @@ export type inferInfiniteQueryResult<
 export type _inferInfiniteQueryProcedureHandlerInput<
   TProcedures extends ProceduresLike,
   K extends inferInfiniteQueries<TProcedures>["key"]
-> = inferInfiniteQueryInput<TProcedures, K> extends never
+> = inferInfiniteQueryInput<TProcedures, K> extends null
   ? []
   : [inferInfiniteQueryInput<TProcedures, K>];
 

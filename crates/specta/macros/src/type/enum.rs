@@ -1,8 +1,5 @@
-use crate::{
-    attr::{ContainerAttr, EnumAttr, FieldAttr, Tagged, VariantAttr},
-    construct_datatype,
-    utils::unraw_raw_ident,
-};
+use super::{attr::*, generics::construct_datatype};
+use crate::utils::*;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataEnum, Fields, GenericParam, Generics};

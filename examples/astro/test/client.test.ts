@@ -21,7 +21,7 @@ const client = createClient<Procedures>({
   transport: new NoOpTransport(),
 });
 
-function assert<T>(t: T) {}
+function assert<T>(_: T) {}
 
 // inferProcedureOutput
 type A1 = inferProcedures<Procedures>;

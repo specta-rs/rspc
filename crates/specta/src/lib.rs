@@ -31,12 +31,14 @@ mod r#enum;
 pub mod impl_type_macros;
 mod lang;
 mod object;
+mod to_data_type;
 
 pub use datatype::*;
 pub use lang::*;
 pub use object::*;
 pub use r#enum::*;
 pub use specta_macros::*;
+pub use to_data_type::*;
 
 pub type TypeDefs = BTreeMap<&'static str, DataType>;
 

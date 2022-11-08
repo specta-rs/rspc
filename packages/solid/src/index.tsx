@@ -139,7 +139,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     opts?: CreateMutationOptions<
       inferMutationResult<TProcedures, K>,
       RSPCError,
-      inferMutationInput<TProcedures, K> extends never
+      inferMutationInput<TProcedures, K> extends null
         ? undefined
         : inferMutationInput<TProcedures, K>,
       TContext
@@ -148,7 +148,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
   ): CreateMutationResult<
     inferMutationResult<TProcedures, K>,
     RSPCError,
-    inferMutationInput<TProcedures, K> extends never
+    inferMutationInput<TProcedures, K> extends null
       ? undefined
       : inferMutationInput<TProcedures, K>,
     TContext

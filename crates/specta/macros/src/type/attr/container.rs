@@ -1,11 +1,6 @@
 use syn::{Attribute, Result};
 
-use crate::{
-    attr::{parse_assign_inflection, parse_assign_str},
-    utils::parse_attrs,
-};
-
-use super::Inflection;
+use crate::utils::*;
 
 #[derive(Default, Clone, Debug)]
 pub struct ContainerAttr {

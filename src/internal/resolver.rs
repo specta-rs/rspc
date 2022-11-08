@@ -21,7 +21,7 @@ pub trait RequestResolver<TCtx, TMarker, TResultMarker>: Send + Sync + 'static {
         input: Self::Arg,
     ) -> Result<TypedRequestFuture<<Self::Result as RequestResult<TResultMarker>>::Data>, ExecError>;
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
+    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType;
 }
 
 pub struct DoubleArgMarker<TArg, TResultMarker>(
@@ -46,30 +46,31 @@ where
         self(ctx, input).into_request_future()
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType {
         ProcedureDataType {
-            arg_ty: <TArg as Type>::reference(
+            key: key.to_string(),
+            input: <TArg as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
                 },
                 &[],
             ),
-            result_ty: <TResult::Data as Type>::reference(
+            result: <TResult::Data as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
                 },
                 &[],
             ),
-            inline_arg_ty: <TArg as Type>::inline(
+            inline_input: <TArg as Type>::inline(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
                 },
                 &[],
             ),
-            inline_result_ty: <TResult::Data as Type>::inline(
+            inline_result: <TResult::Data as Type>::inline(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
@@ -83,7 +84,7 @@ where
 pub trait StreamResolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError>;
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType;
+    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType;
 }
 
 pub struct DoubleArgStreamMarker<TArg, TResult, TStream>(
@@ -105,30 +106,31 @@ where
         })))
     }
 
-    fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
+    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType {
         ProcedureDataType {
-            arg_ty: <TArg as Type>::reference(
+            key: key.to_string(),
+            input: <TArg as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
                 },
                 &[],
             ),
-            result_ty: <TResult as Type>::reference(
+            result: <TResult as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
                 },
                 &[],
             ),
-            inline_arg_ty: <TArg as Type>::inline(
+            inline_input: <TArg as Type>::inline(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
                 },
                 &[],
             ),
-            inline_result_ty: <TResult as Type>::inline(
+            inline_result: <TResult as Type>::inline(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,

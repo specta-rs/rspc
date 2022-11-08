@@ -1,12 +1,9 @@
-use crate::{
-    attr::{ContainerAttr, FieldAttr},
-    utils::unraw_raw_ident,
-};
+use crate::utils::unraw_raw_ident;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataStruct, Fields, GenericParam, Generics};
 
-use crate::construct_datatype;
+use super::{attr::*, generics::construct_datatype};
 
 pub fn parse_struct(
     struct_name: &str,

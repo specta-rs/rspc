@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use crate::{DataType, ObjectType, PrimitiveType, TupleType};
+use crate::{DataType, ObjectType, TupleType};
 
 #[derive(Debug, Clone)]
 pub struct EnumType {
@@ -8,7 +8,7 @@ pub struct EnumType {
     pub variants: Vec<EnumVariant>,
     pub generics: Vec<&'static str>,
     pub repr: EnumRepr,
-    pub type_id: TypeId
+    pub type_id: TypeId,
 }
 
 impl PartialEq for EnumType {
@@ -43,7 +43,7 @@ impl EnumVariant {
 
     pub fn data_type(&self) -> DataType {
         match self {
-            Self::Unit(_) => DataType::Primitive(PrimitiveType::Never),
+            Self::Unit(_) => unreachable!("Unit enum variants have no type!"),
             Self::Unnamed(tuple_type) => DataType::Tuple(tuple_type.clone()),
             Self::Named(object_type) => DataType::Object(object_type.clone()),
         }

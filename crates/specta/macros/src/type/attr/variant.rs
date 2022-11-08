@@ -1,7 +1,6 @@
 use syn::{Attribute, Result};
 
-use super::parse_assign_str;
-use crate::utils::parse_attrs;
+use crate::utils::*;
 
 #[derive(Default)]
 pub struct VariantAttr {
