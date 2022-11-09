@@ -5,7 +5,10 @@ enum SimpleEnum {
     #[specta(rename = "asdf")]
     A,
     B,
-    C,
+    #[specta(rename_all = "camelCase")]
+    C {
+        enum_field: (),
+    },
 }
 
 #[test]
@@ -20,6 +23,6 @@ fn test_empty() {
 fn test_simple_enum() {
     assert_eq!(
         ts_export::<SimpleEnum>().unwrap(),
-        r#"export type SimpleEnum = "asdf" | "B" | "C""#
+        r#"export type SimpleEnum = "asdf" | "B" | { C: { enumField: null } }"#
     )
 }

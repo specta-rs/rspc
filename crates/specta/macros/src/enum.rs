@@ -107,9 +107,13 @@ pub fn parse_enum(
                             false,
                         );
 
-                        let field_name = field_attrs
-                            .rename
-                            .unwrap_or_else(|| unraw_raw_ident(field.ident.as_ref().unwrap()));
+                        let field_ident_str = unraw_raw_ident(field.ident.as_ref().unwrap());
+
+                        let field_name = match (field_attrs.rename, attrs.rename_all) {
+                            (Some(name), _) => name,
+                            (_, Some(inflection)) => inflection.apply(&field_ident_str),
+                            (_, _) => field_ident_str,
+                        };
 
                         quote!(#crate_ref::ObjectField {
                             name: #field_name.to_string(),
