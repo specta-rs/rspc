@@ -11,6 +11,40 @@ pub struct EnumType {
     pub type_id: TypeId,
 }
 
+impl EnumType {
+    pub fn make_flattenable(&mut self) {
+        let indexes = self
+            .variants
+            .iter()
+            .rev()
+            .filter(|v| match self.repr {
+                EnumRepr::External => match v {
+                    EnumVariant::Unnamed(v) if v.fields.len() == 1 => true,
+                    EnumVariant::Named(_) => true,
+                    _ => false,
+                },
+                EnumRepr::Untagged => match v {
+                    EnumVariant::Unit(_) => true,
+                    EnumVariant::Named(_) => true,
+                    _ => false,
+                },
+                EnumRepr::Adjacent { .. } => true,
+                EnumRepr::Internal { .. } => match v {
+                    EnumVariant::Unit(_) => true,
+                    EnumVariant::Named(_) => true,
+                    _ => false,
+                },
+            })
+            .enumerate()
+            .map(|(i, _)| i)
+            .collect::<Vec<_>>();
+
+        indexes.into_iter().for_each(|i| {
+            self.variants.swap_remove(i);
+        });
+    }
+}
+
 impl PartialEq for EnumType {
     fn eq(&self, other: &Self) -> bool {
         self.type_id == other.type_id
