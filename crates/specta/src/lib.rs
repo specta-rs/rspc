@@ -26,6 +26,8 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+#[cfg(feature = "command")]
+mod command;
 mod datatype;
 mod r#enum;
 pub mod impl_type_macros;
@@ -33,6 +35,8 @@ mod lang;
 mod object;
 mod to_data_type;
 
+#[cfg(feature = "command")]
+pub use command::*;
 pub use datatype::*;
 pub use lang::*;
 pub use object::*;
@@ -340,6 +344,12 @@ impl_as!(
     bson::Uuid as String
 );
 
+// TODO: bson::bson
+// TODO: bson::Document
+
+#[cfg(feature = "bytesize")]
+impl_as!(bytesize::ByteSize as u64);
+
 #[cfg(feature = "uhlc")]
 pub use uhlc_impls::*;
 
@@ -437,5 +447,4 @@ mod uhlc_impls {
     impl Flatten for Timestamp {}
 }
 
-// TODO: bson::bson
-// TODO: bson::Document
+// TODO: impl Type for Fn()

@@ -1,7 +1,12 @@
+use syn::parse_macro_input;
+
 #[macro_use]
 mod utils;
+mod command;
 mod to_data_type;
 mod r#type;
+
+use command::Handler;
 
 #[proc_macro_derive(Type, attributes(specta, serde))]
 pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -19,4 +24,17 @@ pub fn derive_rspc_type(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 #[proc_macro_derive(ToDataType, attributes(specta))]
 pub fn derive_to_data_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     to_data_type::derive(input)
+}
+
+#[proc_macro_attribute]
+pub fn command(
+    _: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    command::command(item)
+}
+
+#[proc_macro]
+pub fn collate_types(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    parse_macro_input!(item as Handler).into()
 }
