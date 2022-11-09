@@ -50,7 +50,7 @@ pub fn ts_export<T: Type>() -> Result<String, String> {
 pub fn to_ts_export(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts(def);
 
-    Ok(match &def {
+    let declaration = match &def {
         // Named struct
         DataType::Object(ObjectType {
             name,
@@ -58,14 +58,17 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
             fields,
             ..
         }) => match fields.len() {
-            0 => format!("export type {name} = {inline_ts}"),
+            0 => format!("type {name} = {inline_ts}"),
             _ => {
                 let generics = match generics.len() {
                     0 => "".into(),
                     _ => format!("<{}>", generics.to_vec().join(", ")),
                 };
 
-                format!("export interface {name}{generics} {inline_ts}")
+                match fields.iter().any(|f| f.flatten) {
+                    true => format!("type {name}{generics} = {inline_ts}"),
+                    false => format!("interface {name}{generics} {inline_ts}"),
+                }
             }
         },
         // Enum
@@ -75,14 +78,16 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
                 _ => format!("<{}>", generics.to_vec().join(", ")),
             };
 
-            format!("export type {name}{generics} = {inline_ts}")
+            format!("type {name}{generics} = {inline_ts}")
         }
         // Unnamed struct
         DataType::Tuple(TupleType { name, .. }) => {
-            format!("export type {name} = {inline_ts}")
+            format!("type {name} = {inline_ts}")
         }
         _ => return Err(format!("Type cannot be exported: {:?}", def)),
-    })
+    };
+
+    Ok(format!("export {declaration}"))
 }
 
 macro_rules! primitive_def {
@@ -114,16 +119,45 @@ pub fn to_ts(typ: &DataType) -> String {
         }) => match &fields[..] {
             [] => "null".to_string(),
             fields => {
-                let mut out = match tag {
-                    Some(tag) => vec![format!("{tag}: \"{name}\"")],
-                    None => vec![],
-                };
+                let mut field_sections = fields
+                    .iter()
+                    .filter(|f| f.flatten)
+                    .map(|field| {
+                        let type_str = to_ts(&field.ty);
+                        format!("({type_str})")
+                    })
+                    .collect::<Vec<_>>();
 
-                let field_defs = object_fields(fields);
+                let mut unflattened_fields = fields
+                    .iter()
+                    .filter(|f| !f.flatten)
+                    .map(|field| {
+                        let field_name_safe = sanitise_name(&field.name);
 
-                out.extend(field_defs);
+                        let (key, ty) = match field.optional {
+                            true => (
+                                format!("{}?", field_name_safe),
+                                match &field.ty {
+                                    DataType::Nullable(ty) => ty.as_ref(),
+                                    ty => ty,
+                                },
+                            ),
+                            false => (field_name_safe, &field.ty),
+                        };
 
-                format!("{{ {} }}", out.join(", "))
+                        format!("{key}: {}", to_ts(ty))
+                    })
+                    .collect::<Vec<_>>();
+
+                if let Some(tag) = tag {
+                    unflattened_fields.push(format!("{tag}: \"{name}\""));
+                }
+
+                if unflattened_fields.len() > 0 {
+                    field_sections.push(format!("{{ {} }}", unflattened_fields.join(", ")));
+                }
+
+                field_sections.join(" & ")
             }
         },
         DataType::Enum(EnumType { variants, repr, .. }) => match &variants[..] {

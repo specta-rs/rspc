@@ -11,7 +11,7 @@ pub fn parse_enum(
     generics: &Generics,
     crate_ref: &TokenStream,
     data: &DataEnum,
-) -> (TokenStream, TokenStream) {
+) -> (TokenStream, TokenStream, bool) {
     let generic_idents = generics
         .params
         .iter()
@@ -42,6 +42,41 @@ pub fn parse_enum(
             )
         }
     });
+
+    let repr = enum_attrs
+        .tagged()
+        .expect("Invalid tag/content combination");
+
+    let (repr_tokens, can_flatten) = match repr {
+        Tagged::Externally => (
+            quote!(External),
+            data.variants.iter().any(|v| match &v.fields {
+                Fields::Unnamed(f) if f.unnamed.len() == 1 => true,
+                Fields::Named(_) => true,
+                _ => false,
+            }),
+        ),
+        Tagged::Untagged => (
+            quote!(Untagged),
+            data.variants.iter().any(|v| match &v.fields {
+                Fields::Unit => true,
+                Fields::Named(_) => true,
+                _ => false,
+            }),
+        ),
+        Tagged::Adjacently { tag, content } => (
+            quote!(Adjacent { tag: #tag.to_string(), content: #content.to_string() }),
+            true,
+        ),
+        Tagged::Internally { tag } => (
+            quote!(Internal { tag: #tag.to_string() }),
+            data.variants.iter().any(|v| match &v.fields {
+                Fields::Unit => true,
+                Fields::Named(_) => true,
+                _ => false,
+            }),
+        ),
+    };
 
     let variants = data
         .variants
@@ -111,6 +146,7 @@ pub fn parse_enum(
                         quote!(#crate_ref::ObjectField {
                             name: #field_name.to_string(),
                             optional: false,
+                            flatten: false,
                             ty: {
                                 #generic_vars
 
@@ -130,26 +166,12 @@ pub fn parse_enum(
             }
         });
 
-    let repr = match enum_attrs
-        .tagged()
-        .expect("Invalid tag/content combination")
-    {
-        Tagged::Externally => quote!(External),
-        Tagged::Untagged => quote!(Untagged),
-        Tagged::Adjacently { tag, content } => {
-            quote!(Adjacent { tag: #tag.to_string(), content: #content.to_string() })
-        }
-        Tagged::Internally { tag } => {
-            quote!(Internal { tag: #tag.to_string() })
-        }
-    };
-
     (
         quote!(#crate_ref::DataType::Enum(#crate_ref::EnumType {
             name: #enum_name_str.to_string(),
             generics: vec![#(#definition_generics),*],
             variants: vec![#(#variants),*],
-            repr: #crate_ref::EnumRepr::#repr,
+            repr: #crate_ref::EnumRepr::#repr_tokens,
             type_id: std::any::TypeId::of::<Self>()
         })),
         quote!(#crate_ref::DataType::Reference {
@@ -157,5 +179,6 @@ pub fn parse_enum(
             generics: vec![#(#reference_generics),*],
             type_id: std::any::TypeId::of::<Self>()
         }),
+        can_flatten,
     )
 }

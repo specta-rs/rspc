@@ -55,17 +55,10 @@ pub trait Type {
     fn definition(opts: DefOpts) -> DataType;
 }
 
-pub trait Flatten: Type {
-    fn flatten(opts: DefOpts, generics: &[DataType]) -> Vec<ObjectField> {
-        match Self::inline(opts, generics) {
-            DataType::Object(ObjectType { fields, .. }) => fields,
-            _ => unreachable!(
-                "Type '{}' implements flatten but is not an object!",
-                Self::NAME
-            ),
-        }
-    }
-}
+pub trait Flatten: Type {}
+
+impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
+impl<K: Type, V: Type> Flatten for std::collections::BTreeMap<K, V> {}
 
 impl_primitives!(
     i8 i16 i32 i64 i128 isize

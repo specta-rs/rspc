@@ -11,7 +11,7 @@ pub fn parse_struct(
     generics: &Generics,
     crate_ref: &TokenStream,
     data: &DataStruct,
-) -> (TokenStream, TokenStream) {
+) -> (TokenStream, TokenStream, bool) {
     let generic_idents = generics
         .params
         .iter()
@@ -66,32 +66,50 @@ pub fn parse_struct(
                 };
 
                 let optional = field_attrs.optional;
+                let flatten = field_attrs.flatten;
 
-                if field_attrs.flatten {
+                let ty = if field_attrs.flatten {
                     let field_ty = &field.ty;
 
-                    Some(quote! {{
+                    quote! {
                         #[allow(warnings)]
                         {
                             #ty
                         }
 
-                        <#field_ty as #crate_ref::Flatten>::flatten(#crate_ref::DefOpts {
+                        fn validate_flatten<T: #crate_ref::Flatten>() {}
+                        validate_flatten::<#field_ty>();
+
+                        let mut ty = <#field_ty as #crate_ref::Type>::inline(#crate_ref::DefOpts {
                             parent_inline: false,
                             type_map: opts.type_map
-                        }, &generics)
-                    }})
-                } else {
-                    Some(quote!(vec![#crate_ref::ObjectField {
-                        name: #field_name.to_string(),
-                        optional: #optional,
-                        ty: {
-                            #ty
+                        }, &generics);
 
-                            ty
-                        },
-                    }]))
-                }
+                        match &mut ty {
+                            #crate_ref::DataType::Enum(e) => {
+                                e.make_flattenable();
+                            }
+                            _ => {}
+                        }
+
+                        ty
+                    }
+                } else {
+                    quote! {
+                        #ty
+
+                        ty
+                    }
+                };
+
+                Some(quote!(#crate_ref::ObjectField {
+                    name: #field_name.to_string(),
+                    optional: #optional,
+                    flatten: #flatten,
+                    ty: {
+                        #ty
+                    }
+                }))
             });
 
             let tag = container_attrs
@@ -103,10 +121,7 @@ pub fn parse_struct(
             quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
                 name: #struct_name.to_string(),
                 generics: vec![#(#definition_generics),*],
-                fields: (vec![#(#fields),*] as Vec<Vec<#crate_ref::ObjectField>>)
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>(),
+                fields: vec![#(#fields),*],
                 tag: #tag,
                 type_id: Some(std::any::TypeId::of::<Self>())
             }))
@@ -153,5 +168,5 @@ pub fn parse_struct(
         type_id: std::any::TypeId::of::<Self>()
     });
 
-    (definition, reference)
+    (definition, reference, true)
 }

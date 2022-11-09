@@ -41,7 +41,7 @@ pub fn derive(
         .clone()
         .unwrap_or_else(|| ident.to_string());
 
-    let (inlines, reference) = match data {
+    let (inlines, reference, can_flatten) = match data {
         Data::Struct(data) => parse_struct(&name_str, &container_attrs, generics, &crate_ref, data),
         Data::Enum(data) => {
             let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
@@ -64,20 +64,14 @@ pub fn derive(
         quote!(#crate_ref::DataType::Generic(stringify!(#ident).to_string()))
     });
 
-    let flatten_impl = match data {
-        Data::Struct(_) => {
-            let heading = impl_heading(quote!(#crate_ref::Flatten), ident, generics);
-
-            Some(quote! {
-                #heading {}
-            })
-        }
-        _ => None,
-    };
+    let flatten_impl = can_flatten.then(|| {
+        let heading = impl_heading(quote!(#crate_ref::Flatten), ident, generics);
+        quote!(#heading {})
+    });
 
     let type_impl_heading = impl_heading(quote!(#crate_ref::Type), ident, generics);
 
-    let out = quote! {
+    quote! {
         #type_impl_heading {
             const NAME: &'static str = #name_str;
 
@@ -119,7 +113,5 @@ pub fn derive(
         }
 
         #flatten_impl
-    };
-
-    out.into()
+    }.into()
 }

@@ -12,7 +12,7 @@ struct TaggedType {
 fn test() {
     assert_eq!(
         ts_inline::<TaggedType>(),
-        "{ type: \"TaggedType\", a: number, b: number }"
+        "{ a: number, b: number, type: \"TaggedType\" }"
     )
 }
 

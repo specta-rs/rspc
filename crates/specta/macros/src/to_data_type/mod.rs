@@ -26,7 +26,8 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         ::specta::ObjectField {
                             name: stringify!(#ident).to_string(),
                             ty: self.#ident.to_data_type(),
-                            optional: false
+                            optional: false,
+                            flatten: false
                         }
                     })
                 });

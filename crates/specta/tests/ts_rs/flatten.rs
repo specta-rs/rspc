@@ -24,6 +24,6 @@ struct C {
 fn test() {
     assert_eq!(
         ts_inline::<C>(),
-        "{ b: { a: number, b: number, c: number }, d: number }"
+        "{ b: ({ a: number, b: number }) & { c: number }, d: number }"
     )
 }
