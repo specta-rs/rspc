@@ -26,8 +26,8 @@
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^4.12.0",
-    "tsup": "^6.3.0",
+    "@tanstack/react-query": "^4.14.5",
+    "tsup": "^6.4.0",
     "typescript": "^4.8.4"
   },
   "peerDependencies": {

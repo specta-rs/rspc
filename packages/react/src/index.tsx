@@ -132,9 +132,7 @@ export function internal_createReactHooksFactory() {
       >(
         keyAndInput: [
           key: K,
-          ...input: TQuery<K>["input"] extends never | null
-            ? []
-            : [TQuery<K>["input"]]
+          ...input: TQuery<K>["input"] extends null ? [] : [TQuery<K>["input"]]
         ],
         opts?: Omit<
           UseQueryOptions<
@@ -143,7 +141,7 @@ export function internal_createReactHooksFactory() {
             TData,
             [
               key: K,
-              ...input: TQuery<K>["input"] extends never
+              ...input: TQuery<K>["input"] extends null
                 ? []
                 : [TQuery<K>["input"]]
             ]
@@ -187,7 +185,7 @@ export function internal_createReactHooksFactory() {
         opts?: UseMutationOptions<
           TMutation<K>["result"],
           RSPCError,
-          TMutation<K>["input"] extends never
+          TMutation<K>["input"] extends null
             ? undefined
             : TMutation<K>["input"],
           TContext
@@ -196,7 +194,7 @@ export function internal_createReactHooksFactory() {
       ): UseMutationResult<
         TMutation<K>["result"],
         RSPCError,
-        TMutation<K>["input"] extends never ? undefined : TMutation<K>["input"],
+        TMutation<K>["input"] extends null ? undefined : TMutation<K>["input"],
         TContext
       > {
         const { rspc, ...rawOpts } = opts ?? {};
@@ -228,7 +226,7 @@ export function internal_createReactHooksFactory() {
       >(
         keyAndInput: [
           key: K,
-          ...input: TSubscription<K>["input"] extends never
+          ...input: TSubscription<K>["input"] extends null
             ? []
             : [TSubscription<K>["input"]]
         ],

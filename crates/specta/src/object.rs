@@ -7,6 +7,7 @@ pub struct ObjectField {
     pub name: String,
     pub ty: DataType,
     pub optional: bool,
+    pub flatten: bool,
 }
 
 #[derive(Debug, Clone)]

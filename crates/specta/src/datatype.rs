@@ -7,6 +7,7 @@ pub enum DataType {
     // Always inlined
     Any,
     Primitive(PrimitiveType),
+    Literal(LiteralType),
     List(Box<DataType>),
     Nullable(Box<DataType>),
     Record(Box<(DataType, DataType)>),
@@ -26,7 +27,6 @@ pub enum DataType {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrimitiveType {
-    Never,
     i8,
     i16,
     i32,
@@ -51,4 +51,20 @@ pub struct TupleType {
     pub name: String,
     pub fields: Vec<DataType>,
     pub generics: Vec<&'static str>,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum LiteralType {
+    i8(i8),
+    i16(i16),
+    i32(i32),
+    u8(u8),
+    u16(u16),
+    u32(u32),
+    f32(f32),
+    f64(f64),
+    bool(bool),
+    String(String),
+    None,
 }

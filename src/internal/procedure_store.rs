@@ -1,18 +1,21 @@
 use std::collections::BTreeMap;
 
-use specta::DataType;
+use specta::{DataType, ToDataType};
 
 use crate::is_valid_procedure_name;
 
 use super::Layer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, ToDataType)]
 pub struct ProcedureDataType {
-    pub arg_ty: DataType,
-    pub result_ty: DataType,
+    pub key: String,
+    pub input: DataType,
+    pub result: DataType,
     /// TODO: Remove these
-    pub inline_arg_ty: DataType,
-    pub inline_result_ty: DataType,
+    #[specta(skip)]
+    pub inline_input: DataType,
+    #[specta(skip)]
+    pub inline_result: DataType,
 }
 
 // TODO: Make private

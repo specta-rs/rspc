@@ -20,5 +20,5 @@ proc-macro = true
 Inflector = { version = "0.11.4", default-features = false }
 proc-macro2 = "1.0.47"
 quote = "1.0.21"
-syn = { version = "1.0.102", features = ["parsing"] }
+syn = { version = "1.0.103", features = ["full"] }
 termcolor = { version = "1.1.3", optional = true }

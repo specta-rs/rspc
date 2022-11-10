@@ -190,7 +190,7 @@ export function createClient<
   function query<K extends TQueries["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: TQuery<K>["input"] extends never ? [] : [TQuery<K>["input"]]
+      ...input: TQuery<K>["input"] extends null ? [] : [TQuery<K>["input"]]
     ],
     opts?: TRPCRequestOptions
   ): Promise<TQuery<K>["result"]> {
@@ -206,7 +206,7 @@ export function createClient<
   function mutation<K extends TMutations["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: TMutation<K>["input"] extends never
+      ...input: TMutation<K>["input"] extends null
         ? []
         : [TMutation<K>["input"]]
     ],
@@ -224,7 +224,7 @@ export function createClient<
   function subscription<K extends TSubscriptions["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: TSubscription<K>["input"] extends never
+      ...input: TSubscription<K>["input"] extends null
         ? []
         : [TSubscription<K>["input"]]
     ],
