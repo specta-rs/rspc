@@ -16,31 +16,30 @@ impl EnumType {
         let indexes = self
             .variants
             .iter()
-            .rev()
             .filter(|v| match self.repr {
                 EnumRepr::External => match v {
-                    EnumVariant::Unnamed(v) if v.fields.len() == 1 => true,
-                    EnumVariant::Named(_) => true,
-                    _ => false,
+                    EnumVariant::Unnamed(v) if v.fields.len() == 1 => false,
+                    EnumVariant::Named(_) => false,
+                    _ => true,
                 },
                 EnumRepr::Untagged => match v {
-                    EnumVariant::Unit(_) => true,
-                    EnumVariant::Named(_) => true,
-                    _ => false,
+                    EnumVariant::Unit(_) => false,
+                    EnumVariant::Named(_) => false,
+                    _ => true,
                 },
-                EnumRepr::Adjacent { .. } => true,
+                EnumRepr::Adjacent { .. } => false,
                 EnumRepr::Internal { .. } => match v {
-                    EnumVariant::Unit(_) => true,
-                    EnumVariant::Named(_) => true,
-                    _ => false,
+                    EnumVariant::Unit(_) => false,
+                    EnumVariant::Named(_) => false,
+                    _ => true,
                 },
             })
             .enumerate()
             .map(|(i, _)| i)
             .collect::<Vec<_>>();
 
-        indexes.into_iter().for_each(|i| {
-            self.variants.swap_remove(i);
+        indexes.into_iter().rev().for_each(|i| {
+            self.variants.remove(i);
         });
     }
 }
