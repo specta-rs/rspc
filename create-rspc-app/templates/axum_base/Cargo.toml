@@ -6,7 +6,7 @@ rust-version = "1.64"
 publish = false
 
 [dependencies]
-tokio = { version = "1.21.1", features = ["rt-multi-thread", "macros", "signal"] }
-axum = "0.5.16"
+tokio = { version = "1.21.2", features = ["rt-multi-thread", "macros", "signal"] }
+axum = "0.5.17"
 rspc = { version = "0.1.2", features = ["axum"] }
 dotenv = "0.15.0"

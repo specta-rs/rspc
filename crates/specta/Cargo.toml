@@ -6,15 +6,17 @@ authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
 include = ["/src", "/examples", "/LICENCE", "/README.md"]
-repository = "https://github.com/oscartbeaumont/rspc/tree/main/specta"
+repository = "https://github.com/oscartbeaumont/rspc/tree/main/crates/specta"
 documentation = "https://docs.rs/specta/latest/specta"
 keywords = ["async", "specta", "rspc", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
 [features]
 default = ["serde"]
+command = ["serde"]
 serde = ["specta-macros/serde", "dep:serde_json"]
 openapi = ["dep:openapiv3"]
+tauri = ["dep:tauri"]
 
 # External types
 uuid = ["dep:uuid"]
@@ -28,13 +30,15 @@ mac_address = ["dep:mac_address"]
 bit-vec = ["dep:bit-vec"]
 bson = ["dep:bson"]
 uhlc = ["dep:uhlc"]
+bytesize = ["dep:bytesize"]
 
 [dependencies]
 specta-macros = { version = "0.0.4", path = "./macros" }
-serde_json = { version = "1.0.86", optional = true, default-features = false, features = ["std"] }
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = { version = "1.0.87", optional = true, default-features = false, features = ["std"] }
 uuid = { version = "1.2.1", optional = true, default-features = false, features = [] }
 chrono = { version = "0.4.22", optional = true, default-features = false, features = [] }
-time = { version = "0.3.15", optional = true, default-features = false, features = [] }
+time = { version = "0.3.17", optional = true, default-features = false, features = [] }
 bigdecimal = { version = "0.3.0", optional = true, default-features = false, features = [] }
 rust_decimal = { version = "1.26.1", optional = true, default-features = false, features = [] }
 indexmap = { version = "1.9.1", optional = true, default-features = false, features = [] }
@@ -43,7 +47,10 @@ mac_address = { version = "1.1.4", optional = true, default-features = false, fe
 bit-vec = { version = "0.6.3", optional = true, default-features = false, features = [] }
 bson = { version = "2.4.0", optional = true, default-features = false, features = [] }
 openapiv3 = { version = "1.0.1", optional = true, default-features = false, features = [] }
-uhlc = { version = "0.5.1", optional = true, features = [] }
+uhlc = { version = "0.5.1", optional = true, default-features = false, features = [] }
+tauri = { version = "1.2.0", optional = true, default-features = false, features = [] }
+bytesize = { version = "1.1.0", optional = true, default-features = false, features = [] }
+paste = "1.0.9"
 
 [dev-dependencies]
-serde = { version = "1.0.145", features = ["derive"] }
+serde = { version = "1.0.147", features = ["derive"] }

@@ -6,6 +6,7 @@ use std::{
     path::PathBuf,
 };
 
+use serde::Serialize;
 use specta::{ts_inline, Type};
 
 macro_rules! assert_ts_type {
@@ -88,6 +89,11 @@ fn typescript_types() {
 
     assert_ts_type!(GenericStruct<i32>, "{ arg: number }");
     assert_ts_type!(GenericStruct<String>, "{ arg: string }");
+
+    assert_ts_type!(
+        FlattenEnumStruct,
+        r#"({ tag: "One" } | { tag: "Two" } | { tag: "Three" }) & { outer: string }"#
+    )
 }
 
 #[derive(Type)]
@@ -145,4 +151,19 @@ struct InlinerStruct {
 #[derive(Type)]
 struct GenericStruct<T> {
     arg: T,
+}
+
+#[derive(Serialize, Type)]
+struct FlattenEnumStruct {
+    outer: String,
+    #[serde(flatten)]
+    inner: FlattenEnum,
+}
+
+#[derive(Serialize, Type)]
+#[serde(tag = "tag", content = "test")]
+enum FlattenEnum {
+    One,
+    Two,
+    Three,
 }

@@ -17,13 +17,13 @@ requestty = "0.5.0"
 strum = { version = "0.24.1", features = ["derive"] }
 rustc_version = "0.4.0"
 ureq = { version = "2.5.0", features = ["json"] }
-serde_json = "1.0.86"
+serde_json = "1.0.87"
 ctrlc = "3.2.3"
 thiserror = "1.0.37"
 
 [dev-dependencies]
 tempdir = "0.3.7"
-cargo = "0.65.0"
+cargo = "0.66.0"
 tokio = { version = "1.21.2", features = ["full", "process"] }
 ssh2 = { version = "0.9.3", features = ["vendored-openssl"] } # This is need for M1 support
-futures = "0.3.24"
+futures = "0.3.25"

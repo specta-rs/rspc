@@ -133,17 +133,21 @@ pub fn to_openapi(typ: &DataType) -> ReferenceOr<Schema> {
                     schema_kind: SchemaKind::Type(Type::Object(openapiv3::ObjectType {
                         properties: fields
                             .iter()
-                            .map(|ObjectField { name, ty, optional }| {
-                                (
-                                    name.clone(),
-                                    match to_openapi(ty) {
-                                        ReferenceOr::Item(v) => ReferenceOr::Item(Box::new(v)),
-                                        ReferenceOr::Reference { reference } => {
-                                            ReferenceOr::Reference { reference }
-                                        }
-                                    },
-                                )
-                            })
+                            .map(
+                                |ObjectField {
+                                     name, ty, optional, ..
+                                 }| {
+                                    (
+                                        name.clone(),
+                                        match to_openapi(ty) {
+                                            ReferenceOr::Item(v) => ReferenceOr::Item(Box::new(v)),
+                                            ReferenceOr::Reference { reference } => {
+                                                ReferenceOr::Reference { reference }
+                                            }
+                                        },
+                                    )
+                                },
+                            )
                             .collect(),
                         ..Default::default()
                     })),

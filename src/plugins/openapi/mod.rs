@@ -71,7 +71,7 @@ impl<TResolver> OpenAPI<TResolver> for BuiltProcedureBuilder<TResolver> {
 
             println!(
                 "A {:?} {:?}",
-                self.typedef.inline_arg_ty, self.typedef.inline_result_ty
+                self.typedef.inline_input, self.typedef.inline_result
             );
 
             ctx.endpoints.insert(
@@ -83,8 +83,8 @@ impl<TResolver> OpenAPI<TResolver> for BuiltProcedureBuilder<TResolver> {
                         ProcedureKind::Mutation => ExecKind::Mutation,
                         ProcedureKind::Subscription => panic!("TODO"),
                     },
-                    arg_schema: to_openapi(&self.typedef.inline_arg_ty),
-                    result_schema: to_openapi(&self.typedef.inline_result_ty),
+                    arg_schema: to_openapi(&self.typedef.inline_input),
+                    result_schema: to_openapi(&self.typedef.inline_result),
                 },
             );
         }

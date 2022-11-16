@@ -26,17 +26,23 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+#[cfg(feature = "command")]
+mod command;
 mod datatype;
 mod r#enum;
 pub mod impl_type_macros;
 mod lang;
 mod object;
+mod to_data_type;
 
+#[cfg(feature = "command")]
+pub use command::*;
 pub use datatype::*;
 pub use lang::*;
 pub use object::*;
 pub use r#enum::*;
 pub use specta_macros::*;
+pub use to_data_type::*;
 
 pub type TypeDefs = BTreeMap<&'static str, DataType>;
 
@@ -53,17 +59,10 @@ pub trait Type {
     fn definition(opts: DefOpts) -> DataType;
 }
 
-pub trait Flatten: Type {
-    fn flatten(opts: DefOpts, generics: &[DataType]) -> Vec<ObjectField> {
-        match Self::inline(opts, generics) {
-            DataType::Object(ObjectType { fields, .. }) => fields,
-            _ => unreachable!(
-                "Type '{}' implements flatten but is not an object!",
-                Self::NAME
-            ),
-        }
-    }
-}
+pub trait Flatten: Type {}
+
+impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
+impl<K: Type, V: Type> Flatten for std::collections::BTreeMap<K, V> {}
 
 impl_primitives!(
     i8 i16 i32 i64 i128 isize
@@ -345,6 +344,12 @@ impl_as!(
     bson::Uuid as String
 );
 
+// TODO: bson::bson
+// TODO: bson::Document
+
+#[cfg(feature = "bytesize")]
+impl_as!(bytesize::ByteSize as u64);
+
 #[cfg(feature = "uhlc")]
 pub use uhlc_impls::*;
 
@@ -442,5 +447,4 @@ mod uhlc_impls {
     impl Flatten for Timestamp {}
 }
 
-// TODO: bson::bson
-// TODO: bson::Document
+// TODO: impl Type for Fn()

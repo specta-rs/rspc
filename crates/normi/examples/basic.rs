@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use axum::routing::get;
-use normi::{typed, Object};
+use normi::{normi, Object};
 use rspc::{Config, Router, Type};
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
@@ -48,7 +48,7 @@ async fn main() {
                 id: "1".to_string(),
                 name: "Monty Beaumont".to_string(),
             })
-            .map(typed)
+            .map(normi)
         })
         .query("user", |t| {
             t.resolver(|_, _: ()| async move {
@@ -57,7 +57,7 @@ async fn main() {
                     name: "Monty Beaumont".to_string(),
                 })
             })
-            .map(typed)
+            .map(normi)
         })
         .query("org", |t| {
             t.resolver(|_, _: ()| async move {
@@ -85,7 +85,7 @@ async fn main() {
                     non_normalised_data: vec![(), ()],
                 })
             })
-            .map(typed)
+            .map(normi)
         })
         .query("composite", |t| {
             t.resolver(|_, _: ()| async move {
@@ -94,7 +94,7 @@ async fn main() {
                     user_id: "user-1".into(),
                 })
             })
-            .map(typed)
+            .map(normi)
         })
         .build()
         .arced();

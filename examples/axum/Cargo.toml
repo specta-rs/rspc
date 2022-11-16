@@ -8,5 +8,5 @@ publish = false
 rspc = { path = "../../", features = ["axum"] }
 tokio = { version = "1.21.2", features = ["full"] }
 async-stream = "0.3.3"
-axum = { version = "0.5.16", features = ["ws"] }
+axum = { version = "0.5.17", features = ["ws"] }
 tower-http = { version = "0.3.4", default-features = false, features = ["cors"] }

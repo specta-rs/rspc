@@ -1,67 +1,57 @@
 use syn::{Attribute, Result};
 
-use super::parse_assign_str;
-use crate::utils::parse_attrs;
+use crate::utils::*;
 
 #[derive(Default)]
-pub struct FieldAttr {
+pub struct VariantAttr {
+    pub rename_all: Option<Inflection>,
     pub rename: Option<String>,
-    pub inline: bool,
     pub skip: bool,
-    pub optional: bool,
-    pub flatten: bool,
 }
 
 #[cfg(feature = "serde")]
 #[derive(Default)]
-pub struct SerdeFieldAttr(FieldAttr);
+pub struct SerdeVariantAttr(VariantAttr);
 
-impl FieldAttr {
+impl VariantAttr {
     pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut result = Self::default();
         parse_attrs(attrs)?.for_each(|a| result.merge(a));
         #[cfg(feature = "serde")]
-        crate::utils::parse_serde_attrs::<SerdeFieldAttr>(attrs).for_each(|a| result.merge(a.0));
+        crate::utils::parse_serde_attrs::<SerdeVariantAttr>(attrs).for_each(|a| result.merge(a.0));
         Ok(result)
     }
 
     fn merge(
         &mut self,
-        FieldAttr {
+        VariantAttr {
             rename,
-            inline,
+            rename_all,
             skip,
-            optional,
-            flatten,
-        }: FieldAttr,
+        }: VariantAttr,
     ) {
         self.rename = self.rename.take().or(rename);
-        self.inline = self.inline || inline;
+        self.rename_all = self.rename_all.take().or(rename_all);
         self.skip = self.skip || skip;
-        self.optional |= optional;
-        self.flatten |= flatten;
     }
 }
 
 impl_parse! {
-    FieldAttr(input, out) {
+    VariantAttr(input, out) {
         "rename" => out.rename = Some(parse_assign_str(input)?),
-        "inline" => out.inline = true,
+        "rename_all" => out.rename_all = Some(parse_assign_inflection(input)?),
         "skip" => out.skip = true,
-        "optional" => out.optional = true,
-        "flatten" => out.flatten = true,
     }
 }
 
 #[cfg(feature = "serde")]
 impl_parse! {
-    SerdeFieldAttr(input, out) {
+    SerdeVariantAttr(input, out) {
         "rename" => out.0.rename = Some(parse_assign_str(input)?),
+        "rename_all" => out.0.rename_all = Some(parse_assign_inflection(input)?),
         "skip" => out.0.skip = true,
         "skip_serializing" => out.0.skip = true,
         "skip_deserializing" => out.0.skip = true,
-        "skip_serializing_if" => out.0.optional = parse_assign_str(input)? == *"Option::is_none",
-        "flatten" => out.0.flatten = true,
         // parse #[serde(default)] to not emit a warning
         "default" => {
             use syn::Token;

@@ -1,13 +1,16 @@
 use std::{any::TypeId, collections::HashMap};
 
-use rspc::internal::{
-    BuiltProcedureBuilder, DoubleArgMarker, FutureMarker, RequestResolver, RequestResult,
-    ResultMarker,
+use rspc::{
+    internal::{
+        BuiltProcedureBuilder, DoubleArgMarker, FutureMarker, RequestResolver, RequestResult,
+        ResultMarker,
+    },
+    ExecError,
 };
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::Object;
+use crate::{normalise, Object};
 
 #[derive(Default)]
 pub struct NormiContext {
@@ -15,30 +18,22 @@ pub struct NormiContext {
 }
 
 // TODO: Convert this in a macro in rspc maybe???
-pub fn typed<TLayerCtx, TResolver, TArg, TResolverMarker, TResultMarker, TIncomingResult>(
+pub fn normi<TResolver, TCtx, TArg, TMarker, TResultMarker>(
     builder: BuiltProcedureBuilder<TResolver>,
 ) -> BuiltProcedureBuilder<
     impl RequestResolver<
-        TLayerCtx,
+        TCtx,
         DoubleArgMarker<TArg, FutureMarker<ResultMarker>>,
         FutureMarker<ResultMarker>,
         Arg = TArg,
-        Data = <TIncomingResult::Data as Object>::NormalizedResult,
     >,
 >
 where
-    TLayerCtx: Send + Sync + 'static,
-    TResolver: RequestResolver<
-        TLayerCtx,
-        TResolverMarker,
-        TResultMarker,
-        Arg = TArg,
-        Result = TIncomingResult,
-    >,
+    TResolver: RequestResolver<TCtx, TMarker, TResultMarker, Arg = TArg>,
     TResolver::Data: Object,
-    TIncomingResult: RequestResult<TResultMarker>,
-    TIncomingResult::Data: Object,
-    // <<TResolver as RequestResolver<TLayerCtx, TResolverMarker, TResultMarker>>::Result as RequestResult<TResultMarker>>::Data: Object,
+    <<TResolver as RequestResolver<TCtx, TMarker, TResultMarker>>::Result as RequestResult<
+        TResultMarker,
+    >>::Data: Object,
     TArg: Type + DeserializeOwned,
 {
     {
@@ -69,10 +64,7 @@ where
         resolver: move |ctx, arg| {
             let val = builder.resolver.exec(ctx, arg);
 
-            async {
-                let x = val?.exec().await.unwrap();
-                Ok(x.normalize().unwrap())
-            }
+            async { Ok(normalise(val?.exec().await?).map_err(ExecError::SerializingResultErr)?) }
         },
     }
 }

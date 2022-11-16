@@ -144,14 +144,15 @@ where
         ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResolver:
+            Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult + Send + Sync + 'static,
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Query,
-            TBuiltResolver::typedef(&mut self.typ_store),
+            TUnbuiltResolver::typedef(&mut self.typ_store, key),
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;
@@ -190,14 +191,15 @@ where
         ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResolver:
+            Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult + Send + Sync + 'static,
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Mutation,
-            TBuiltResolver::typedef(&mut self.typ_store),
+            TUnbuiltResolver::typedef(&mut self.typ_store, key),
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;
@@ -240,7 +242,7 @@ where
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Subscription,
-            TResolver::typedef(&mut self.typ_store),
+            TResolver::typedef(&mut self.typ_store, key),
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;
