@@ -65,8 +65,8 @@ impl EnumAttr {
 #[cfg(feature = "serde")]
 impl_parse! {
     SerdeEnumAttr(input, out) {
-        "tag" => out.0.tag = Some(parse_assign_str(input)?),
-        "content" => out.0.content = Some(parse_assign_str(input)?),
+        "tag" => out.0.tag = Some(crate::utils::parse_assign_str(input)?),
+        "content" => out.0.content = Some(crate::utils::parse_assign_str(input)?),
         "untagged" => out.0.untagged = true
     }
 }
