@@ -1,11 +1,11 @@
 [package]
 name = "create-rspc-app"
 description = "Get started with your next rspc app!"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
-include = ["/src", "/LICENCE", "/README.md"]
+include = ["/src", "/LICENCE", "/README.md", "/templates"]
 repository = "https://github.com/oscartbeaumont/rspc"
 documentation = "https://docs.rs/create-rspc-app"
 keywords = ["rspc", "prisma-client-rust", "pcr", "tauri", "axum"]
@@ -20,6 +20,7 @@ ureq = { version = "2.5.0", features = ["json"] }
 serde_json = "1.0.87"
 ctrlc = "3.2.3"
 thiserror = "1.0.37"
+walkdir = "2"
 
 [dev-dependencies]
 tempdir = "0.3.7"

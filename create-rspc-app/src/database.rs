@@ -48,7 +48,7 @@ impl Database {
                 PCR_BASE.extract(path)?;
 
                 replace_in_file(
-                    path.join("src-tauri").join("Cargo.toml").as_path(),
+                    path.join("src-tauri").join("Cargo__toml").as_path(),
                     "__name__",
                     project_name,
                 )?;
@@ -60,7 +60,7 @@ impl Database {
                 PCR_BASE.extract(path)?;
 
                 replace_in_file(
-                    path.join("api").join("Cargo.toml").as_path(),
+                    path.join("api").join("Cargo__toml").as_path(),
                     "__name__",
                     project_name,
                 )?;

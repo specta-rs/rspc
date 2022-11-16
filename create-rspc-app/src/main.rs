@@ -1,6 +1,6 @@
 use std::{env::current_dir, fs::remove_dir_all, str::FromStr};
 
-use requestty::{prompt_one, Question};
+use requestty::{prompt_one, ErrorKind, Question};
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -55,6 +55,7 @@ fn try_main() -> Result<(), errors::Error> {
         println!("Aborting your project name may only contain alphanumeric characters along with '-' and '_'...");
     }
 
+    // First argument is the path where the project has to be created
     let dir_path = match std::env::args().nth(1) {
         Some(value) => value,
         None => project_name.to_string(),
@@ -140,6 +141,10 @@ fn try_main() -> Result<(), errors::Error> {
 
 fn main() {
     if let Err(e) = try_main() {
+        if matches!(e, errors::Error::RequestTtyError(ErrorKind::Interrupted)) {
+            return;
+        }
+
         println!("\n{}", e);
         println!("\nNOTE: If this error persists please consider opening an issue at");
         println!("  https://github.com/oscartbeaumont/rspc/issues\n")

@@ -19,13 +19,23 @@ impl Framework {
             Self::Axum => {
                 std::fs::create_dir_all(path)?;
                 AXUM_BASE_TEMPLATE.extract(path)?;
-                replace_in_file(path.join("Cargo.toml").as_path(), "__name__", project_name)?;
+                replace_in_file(path.join("Cargo__toml").as_path(), "__name__", project_name)?;
+                replace_in_file(
+                    path.join("Cargo__toml").as_path(),
+                    "__cra_version__",
+                    env!("CARGO_PKG_VERSION"),
+                )?;
             }
             Self::Tauri => {
                 std::fs::create_dir_all(path)?;
                 TAURI_BASE_TEMPLATE.extract(path)?;
                 let path = path.join("src-tauri");
-                replace_in_file(path.join("Cargo.toml").as_path(), "__name__", project_name)?;
+                replace_in_file(path.join("Cargo__toml").as_path(), "__name__", project_name)?;
+                replace_in_file(
+                    path.join("Cargo__toml").as_path(),
+                    "__cra_version__",
+                    env!("CARGO_PKG_VERSION"),
+                )?;
             }
         }
 
