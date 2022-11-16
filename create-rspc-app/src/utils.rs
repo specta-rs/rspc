@@ -24,6 +24,7 @@ pub fn replace_in_file(path: &Path, from: &str, to: &str) -> io::Result<()> {
     Ok(())
 }
 
+#[allow(unused)]
 pub(crate) fn check_rust_msrv() -> Result<(), rustc_version::Error> {
     let version = rustc_version::version()?;
 
@@ -36,6 +37,7 @@ pub(crate) fn check_rust_msrv() -> Result<(), rustc_version::Error> {
     Ok(())
 }
 
+#[allow(unused)]
 pub(crate) fn check_version() -> Result<(), Box<dyn std::error::Error>> {
     let resp: Value = ureq::get(&format!(
         "https://crates.io/api/v1/crates/{}",

@@ -1,6 +1,6 @@
 use std::{env::current_dir, fs::remove_dir_all, str::FromStr};
 
-use requestty::{prompt_one, Question};
+use requestty::{prompt_one, ErrorKind, Question};
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -141,6 +141,10 @@ fn try_main() -> Result<(), errors::Error> {
 
 fn main() {
     if let Err(e) = try_main() {
+        if matches!(e, errors::Error::RequestTtyError(ErrorKind::Interrupted)) {
+            return;
+        }
+
         println!("\n{}", e);
         println!("\nNOTE: If this error persists please consider opening an issue at");
         println!("  https://github.com/oscartbeaumont/rspc/issues\n")

@@ -15,3 +15,6 @@ prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust
   "migrations",
 ], default-features = false }
 rspc = { version = "0.1.2", features = ["axum"] }
+
+[workspace.metadata.pkg-config]
+openssl = "__cra_version__"

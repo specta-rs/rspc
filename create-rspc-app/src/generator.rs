@@ -2,7 +2,10 @@ use std::{io, path::Path};
 
 use walkdir::WalkDir;
 
-use crate::{database::Database, framework::Framework, frontend_framework::FrontendFramework};
+use crate::{
+    database::Database, framework::Framework, frontend_framework::FrontendFramework,
+    utils::replace_in_file,
+};
 
 pub fn code_generator(
     framework: Framework,
@@ -22,6 +25,7 @@ pub fn code_generator(
     for entry in WalkDir::new(path) {
         let entry = entry.unwrap();
         if entry.file_name().to_str() == Some("Cargo__toml") {
+            replace_in_file(entry.path(), "__cra_version__", env!("CARGO_PKG_VERSION"))?;
             std::fs::rename(entry.path(), entry.path().with_file_name("Cargo.toml"))?;
         }
     }
