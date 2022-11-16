@@ -1,7 +1,5 @@
 use syn::{Attribute, Result};
 
-use crate::utils::*;
-
 #[derive(Debug, Default)]
 pub struct EnumAttr {
     pub tag: Option<String>,
