@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use serde::de::Error;
 use serde_json::Value;
 use tauri::{
     async_runtime::Mutex,
@@ -50,9 +51,20 @@ where
                         return;
                     }
                 })
-                .and_then(|v| match v.is_array() {
-                    true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
-                    false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                .and_then(|v| match v {
+                    // TODO: This is a temporary hack for: https://github.com/oscartbeaumont/rspc/issues/77
+                    Value::String(v) => serde_json::from_str::<Value>(&v),
+                    _ => Ok(v),
+                })
+                .and_then(|v| match v {
+                    Value::Object(v) => {
+                        serde_json::from_value::<jsonrpc::Request>(Value::Object(v))
+                            .map(|v| vec![v])
+                    }
+                    Value::Array(v) => {
+                        serde_json::from_value::<Vec<jsonrpc::Request>>(Value::Array(v))
+                    }
+                    _ => Err(serde_json::Error::custom("invalid JSON-RPC request")),
                 }) {
                     Ok(v) => v,
                     Err(_err) => {

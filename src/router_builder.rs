@@ -4,7 +4,17 @@ use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
 use specta::{Type, TypeDefs};
 
-use crate::{internal::*, Config, ExecError, Router};
+use crate::{
+    internal::{
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
+        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
+    },
+    internal::{
+        DoubleArgStreamMarker, GlobalData, MiddlewareBuilder, MiddlewareLike, ProcedureKind,
+        RequestResolver, RequestResult, StreamResolver,
+    },
+    Config, ExecError, Router,
+};
 
 pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
     s.is_empty()
@@ -134,14 +144,15 @@ where
         ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResolver:
+            Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult + Send + Sync + 'static,
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResultMarker, TBuiltResolverMarker>,
     {
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Query,
-            TBuiltResolver::typedef(&mut self.typ_store, key),
+            TUnbuiltResolver::typedef(&mut self.typ_store, key),
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;
@@ -180,14 +191,15 @@ where
         ) -> BuiltProcedureBuilder<TBuiltResolver>,
     ) -> Self
     where
-        TUnbuiltResolver: Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult,
+        TUnbuiltResolver:
+            Fn(TLayerCtx, TBuiltResolver::Arg) -> TUnbuiltResult + Send + Sync + 'static,
         TUnbuiltResult: RequestResult<TUnbuiltResultMarker>,
         TBuiltResolver: RequestResolver<TLayerCtx, TBuiltResolverMarker, TBuiltResultMarker>,
     {
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Mutation,
-            TBuiltResolver::typedef(&mut self.typ_store, key),
+            TUnbuiltResolver::typedef(&mut self.typ_store, key),
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;

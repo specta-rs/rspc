@@ -12,7 +12,7 @@ pub enum RequestId {
     String(String),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Type)] // TODO: Type on this
+#[derive(Debug, Clone, Deserialize, Serialize, Type)]
 pub struct Request {
     pub jsonrpc: Option<String>, // This is required in the JsonRPC spec but I make it optional.
     pub id: RequestId,
