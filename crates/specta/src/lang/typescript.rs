@@ -57,22 +57,34 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
             generics,
             fields,
             ..
-        }) => match fields.len() {
-            0 => format!("type {name} = {inline_ts}"),
-            _ => {
-                let generics = match generics.len() {
-                    0 => "".into(),
-                    _ => format!("<{}>", generics.to_vec().join(", ")),
-                };
+        }) => {
+            if name == "" {
+                return Err(
+                    "Cannot export anonymous object. Try wrapping the type in a tuple struct which has the `ToDataType` derive macro on it.".to_string(),
+                );
+            }
 
-                match fields.iter().any(|f| f.flatten) {
-                    true => format!("type {name}{generics} = {inline_ts}"),
-                    false => format!("interface {name}{generics} {inline_ts}"),
+            match fields.len() {
+                0 => format!("type {name} = {inline_ts}"),
+                _ => {
+                    let generics = match generics.len() {
+                        0 => "".into(),
+                        _ => format!("<{}>", generics.to_vec().join(", ")),
+                    };
+
+                    match fields.iter().any(|f| f.flatten) {
+                        true => format!("type {name}{generics} = {inline_ts}"),
+                        false => format!("interface {name}{generics} {inline_ts}"),
+                    }
                 }
             }
-        },
+        }
         // Enum
         DataType::Enum(EnumType { name, generics, .. }) => {
+            if name == "" {
+                return Err("Cannot export anonymous enum. Try wrapping the type in a tuple struct which has the `ToDataType` derive macro on it.".to_string());
+            }
+
             let generics = match generics.len() {
                 0 => "".into(),
                 _ => format!("<{}>", generics.to_vec().join(", ")),
