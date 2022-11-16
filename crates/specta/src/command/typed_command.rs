@@ -1,8 +1,10 @@
 use crate::{
-    DataType, DefOpts, ObjectField, ObjectType, TypeDefs, TypedCommandArg, TypedCommandResult,
+    DataType, DefOpts, ObjectField, ObjectType, ToDataType, TypeDefs, TypedCommandArg,
+    TypedCommandResult,
 };
 
-#[derive(Debug)]
+#[derive(Debug, ToDataType)]
+#[specta(crate = "crate")]
 pub struct CommandDataType {
     pub name: &'static str,
     pub input: Option<DataType>,

@@ -1,6 +1,6 @@
 mod attr;
 
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 use attr::*;
@@ -8,7 +8,15 @@ use attr::*;
 pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let derive_input = parse_macro_input!(input);
 
-    let DeriveInput { ident, data, .. } = &derive_input;
+    let DeriveInput {
+        ident, data, attrs, ..
+    } = &derive_input;
+
+    let container_attrs = ContainerAttr::from_attrs(attrs).unwrap();
+    let crate_name = format_ident!(
+        "{}",
+        container_attrs.crate_name.unwrap_or("::specta".into())
+    );
 
     let body = match data {
         Data::Struct(data) => match &data.fields {
@@ -23,7 +31,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let ident = &field.ident;
 
                     Some(quote! {
-                        ::specta::ObjectField {
+                        #crate_name::ObjectField {
                             name: stringify!(#ident).to_string(),
                             ty: self.#ident.to_data_type(),
                             optional: false,
@@ -33,7 +41,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 });
 
                 quote! {
-                    ::specta::DataType::Object(::specta::ObjectType {
+                    #crate_name::DataType::Object(#crate_name::ObjectType {
                         name: stringify!(#ident).to_string(),
                         generics: vec![],
                         fields: vec![#(#fields),*],
@@ -49,7 +57,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 });
 
                 quote! {
-                    ::specta::DataType::Tuple(::specta::TupleType {
+                    #crate_name::DataType::Tuple(#crate_name::TupleType {
                         name: stringify!(#ident).to_string(),
                         generics: vec![],
                         fields: vec![#(#fields),*]
@@ -62,8 +70,8 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     };
 
     quote! {
-        impl ::specta::ToDataType for #ident {
-            fn to_data_type(self) -> ::specta::DataType {
+        impl #crate_name::ToDataType for #ident {
+            fn to_data_type(self) -> #crate_name::DataType {
                 #body
             }
         }
