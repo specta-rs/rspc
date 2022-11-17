@@ -1,17 +1,24 @@
 use crate::{
-    DataType, DefOpts, ObjectField, ObjectType, ToDataType, TypeDefs, TypedCommandArg,
-    TypedCommandResult,
+    command::{TypedCommandArg, TypedCommandResult},
+    r#type::{ObjectField, ObjectType},
+    DataType, DefOpts, ToDataType, TypeDefs,
 };
 
+/// is a struct which represents the datatype of a Specta command.
 #[derive(Debug, ToDataType)]
 #[specta(crate = "crate")]
 pub struct CommandDataType {
+    /// The name of the command. This will be derived from the Rust function name.
     pub name: &'static str,
+    /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
     pub input: Option<DataType>,
+    /// The result type of the command. This would be the return type of the Rust function.
     pub result: DataType,
 }
 
+/// is a trait which is implemented by all functions which can be used as a command.
 pub trait TypedCommand<TMarker> {
+    /// convert function into a DataType
     fn to_datatype(
         name: &'static str,
         type_map: &mut TypeDefs,
@@ -97,6 +104,7 @@ macro_rules! impl_typed_command {
 
 impl_typed_command!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
+/// is a helper for exporting a command to a `CommandDataType`. You shouldn't use this directly and instead should use [`export_fn!`](crate::export_fn).
 pub fn export_command_datatype<TMarker, T: TypedCommand<TMarker>>(
     _: T,
     name: &'static str,

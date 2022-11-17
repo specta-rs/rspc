@@ -1,15 +1,14 @@
-#[macro_export]
 macro_rules! impl_primitives {
     ($($i:ident)+) => {$(
         impl Type for $i {
             const NAME: &'static str = stringify!($i);
 
             fn inline(_: DefOpts, _: &[DataType]) -> DataType {
-                DataType::Primitive(PrimitiveType::$i)
+                DataType::Primitive(datatype::PrimitiveType::$i)
             }
 
             fn reference(_: DefOpts, _: &[DataType]) -> DataType {
-                DataType::Primitive(PrimitiveType::$i)
+                DataType::Primitive(datatype::PrimitiveType::$i)
             }
 
             fn definition(_: DefOpts) -> DataType {
@@ -19,7 +18,6 @@ macro_rules! impl_primitives {
     )+};
 }
 
-#[macro_export]
 macro_rules! impl_tuple {
     ( impl $i:ident ) => {
         impl_tuple!(impl); // This does tuple struct
@@ -37,7 +35,7 @@ macro_rules! impl_tuple {
                     }, &[]
                 );)*
 
-                DataType::Tuple(TupleType {
+                DataType::Tuple(datatype::TupleType {
                     name: stringify!(($($i),*)).to_string(),
                     fields: vec![$($i),*],
                     generics: vec![]
@@ -60,7 +58,6 @@ macro_rules! impl_tuple {
     () => {};
 }
 
-#[macro_export]
 macro_rules! impl_containers {
     ($($container:ident)+) => {$(
         impl<T: Type> Type for $container<T> {
@@ -93,7 +90,6 @@ macro_rules! impl_containers {
     )+}
 }
 
-#[macro_export]
 macro_rules! impl_as {
     ($($ty:path as $tty:ident)+) => {$(
         impl Type for $ty {
@@ -114,7 +110,6 @@ macro_rules! impl_as {
     )+};
 }
 
-#[macro_export]
 macro_rules! impl_for_list {
     ($($ty:path as $name:expr)+) => {$(
         impl<T: Type> Type for $ty {
@@ -147,7 +142,6 @@ macro_rules! impl_for_list {
     )+};
 }
 
-#[macro_export]
 macro_rules! impl_for_map {
     ($ty:path as $name:expr) => {
         impl<K: Type, V: Type> Type for $ty {

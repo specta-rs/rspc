@@ -28,7 +28,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let ident = &field.ident;
 
                     Some(quote! {
-                        #crate_name::ObjectField {
+                        #crate_name::r#type::ObjectField {
                             name: stringify!(#ident).to_string(),
                             ty: self.#ident.to_data_type(),
                             optional: false,
@@ -38,7 +38,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 });
 
                 quote! {
-                    #crate_name::DataType::Object(#crate_name::ObjectType {
+                    #crate_name::datatype::DataType::Object(#crate_name::r#type::ObjectType {
                         name: stringify!(#ident).to_string(),
                         generics: vec![],
                         fields: vec![#(#fields),*],
@@ -54,7 +54,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 });
 
                 quote! {
-                    #crate_name::DataType::Tuple(#crate_name::TupleType {
+                    #crate_name::datatype::DataType::Tuple(#crate_name::datatype::TupleType {
                         name: stringify!(#ident).to_string(),
                         generics: vec![],
                         fields: vec![#(#fields),*]
@@ -68,7 +68,7 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     quote! {
         impl #crate_name::ToDataType for #ident {
-            fn to_data_type(self) -> #crate_name::DataType {
+            fn to_data_type(self) -> #crate_name::datatype::DataType {
                 #body
             }
         }

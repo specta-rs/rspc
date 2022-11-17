@@ -1,4 +1,7 @@
-use specta::{ts_export, ts_inline, Type};
+use specta::{
+    ts::{ts_export, ts_inline},
+    Type,
+};
 
 #[derive(Type)]
 enum SimpleEnum {

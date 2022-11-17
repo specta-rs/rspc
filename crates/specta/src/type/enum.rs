@@ -1,8 +1,10 @@
 use std::any::TypeId;
 
-use crate::{DataType, ObjectType, TupleType};
+use crate::{datatype::TupleType, r#type::ObjectType, DataType};
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct EnumType {
     pub name: String,
     pub variants: Vec<EnumVariant>,
@@ -12,6 +14,7 @@ pub struct EnumType {
 }
 
 impl EnumType {
+    /// An enum may contain variants which are invalid and will cause a runtime errors during serialize/deserialization. This function will filter them out so types can be exported for valid variants.
     pub fn make_flattenable(&mut self) {
         let indexes = self
             .variants
@@ -50,7 +53,9 @@ impl PartialEq for EnumType {
     }
 }
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub enum EnumRepr {
     External,
     Internal { tag: String },
@@ -58,7 +63,9 @@ pub enum EnumRepr {
     Untagged,
 }
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub enum EnumVariant {
     Unit(String),
     Unnamed(TupleType),
@@ -66,6 +73,7 @@ pub enum EnumVariant {
 }
 
 impl EnumVariant {
+    /// Get the name of the variant.
     pub fn name(&self) -> &str {
         match self {
             Self::Unit(name) => name,
@@ -74,6 +82,7 @@ impl EnumVariant {
         }
     }
 
+    /// Get the [`DataType`](crate::DataType) of the variant.
     pub fn data_type(&self) -> DataType {
         match self {
             Self::Unit(_) => unreachable!("Unit enum variants have no type!"),

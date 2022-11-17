@@ -1,6 +1,6 @@
 use std::{cell::Cell, rc::Rc, sync::Arc};
 
-use specta::{ts_inline, Type};
+use specta::{ts::ts_inline, Type};
 
 #[derive(Type)]
 struct A {

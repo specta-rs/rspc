@@ -1,7 +1,51 @@
-//! specta: Easily export your Rust types to other languages
+//! Easily export your Rust types to other languages
+//!
+//! Specta provides a system for type introspection and a set of language exporter which allows you to export your Rust types to other languages! Currently we support exporting to [Typescript](https://www.typescriptlang.org) and have alpha support for [OpenAPI](https://www.openapis.org).
+//!
+//! ## Example
+//! ```rust
+//! use specta::{export_fn, ts::{ts_export_datatype, ts_export}, ToDataType, Type};
+//!
+//! #[derive(Type)]
+//! pub struct MyCustomType {
+//!    pub my_field: String,
+//! }
+//!
+//! #[specta::command]
+//! fn some_function(name: String, age: i32) -> bool {
+//!     true
+//! }
+//!
+//! fn main() {
+//!     assert_eq!(
+//!         ts_export::<MyCustomType>(),
+//!         Ok("export interface MyCustomType { my_field: string }".to_string())
+//!         
+//!     );
+//!
+//!      // This API is pretty new and will likely under go API changes in the future.
+//!      assert_eq!(
+//!         ts_export_datatype(&export_fn!(some_function).to_data_type()),
+//!         Ok("export interface CommandDataType { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
+//!      );
+//! }
+//! ```
+//!
+//! ## Known limitations
+//!  - Type aliases must not alias generic types (as far as known this is just a Rust limitation)
+//!
+//! ## Why not ts-rs?
+//!
+//! ts-rs is a great library, but it has a few limitations which became a problem when I was building [rspc](https://github.com/oscartbeaumont/rspc). Namely it deals with types individually which means it is not possible to export a type and all of the other types it depends on.
+//!
+//! ## Supported Libraries
+//!
+//! If you are using [Prisma Client Rust](https://prisma.brendonovich.dev) you can enable the `rspc` feature on it to allow for Specta support on types coming directly from your database. This includes support for the types created via a selection.
+//!
+//! ## Feature flags
+#![doc = document_features::document_features!()]
 #![forbid(unsafe_code)]
-#![warn(clippy::all, clippy::unwrap_used, clippy::panic)]
-// #![warn(missing_docs)]
+#![warn(clippy::all, clippy::unwrap_used, clippy::panic, missing_docs)]
 
 use std::{
     borrow::Cow,
@@ -26,39 +70,123 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
+/// Support for Specta commands. These allow exporting the types for Rust functions.
 #[cfg(feature = "command")]
-mod command;
-mod datatype;
-mod r#enum;
-pub mod impl_type_macros;
+pub mod command;
+/// Types related to working with [`crate::DataType`] directly.
+/// This is for advanced users.
+pub mod datatype;
+/// Types to represent the structure of the Rust types for the type exporters.
+pub mod r#type;
+#[macro_use]
+mod impl_type_macros;
 mod lang;
-mod object;
 mod to_data_type;
 
-#[cfg(feature = "command")]
-pub use command::*;
-pub use datatype::*;
+// #[cfg(feature = "command")]
+// pub use command::*;
+use datatype::DataType;
 pub use lang::*;
-pub use object::*;
-pub use r#enum::*;
-pub use specta_macros::*;
+use r#type::{DefOpts, TypeDefs};
+
+/// Derive type is used to derive the [`Type`](crate::Type) trait on a struct.
+///
+/// ## Example
+///
+/// ```rust
+/// use specta::Type;
+///
+/// // Use it on structs
+/// #[derive(Type)]
+/// pub struct MyCustomStruct {
+///     pub name: String,
+/// }
+///
+/// #[derive(Type)]
+/// pub struct MyCustomStruct2(String, i32, bool);
+///
+/// // Use it on enums
+/// #[derive(Type)]
+/// pub enum MyCustomType {
+///     VariantOne,
+///     VariantTwo(String, i32),
+///     VariantThree { name: String, age: i32 },
+/// }
+/// ```
+pub use specta_macros::Type;
+
+#[doc(hidden)]
+/// This macro is exposed from rspc as a wrapper around [Type] with a correct import path.
+/// This is exposed from here so rspc doesn't need a macro package for 4 lines of code.
+pub use specta_macros::RSPCType;
+
+/// Derive command is used to derive the [`ToDataType`](crate::ToDataType) trait on a struct.
+///
+/// This is designed a more advanced feature. If you are just looking for regular type exporting use [`Type`](derive@crate::Type) instead.
+///
+///
+/// ## Example
+///
+/// ```rust
+/// use specta::{
+///     datatype::{DataType, LiteralType},
+///     ts::ts_export_datatype,
+///     ToDataType,
+/// };
+///
+/// #[derive(ToDataType)]
+/// pub struct MyEnum(pub Vec<DataType>);
+///
+/// fn main() {
+///     let e = MyEnum(vec![
+///         DataType::Literal(LiteralType::String("A".to_string())),
+///         DataType::Literal(LiteralType::String("B".to_string())),
+///     ]);
+///
+///     assert_eq!(
+///         ts_export_datatype(&e.to_data_type()).unwrap(),
+///         "export type MyEnum = \"A\" | \"B\""
+///     );
+/// }
+/// ```
+///
+pub use specta_macros::ToDataType;
+
+/// Attribute macro which can be put on a Rust function to introspect its types.
+///
+/// ```rust
+/// #[specta::command]
+/// fn my_function(arg1: i32, arg2: bool) -> &'static str {
+///     "Hello World"
+/// }
+/// ```
+pub use specta_macros::command;
+
 pub use to_data_type::*;
 
-pub type TypeDefs = BTreeMap<&'static str, DataType>;
-
-pub struct DefOpts<'a> {
-    pub parent_inline: bool,
-    pub type_map: &'a mut TypeDefs,
+#[doc(hidden)]
+pub mod internal {
+    pub use paste::paste as _specta_paste;
 }
 
+/// A trait which allows runtime type reflection of a type it is implemented on.
+/// The type information can then be fed into a language exporter to generate a type definition in another language.
+/// You should avoid implementing this trait yourself where possible and use the [`Type`](derive@crate::Type) macro instead.
 pub trait Type {
+    /// the name of the type
     const NAME: &'static str;
 
+    /// get the inlined definition of a type.
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType;
+
+    /// TODO
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType;
+
+    /// TODO
     fn definition(opts: DefOpts) -> DataType;
 }
 
+/// is a marker trait which is implemented on types which can be flattened.
 pub trait Flatten: Type {}
 
 impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
@@ -355,6 +483,8 @@ pub use uhlc_impls::*;
 
 #[cfg(feature = "uhlc")]
 mod uhlc_impls {
+    use crate::r#type::ObjectType;
+
     use super::*;
     use std::any::TypeId;
     use uhlc::*;
@@ -367,6 +497,7 @@ mod uhlc_impls {
     impl Type for Timestamp {
         const NAME: &'static str = "Timestamp";
         fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
+            use r#type::ObjectField;
             DataType::Object(ObjectType {
                 name: "Timestamp".to_string(),
                 generics: vec![],
@@ -374,6 +505,7 @@ mod uhlc_impls {
                     ObjectField {
                         name: "id".to_string(),
                         optional: false,
+                        flatten: false,
                         ty: {
                             let ty = <ID as Type>::reference(
                                 DefOpts {
@@ -388,6 +520,7 @@ mod uhlc_impls {
                     ObjectField {
                         name: "time".to_string(),
                         optional: false,
+                        flatten: false,
                         ty: {
                             let ty = <NTP64 as Type>::reference(
                                 DefOpts {

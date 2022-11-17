@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use specta::{DataType, ToDataType};
+use specta::{datatype::DataType, ToDataType};
 
 use crate::is_valid_procedure_name;
 

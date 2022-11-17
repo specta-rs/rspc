@@ -33,7 +33,7 @@ pub fn parse_enum(
         quote! {
             generics.get(#i).cloned().unwrap_or(
                 <#ident as #crate_ref::Type>::reference(
-                    #crate_ref::DefOpts {
+                    #crate_ref::r#type::DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map
                     },
@@ -100,7 +100,7 @@ pub fn parse_enum(
 
             match &variant.fields {
                 Fields::Unit => {
-                    quote!(#crate_ref::EnumVariant::Unit(#variant_name_str.to_string()))
+                    quote!(#crate_ref::r#type::EnumVariant::Unit(#variant_name_str.to_string()))
                 }
                 Fields::Unnamed(fields) => {
                     let fields = fields.unnamed.iter().map(|field| {
@@ -121,7 +121,7 @@ pub fn parse_enum(
                         })
                     });
 
-                    quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
+                    quote!(#crate_ref::r#type::EnumVariant::Unnamed(#crate_ref::datatype::TupleType {
                         name: #variant_name_str.to_string(),
                         fields: vec![#(#fields),*],
                         generics: vec![]
@@ -147,7 +147,7 @@ pub fn parse_enum(
                             (_, _) => field_ident_str,
                         };
 
-                        quote!(#crate_ref::ObjectField {
+                        quote!(#crate_ref::r#type::ObjectField {
                             name: #field_name.to_string(),
                             optional: false,
                             flatten: false,
@@ -159,7 +159,7 @@ pub fn parse_enum(
                         })
                     });
 
-                    quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
+                    quote!(#crate_ref::r#type::EnumVariant::Named(#crate_ref::r#type::ObjectType {
                         name: #variant_name_str.to_string(),
                         fields: vec![#(#fields),*],
                         generics: vec![],
@@ -171,14 +171,14 @@ pub fn parse_enum(
         });
 
     (
-        quote!(#crate_ref::DataType::Enum(#crate_ref::EnumType {
+        quote!(#crate_ref::datatype::DataType::Enum(#crate_ref::r#type::EnumType {
             name: #enum_name_str.to_string(),
             generics: vec![#(#definition_generics),*],
             variants: vec![#(#variants),*],
-            repr: #crate_ref::EnumRepr::#repr_tokens,
+            repr: #crate_ref::r#type::EnumRepr::#repr_tokens,
             type_id: std::any::TypeId::of::<Self>()
         })),
-        quote!(#crate_ref::DataType::Reference {
+        quote!(#crate_ref::datatype::DataType::Reference {
             name: #enum_name_str.to_string(),
             generics: vec![#(#reference_generics),*],
             type_id: std::any::TypeId::of::<Self>()

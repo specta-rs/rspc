@@ -2,7 +2,9 @@ use std::any::TypeId;
 
 use crate::DataType;
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ObjectField {
     pub name: String,
     pub ty: DataType,
@@ -10,7 +12,9 @@ pub struct ObjectField {
     pub flatten: bool,
 }
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ObjectType {
     pub name: String,
     pub generics: Vec<&'static str>,

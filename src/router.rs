@@ -10,7 +10,7 @@ use std::{
 
 use futures::Stream;
 use serde_json::Value;
-use specta::{to_ts_export, ToDataType, TypeDefs};
+use specta::{r#type::TypeDefs, ts::ts_export_datatype, ToDataType};
 
 use crate::{
     internal::{
@@ -141,10 +141,14 @@ where
         writeln!(
             file,
             "{}",
-            to_ts_export(&Procedures::new(self).to_data_type()).unwrap()
+            ts_export_datatype(&Procedures::new(self).to_data_type()).unwrap()
         )?;
 
-        for export in self.typ_store.values().filter_map(|v| to_ts_export(v).ok()) {
+        for export in self
+            .typ_store
+            .values()
+            .filter_map(|v| ts_export_datatype(v).ok())
+        {
             writeln!(file, "\n{}", export)?;
         }
 

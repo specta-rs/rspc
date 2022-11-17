@@ -1,44 +1,15 @@
 use crate::{
-    DataType, DefOpts, EnumRepr, EnumType, EnumVariant, LiteralType, ObjectField, ObjectType,
-    PrimitiveType, TupleType, TypeDefs,
+    datatype::{LiteralType, PrimitiveType, TupleType},
+    r#type::{EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType},
+    DataType, DefOpts, TypeDefs,
 };
 
 use crate::Type;
 
-pub fn ts_inline_ref<T: Type>(_t: &T) -> String {
-    ts_inline::<T>()
-}
-
-pub fn ts_inline<T: Type>() -> String {
-    to_ts(&T::inline(
-        DefOpts {
-            parent_inline: true,
-            type_map: &mut TypeDefs::new(),
-        },
-        &[],
-    ))
-}
-
-pub fn ts_ref_ref<T: Type>(_t: &T) -> String {
-    ts_inline::<T>()
-}
-
-pub fn ts_ref<T: Type>() -> String {
-    to_ts(&T::reference(
-        DefOpts {
-            parent_inline: false,
-            type_map: &mut TypeDefs::new(),
-        },
-        &[],
-    ))
-}
-
-pub fn ts_export_ref<T: Type>(_t: &T) -> String {
-    ts_inline::<T>()
-}
-
+/// Convert a type which implements [`Type`](crate::Type) to a TypeScript string with an export.
+/// Eg. `export type Foo = { demo: string; };`
 pub fn ts_export<T: Type>() -> Result<String, String> {
-    to_ts_export(&T::inline(
+    ts_export_datatype(&T::inline(
         DefOpts {
             parent_inline: true,
             type_map: &mut TypeDefs::default(),
@@ -47,7 +18,21 @@ pub fn ts_export<T: Type>() -> Result<String, String> {
     ))
 }
 
-pub fn to_ts_export(def: &DataType) -> Result<String, String> {
+/// Convert a type which implements [`Type`](crate::Type) to a TypeScript string.
+/// Eg. `{ demo: string; };`
+pub fn ts_inline<T: Type>() -> String {
+    to_ts(&T::inline(
+        DefOpts {
+            parent_inline: true,
+            type_map: &mut TypeDefs::default(),
+        },
+        &[],
+    ))
+}
+
+/// Convert a DataType to a TypeScript string with an export.
+/// Eg. `export type Foo = { demo: string; };`
+pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts(def);
 
     let declaration = match &def {
@@ -96,7 +81,7 @@ pub fn to_ts_export(def: &DataType) -> Result<String, String> {
         DataType::Tuple(TupleType { name, .. }) => {
             format!("type {name} = {inline_ts}")
         }
-        _ => return Err(format!("Type cannot be exported: {:?}", def)),
+        _ => return Err(format!("Type cannot be exported: {:?}", def)), // TODO: Can this be enforced at a type system level
     };
 
     Ok(format!("export {declaration}"))
@@ -108,6 +93,8 @@ macro_rules! primitive_def {
     }
 }
 
+/// Convert a DataType to a TypeScript string
+/// Eg. `{ demo: string; }`
 pub fn to_ts(typ: &DataType) -> String {
     match &typ {
         DataType::Any => "any".into(),
@@ -191,7 +178,12 @@ pub fn to_ts(typ: &DataType) -> String {
                         (EnumRepr::Internal { tag }, EnumVariant::Named(obj)) => {
                             let mut fields = vec![format!("{tag}: \"{sanitised_name}\"")];
 
-                            fields.extend(object_fields(&obj.fields));
+                            fields.extend(
+                                obj.fields
+                                    .iter()
+                                    .map(|field| object_field_to_ts(field))
+                                    .collect::<Vec<_>>(),
+                            );
 
                             format!("{{ {} }}", fields.join(", "))
                         }
@@ -248,28 +240,25 @@ impl LiteralType {
     }
 }
 
-pub fn object_fields(fields: &[ObjectField]) -> Vec<String> {
-    fields
-        .iter()
-        .map(|field| {
-            let field_name_safe = sanitise_name(&field.name);
+/// convert an object field into a Typescript string
+pub fn object_field_to_ts(field: &ObjectField) -> String {
+    let field_name_safe = sanitise_name(&field.name);
 
-            let (key, ty) = match field.optional {
-                true => (
-                    format!("{}?", field_name_safe),
-                    match &field.ty {
-                        DataType::Nullable(ty) => ty.as_ref(),
-                        ty => ty,
-                    },
-                ),
-                false => (field_name_safe, &field.ty),
-            };
+    let (key, ty) = match field.optional {
+        true => (
+            format!("{}?", field_name_safe),
+            match &field.ty {
+                DataType::Nullable(ty) => ty.as_ref(),
+                ty => ty,
+            },
+        ),
+        false => (field_name_safe, &field.ty),
+    };
 
-            format!("{key}: {}", to_ts(ty))
-        })
-        .collect::<Vec<_>>()
+    format!("{key}: {}", to_ts(ty))
 }
 
+/// sanitise a string to be a valid Typescript key
 pub fn sanitise_name(value: &str) -> String {
     let valid = value
         .chars()

@@ -12,32 +12,59 @@ keywords = ["async", "specta", "rspc", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
 [features]
-default = ["serde"]
+default = ["serde", "command", "typescript"]
+
+##! Internal Features
+## Support for exporting the types of Rust functions.
 command = ["serde"]
+
+#! Compatability
+## Support for [serde](https://serde.rs) and [serde-json](https://github.com/serde-rs/json)
 serde = ["specta-macros/serde", "dep:serde_json"]
-openapi = ["dep:openapiv3"]
+## Support for [Tauri](https://tauri.app). This is required when using [`specta::command`](macro@crate::command) with Tauri commands.
 tauri = ["dep:tauri"]
 
-# External types
+#! Language Exporter
+## Support for [TypeScript](https://www.typescriptlang.org) language exporting
+typescript = []
+## Support for [OpenAPI](https://www.openapis.org) language exporting
+openapi = ["dep:openapiv3"]
+
+#! External types
+## [uuid](https://docs.rs/uuid) crate
 uuid = ["dep:uuid"]
+## [chrono](https://docs.rs/chrono) crate
 chrono = ["dep:chrono"]
+## [time](https://docs.rs/time) crate
 time = ["dep:time"]
+## [bigdecimal](https://docs.rs/bigdecimal) crate
 bigdecimal = ["dep:bigdecimal"]
+## [rust_decimal](https://docs.rs/rust_decimal) crate
 rust_decimal = ["dep:rust_decimal"]
+## [indexmap](https://docs.rs/indexmap) crate
 indexmap = ["dep:indexmap"]
+## [ipnetwork](https://docs.rs/ipnetwork) crate
 ipnetwork = ["dep:ipnetwork"]
+## [mac_address](https://docs.rs/mac_address) crate
 mac_address = ["dep:mac_address"]
+## [bit-vec](https://docs.rs/bit-vec) crate
 bit-vec = ["dep:bit-vec"]
+## [bson](https://docs.rs/bson) crate
 bson = ["dep:bson"]
+## [uhlc](https://docs.rs/uhlc) crate
 uhlc = ["dep:uhlc"]
+## [bytesize](https://docs.rs/bytesize) crate
 bytesize = ["dep:bytesize"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 specta-macros = { version = "0.0.4", path = "./macros" }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.87", optional = true, default-features = false, features = ["std"] }
 uuid = { version = "1.2.1", optional = true, default-features = false, features = [] }
-chrono = { version = "0.4.22", optional = true, default-features = false, features = [] }
+chrono = { version = "0.4.23", optional = true, default-features = false, features = ["clock"] }
 time = { version = "0.3.17", optional = true, default-features = false, features = [] }
 bigdecimal = { version = "0.3.0", optional = true, default-features = false, features = [] }
 rust_decimal = { version = "1.26.1", optional = true, default-features = false, features = [] }
@@ -48,9 +75,10 @@ bit-vec = { version = "0.6.3", optional = true, default-features = false, featur
 bson = { version = "2.4.0", optional = true, default-features = false, features = [] }
 openapiv3 = { version = "1.0.1", optional = true, default-features = false, features = [] }
 uhlc = { version = "0.5.1", optional = true, default-features = false, features = [] }
-tauri = { version = "1.2.0", optional = true, default-features = false, features = [] }
+tauri = {git = "https://github.com/oscartbeaumont/tauri.git", branch = "add-missing-generics", optional = true, default-features = false, features = [] } # TODO: Remove this Tauri patch once the PR is merged
 bytesize = { version = "1.1.0", optional = true, default-features = false, features = [] }
 paste = "1.0.9"
+document-features = "0.2.6"
 
 [dev-dependencies]
 serde = { version = "1.0.147", features = ["derive"] }

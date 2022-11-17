@@ -1,10 +1,14 @@
 use std::any::TypeId;
 
 use crate::{
-    DataType, EnumRepr, EnumType, EnumVariant, LiteralType, ObjectType, PrimitiveType, TupleType,
+    datatype::{LiteralType, PrimitiveType, TupleType},
+    r#type::{EnumRepr, EnumType, EnumVariant, ObjectType},
+    DataType,
 };
 
+/// allows going from a value into a [DataType](crate::DataType). This value differs from the [Type](crate::Type) trait because it works on a value (`self`) and not just the type. This is mostly for use by libraries building on Specta.
 pub trait ToDataType {
+    /// returns the [DataType](crate::DataType) for the value
     fn to_data_type(self) -> DataType;
 }
 

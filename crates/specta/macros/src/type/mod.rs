@@ -61,7 +61,7 @@ pub fn derive(
     let definition_generics = generics.type_params().map(|param| {
         let ident = &param.ident;
 
-        quote!(#crate_ref::DataType::Generic(stringify!(#ident).to_string()))
+        quote!(#crate_ref::datatype::DataType::Generic(stringify!(#ident).to_string()))
     });
 
     let flatten_impl = can_flatten.then(|| {
@@ -75,13 +75,13 @@ pub fn derive(
         #type_impl_heading {
             const NAME: &'static str = #name_str;
 
-            fn inline(opts: #crate_ref::DefOpts, generics: &[#crate_ref::DataType]) -> #crate_ref::DataType {
+            fn inline(opts: #crate_ref::r#type::DefOpts, generics: &[#crate_ref::datatype::DataType]) -> #crate_ref::datatype::DataType {
                 #inlines
             }
 
-            fn reference(opts: #crate_ref::DefOpts, generics: &[#crate_ref::DataType]) -> #crate_ref::DataType {
+            fn reference(opts: #crate_ref::r#type::DefOpts, generics: &[#crate_ref::datatype::DataType]) -> #crate_ref::datatype::DataType {
                 if !opts.type_map.contains_key(&Self::NAME) {
-                    Self::definition(#crate_ref::DefOpts {
+                    Self::definition(#crate_ref::r#type::DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map
                     });
@@ -90,9 +90,9 @@ pub fn derive(
                 #reference
             }
 
-            fn definition(opts: #crate_ref::DefOpts) -> #crate_ref::DataType {
+            fn definition(opts: #crate_ref::r#type::DefOpts) -> #crate_ref::datatype::DataType {
                 if !opts.type_map.contains_key(Self::NAME) {
-                    opts.type_map.insert(Self::NAME, #crate_ref::DataType::Object(#crate_ref::ObjectType {
+                    opts.type_map.insert(Self::NAME, #crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
                         name: #name_str.to_string(),
                         generics: vec![],
                         fields: vec![],
@@ -100,7 +100,7 @@ pub fn derive(
                         type_id: Some(std::any::TypeId::of::<Self>())
                     }));
 
-                    let def = Self::inline(#crate_ref::DefOpts {
+                    let def = Self::inline(#crate_ref::r#type::DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map
                     }, &[#(#definition_generics),*]);

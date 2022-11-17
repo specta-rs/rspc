@@ -1,4 +1,4 @@
-use specta::{ts_inline, Type};
+use specta::{ts::ts_inline, Type};
 
 #[test]
 fn rename_all() {

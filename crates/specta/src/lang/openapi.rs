@@ -2,7 +2,11 @@ use openapiv3::{
     ArrayType, NumberType, ReferenceOr, Schema, SchemaData, SchemaKind, StringType, Type,
 };
 
-use crate::{DataType, EnumType, EnumVariant, ObjectField, ObjectType, PrimitiveType, TupleType};
+use crate::{
+    datatype::{PrimitiveType, TupleType},
+    r#type::{EnumType, EnumVariant, ObjectField, ObjectType},
+    DataType,
+};
 
 // pub fn to_openapi_export(def: &DataType) -> Result<openapiv3::Schema, String> {
 //     Ok(match &def {
@@ -81,7 +85,7 @@ pub fn to_openapi(typ: &DataType) -> ReferenceOr<Schema> {
         }),
         // primitive_def!(Never) => "never".into(),
         DataType::Nullable(def) => {
-            let mut schema = to_openapi(def);
+            let schema = to_openapi(def);
             // schema.schema_data.nullable = true; // TODO
             schema
         }

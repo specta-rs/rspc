@@ -1,3 +1,9 @@
+//! Easily export your Rust types to other languages
+//!
+//! This crate contains the macro which are reexported by the `specta` crate.
+//! You shouldn't need to use this crate directly.
+//! Checkout [Specta](https://docs.rs/specta).
+//!
 #[macro_use]
 mod utils;
 mod command;

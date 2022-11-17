@@ -26,7 +26,7 @@ pub fn parse_struct(
         quote! {
             generics.get(#i).cloned().unwrap_or(
                 <#ident as #crate_ref::Type>::reference(
-                    #crate_ref::DefOpts {
+                    #crate_ref::r#type::DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map
                     },
@@ -80,13 +80,13 @@ pub fn parse_struct(
                         fn validate_flatten<T: #crate_ref::Flatten>() {}
                         validate_flatten::<#field_ty>();
 
-                        let mut ty = <#field_ty as #crate_ref::Type>::inline(#crate_ref::DefOpts {
+                        let mut ty = <#field_ty as #crate_ref::Type>::inline(#crate_ref::r#type::DefOpts {
                             parent_inline: false,
                             type_map: opts.type_map
                         }, &generics);
 
                         match &mut ty {
-                            #crate_ref::DataType::Enum(e) => {
+                            #crate_ref::datatype::DataType::Enum(e) => {
                                 e.make_flattenable();
                             }
                             _ => {}
@@ -102,7 +102,7 @@ pub fn parse_struct(
                     }
                 };
 
-                Some(quote!(#crate_ref::ObjectField {
+                Some(quote!(#crate_ref::r#type::ObjectField {
                     name: #field_name.to_string(),
                     optional: #optional,
                     flatten: #flatten,
@@ -118,7 +118,7 @@ pub fn parse_struct(
                 .map(|t| quote!(Some(#t.to_string())))
                 .unwrap_or(quote!(None));
 
-            quote!(#crate_ref::DataType::Object(#crate_ref::ObjectType {
+            quote!(#crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
                 name: #struct_name.to_string(),
                 generics: vec![#(#definition_generics),*],
                 fields: vec![#(#fields),*],
@@ -149,20 +149,22 @@ pub fn parse_struct(
                 }})
             });
 
-            quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
+            quote!(#crate_ref::datatype::DataType::Tuple(#crate_ref::datatype::TupleType {
                 name: #struct_name.to_string(),
                 generics: vec![#(#definition_generics),*],
                 fields: vec![#(#fields),*]
             }))
         }
-        Fields::Unit => quote!(#crate_ref::DataType::Tuple(#crate_ref::TupleType {
-            name: #struct_name.to_string(),
-            generics: vec![#(#definition_generics),*],
-            fields: vec![],
-        })),
+        Fields::Unit => {
+            quote!(#crate_ref::datatype::DataType::Tuple(#crate_ref::datatype::TupleType {
+                name: #struct_name.to_string(),
+                generics: vec![#(#definition_generics),*],
+                fields: vec![],
+            }))
+        }
     };
 
-    let reference = quote!(#crate_ref::DataType::Reference {
+    let reference = quote!(#crate_ref::datatype::DataType::Reference {
         name: #struct_name.to_string(),
         generics: vec![#(#reference_generics),*],
         type_id: std::any::TypeId::of::<Self>()

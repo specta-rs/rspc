@@ -1,4 +1,4 @@
-use specta::{ts_export, ts_inline, Type};
+use specta::{ts::ts_export, ts::ts_inline, Type};
 
 #[test]
 fn list() {

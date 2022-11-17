@@ -1,8 +1,10 @@
 use std::any::TypeId;
 
-use crate::{EnumType, ObjectType};
+use crate::r#type::{EnumType, ObjectType};
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub enum DataType {
     // Always inlined
     Any,
@@ -24,8 +26,10 @@ pub enum DataType {
     Generic(String),
 }
 
+/// this is used internally to represent the types.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum PrimitiveType {
     i8,
     i16,
@@ -46,15 +50,19 @@ pub enum PrimitiveType {
     String,
 }
 
+/// this is used internally to represent the types.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub struct TupleType {
     pub name: String,
     pub fields: Vec<DataType>,
     pub generics: Vec<&'static str>,
 }
 
+/// this is used internally to represent the types.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
 pub enum LiteralType {
     i8(i8),
     i16(i16),

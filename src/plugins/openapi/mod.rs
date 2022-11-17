@@ -13,7 +13,7 @@ use openapiv3::{
     Info, MediaType, Operation, Parameter, ParameterData, ParameterSchemaOrContent, PathItem,
     Paths, QueryStyle, ReferenceOr, Responses, Schema, Server, StatusCode,
 };
-use specta::to_openapi;
+use specta::openapi::to_openapi;
 
 use crate::{
     integrations::httpz_extractors::{TCtxFunc, TCtxFuncResult},

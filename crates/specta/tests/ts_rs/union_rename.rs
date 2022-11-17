@@ -1,4 +1,4 @@
-use specta::{ts_export, Type};
+use specta::{ts::ts_export, Type};
 
 #[derive(Type)]
 #[specta(rename_all = "lowercase")]

@@ -1,7 +1,8 @@
+/// Alpha: [OpenAPI](https://www.openapis.org) support.
 #[cfg(feature = "openapi")]
-mod openapi;
-mod typescript;
+#[allow(missing_docs)] // TODO: Remove once this is stable
+pub mod openapi;
 
-#[cfg(feature = "openapi")]
-pub use openapi::*;
-pub use typescript::*;
+/// [Typescript](https://www.typescriptlang.org) support.
+#[cfg(feature = "typescript")]
+pub mod ts;
