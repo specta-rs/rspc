@@ -97,6 +97,17 @@ pub struct Error {
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
+#[cfg(feature = "workers")]
+impl From<worker::Error> for Error {
+    fn from(err: worker::Error) -> Self {
+        Error {
+            code: ErrorCode::InternalServerError,
+            message: err.to_string(),
+            cause: None, // We can't store the original error because it's not `Send + Sync` as it holds raw pointers. We could probs just lie to the compiler about `Send + Sync` but I can't ensure that's safe so it shouldn't be implicit.
+        }
+    }
+}
+
 impl From<Error> for JsonRPCError {
     fn from(err: Error) -> Self {
         JsonRPCError {

@@ -55,6 +55,7 @@ async-stream = "0.3.3"
 openapiv3 = { version = "1.0.1", optional = true }
 include_dir = { version = "0.7.3", optional = true, features = ["metadata"] }
 mime_guess = { version = "2.0.4", optional = true }
+worker = { version = "0.0.11", optional = true }
 
 [dev-dependencies]
 async-stream = "0.3.3"
