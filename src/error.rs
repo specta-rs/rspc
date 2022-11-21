@@ -155,7 +155,7 @@ impl Error {
     }
 }
 
-/// TODO
+/// In According to error codes fot http (4xx, 5xx). There are codes specific to this crate.
 #[derive(Debug, Clone, Serialize, Type, PartialEq, Eq)]
 pub enum ErrorCode {
     BadRequest,
@@ -189,7 +189,7 @@ pub enum ErrorCode {
     TooManyRequests,
     RequestHeaderFieldsTooLarge,
     UnavailableForLegalReasons,
-    ClientClosedRequest,
+    ClientClosedRequest, ///< Not part of http error codes
 
     InternalServerError,
     NotImplemented,
