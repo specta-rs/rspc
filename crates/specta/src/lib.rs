@@ -47,8 +47,6 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic, missing_docs)]
 
-#[doc(hidden)]
-pub use ctor;
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
@@ -78,11 +76,11 @@ pub mod command;
 /// Types related to working with [`crate::DataType`] directly.
 /// This is for advanced users.
 pub mod datatype;
+pub mod export;
 /// Types to represent the structure of the Rust types for the type exporters.
 pub mod r#type;
 #[macro_use]
 mod impl_type_macros;
-pub mod export;
 mod lang;
 mod to_data_type;
 
@@ -169,6 +167,7 @@ pub use to_data_type::*;
 
 #[doc(hidden)]
 pub mod internal {
+    pub use ctor;
     pub use paste::paste as _specta_paste;
 }
 

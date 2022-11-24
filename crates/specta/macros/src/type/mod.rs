@@ -87,7 +87,7 @@ pub fn derive(
         let ty = quote!(<#ident<#(#generic_params),*> as #crate_ref::Type>);
 
         quote! {
-            #[#crate_ref::ctor::ctor]
+            #[#crate_ref::internal::ctor::ctor]
             #[allow(non_snake_case)]
             fn #export_fn_name() {
                 let type_map = &mut *#crate_ref::export::TYPES.lock().unwrap();
