@@ -204,10 +204,14 @@ pub trait Type {
     /// Returns the inline definition of a type with generics substituted for those provided.
     /// This function defines the base structure of every type, and is used in both
     /// [`definition`](crate::Type::definition) and [`reference`](crate::Type::definition)
+    ///
+    /// Implemented internally or via the [`Type`](derive@crate::Type) macro
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType;
 
     /// Returns the type parameter generics of a given type.
     /// Will usually be empty except for custom types.
+    ///
+    /// Implemented internally or via the [`Type`](derive@crate::Type) macro
     fn definition_generics() -> Vec<GenericType> {
         vec![]
     }
@@ -215,6 +219,8 @@ pub trait Type {
     /// Small wrapper around [`inline`](crate::Type::inline) that provides
     /// [`definition_generics`](crate::Type::definition_generics)
     /// as the value for the `generics` arg.
+    ///
+    /// Implemented internally
     fn definition(opts: DefOpts) -> DataType {
         Self::inline(
             opts,
@@ -227,6 +233,8 @@ pub trait Type {
 
     /// Defines which category this type falls into, determining how references to it are created.
     /// See [`TypeCategory`] for more info.
+    ///
+    /// Implemented internally or via the [`Type`](derive@crate::Type) macro
     fn category_impl(opts: DefOpts, generics: &[DataType]) -> TypeCategory {
         TypeCategory::Inline(Self::inline(opts, generics))
     }
@@ -235,6 +243,8 @@ pub trait Type {
     /// as determined by its category. Getting a reference to a type implies that
     /// it should belong in the type map (since it has to be referenced from somewhere),
     /// so the output of [`definition`](crate::Type::definition) will be put into the type map.
+    ///
+    /// Implemented internally
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
         let category = Self::category_impl(
             DefOpts {
