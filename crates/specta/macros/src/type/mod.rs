@@ -7,6 +7,8 @@ use syn::{parse_macro_input, Data, DeriveInput};
 
 use generics::impl_heading;
 
+use crate::utils::unraw_raw_ident;
+
 mod attr;
 mod r#enum;
 mod generics;
@@ -36,10 +38,13 @@ pub fn derive(
         .unwrap();
     let crate_ref = quote!(::#crate_name);
 
-    let name_str = container_attrs
-        .rename
-        .clone()
-        .unwrap_or_else(|| ident.to_string());
+    let name_str = unraw_raw_ident(&format_ident!(
+        "{}",
+        container_attrs
+            .rename
+            .clone()
+            .unwrap_or_else(|| ident.to_string())
+    ));
 
     let (inlines, category, can_flatten) = match data {
         Data::Struct(data) => parse_struct(&name_str, &container_attrs, generics, &crate_ref, data),
