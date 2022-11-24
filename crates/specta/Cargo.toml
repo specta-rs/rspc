@@ -79,6 +79,8 @@ tauri = {git = "https://github.com/oscartbeaumont/tauri.git", branch = "add-miss
 bytesize = { version = "1.1.0", optional = true, default-features = false, features = [] }
 paste = "1.0.9"
 document-features = "0.2.6"
+ctor = "0.1.26"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 serde = { version = "1.0.147", features = ["derive"] }

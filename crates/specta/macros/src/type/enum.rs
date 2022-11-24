@@ -178,11 +178,23 @@ pub fn parse_enum(
             repr: #crate_ref::r#type::EnumRepr::#repr_tokens,
             type_id: std::any::TypeId::of::<Self>()
         })),
-        quote!(#crate_ref::datatype::DataType::Reference {
-            name: #enum_name_str.to_string(),
-            generics: vec![#(#reference_generics),*],
-            type_id: std::any::TypeId::of::<Self>()
-        }),
+        quote! {
+            #crate_ref::TypeCategory::Reference {
+                reference: #crate_ref::datatype::DataType::Reference {
+                    name: #enum_name_str.to_string(),
+                    generics: vec![#(#reference_generics),*],
+                    type_id: std::any::TypeId::of::<Self>()
+                },
+                // TODO: make accurate
+                placeholder: #crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
+                    name: #enum_name_str.to_string(),
+                    generics: vec![],
+                    fields: vec![],
+                    tag: None,
+                    type_id: Some(std::any::TypeId::of::<Self>())
+                })
+            }
+        },
         can_flatten,
     )
 }

@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use crate::{
-    datatype::{LiteralType, PrimitiveType, TupleType},
+    datatype::{GenericType, LiteralType, PrimitiveType, TupleType},
     r#type::{EnumRepr, EnumType, EnumVariant, ObjectType},
     DataType,
 };
@@ -39,6 +39,12 @@ impl ToDataType for ObjectType {
 impl ToDataType for EnumType {
     fn to_data_type(self) -> DataType {
         DataType::Enum(self)
+    }
+}
+
+impl ToDataType for GenericType {
+    fn to_data_type(self) -> DataType {
+        DataType::Generic(self)
     }
 }
 

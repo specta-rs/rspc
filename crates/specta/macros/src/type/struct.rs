@@ -164,11 +164,23 @@ pub fn parse_struct(
         }
     };
 
-    let reference = quote!(#crate_ref::datatype::DataType::Reference {
-        name: #struct_name.to_string(),
-        generics: vec![#(#reference_generics),*],
-        type_id: std::any::TypeId::of::<Self>()
-    });
+    let category = quote! {
+        #crate_ref::TypeCategory::Reference {
+            reference: #crate_ref::datatype::DataType::Reference {
+                name: #struct_name.to_string(),
+                generics: vec![#(#reference_generics),*],
+                type_id: std::any::TypeId::of::<Self>()
+            },
+            // TODO: make accurate
+            placeholder: #crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
+                name: #struct_name.to_string(),
+                generics: vec![],
+                fields: vec![],
+                tag: None,
+                type_id: Some(std::any::TypeId::of::<Self>())
+            })
+        }
+    };
 
-    (definition, reference, true)
+    (definition, category, true)
 }

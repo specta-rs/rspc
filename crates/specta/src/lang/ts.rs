@@ -1,5 +1,5 @@
 use crate::{
-    datatype::{LiteralType, PrimitiveType, TupleType},
+    datatype::{GenericType, LiteralType, PrimitiveType, TupleType},
     r#type::{EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType},
     DataType, DefOpts, TypeDefs,
 };
@@ -9,13 +9,10 @@ use crate::Type;
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
 pub fn ts_export<T: Type>() -> Result<String, String> {
-    ts_export_datatype(&T::inline(
-        DefOpts {
-            parent_inline: true,
-            type_map: &mut TypeDefs::default(),
-        },
-        &[],
-    ))
+    ts_export_datatype(&T::definition(DefOpts {
+        parent_inline: true,
+        type_map: &mut TypeDefs::default(),
+    }))
 }
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string.
@@ -218,7 +215,7 @@ pub fn to_ts(typ: &DataType) -> String {
                 format!("{name}<{generics}>")
             }
         },
-        DataType::Generic(ident) => ident.to_string(),
+        DataType::Generic(GenericType(ident)) => ident.to_string(),
     }
 }
 

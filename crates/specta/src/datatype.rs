@@ -23,8 +23,12 @@ pub enum DataType {
         generics: Vec<DataType>,
         type_id: TypeId,
     },
-    Generic(String),
+    Generic(GenericType),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(missing_docs)]
+pub struct GenericType(pub String);
 
 /// this is used internally to represent the types.
 #[allow(non_camel_case_types)]

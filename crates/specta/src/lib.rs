@@ -47,6 +47,8 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic, missing_docs)]
 
+#[doc(hidden)]
+pub use ctor;
 use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
@@ -80,12 +82,13 @@ pub mod datatype;
 pub mod r#type;
 #[macro_use]
 mod impl_type_macros;
+pub mod export;
 mod lang;
 mod to_data_type;
 
 // #[cfg(feature = "command")]
 // pub use command::*;
-use datatype::DataType;
+use datatype::*;
 pub use lang::*;
 use r#type::{DefOpts, TypeDefs};
 
@@ -169,24 +172,102 @@ pub mod internal {
     pub use paste::paste as _specta_paste;
 }
 
+/// The category a type falls under. Determines how references are generated for a given type.
+pub enum TypeCategory {
+    /// No references should be created, instead just copies the inline representation of the type.
+    Inline(DataType),
+    /// The type should be properly referenced and stored in the type map to be defined outside of
+    /// where it is referenced.
+    Reference {
+        /// Datatype to be put in the type map while field types are being resolved. Used in order to
+        /// support recursive types without causing an infinite loop.
+        ///
+        /// This works since a child type that references a parent type does not care about the
+        /// parent's fields, only really its name. Once all of the parent's fields have been
+        /// resolved will the parent's definition be placed in the type map.
+        ///
+        /// This doesn't account for flattening and inlining recursive types, however, which will
+        /// require a more complex solution since it will require multiple processing stages.
+        placeholder: DataType,
+        /// Datatype to use whenever a reference to the type is requested.
+        reference: DataType,
+    },
+}
+
 /// A trait which allows runtime type reflection of a type it is implemented on.
 /// The type information can then be fed into a language exporter to generate a type definition in another language.
 /// You should avoid implementing this trait yourself where possible and use the [`Type`](derive@crate::Type) macro instead.
 pub trait Type {
-    /// the name of the type
+    /// The name of the type
     const NAME: &'static str;
 
-    /// get the inlined definition of a type.
+    /// Returns the inline definition of a type with generics substituted for those provided.
+    /// This function defines the base structure of every type, and is used in both
+    /// [`definition`](crate::Type::definition) and [`reference`](crate::Type::definition)
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType;
 
-    /// TODO
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType;
+    /// Returns the type parameter generics of a given type.
+    /// Will usually be empty except for custom types.
+    fn definition_generics() -> Vec<GenericType> {
+        vec![]
+    }
 
-    /// TODO
-    fn definition(opts: DefOpts) -> DataType;
+    /// Small wrapper around [`inline`](crate::Type::inline) that provides
+    /// [`definition_generics`](crate::Type::definition_generics)
+    /// as the value for the `generics` arg.
+    fn definition(opts: DefOpts) -> DataType {
+        Self::inline(
+            opts,
+            &Self::definition_generics()
+                .into_iter()
+                .map(ToDataType::to_data_type)
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    /// Defines which category this type falls into, determining how references to it are created.
+    /// See [`TypeCategory`] for more info.
+    fn category_impl(opts: DefOpts, generics: &[DataType]) -> TypeCategory {
+        TypeCategory::Inline(Self::inline(opts, generics))
+    }
+
+    /// Generates a datatype corresponding to a reference to this type,
+    /// as determined by its category. Getting a reference to a type implies that
+    /// it should belong in the type map (since it has to be referenced from somewhere),
+    /// so the output of [`definition`](crate::Type::definition) will be put into the type map.
+    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
+        let category = Self::category_impl(
+            DefOpts {
+                parent_inline: false,
+                type_map: opts.type_map,
+            },
+            generics,
+        );
+
+        match category {
+            TypeCategory::Inline(inline) => inline,
+            TypeCategory::Reference {
+                placeholder,
+                reference,
+            } => {
+                if !opts.type_map.contains_key(Self::NAME) {
+                    opts.type_map.insert(Self::NAME, placeholder);
+
+                    let definition = Self::definition(DefOpts {
+                        parent_inline: false,
+                        type_map: opts.type_map,
+                    });
+
+                    opts.type_map.insert(Self::NAME, definition);
+                }
+
+                reference
+            }
+        }
+    }
 }
 
-/// is a marker trait which is implemented on types which can be flattened.
+/// A marker trait for compile-time validation of which types can be flattened.
 pub trait Flatten: Type {}
 
 impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
@@ -210,14 +291,6 @@ impl<'a> Type for &'a str {
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         String::inline(defs, generics)
     }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        String::reference(opts, generics)
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
 }
 
 impl<'a, T: Type + 'static> Type for &'a T {
@@ -226,14 +299,6 @@ impl<'a, T: Type + 'static> Type for &'a T {
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         T::inline(defs, generics)
     }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        T::reference(opts, generics)
-    }
-
-    fn definition(opts: DefOpts) -> DataType {
-        T::definition(opts)
-    }
 }
 
 impl<'a, T: ToOwned + Type + 'static> Type for Cow<'a, T> {
@@ -241,14 +306,6 @@ impl<'a, T: ToOwned + Type + 'static> Type for Cow<'a, T> {
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         T::inline(defs, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        T::reference(opts, generics)
-    }
-
-    fn definition(opts: DefOpts) -> DataType {
-        T::definition(opts)
     }
 }
 
@@ -316,12 +373,8 @@ impl<'a, T: Type> Type for &'a [T] {
         <Vec<T>>::inline(opts, generics)
     }
 
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        <Vec<T>>::reference(opts, generics)
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
+    fn category_impl(opts: DefOpts, generics: &[DataType]) -> TypeCategory {
+        <Vec<T>>::category_impl(opts, generics)
     }
 }
 
@@ -332,12 +385,8 @@ impl<const N: usize, T: Type> Type for [T; N] {
         <Vec<T>>::inline(opts, generics)
     }
 
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        <Vec<T>>::reference(opts, generics)
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
+    fn category_impl(opts: DefOpts, generics: &[DataType]) -> TypeCategory {
+        <Vec<T>>::category_impl(opts, generics)
     }
 }
 
@@ -356,20 +405,18 @@ impl<T: Type> Type for Option<T> {
         })))
     }
 
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or_else(|| {
-            T::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: opts.type_map,
-                },
-                generics,
-            )
-        })))
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
+    fn category_impl(opts: DefOpts, generics: &[DataType]) -> TypeCategory {
+        TypeCategory::Inline(DataType::Nullable(Box::new(
+            generics.get(0).cloned().unwrap_or_else(|| {
+                T::reference(
+                    DefOpts {
+                        parent_inline: false,
+                        type_map: opts.type_map,
+                    },
+                    generics,
+                )
+            }),
+        )))
     }
 }
 
@@ -392,14 +439,6 @@ impl Type for serde_json::Value {
     fn inline(_: DefOpts, _: &[DataType]) -> DataType {
         DataType::Any
     }
-
-    fn reference(_: DefOpts, _: &[DataType]) -> DataType {
-        DataType::Any
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
 }
 
 #[cfg(feature = "uuid")]
@@ -418,10 +457,6 @@ impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
 
     fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
         String::reference(opts, generics)
-    }
-
-    fn definition(opts: DefOpts) -> DataType {
-        String::definition(opts)
     }
 }
 
@@ -496,8 +531,10 @@ mod uhlc_impls {
 
     impl Type for Timestamp {
         const NAME: &'static str = "Timestamp";
+
         fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
             use r#type::ObjectField;
+
             DataType::Object(ObjectType {
                 name: "Timestamp".to_string(),
                 generics: vec![],
@@ -539,41 +576,21 @@ mod uhlc_impls {
         }
 
         fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
-            if !opts.type_map.contains_key(&Self::NAME) {
-                Self::definition(DefOpts {
-                    parent_inline: false,
-                    type_map: opts.type_map,
-                });
-            }
             DataType::Reference {
-                name: "Timestamp".to_string(),
+                name: Self::NAME.to_string(),
                 generics: vec![],
                 type_id: TypeId::of::<Self>(),
             }
         }
 
-        fn definition(opts: DefOpts) -> DataType {
-            if !opts.type_map.contains_key(Self::NAME) {
-                opts.type_map.insert(
-                    Self::NAME,
-                    DataType::Object(ObjectType {
-                        name: "Timestamp".to_string(),
-                        generics: vec![],
-                        fields: vec![],
-                        tag: None,
-                        type_id: Some(TypeId::of::<Self>()),
-                    }),
-                );
-                let def = Self::inline(
-                    DefOpts {
-                        parent_inline: false,
-                        type_map: opts.type_map,
-                    },
-                    &[],
-                );
-                opts.type_map.insert(Self::NAME, def.clone());
-            }
-            opts.type_map.get(Self::NAME).unwrap().clone()
+        fn placeholder() -> Option<DataType> {
+            Some(DataType::Object(ObjectType {
+                name: Self::NAME.to_string(),
+                generics: vec![],
+                fields: vec![],
+                tag: None,
+                type_id: Some(TypeId::of::<Self>()),
+            }))
         }
     }
 

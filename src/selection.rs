@@ -33,14 +33,6 @@ macro_rules! selection {
                         type_id: Some(std::any::TypeId::of::<Self>()),
                     })
                 }
-
-                fn reference(opts: $crate::internal::specta::r#type::DefOpts, _generics: &[$crate::internal::specta::datatype::DataType]) -> $crate::internal::specta::datatype::DataType {
-                    Self::inline(opts, _generics)
-                }
-
-                fn definition(_: $crate::internal::specta::r#type::DefOpts) -> $crate::internal::specta::datatype::DataType {
-                    unreachable!()
-                }
             }
         }
         use selection::Selection;
@@ -79,14 +71,6 @@ macro_rules! selection {
                         ),*],
                         type_id: Some(std::any::TypeId::of::<Self>())
                     })
-                }
-
-                fn reference(opts: $crate::internal::specta::r#type::DefOpts, _generics: &[$crate::internal::specta::datatype::DataType]) -> $crate::internal::specta::datatype::DataType {
-                    Self::inline(opts, _generics)
-                }
-
-                fn definition(_: $crate::internal::specta::r#type::DefOpts) -> $crate::internal::specta::datatype::DataType {
-                    unreachable!()
                 }
             }
         }

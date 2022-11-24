@@ -74,8 +74,6 @@ fn typescript_types() {
     assert_ts_type!(TupleStruct1, "number");
     assert_ts_type!(TupleStruct3, "[number, boolean, string]");
 
-    // assert_ts_type!(Wrapper<String>, "string");
-
     assert_ts_type!(
         TestEnum,
         r#""Unit" | { Single: number } | { Multiple: [number, number] } | { Struct: { a: number } }"#
@@ -93,7 +91,9 @@ fn typescript_types() {
     assert_ts_type!(
         FlattenEnumStruct,
         r#"({ tag: "One" } | { tag: "Two" } | { tag: "Three" }) & { outer: string }"#
-    )
+    );
+
+    assert_ts_type!(HasGenericAlias, r#"Record<string, string>"#);
 }
 
 #[derive(Type)]
@@ -167,3 +167,8 @@ enum FlattenEnum {
     Two,
     Three,
 }
+
+#[derive(Type)]
+struct HasGenericAlias(GenericAlias);
+
+type GenericAlias = std::collections::HashMap<String, String>;

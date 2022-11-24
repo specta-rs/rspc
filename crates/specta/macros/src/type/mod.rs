@@ -1,6 +1,6 @@
 use attr::*;
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use r#enum::parse_enum;
 use r#struct::parse_struct;
 use syn::{parse_macro_input, Data, DeriveInput};
@@ -41,7 +41,7 @@ pub fn derive(
         .clone()
         .unwrap_or_else(|| ident.to_string());
 
-    let (inlines, reference, can_flatten) = match data {
+    let (inlines, category, can_flatten) = match data {
         Data::Struct(data) => parse_struct(&name_str, &container_attrs, generics, &crate_ref, data),
         Data::Enum(data) => {
             let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
@@ -61,7 +61,7 @@ pub fn derive(
     let definition_generics = generics.type_params().map(|param| {
         let ident = &param.ident;
 
-        quote!(#crate_ref::datatype::DataType::Generic(stringify!(#ident).to_string()))
+        quote!(#crate_ref::datatype::GenericType(stringify!(#ident).to_string()))
     });
 
     let flatten_impl = can_flatten.then(|| {
@@ -71,6 +71,33 @@ pub fn derive(
 
     let type_impl_heading = impl_heading(quote!(#crate_ref::Type), ident, generics);
 
+    let export = {
+        let export_fn_name = format_ident!("__push_specta_type_{}", ident);
+
+        let generic_params = generics
+            .params
+            .iter()
+            .filter(|param| matches!(param, syn::GenericParam::Type(_)))
+            .map(|_| quote! { () });
+        let ty = quote!(<#ident<#(#generic_params),*> as #crate_ref::Type>);
+
+        quote! {
+            #[#crate_ref::ctor::ctor]
+            #[allow(non_snake_case)]
+            fn #export_fn_name() {
+                let type_map = &mut *#crate_ref::export::TYPES.lock().unwrap();
+
+                #ty::reference(
+                    #crate_ref::r#type::DefOpts {
+                        parent_inline: false,
+                        type_map
+                    },
+                    &[]
+                );
+            }
+        }
+    };
+
     quote! {
         #type_impl_heading {
             const NAME: &'static str = #name_str;
@@ -79,38 +106,16 @@ pub fn derive(
                 #inlines
             }
 
-            fn reference(opts: #crate_ref::r#type::DefOpts, generics: &[#crate_ref::datatype::DataType]) -> #crate_ref::datatype::DataType {
-                if !opts.type_map.contains_key(&Self::NAME) {
-                    Self::definition(#crate_ref::r#type::DefOpts {
-                        parent_inline: false,
-                        type_map: opts.type_map
-                    });
-                }
-
-                #reference
+            fn category_impl(opts: #crate_ref::r#type::DefOpts, generics: &[#crate_ref::datatype::DataType]) -> #crate_ref::TypeCategory {
+                #category
             }
 
-            fn definition(opts: #crate_ref::r#type::DefOpts) -> #crate_ref::datatype::DataType {
-                if !opts.type_map.contains_key(Self::NAME) {
-                    opts.type_map.insert(Self::NAME, #crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
-                        name: #name_str.to_string(),
-                        generics: vec![],
-                        fields: vec![],
-                        tag: None,
-                        type_id: Some(std::any::TypeId::of::<Self>())
-                    }));
-
-                    let def = Self::inline(#crate_ref::r#type::DefOpts {
-                        parent_inline: false,
-                        type_map: opts.type_map
-                    }, &[#(#definition_generics),*]);
-
-                    opts.type_map.insert(Self::NAME, def.clone());
-                }
-
-                opts.type_map.get(Self::NAME).unwrap().clone()
+            fn definition_generics() -> Vec<#crate_ref::datatype::GenericType> {
+                vec![#(#definition_generics),*]
             }
         }
+
+        #export
 
         #flatten_impl
     }.into()
