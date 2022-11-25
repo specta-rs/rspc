@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use crate::{datatype::TupleType, r#type::ObjectType, DataType};
+use crate::datatype::{DataType, ObjectType, TupleType};
 
 /// this is used internally to represent the types.
 #[derive(Debug, Clone)]

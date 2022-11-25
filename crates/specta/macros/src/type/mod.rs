@@ -66,7 +66,7 @@ pub fn derive(
     let definition_generics = generics.type_params().map(|param| {
         let ident = &param.ident;
 
-        quote!(#crate_ref::datatype::GenericType(stringify!(#ident).to_string()))
+        quote!(#crate_ref::GenericType(stringify!(#ident).to_string()))
     });
 
     let flatten_impl = can_flatten.then(|| {
@@ -93,7 +93,7 @@ pub fn derive(
                 let type_map = &mut *#crate_ref::export::TYPES.lock().unwrap();
 
                 #ty::reference(
-                    #crate_ref::r#type::DefOpts {
+                    #crate_ref::DefOpts {
                         parent_inline: false,
                         type_map
                     },
@@ -107,15 +107,15 @@ pub fn derive(
         #type_impl_heading {
             const NAME: &'static str = #name_str;
 
-            fn inline(opts: #crate_ref::r#type::DefOpts, generics: &[#crate_ref::datatype::DataType]) -> #crate_ref::datatype::DataType {
+            fn inline(opts: #crate_ref::DefOpts, generics: &[#crate_ref::DataType]) -> #crate_ref::DataType {
                 #inlines
             }
 
-            fn category_impl(opts: #crate_ref::r#type::DefOpts, generics: &[#crate_ref::datatype::DataType]) -> #crate_ref::TypeCategory {
+            fn category_impl(opts: #crate_ref::DefOpts, generics: &[#crate_ref::DataType]) -> #crate_ref::TypeCategory {
                 #category
             }
 
-            fn definition_generics() -> Vec<#crate_ref::datatype::GenericType> {
+            fn definition_generics() -> Vec<#crate_ref::GenericType> {
                 vec![#(#definition_generics),*]
             }
         }

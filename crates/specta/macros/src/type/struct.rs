@@ -26,7 +26,7 @@ pub fn parse_struct(
         quote! {
             generics.get(#i).cloned().unwrap_or(
                 <#ident as #crate_ref::Type>::reference(
-                    #crate_ref::r#type::DefOpts {
+                    #crate_ref::DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map
                     },
@@ -80,13 +80,13 @@ pub fn parse_struct(
                         fn validate_flatten<T: #crate_ref::Flatten>() {}
                         validate_flatten::<#field_ty>();
 
-                        let mut ty = <#field_ty as #crate_ref::Type>::inline(#crate_ref::r#type::DefOpts {
+                        let mut ty = <#field_ty as #crate_ref::Type>::inline(#crate_ref::DefOpts {
                             parent_inline: false,
                             type_map: opts.type_map
                         }, &generics);
 
                         match &mut ty {
-                            #crate_ref::datatype::DataType::Enum(e) => {
+                            #crate_ref::DataType::Enum(e) => {
                                 e.make_flattenable();
                             }
                             _ => {}
@@ -102,7 +102,7 @@ pub fn parse_struct(
                     }
                 };
 
-                Some(quote!(#crate_ref::r#type::ObjectField {
+                Some(quote!(#crate_ref::ObjectField {
                     name: #field_name.to_string(),
                     optional: #optional,
                     flatten: #flatten,
@@ -118,13 +118,13 @@ pub fn parse_struct(
                 .map(|t| quote!(Some(#t.to_string())))
                 .unwrap_or(quote!(None));
 
-            quote!(#crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
+            quote!(#crate_ref::ObjectType {
                 name: #struct_name.to_string(),
                 generics: vec![#(#definition_generics),*],
                 fields: vec![#(#fields),*],
                 tag: #tag,
                 type_id: Some(std::any::TypeId::of::<Self>())
-            }))
+            }.into())
         }
         Fields::Unnamed(_) => {
             let fields = data.fields.iter().filter_map(|field| {
@@ -149,36 +149,36 @@ pub fn parse_struct(
                 }})
             });
 
-            quote!(#crate_ref::datatype::DataType::Tuple(#crate_ref::datatype::TupleType {
+            quote!(#crate_ref::TupleType {
                 name: #struct_name.to_string(),
                 generics: vec![#(#definition_generics),*],
                 fields: vec![#(#fields),*]
-            }))
+            }.into())
         }
         Fields::Unit => {
-            quote!(#crate_ref::datatype::DataType::Tuple(#crate_ref::datatype::TupleType {
+            quote!(#crate_ref::TupleType {
                 name: #struct_name.to_string(),
                 generics: vec![#(#definition_generics),*],
                 fields: vec![],
-            }))
+            }.into())
         }
     };
 
     let category = quote! {
         #crate_ref::TypeCategory::Reference {
-            reference: #crate_ref::datatype::DataType::Reference {
+            reference: #crate_ref::DataType::Reference {
                 name: #struct_name.to_string(),
                 generics: vec![#(#reference_generics),*],
                 type_id: std::any::TypeId::of::<Self>()
             },
             // TODO: make accurate
-            placeholder: #crate_ref::datatype::DataType::Object(#crate_ref::r#type::ObjectType {
+            placeholder: #crate_ref::ObjectType {
                 name: #struct_name.to_string(),
                 generics: vec![],
                 fields: vec![],
                 tag: None,
                 type_id: Some(std::any::TypeId::of::<Self>())
-            })
+            }.into()
         }
     };
 

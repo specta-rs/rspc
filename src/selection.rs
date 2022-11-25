@@ -11,16 +11,16 @@ macro_rules! selection {
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
                 const NAME: &'static str = "Selection";
 
-                fn inline(opts: $crate::internal::specta::r#type::DefOpts, _generics: &[$crate::internal::specta::datatype::DataType]) -> $crate::internal::specta::datatype::DataType {
-                    $crate::internal::specta::datatype::DataType::Object($crate::internal::specta::r#type::ObjectType {
+                fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
                         generics: vec![],
                         fields: vec![$(
-                            $crate::internal::specta::r#type::ObjectField {
+                            $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
                                 ty: <$n as $crate::internal::specta::Type>::reference(
-                                    $crate::internal::specta::r#type::DefOpts {
+                                    $crate::internal::specta::DefOpts {
                                         parent_inline: false,
                                         type_map: opts.type_map,
                                     },
@@ -50,16 +50,16 @@ macro_rules! selection {
             impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
                 const NAME: &'static str = "Selection";
 
-                fn inline(opts: $crate::internal::specta::r#type::DefOpts, _generics: &[$crate::internal::specta::datatype::DataType]) -> $crate::internal::specta::datatype::DataType {
-                    $crate::internal::specta::datatype::DataType::Object($crate::internal::specta::r#type::ObjectType {
+                fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
+                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
                         name: "Selection".to_string(),
                         tag: None,
                         generics: vec![],
                         fields: vec![$(
-                            $crate::internal::specta::r#type::ObjectField {
+                            $crate::internal::specta::ObjectField {
                                 name: stringify!($n).to_string(),
                                 ty: <$n as $crate::internal::specta::Type>::reference(
-                                    $crate::internal::specta::r#type::DefOpts {
+                                    $crate::internal::specta::DefOpts {
                                         parent_inline: false,
                                         type_map: opts.type_map,
                                     },

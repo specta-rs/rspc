@@ -13,7 +13,7 @@ pub use typed_command_result::*;
 /// A helper for exporting the type of a Specta command.
 ///
 /// ```rust
-/// use specta::{export_fn, ts::ts_export_datatype, ToDataType};
+/// use specta::{export_fn, ts::ts_export_datatype};
 ///
 /// #[specta::command]
 /// fn some_function(name: String, age: i32) -> bool {
@@ -23,7 +23,7 @@ pub use typed_command_result::*;
 /// fn main() {
 ///      // This API is pretty new and will likely under go API changes in the future.
 ///      assert_eq!(
-///         ts_export_datatype(&export_fn!(some_function).to_data_type()),
+///         ts_export_datatype(&export_fn!(some_function).into()),
 ///         Ok("export interface CommandDataType { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
 ///      );
 /// }
@@ -32,7 +32,7 @@ pub use typed_command_result::*;
 #[macro_export]
 macro_rules! export_fn {
     ($command:ident) => {{
-        let mut type_map = ::specta::r#type::TypeDefs::default();
+        let mut type_map = ::specta::TypeDefs::default();
         ::specta::command::export_command_datatype(
             $command
                 as $crate::internal::_specta_paste! { [<__specta__cmd__ $command>]!(@signature) },

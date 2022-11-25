@@ -1,10 +1,4 @@
-use crate::{
-    datatype::{GenericType, LiteralType, PrimitiveType, TupleType},
-    r#type::{EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType},
-    DataType, DefOpts, TypeDefs,
-};
-
-use crate::Type;
+use crate::*;
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`

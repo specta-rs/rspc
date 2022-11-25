@@ -1,10 +1,10 @@
 use specta::{
     datatype::{DataType, LiteralType},
     ts::ts_export_datatype,
-    ToDataType,
+    DataTypeFrom,
 };
 
-#[derive(ToDataType)]
+#[derive(DataTypeFrom)]
 pub struct MyEnum(pub Vec<DataType>);
 fn main() {
     let e = MyEnum(vec![
@@ -13,7 +13,7 @@ fn main() {
     ]);
 
     assert_eq!(
-        ts_export_datatype(&e.to_data_type()).unwrap(),
+        ts_export_datatype(&e.into()).unwrap(),
         "export type MyEnum = \"A\" | \"B\""
     );
 }

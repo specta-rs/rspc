@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
-use specta::{r#type::TypeDefs, Type};
+use specta::{Type, TypeDefs};
 
 use crate::{
     internal::{

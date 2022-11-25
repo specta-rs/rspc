@@ -1,11 +1,10 @@
 use crate::{
     command::{TypedCommandArg, TypedCommandResult},
-    r#type::{ObjectField, ObjectType},
-    DataType, DefOpts, ToDataType, TypeDefs,
+    DataType, DataTypeFrom, DefOpts, ObjectField, ObjectType, TypeDefs,
 };
 
 /// is a struct which represents the datatype of a Specta command.
-#[derive(Debug, ToDataType)]
+#[derive(Debug, DataTypeFrom)]
 #[specta(crate = "crate")]
 pub struct CommandDataType {
     /// The name of the command. This will be derived from the Rust function name.

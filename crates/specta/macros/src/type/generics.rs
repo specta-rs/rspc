@@ -95,7 +95,7 @@ pub fn construct_datatype(
             return quote! {
                 #(#elems)*
 
-                let #var_ident = <#ty as #crate_ref::Type>::#method(#crate_ref::r#type::DefOpts {
+                let #var_ident = <#ty as #crate_ref::Type>::#method(#crate_ref::DefOpts {
                     parent_inline: false,
                     type_map: opts.type_map
                 }, &[#(#generic_var_idents),*]);
@@ -114,7 +114,7 @@ pub fn construct_datatype(
             return quote! {
                 #elem
 
-                let #var_ident = <#ty as #crate_ref::Type>::#method(#crate_ref::r#type::DefOpts {
+                let #var_ident = <#ty as #crate_ref::Type>::#method(#crate_ref::DefOpts {
                     parent_inline: false,
                     type_map: opts.type_map
                 }, &[#elem_var_ident]);
@@ -135,15 +135,13 @@ pub fn construct_datatype(
             return quote! {
                 let #var_ident = generics.get(#i).map(Clone::clone).unwrap_or(
                     <#generic_ident as #crate_ref::Type>::#method(
-                        #crate_ref::r#type::DefOpts {
+                        #crate_ref::DefOpts {
                             parent_inline: #inline,
                             type_map: opts.type_map
                         },
-                        &[#crate_ref::datatype::DataType::Generic(
-                            #crate_ref::datatype::GenericType(
-                                stringify!(#type_ident).to_string()
-                            )
-                        )]
+                        &[#crate_ref::GenericType(
+                            stringify!(#type_ident).to_string()
+                        ).into()]
                     )
                 );
             };
@@ -182,7 +180,7 @@ pub fn construct_datatype(
         #(#generic_vars)*
 
         let #var_ident = <#ty as #crate_ref::Type>::#method(
-            #crate_ref::r#type::DefOpts {
+            #crate_ref::DefOpts {
                 parent_inline: #inline,
                 type_map: opts.type_map
             },
