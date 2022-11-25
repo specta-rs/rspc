@@ -19,13 +19,15 @@ macro_rules! impl_tuple {
         impl<$($i: Type + 'static),*> Type for ($($i),*) {
             const NAME: &'static str = stringify!(($($i::NAME),*));
 
-            fn inline(_opts: DefOpts, _generics: &[DataType]) -> DataType {
-                $(let $i = $i::reference(
+            fn inline(_opts: DefOpts, generics: &[DataType]) -> DataType {
+                let mut _generics = generics.iter();
+
+                $(let $i = _generics.next().map(Clone::clone).unwrap_or_else(|| $i::reference(
                     DefOpts {
                         parent_inline: _opts.parent_inline,
                         type_map: _opts.type_map
                     }, &[]
-                );)*
+                ));)*
 
                 DataType::Tuple(datatype::TupleType {
                     name: stringify!(($($i),*)).to_string(),

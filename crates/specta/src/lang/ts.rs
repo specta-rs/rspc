@@ -69,8 +69,13 @@ pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
             format!("type {name}{generics} = {inline_ts}")
         }
         // Unnamed struct
-        DataType::Tuple(TupleType { name, .. }) => {
-            format!("type {name} = {inline_ts}")
+        DataType::Tuple(TupleType { name, generics, .. }) => {
+            let generics = match generics.len() {
+                0 => "".into(),
+                _ => format!("<{}>", generics.to_vec().join(", ")),
+            };
+
+            format!("type {name}{generics} = {inline_ts}")
         }
         _ => return Err(format!("Type cannot be exported: {:?}", def)), // TODO: Can this be enforced at a type system level
     };

@@ -5,43 +5,60 @@ use syn::{
     PathArguments, Type, TypeArray, TypeParam, TypePtr, TypeReference, TypeSlice, WhereClause,
 };
 
-// Code copied from ts-rs. Thanks to it's original author!
-// generate start of the `impl #r#trait for #ty` block, up to (excluding) the open brace
-pub fn impl_heading(r#trait: TokenStream, ty: &Ident, generics: &Generics) -> TokenStream {
-    use GenericParam::*;
+pub fn generics_with_ident_and_bounds_only(generics: &Generics) -> Option<TokenStream> {
+    (generics.params.len() > 0)
+        .then(|| {
+            use GenericParam::*;
+            generics.params.iter().map(|param| match param {
+                Type(TypeParam {
+                    ident,
+                    colon_token,
+                    bounds,
+                    ..
+                }) => quote!(#ident #colon_token #bounds),
+                Lifetime(LifetimeDef {
+                    lifetime,
+                    colon_token,
+                    bounds,
+                    ..
+                }) => quote!(#lifetime #colon_token #bounds),
+                Const(ConstParam {
+                    const_token,
+                    ident,
+                    colon_token,
+                    ty,
+                    ..
+                }) => quote!(#const_token #ident #colon_token #ty),
+            })
+        })
+        .map(|gs| quote!(<#(#gs),*>))
+}
 
-    let bounds = generics.params.iter().map(|param| match param {
-        Type(TypeParam {
-            ident,
-            colon_token,
-            bounds,
-            ..
-        }) => quote!(#ident #colon_token #bounds),
-        Lifetime(LifetimeDef {
-            lifetime,
-            colon_token,
-            bounds,
-            ..
-        }) => quote!(#lifetime #colon_token #bounds),
-        Const(ConstParam {
-            const_token,
-            ident,
-            colon_token,
-            ty,
-            ..
-        }) => quote!(#const_token #ident #colon_token #ty),
-    });
-    let type_args = generics.params.iter().map(|param| match param {
-        Type(TypeParam { ident, .. }) | Const(ConstParam { ident, .. }) => quote!(#ident),
-        Lifetime(LifetimeDef { lifetime, .. }) => quote!(#lifetime),
-    });
+pub fn generics_with_ident_only(generics: &Generics) -> Option<TokenStream> {
+    (generics.params.len() > 0)
+        .then(|| {
+            use GenericParam::*;
 
-    let where_bound = add_type_to_where_clause(&r#trait, generics);
-    quote!(impl <#(#bounds),*> #r#trait for #ty <#(#type_args),*> #where_bound)
+            generics.params.iter().map(|param| match param {
+                Type(TypeParam { ident, .. }) | Const(ConstParam { ident, .. }) => quote!(#ident),
+                Lifetime(LifetimeDef { lifetime, .. }) => quote!(#lifetime),
+            })
+        })
+        .map(|gs| quote!(<#(#gs),*>))
 }
 
 // Code copied from ts-rs. Thanks to it's original author!
-fn add_type_to_where_clause(ty: &TokenStream, generics: &Generics) -> Option<WhereClause> {
+// generate start of the `impl #r#trait for #ty` block, up to (excluding) the open brace
+pub fn impl_heading(r#trait: TokenStream, ty: &Ident, generics: &Generics) -> TokenStream {
+    let bounds = generics_with_ident_and_bounds_only(generics);
+    let type_args = generics_with_ident_only(generics);
+
+    let where_bound = add_type_to_where_clause(&r#trait, generics);
+    quote!(impl #bounds #r#trait for #ty #type_args #where_bound)
+}
+
+// Code copied from ts-rs. Thanks to it's original author!
+pub fn add_type_to_where_clause(ty: &TokenStream, generics: &Generics) -> Option<WhereClause> {
     let generic_types = generics
         .params
         .iter()
@@ -133,7 +150,7 @@ pub fn construct_datatype(
             .find(|(_, ident)| ident == &type_ident)
         {
             return quote! {
-                let #var_ident = generics.get(#i).map(Clone::clone).unwrap_or(
+                let #var_ident = generics.get(#i).map(Clone::clone).unwrap_or_else(||
                     <#generic_ident as #crate_ref::Type>::#method(
                         #crate_ref::DefOpts {
                             parent_inline: #inline,
@@ -155,7 +172,7 @@ pub fn construct_datatype(
             .enumerate()
             .filter_map(|(i, input)| match input {
                 GenericArgument::Type(ty) => Some((i, ty)),
-                _ => todo!("one"),
+                _ => None,
             })
             .collect(),
         PathArguments::None => vec![],

@@ -24,7 +24,7 @@ pub fn parse_struct(
 
     let reference_generics = generic_idents.iter().map(|(i, ident)| {
         quote! {
-            generics.get(#i).cloned().unwrap_or(
+            generics.get(#i).cloned().unwrap_or_else(||
                 <#ident as #crate_ref::Type>::reference(
                     #crate_ref::DefOpts {
                         parent_inline: false,

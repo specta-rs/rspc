@@ -1,6 +1,10 @@
 mod arrays;
+#[cfg(feature = "chrono")]
+mod chrono;
 mod field_rename;
 mod flatten;
+mod generic_fields;
+mod generics;
 mod list;
 mod nested;
 mod optional_field;

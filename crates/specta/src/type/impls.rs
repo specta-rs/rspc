@@ -196,24 +196,36 @@ impl_as!(
 );
 
 #[cfg(feature = "chrono")]
-impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
-    const NAME: &'static str = "DateTime";
-
-    fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        String::inline(opts, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        String::reference(opts, generics)
-    }
-}
+pub use chrono_impls::*;
 
 #[cfg(feature = "chrono")]
-impl_as!(
-    chrono::NaiveDateTime as String
-    chrono::NaiveDate as String
-    chrono::NaiveTime as String
-);
+mod chrono_impls {
+    use super::*;
+    use chrono::*;
+
+    impl_as!(
+        NaiveDateTime as String
+        NaiveDate as String
+        NaiveTime as String
+        chrono::Duration as String
+    );
+
+    impl<T: TimeZone> Type for DateTime<T> {
+        const NAME: &'static str = "DateTime";
+
+        fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
+            String::inline(opts, generics)
+        }
+    }
+
+    impl<T: TimeZone> Type for Date<T> {
+        const NAME: &'static str = "DateTime";
+
+        fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
+            String::inline(opts, generics)
+        }
+    }
+}
 
 #[cfg(feature = "time")]
 impl_as!(

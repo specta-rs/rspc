@@ -9,6 +9,10 @@ use generics::impl_heading;
 
 use crate::utils::unraw_raw_ident;
 
+use self::generics::{
+    add_type_to_where_clause, generics_with_ident_and_bounds_only, generics_with_ident_only,
+};
+
 mod attr;
 mod r#enum;
 mod generics;
@@ -70,8 +74,13 @@ pub fn derive(
     });
 
     let flatten_impl = can_flatten.then(|| {
+        let bounds = generics_with_ident_and_bounds_only(generics);
+        let type_args = generics_with_ident_only(generics);
+
+        let where_bound = add_type_to_where_clause(&quote!(#crate_ref::Type), generics);
         let heading = impl_heading(quote!(#crate_ref::Flatten), ident, generics);
-        quote!(#heading {})
+
+        quote!(impl #bounds #crate_ref::Flatten for #ident #type_args #where_bound {})
     });
 
     let type_impl_heading = impl_heading(quote!(#crate_ref::Type), ident, generics);
