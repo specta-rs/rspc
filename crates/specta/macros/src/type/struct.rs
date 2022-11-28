@@ -49,9 +49,11 @@ pub fn parse_struct(
                     return None;
                 }
 
+                let field_ty = field_attrs.type_as.as_ref().unwrap_or(&field.ty);
+
                 let ty = construct_datatype(
                     format_ident!("ty"),
-                    &field.ty,
+                    field_ty,
                     &generic_idents,
                     crate_ref,
                     field_attrs.inline,
@@ -69,8 +71,6 @@ pub fn parse_struct(
                 let flatten = field_attrs.flatten;
 
                 let ty = if field_attrs.flatten {
-                    let field_ty = &field.ty;
-
                     quote! {
                         #[allow(warnings)]
                         {
