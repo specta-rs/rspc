@@ -78,7 +78,6 @@ pub fn derive(
         let type_args = generics_with_ident_only(generics);
 
         let where_bound = add_type_to_where_clause(&quote!(#crate_ref::Type), generics);
-        let heading = impl_heading(quote!(#crate_ref::Flatten), ident, generics);
 
         quote!(impl #bounds #crate_ref::Flatten for #ident #type_args #where_bound {})
     });

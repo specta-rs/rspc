@@ -1,5 +1,5 @@
 use specta::{
-    ts::{ts_export, ts_inline},
+    ts::{export, ts_inline},
     Type,
 };
 
@@ -14,10 +14,7 @@ fn test_newtype() {
     #[derive(Type)]
     struct NewType(String);
 
-    assert_eq!(
-        "export type NewType = string",
-        ts_export::<NewType>().unwrap()
-    );
+    assert_eq!("export type NewType = string", export::<NewType>().unwrap());
 }
 
 #[test]
@@ -26,6 +23,6 @@ fn test_tuple_newtype() {
     struct TupleNewType(String, i32, (i32, i32));
     assert_eq!(
         "export type TupleNewType = [string, number, [number, number]]",
-        ts_export::<TupleNewType>().unwrap()
+        export::<TupleNewType>().unwrap()
     )
 }

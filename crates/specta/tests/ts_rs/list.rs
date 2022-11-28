@@ -1,4 +1,4 @@
-use specta::{ts::ts_export, Type};
+use specta::{ts, Type};
 
 #[test]
 fn list() {
@@ -9,7 +9,7 @@ fn list() {
     }
 
     assert_eq!(
-        ts_export::<List>().unwrap(),
+        ts::export::<List>().unwrap(),
         "export type List = { data: Array<number> | null }"
     );
 }

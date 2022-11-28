@@ -2,8 +2,8 @@ use crate::*;
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
-pub fn ts_export<T: Type>() -> Result<String, String> {
-    ts_export_datatype(&T::definition(DefOpts {
+pub fn export<T: Type>() -> Result<String, String> {
+    export_datatype(&T::definition(DefOpts {
         parent_inline: true,
         type_map: &mut TypeDefs::default(),
     }))
@@ -23,7 +23,7 @@ pub fn ts_inline<T: Type>() -> String {
 
 /// Convert a DataType to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
-pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
+pub fn export_datatype(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts(def);
 
     let declaration = match &def {

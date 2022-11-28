@@ -1,4 +1,4 @@
-use specta::{ts::ts_export, Type};
+use specta::{ts, Type};
 
 #[derive(Type)]
 pub struct MyCustomType<A> {
@@ -10,7 +10,7 @@ fn main() {
     dbg!(MyCustomType::<()>::definition_generics());
 
     assert_eq!(
-        ts_export::<MyCustomType<()>>(),
+        ts::export::<MyCustomType<()>>(),
         Ok("export interface MyCustomType<A> { my_field: string, generic: A }".to_string())
     );
 }

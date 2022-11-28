@@ -6,8 +6,8 @@
 //!
 #[macro_use]
 mod utils;
-mod command;
 mod data_type_from;
+mod specta;
 mod r#type;
 
 #[proc_macro_derive(Type, attributes(specta, serde))]
@@ -29,9 +29,9 @@ pub fn derive_data_type_from(input: proc_macro::TokenStream) -> proc_macro::Toke
 }
 
 #[proc_macro_attribute]
-pub fn command(
+pub fn specta(
     _: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    command::command(item)
+    specta::attribute(item)
 }

@@ -1,7 +1,6 @@
 use specta::{
     datatype::{DataType, LiteralType},
-    ts::ts_export_datatype,
-    DataTypeFrom,
+    ts, DataTypeFrom,
 };
 
 #[derive(DataTypeFrom)]
@@ -13,7 +12,7 @@ fn main() {
     ]);
 
     assert_eq!(
-        ts_export_datatype(&e.into()).unwrap(),
+        ts::export_datatype(&e.into()).unwrap(),
         "export type MyEnum = \"A\" | \"B\""
     );
 }

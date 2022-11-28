@@ -1,4 +1,4 @@
-use specta::{ts::ts_export, Type};
+use specta::{ts::export, Type};
 
 #[derive(Type)]
 struct r#enum {
@@ -12,7 +12,7 @@ struct r#enum {
 #[test]
 fn raw_idents() {
     assert_eq!(
-        ts_export::<r#enum>().unwrap(),
+        export::<r#enum>().unwrap(),
         "export type enum = { type: number, use: number, struct: number, let: number, enum: number }"
     )
 }

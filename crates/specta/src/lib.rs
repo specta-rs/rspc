@@ -4,29 +4,29 @@
 //!
 //! ## Example
 //! ```rust
-//! use specta::{export_fn, ts::{ts_export_datatype, ts_export}, Type};
+//! use specta::*;
 //!
 //! #[derive(Type)]
 //! pub struct MyCustomType {
 //!    pub my_field: String,
 //! }
 //!
-//! #[specta::command]
+//! #[specta]
 //! fn some_function(name: String, age: i32) -> bool {
 //!     true
 //! }
 //!
 //! fn main() {
 //!     assert_eq!(
-//!         ts_export::<MyCustomType>(),
+//!         ts::export::<MyCustomType>(),
 //!         Ok("export type MyCustomType = { my_field: string }".to_string())
 //!         
 //!     );
 //!
 //!      // This API is pretty new and will likely under go API changes in the future.
 //!      assert_eq!(
-//!         ts_export_datatype(&export_fn!(some_function).into()),
-//!         Ok("export type CommandDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
+//!         ts::export_datatype(&fn_datatype!(some_function).into()),
+//!         Ok("export type FunctionDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
 //!      );
 //! }
 //! ```
@@ -46,14 +46,14 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic, missing_docs)]
 
-/// Support for Specta commands. These allow exporting the types for Rust functions.
-#[cfg(feature = "command")]
-pub mod command;
 /// Types related to working with [`crate::DataType`] directly.
 /// You'll probably never need this.
 pub mod datatype;
 /// Provides the global type store and a method to export them to other languages.
 pub mod export;
+/// Support for Specta commands. These allow exporting the types for Rust functions.
+#[cfg(feature = "command")]
+pub mod function;
 mod lang;
 /// Contains [`Type`] and everything related to it, including implementations and helper macros
 pub mod r#type;
@@ -111,9 +111,7 @@ pub use specta_macros::RSPCType;
 /// ## Example
 ///
 /// ```rust
-/// use specta::{
-///     DataTypeFrom, ts::ts_export_datatype,
-/// };
+/// use specta::*;
 ///
 /// #[derive(DataTypeFrom)]
 /// pub struct MyEnum(pub Vec<String>);
@@ -125,7 +123,7 @@ pub use specta_macros::RSPCType;
 ///     ]);
 ///
 ///     assert_eq!(
-///         ts_export_datatype(&e.into()).unwrap(),
+///         ts::export_datatype(&e.into()).unwrap(),
 ///         "export type MyEnum = \"A\" | \"B\""
 ///     );
 /// }
@@ -136,12 +134,12 @@ pub use specta_macros::DataTypeFrom;
 /// Attribute macro which can be put on a Rust function to introspect its types.
 ///
 /// ```rust
-/// #[specta::command]
+/// #[specta::specta]
 /// fn my_function(arg1: i32, arg2: bool) -> &'static str {
 ///     "Hello World"
 /// }
 /// ```
-pub use specta_macros::command;
+pub use specta_macros::specta;
 
 #[doc(hidden)]
 pub mod internal {

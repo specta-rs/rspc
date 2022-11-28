@@ -1,5 +1,5 @@
 use serde::Serialize;
-use specta::{ts::ts_export, Type};
+use specta::{ts::export, Type};
 
 #[derive(Type, Serialize)]
 struct Bar {
@@ -24,17 +24,17 @@ enum SimpleEnum {
 #[test]
 fn test_stateful_enum() {
     assert_eq!(
-        ts_export::<Bar>().unwrap(),
+        export::<Bar>().unwrap(),
         r#"export type Bar = { field: number }"#
     );
 
     assert_eq!(
-        ts_export::<Foo>().unwrap(),
+        export::<Foo>().unwrap(),
         r#"export type Foo = { bar: Bar }"#
     );
 
     assert_eq!(
-        ts_export::<SimpleEnum>().unwrap(),
+        export::<SimpleEnum>().unwrap(),
         r#"export type SimpleEnum = { A: string } | { B: number } | "C" | { D: [string, number] } | { E: Foo } | { F: { a: number, b: string } }"#
     );
 }
