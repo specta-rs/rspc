@@ -1,4 +1,4 @@
-use specta::{ts::ts_export, ts::ts_inline, Type};
+use specta::{ts::ts_export, Type};
 
 #[test]
 fn list() {
@@ -8,9 +8,8 @@ fn list() {
         data: Option<Vec<u32>>,
     }
 
-    assert_eq!(ts_inline::<List>(), "{ data: Array<number> | null }");
     assert_eq!(
         ts_export::<List>().unwrap(),
-        "export interface List { data: Array<number> | null }"
+        "export type List = { data: Array<number> | null }"
     );
 }

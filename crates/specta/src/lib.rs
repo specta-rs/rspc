@@ -19,24 +19,23 @@
 //! fn main() {
 //!     assert_eq!(
 //!         ts_export::<MyCustomType>(),
-//!         Ok("export interface MyCustomType { my_field: string }".to_string())
+//!         Ok("export type MyCustomType = { my_field: string }".to_string())
 //!         
 //!     );
 //!
 //!      // This API is pretty new and will likely under go API changes in the future.
 //!      assert_eq!(
 //!         ts_export_datatype(&export_fn!(some_function).into()),
-//!         Ok("export interface CommandDataType { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
+//!         Ok("export type CommandDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
 //!      );
 //! }
 //! ```
 //!
-//! ## Known limitations
-//!  - Type aliases must not alias generic types (as far as known this is just a Rust limitation)
-//!
 //! ## Why not ts-rs?
 //!
-//! ts-rs is a great library, but it has a few limitations which became a problem when I was building [rspc](https://github.com/oscartbeaumont/rspc). Namely it deals with types individually which means it is not possible to export a type and all of the other types it depends on.
+//! ts-rs is a great library,
+//! but it has a few limitations which became a problem when I was building [rspc](https://github.com/oscartbeaumont/rspc).
+//! Namely it deals with types individually which means it is not possible to export a type and all of the other types it depends on.
 //!
 //! ## Supported Libraries
 //!

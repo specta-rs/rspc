@@ -13,6 +13,6 @@ struct r#enum {
 fn raw_idents() {
     assert_eq!(
         ts_export::<r#enum>().unwrap(),
-        "export interface enum { type: number, use: number, struct: number, let: number, enum: number }"
+        "export type enum = { type: number, use: number, struct: number, let: number, enum: number }"
     )
 }

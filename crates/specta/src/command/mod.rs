@@ -24,7 +24,7 @@ pub use typed_command_result::*;
 ///      // This API is pretty new and will likely under go API changes in the future.
 ///      assert_eq!(
 ///         ts_export_datatype(&export_fn!(some_function).into()),
-///         Ok("export interface CommandDataType { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
+///         Ok("export type CommandDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
 ///      );
 /// }
 /// ```

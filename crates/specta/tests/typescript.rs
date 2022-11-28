@@ -93,7 +93,7 @@ fn typescript_types() {
         r#"({ tag: "One" } | { tag: "Two" } | { tag: "Three" }) & { outer: string }"#
     );
 
-    assert_ts_type!(HasGenericAlias, r#"Record<string, string>"#);
+    assert_ts_type!(HasGenericAlias, r#"Record<number, string>"#);
 }
 
 #[derive(Type)]
@@ -169,6 +169,6 @@ enum FlattenEnum {
 }
 
 #[derive(Type)]
-struct HasGenericAlias(GenericAlias);
+struct HasGenericAlias(GenericAlias<i32>);
 
-type GenericAlias = std::collections::HashMap<String, String>;
+type GenericAlias<T: std::hash::Hash> = std::collections::HashMap<T, String>;

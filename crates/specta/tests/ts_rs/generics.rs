@@ -36,22 +36,22 @@ struct Container {
 fn test() {
     assert_eq!(
         ts_export::<Generic<()>>().unwrap(),
-        "export interface Generic<T> { value: T, values: Array<T> }"
+        "export type Generic<T> = { value: T, values: Array<T> }"
     );
 
     assert_eq!(
         ts_export::<GenericAutoBound::<()>>().unwrap(),
-        "export interface GenericAutoBound<T> { value: T, values: Array<T> }"
+        "export type GenericAutoBound<T> = { value: T, values: Array<T> }"
     );
 
     assert_eq!(
         ts_export::<GenericAutoBound2::<()>>().unwrap(),
-        "export interface GenericAutoBound2<T> { value: T, values: Array<T> }"
+        "export type GenericAutoBound2<T> = { value: T, values: Array<T> }"
     );
 
     assert_eq!(
         ts_export::<Container>().unwrap(),
-        "export interface Container { foo: Generic<number>, bar: Array<Generic<number>>, baz: Record<string, Generic<string>> }"
+        "export type Container = { foo: Generic<number>, bar: Array<Generic<number>>, baz: Record<string, Generic<string>> }"
     );
 }
 
@@ -113,13 +113,12 @@ fn generic_struct() {
 
     assert_eq!(
         ts_export::<Struct::<()>>().unwrap(),
-        "export interface Struct<T> { a: T, b: [T, T], c: [T, [T, T]], d: Array<T>, e: Array<[T, T]>, f: Array<T>, g: Array<Array<T>>, h: Array<Array<[T, T]>> }"
+        "export type Struct<T> = { a: T, b: [T, T], c: [T, [T, T]], d: Array<T>, e: Array<[T, T]>, f: Array<T>, g: Array<Array<T>>, h: Array<Array<[T, T]>> }"
     )
 }
 
+// not currently possible in ts-rs hehe
 #[test]
-#[ignore]
-// https://github.com/Aleph-Alpha/ts-rs/issues/56 TODO
 fn inline() {
     #[derive(Type)]
     struct Generic<T> {
@@ -137,11 +136,11 @@ fn inline() {
 
     assert_eq!(
         ts_export::<Generic::<()>>().unwrap(),
-        "export interface Generic<T> { t: T }"
+        "export type Generic<T> = { t: T }"
     );
     assert_eq!(
         ts_export::<Container>().unwrap(),
-        "export interface Container { g: Generic<string>, gi: { t: string }, t: string }"
+        "export type Container = ({ t: string }) & { g: Generic<string>, gi: { t: string } }"
     );
 }
 

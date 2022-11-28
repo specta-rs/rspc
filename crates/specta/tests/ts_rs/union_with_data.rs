@@ -25,24 +25,16 @@ enum SimpleEnum {
 fn test_stateful_enum() {
     assert_eq!(
         ts_export::<Bar>().unwrap(),
-        r#"export interface Bar { field: number }"#
+        r#"export type Bar = { field: number }"#
     );
-    // assert_eq!(Bar::dependencies(), vec![]);
 
     assert_eq!(
         ts_export::<Foo>().unwrap(),
-        r#"export interface Foo { bar: Bar }"#
+        r#"export type Foo = { bar: Bar }"#
     );
-    // assert_eq!(
-    //     Foo::dependencies(),
-    //     vec![Dependency::from_ty::<Bar>().unwrap()]
-    // );
 
     assert_eq!(
         ts_export::<SimpleEnum>().unwrap(),
         r#"export type SimpleEnum = { A: string } | { B: number } | "C" | { D: [string, number] } | { E: Foo } | { F: { a: number, b: string } }"#
     );
-    // assert!(SimpleEnum::dependencies()
-    //     .into_iter()
-    //     .all(|dep| dep == Dependency::from_ty::<Foo>().unwrap()),);
 }

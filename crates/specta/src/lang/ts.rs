@@ -48,10 +48,7 @@ pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
                         _ => format!("<{}>", generics.to_vec().join(", ")),
                     };
 
-                    match fields.iter().any(|f| f.flatten) {
-                        true => format!("type {name}{generics} = {inline_ts}"),
-                        false => format!("interface {name}{generics} {inline_ts}"),
-                    }
+                    format!("type {name}{generics} = {inline_ts}")
                 }
             }
         }
