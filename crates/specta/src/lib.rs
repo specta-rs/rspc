@@ -4,39 +4,38 @@
 //!
 //! ## Example
 //! ```rust
-//! use specta::{export_fn, ts::{ts_export_datatype, ts_export}, ToDataType, Type};
+//! use specta::*;
 //!
 //! #[derive(Type)]
 //! pub struct MyCustomType {
 //!    pub my_field: String,
 //! }
 //!
-//! #[specta::command]
+//! #[specta]
 //! fn some_function(name: String, age: i32) -> bool {
 //!     true
 //! }
 //!
 //! fn main() {
 //!     assert_eq!(
-//!         ts_export::<MyCustomType>(),
-//!         Ok("export interface MyCustomType { my_field: string }".to_string())
+//!         ts::export::<MyCustomType>(),
+//!         Ok("export type MyCustomType = { my_field: string }".to_string())
 //!         
 //!     );
 //!
 //!      // This API is pretty new and will likely under go API changes in the future.
 //!      assert_eq!(
-//!         ts_export_datatype(&export_fn!(some_function).to_data_type()),
-//!         Ok("export interface CommandDataType { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
+//!         ts::export_datatype(&fn_datatype!(some_function).into()),
+//!         Ok("export type FunctionDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
 //!      );
 //! }
 //! ```
 //!
-//! ## Known limitations
-//!  - Type aliases must not alias generic types (as far as known this is just a Rust limitation)
-//!
 //! ## Why not ts-rs?
 //!
-//! ts-rs is a great library, but it has a few limitations which became a problem when I was building [rspc](https://github.com/oscartbeaumont/rspc). Namely it deals with types individually which means it is not possible to export a type and all of the other types it depends on.
+//! ts-rs is a great library,
+//! but it has a few limitations which became a problem when I was building [rspc](https://github.com/oscartbeaumont/rspc).
+//! Namely it deals with types individually which means it is not possible to export a type and all of the other types it depends on.
 //!
 //! ## Supported Libraries
 //!
@@ -47,49 +46,25 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic, missing_docs)]
 
-use std::{
-    borrow::Cow,
-    cell::{Cell, RefCell},
-    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
-    ffi::{CStr, CString, OsStr, OsString},
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
-    num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
-        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
-    },
-    path::{Path, PathBuf},
-    rc::Rc,
-    sync::{
-        atomic::{
-            AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16,
-            AtomicU32, AtomicU64, AtomicU8, AtomicUsize,
-        },
-        RwLock,
-    },
-    sync::{Arc, Mutex},
-    time::{Duration, Instant, SystemTime},
-};
-
+/// Types related to working with [`crate::DataType`] directly.
+/// You'll probably never need this.
+pub mod datatype;
+/// Provides the global type store and a method to export them to other languages.
+pub mod export;
 /// Support for Specta commands. These allow exporting the types for Rust functions.
 #[cfg(feature = "command")]
-pub mod command;
-/// Types related to working with [`crate::DataType`] directly.
-/// This is for advanced users.
-pub mod datatype;
-/// Types to represent the structure of the Rust types for the type exporters.
-pub mod r#type;
-#[macro_use]
-mod impl_type_macros;
+pub mod function;
 mod lang;
-mod to_data_type;
+/// Contains [`Type`] and everything related to it, including implementations and helper macros
+pub mod r#type;
 
 // #[cfg(feature = "command")]
 // pub use command::*;
-use datatype::DataType;
+pub use datatype::*;
 pub use lang::*;
-use r#type::{DefOpts, TypeDefs};
+pub use r#type::*;
 
-/// Derive type is used to derive the [`Type`](crate::Type) trait on a struct.
+/// Implements [`Type`] for a given struct or enum.
 ///
 /// ## Example
 ///
@@ -120,464 +95,54 @@ pub use specta_macros::Type;
 /// This is exposed from here so rspc doesn't need a macro package for 4 lines of code.
 pub use specta_macros::RSPCType;
 
-/// Derive command is used to derive the [`ToDataType`](crate::ToDataType) trait on a struct.
+/// Generates a From implementation for [`DataType`] of the given type.
+/// This differs from [`Type`] in that you can use other [`DataType`] values
+/// at runtime inside the targeted type, providing an easy way to construct types at
+/// runtime from other types which are known statically via [`Type`].
 ///
-/// This is designed a more advanced feature. If you are just looking for regular type exporting use [`Type`](derive@crate::Type) instead.
+/// Along with inner data types such as [`ObjectType`] and [`EnumType`], some builtin types
+/// implement `From for DataType`:
+/// - [`Vec`] will become [`DataType::Enum`]
+/// - [`Option`] will become the value it contains or [`LiteralType::None`] if it is [`None`]
+/// - [`String`] and [`&str`] will become [`LiteralType::String`]
 ///
+/// This is an advanced feature and should only be of use to library authors.
 ///
 /// ## Example
 ///
 /// ```rust
-/// use specta::{
-///     datatype::{DataType, LiteralType},
-///     ts::ts_export_datatype,
-///     ToDataType,
-/// };
+/// use specta::*;
 ///
-/// #[derive(ToDataType)]
-/// pub struct MyEnum(pub Vec<DataType>);
+/// #[derive(DataTypeFrom)]
+/// pub struct MyEnum(pub Vec<String>);
 ///
 /// fn main() {
 ///     let e = MyEnum(vec![
-///         DataType::Literal(LiteralType::String("A".to_string())),
-///         DataType::Literal(LiteralType::String("B".to_string())),
+///         "A".to_string(),
+///         "B".to_string(),
 ///     ]);
 ///
 ///     assert_eq!(
-///         ts_export_datatype(&e.to_data_type()).unwrap(),
+///         ts::export_datatype(&e.into()).unwrap(),
 ///         "export type MyEnum = \"A\" | \"B\""
 ///     );
 /// }
 /// ```
 ///
-pub use specta_macros::ToDataType;
+pub use specta_macros::DataTypeFrom;
 
 /// Attribute macro which can be put on a Rust function to introspect its types.
 ///
 /// ```rust
-/// #[specta::command]
+/// #[specta::specta]
 /// fn my_function(arg1: i32, arg2: bool) -> &'static str {
 ///     "Hello World"
 /// }
 /// ```
-pub use specta_macros::command;
-
-pub use to_data_type::*;
+pub use specta_macros::specta;
 
 #[doc(hidden)]
 pub mod internal {
+    pub use ctor;
     pub use paste::paste as _specta_paste;
 }
-
-/// A trait which allows runtime type reflection of a type it is implemented on.
-/// The type information can then be fed into a language exporter to generate a type definition in another language.
-/// You should avoid implementing this trait yourself where possible and use the [`Type`](derive@crate::Type) macro instead.
-pub trait Type {
-    /// the name of the type
-    const NAME: &'static str;
-
-    /// get the inlined definition of a type.
-    fn inline(opts: DefOpts, generics: &[DataType]) -> DataType;
-
-    /// TODO
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType;
-
-    /// TODO
-    fn definition(opts: DefOpts) -> DataType;
-}
-
-/// is a marker trait which is implemented on types which can be flattened.
-pub trait Flatten: Type {}
-
-impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
-impl<K: Type, V: Type> Flatten for std::collections::BTreeMap<K, V> {}
-
-impl_primitives!(
-    i8 i16 i32 i64 i128 isize
-    u8 u16 u32 u64 u128 usize
-    f32 f64
-    bool char
-    String
-);
-
-impl_containers!(Box Rc Arc Cell RefCell Mutex RwLock);
-
-impl_tuple!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-
-impl<'a> Type for &'a str {
-    const NAME: &'static str = String::NAME;
-
-    fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
-        String::inline(defs, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        String::reference(opts, generics)
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
-}
-
-impl<'a, T: Type + 'static> Type for &'a T {
-    const NAME: &'static str = T::NAME;
-
-    fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
-        T::inline(defs, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        T::reference(opts, generics)
-    }
-
-    fn definition(opts: DefOpts) -> DataType {
-        T::definition(opts)
-    }
-}
-
-impl<'a, T: ToOwned + Type + 'static> Type for Cow<'a, T> {
-    const NAME: &'static str = T::NAME;
-
-    fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
-        T::inline(defs, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        T::reference(opts, generics)
-    }
-
-    fn definition(opts: DefOpts) -> DataType {
-        T::definition(opts)
-    }
-}
-
-impl_as!(
-    str as String
-    CString as String
-    CStr as String
-    OsString as String
-    OsStr as String
-
-    Path as String
-    PathBuf as String
-
-    IpAddr as String
-    Ipv4Addr as String
-    Ipv6Addr as String
-
-    SocketAddr as String
-    SocketAddrV4 as String
-    SocketAddrV6 as String
-
-    SystemTime as String
-    Instant as String
-    Duration as String
-
-    AtomicBool as bool
-    AtomicI8 as i8
-    AtomicI16 as i16
-    AtomicI32 as i32
-    AtomicIsize as isize
-    AtomicU8 as u8
-    AtomicU16 as u16
-    AtomicU32 as u32
-    AtomicUsize as usize
-    AtomicI64 as i64
-    AtomicU64 as u64
-
-    NonZeroU8 as u8
-    NonZeroU16 as u16
-    NonZeroU32 as u32
-    NonZeroU64 as u64
-    NonZeroUsize as usize
-    NonZeroI8 as i8
-    NonZeroI16 as i16
-    NonZeroI32 as i32
-    NonZeroI64 as i64
-    NonZeroIsize as isize
-    NonZeroU128 as u128
-    NonZeroI128 as i128
-);
-
-impl_for_list!(
-    Vec<T> as "Vec"
-    VecDeque<T> as "VecDeque"
-    BinaryHeap<T> as "BinaryHeap"
-    LinkedList<T> as "LinkedList"
-    HashSet<T> as "HashSet"
-    BTreeSet<T> as "BTreeSet"
-);
-
-impl<'a, T: Type> Type for &'a [T] {
-    const NAME: &'static str = "&[T]";
-
-    fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        <Vec<T>>::inline(opts, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        <Vec<T>>::reference(opts, generics)
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
-}
-
-impl<const N: usize, T: Type> Type for [T; N] {
-    const NAME: &'static str = "&[T; N]";
-
-    fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        <Vec<T>>::inline(opts, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        <Vec<T>>::reference(opts, generics)
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
-}
-
-impl<T: Type> Type for Option<T> {
-    const NAME: &'static str = "Option";
-
-    fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or_else(|| {
-            T::inline(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: opts.type_map,
-                },
-                generics,
-            )
-        })))
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or_else(|| {
-            T::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: opts.type_map,
-                },
-                generics,
-            )
-        })))
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
-}
-
-impl_for_map!(HashMap<K, V> as "HashMap");
-impl_for_map!(BTreeMap<K, V> as "BTreeMap");
-
-#[cfg(feature = "indexmap")]
-impl_for_list!(indexmap::IndexSet<T> as "IndexSet");
-
-#[cfg(feature = "indexmap")]
-impl_for_map!(indexmap::IndexMap<K, V> as "IndexMap");
-
-#[cfg(feature = "serde")]
-impl_for_map!(serde_json::Map<K, V> as "Map");
-
-#[cfg(feature = "serde")]
-impl Type for serde_json::Value {
-    const NAME: &'static str = "Value";
-
-    fn inline(_: DefOpts, _: &[DataType]) -> DataType {
-        DataType::Any
-    }
-
-    fn reference(_: DefOpts, _: &[DataType]) -> DataType {
-        DataType::Any
-    }
-
-    fn definition(_: DefOpts) -> DataType {
-        unreachable!()
-    }
-}
-
-#[cfg(feature = "uuid")]
-impl_as!(
-    uuid::Uuid as String
-    uuid::fmt::Hyphenated as String
-);
-
-#[cfg(feature = "chrono")]
-impl<T: chrono::TimeZone> Type for chrono::DateTime<T> {
-    const NAME: &'static str = "DateTime";
-
-    fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
-        String::inline(opts, generics)
-    }
-
-    fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
-        String::reference(opts, generics)
-    }
-
-    fn definition(opts: DefOpts) -> DataType {
-        String::definition(opts)
-    }
-}
-
-#[cfg(feature = "chrono")]
-impl_as!(
-    chrono::NaiveDateTime as String
-    chrono::NaiveDate as String
-    chrono::NaiveTime as String
-);
-
-#[cfg(feature = "time")]
-impl_as!(
-    time::PrimitiveDateTime as String
-    time::OffsetDateTime as String
-    time::Date as String
-    time::Time as String
-);
-
-#[cfg(feature = "bigdecimal")]
-impl_as!(bigdecimal::BigDecimal as String);
-
-// This assumes the `serde-with-str` feature is enabled. Check #26 for more info.
-#[cfg(feature = "rust_decimal")]
-impl_as!(rust_decimal::Decimal as String);
-
-#[cfg(feature = "ipnetwork")]
-impl_as!(
-    ipnetwork::IpNetwork as String
-    ipnetwork::Ipv4Network as String
-    ipnetwork::Ipv6Network as String
-);
-
-#[cfg(feature = "mac_address")]
-impl_as!(mac_address::MacAddress as String);
-
-#[cfg(feature = "chrono")]
-impl_as!(
-    chrono::FixedOffset as String
-    chrono::Utc as String
-    chrono::Local as String
-);
-
-#[cfg(feature = "bson")]
-impl_as!(
-    bson::oid::ObjectId as String
-    bson::Decimal128 as i128
-    bson::DateTime as String
-    bson::Uuid as String
-);
-
-// TODO: bson::bson
-// TODO: bson::Document
-
-#[cfg(feature = "bytesize")]
-impl_as!(bytesize::ByteSize as u64);
-
-#[cfg(feature = "uhlc")]
-pub use uhlc_impls::*;
-
-#[cfg(feature = "uhlc")]
-mod uhlc_impls {
-    use crate::r#type::ObjectType;
-
-    use super::*;
-    use std::any::TypeId;
-    use uhlc::*;
-
-    impl_as!(
-        NTP64 as u64
-        ID as NonZeroU128
-    );
-
-    impl Type for Timestamp {
-        const NAME: &'static str = "Timestamp";
-        fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
-            use r#type::ObjectField;
-            DataType::Object(ObjectType {
-                name: "Timestamp".to_string(),
-                generics: vec![],
-                fields: vec![
-                    ObjectField {
-                        name: "id".to_string(),
-                        optional: false,
-                        flatten: false,
-                        ty: {
-                            let ty = <ID as Type>::reference(
-                                DefOpts {
-                                    parent_inline: false,
-                                    type_map: opts.type_map,
-                                },
-                                &[],
-                            );
-                            ty
-                        },
-                    },
-                    ObjectField {
-                        name: "time".to_string(),
-                        optional: false,
-                        flatten: false,
-                        ty: {
-                            let ty = <NTP64 as Type>::reference(
-                                DefOpts {
-                                    parent_inline: false,
-                                    type_map: opts.type_map,
-                                },
-                                &[],
-                            );
-                            ty
-                        },
-                    },
-                ],
-                tag: None,
-                type_id: Some(TypeId::of::<Self>()),
-            })
-        }
-
-        fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
-            if !opts.type_map.contains_key(&Self::NAME) {
-                Self::definition(DefOpts {
-                    parent_inline: false,
-                    type_map: opts.type_map,
-                });
-            }
-            DataType::Reference {
-                name: "Timestamp".to_string(),
-                generics: vec![],
-                type_id: TypeId::of::<Self>(),
-            }
-        }
-
-        fn definition(opts: DefOpts) -> DataType {
-            if !opts.type_map.contains_key(Self::NAME) {
-                opts.type_map.insert(
-                    Self::NAME,
-                    DataType::Object(ObjectType {
-                        name: "Timestamp".to_string(),
-                        generics: vec![],
-                        fields: vec![],
-                        tag: None,
-                        type_id: Some(TypeId::of::<Self>()),
-                    }),
-                );
-                let def = Self::inline(
-                    DefOpts {
-                        parent_inline: false,
-                        type_map: opts.type_map,
-                    },
-                    &[],
-                );
-                opts.type_map.insert(Self::NAME, def.clone());
-            }
-            opts.type_map.get(Self::NAME).unwrap().clone()
-        }
-    }
-
-    impl Flatten for Timestamp {}
-}
-
-// TODO: impl Type for Fn()

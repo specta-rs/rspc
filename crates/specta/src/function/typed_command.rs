@@ -1,13 +1,10 @@
-use crate::{
-    command::{TypedCommandArg, TypedCommandResult},
-    r#type::{ObjectField, ObjectType},
-    DataType, DefOpts, ToDataType, TypeDefs,
-};
+use super::{SpectaFunctionArg, SpectaFunctionResult};
+use crate::{DataType, DataTypeFrom, DefOpts, ObjectField, ObjectType, TypeDefs};
 
 /// is a struct which represents the datatype of a Specta command.
-#[derive(Debug, ToDataType)]
+#[derive(Debug, DataTypeFrom)]
 #[specta(crate = "crate")]
-pub struct CommandDataType {
+pub struct FunctionDataType {
     /// The name of the command. This will be derived from the Rust function name.
     pub name: &'static str,
     /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
@@ -17,24 +14,24 @@ pub struct CommandDataType {
 }
 
 /// is a trait which is implemented by all functions which can be used as a command.
-pub trait TypedCommand<TMarker> {
+pub trait SpectaFunction<TMarker> {
     /// convert function into a DataType
     fn to_datatype(
         name: &'static str,
         type_map: &mut TypeDefs,
         fields: &[&'static str],
-    ) -> CommandDataType;
+    ) -> FunctionDataType;
 }
 
-impl<TResultMarker, TResult: TypedCommandResult<TResultMarker>> TypedCommand<TResultMarker>
+impl<TResultMarker, TResult: SpectaFunctionResult<TResultMarker>> SpectaFunction<TResultMarker>
     for fn() -> TResult
 {
     fn to_datatype(
         name: &'static str,
         type_map: &mut TypeDefs,
         _fields: &[&'static str],
-    ) -> CommandDataType {
-        CommandDataType {
+    ) -> FunctionDataType {
+        FunctionDataType {
             name,
             input: None,
             result: TResult::to_datatype(DefOpts {
@@ -50,18 +47,19 @@ macro_rules! impl_typed_command {
        paste::paste! {
             impl<
                     TResultMarker,
-                    TResult: TypedCommandResult<TResultMarker>,
+                    TResult: SpectaFunctionResult<TResultMarker>,
                     $([<$i Marker>]),*,
-                    $($i: TypedCommandArg<[<$i Marker>]>),*
-                > TypedCommand<(TResultMarker, $([<$i Marker>]),*)> for fn($($i),*) -> TResult
+                    $($i: SpectaFunctionArg<[<$i Marker>]>),*
+                > SpectaFunction<(TResultMarker, $([<$i Marker>]),*)> for fn($($i),*) -> TResult
             {
                 fn to_datatype(
                     name: &'static str,
                     type_map: &mut TypeDefs,
                     fields: &[&'static str],
-                ) -> CommandDataType {
+                ) -> FunctionDataType {
                     let mut fields = fields.into_iter();
-                    CommandDataType {
+
+                    FunctionDataType {
                         name,
                         input: Some(DataType::Object(ObjectType {
                             name: "_unreachable_".into(),
@@ -105,11 +103,11 @@ macro_rules! impl_typed_command {
 impl_typed_command!(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
 /// is a helper for exporting a command to a `CommandDataType`. You shouldn't use this directly and instead should use [`export_fn!`](crate::export_fn).
-pub fn export_command_datatype<TMarker, T: TypedCommand<TMarker>>(
+pub fn get_datatype_internal<TMarker, T: SpectaFunction<TMarker>>(
     _: T,
     name: &'static str,
     type_map: &mut TypeDefs,
     fields: &[&'static str],
-) -> CommandDataType {
+) -> FunctionDataType {
     T::to_datatype(name, type_map, fields)
 }

@@ -1,21 +1,12 @@
-use crate::{
-    datatype::{LiteralType, PrimitiveType, TupleType},
-    r#type::{EnumRepr, EnumType, EnumVariant, ObjectField, ObjectType},
-    DataType, DefOpts, TypeDefs,
-};
-
-use crate::Type;
+use crate::*;
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
-pub fn ts_export<T: Type>() -> Result<String, String> {
-    ts_export_datatype(&T::inline(
-        DefOpts {
-            parent_inline: true,
-            type_map: &mut TypeDefs::default(),
-        },
-        &[],
-    ))
+pub fn export<T: Type>() -> Result<String, String> {
+    export_datatype(&T::definition(DefOpts {
+        parent_inline: true,
+        type_map: &mut TypeDefs::default(),
+    }))
 }
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string.
@@ -32,7 +23,7 @@ pub fn ts_inline<T: Type>() -> String {
 
 /// Convert a DataType to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
-pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
+pub fn export_datatype(def: &DataType) -> Result<String, String> {
     let inline_ts = to_ts(def);
 
     let declaration = match &def {
@@ -57,10 +48,7 @@ pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
                         _ => format!("<{}>", generics.to_vec().join(", ")),
                     };
 
-                    match fields.iter().any(|f| f.flatten) {
-                        true => format!("type {name}{generics} = {inline_ts}"),
-                        false => format!("interface {name}{generics} {inline_ts}"),
-                    }
+                    format!("type {name}{generics} = {inline_ts}")
                 }
             }
         }
@@ -78,8 +66,13 @@ pub fn ts_export_datatype(def: &DataType) -> Result<String, String> {
             format!("type {name}{generics} = {inline_ts}")
         }
         // Unnamed struct
-        DataType::Tuple(TupleType { name, .. }) => {
-            format!("type {name} = {inline_ts}")
+        DataType::Tuple(TupleType { name, generics, .. }) => {
+            let generics = match generics.len() {
+                0 => "".into(),
+                _ => format!("<{}>", generics.to_vec().join(", ")),
+            };
+
+            format!("type {name}{generics} = {inline_ts}")
         }
         _ => return Err(format!("Type cannot be exported: {:?}", def)), // TODO: Can this be enforced at a type system level
     };
@@ -218,7 +211,7 @@ pub fn to_ts(typ: &DataType) -> String {
                 format!("{name}<{generics}>")
             }
         },
-        DataType::Generic(ident) => ident.to_string(),
+        DataType::Generic(GenericType(ident)) => ident.to_string(),
     }
 }
 

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use specta::{ts::ts_inline, Type};
 
 #[derive(Type)]

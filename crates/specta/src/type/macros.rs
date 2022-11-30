@@ -6,14 +6,6 @@ macro_rules! impl_primitives {
             fn inline(_: DefOpts, _: &[DataType]) -> DataType {
                 DataType::Primitive(datatype::PrimitiveType::$i)
             }
-
-            fn reference(_: DefOpts, _: &[DataType]) -> DataType {
-                DataType::Primitive(datatype::PrimitiveType::$i)
-            }
-
-            fn definition(_: DefOpts) -> DataType {
-                unreachable!()
-            }
         }
     )+};
 }
@@ -27,27 +19,21 @@ macro_rules! impl_tuple {
         impl<$($i: Type + 'static),*> Type for ($($i),*) {
             const NAME: &'static str = stringify!(($($i::NAME),*));
 
-            fn inline(_opts: DefOpts, _generics: &[DataType]) -> DataType {
-                $(let $i = $i::reference(
+            fn inline(_opts: DefOpts, generics: &[DataType]) -> DataType {
+                let mut _generics = generics.iter();
+
+                $(let $i = _generics.next().map(Clone::clone).unwrap_or_else(|| $i::reference(
                     DefOpts {
                         parent_inline: _opts.parent_inline,
                         type_map: _opts.type_map
                     }, &[]
-                );)*
+                ));)*
 
                 DataType::Tuple(datatype::TupleType {
                     name: stringify!(($($i),*)).to_string(),
                     fields: vec![$($i),*],
                     generics: vec![]
                 })
-            }
-
-            fn reference(_opts: DefOpts, generics: &[DataType]) -> DataType {
-                Self::inline(_opts, generics)
-            }
-
-            fn definition(_opts: DefOpts) -> DataType {
-                unreachable!()
             }
         }
     };
@@ -82,10 +68,6 @@ macro_rules! impl_containers {
                     generics,
                 ))
             }
-
-            fn definition(_: DefOpts) -> DataType {
-                unreachable!()
-            }
         }
     )+}
 }
@@ -101,10 +83,6 @@ macro_rules! impl_as {
 
             fn reference(opts: DefOpts, generics: &[DataType]) -> DataType {
                 <$tty as Type>::reference(opts, generics)
-            }
-
-            fn definition(opts: DefOpts) -> DataType {
-                <$tty as Type>::definition(opts)
             }
         }
     )+};
@@ -133,10 +111,6 @@ macro_rules! impl_for_list {
                     },
                     generics,
                 ))))
-            }
-
-            fn definition(_: DefOpts) -> DataType {
-                unreachable!()
             }
         }
     )+};
@@ -183,10 +157,6 @@ macro_rules! impl_for_map {
                         generics,
                     )),
                 )))
-            }
-
-            fn definition(_: DefOpts) -> DataType {
-                unreachable!()
             }
         }
     };

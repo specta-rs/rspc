@@ -74,8 +74,6 @@ fn typescript_types() {
     assert_ts_type!(TupleStruct1, "number");
     assert_ts_type!(TupleStruct3, "[number, boolean, string]");
 
-    // assert_ts_type!(Wrapper<String>, "string");
-
     assert_ts_type!(
         TestEnum,
         r#""Unit" | { Single: number } | { Multiple: [number, number] } | { Struct: { a: number } }"#
@@ -94,8 +92,9 @@ fn typescript_types() {
         FlattenEnumStruct,
         r#"({ tag: "One" } | { tag: "Two" } | { tag: "Three" }) & { outer: string }"#
     );
-
+    
     assert_ts_type!(OverridenStruct, "{ overriden_field: string }")
+    assert_ts_type!(HasGenericAlias, r#"Record<number, string>"#);
 }
 
 #[derive(Type)]
@@ -175,3 +174,8 @@ struct OverridenStruct {
     #[specta(type_as=String)]
     overriden_field: i32,
 }
+
+#[derive(Type)]
+struct HasGenericAlias(GenericAlias<i32>);
+
+type GenericAlias<T: std::hash::Hash> = std::collections::HashMap<T, String>;
