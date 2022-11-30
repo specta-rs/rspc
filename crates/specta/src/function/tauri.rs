@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Runtime, State, Window};
 
-use crate::{command::TypedCommandArg, DataType, DefOpts};
+use crate::{function::SpectaFunctionArg, DataType, DefOpts};
 
 #[doc(hidden)]
 pub enum SpectaFunctionArgWindowMarker {}
