@@ -1,10 +1,11 @@
-use syn::{Attribute, Result};
+use syn::{Attribute, Result, Token, Type};
 
 use crate::utils::*;
 
 #[derive(Default)]
 pub struct FieldAttr {
     pub rename: Option<String>,
+    pub r#type: Option<Type>,
     pub inline: bool,
     pub skip: bool,
     pub optional: bool,
@@ -28,6 +29,7 @@ impl FieldAttr {
         &mut self,
         FieldAttr {
             rename,
+            r#type,
             inline,
             skip,
             optional,
@@ -35,6 +37,7 @@ impl FieldAttr {
         }: FieldAttr,
     ) {
         self.rename = self.rename.take().or(rename);
+        self.r#type = self.r#type.take().or(r#type);
         self.inline = self.inline || inline;
         self.skip = self.skip || skip;
         self.optional |= optional;
@@ -45,6 +48,10 @@ impl FieldAttr {
 impl_parse! {
     FieldAttr(input, out) {
         "rename" => out.rename = Some(parse_assign_str(input)?),
+        "type" => {
+            input.parse::<Token![=]>()?;
+            out.r#type = Some(Type::parse(input)?);
+        },
         "inline" => out.inline = true,
         "skip" => out.skip = true,
         "optional" => out.optional = true,

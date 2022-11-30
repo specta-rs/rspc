@@ -93,6 +93,7 @@ fn typescript_types() {
         r#"({ tag: "One" } | { tag: "Two" } | { tag: "Three" }) & { outer: string }"#
     );
 
+    assert_ts_type!(OverridenStruct, "{ overriden_field: string }");
     assert_ts_type!(HasGenericAlias, r#"Record<number, string>"#);
 }
 
@@ -166,6 +167,12 @@ enum FlattenEnum {
     One,
     Two,
     Three,
+}
+
+#[derive(Serialize, Type)]
+struct OverridenStruct {
+    #[specta(type = String)]
+    overriden_field: i32,
 }
 
 #[derive(Type)]
