@@ -342,16 +342,6 @@ mod uhlc_impls {
                 type_id: TypeId::of::<Self>(),
             }
         }
-
-        fn placeholder() -> Option<DataType> {
-            Some(DataType::Object(ObjectType {
-                name: Self::NAME.to_string(),
-                generics: vec![],
-                fields: vec![],
-                tag: None,
-                type_id: Some(TypeId::of::<Self>()),
-            }))
-        }
     }
 
     impl Flatten for Timestamp {}

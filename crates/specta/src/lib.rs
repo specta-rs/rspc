@@ -50,16 +50,15 @@
 /// You'll probably never need this.
 pub mod datatype;
 /// Provides the global type store and a method to export them to other languages.
+#[cfg(feature = "export")]
 pub mod export;
-/// Support for Specta commands. These allow exporting the types for Rust functions.
-#[cfg(feature = "command")]
+/// Support for exporting Rust functions.
+#[cfg(feature = "function")]
 pub mod function;
 mod lang;
 /// Contains [`Type`] and everything related to it, including implementations and helper macros
 pub mod r#type;
 
-// #[cfg(feature = "command")]
-// pub use command::*;
 pub use datatype::*;
 pub use lang::*;
 pub use r#type::*;
@@ -143,6 +142,7 @@ pub use specta_macros::specta;
 
 #[doc(hidden)]
 pub mod internal {
+    #[cfg(feature = "export")]
     pub use ctor;
     pub use paste::paste as _specta_paste;
 }

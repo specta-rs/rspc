@@ -12,16 +12,17 @@ keywords = ["async", "specta", "rspc", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
 [features]
-default = ["serde", "command", "typescript"]
+default = ["serde", "typescript"]
 
 ##! Internal Features
 ## Support for exporting the types of Rust functions.
-command = ["serde"]
+function = ["serde", "specta-macros/function"]
+export = ["dep:ctor", "specta-macros/export"]
 
 #! Compatability
 ## Support for [serde](https://serde.rs) and [serde-json](https://github.com/serde-rs/json)
 serde = ["specta-macros/serde", "dep:serde_json"]
-## Support for [Tauri](https://tauri.app). This is required when using [`specta::command`](macro@crate::command) with Tauri commands.
+## Support for [Tauri](https://tauri.app). This is required when using [`specta::function`](macro@crate::function) with Tauri Commands.
 tauri = ["dep:tauri"]
 
 #! Language Exporter
@@ -75,11 +76,11 @@ bit-vec = { version = "0.6.3", optional = true, default-features = false, featur
 bson = { version = "2.4.0", optional = true, default-features = false, features = [] }
 openapiv3 = { version = "1.0.1", optional = true, default-features = false, features = [] }
 uhlc = { version = "0.5.1", optional = true, default-features = false, features = [] }
-tauri = {git = "https://github.com/oscartbeaumont/tauri.git", branch = "add-missing-generics", optional = true, default-features = false, features = [] } # TODO: Remove this Tauri patch once the PR is merged
+tauri = { version = "1.2.1", optional = true, default-features = false, features = [] } # TODO: Remove this Tauri patch once the PR is merged
 bytesize = { version = "1.1.0", optional = true, default-features = false, features = [] }
 paste = "1.0.9"
 document-features = "0.2.6"
-ctor = "0.1.26"
+ctor = { version = "0.1.26", optional = true }
 lazy_static = "1.4.0"
 
 [dev-dependencies]

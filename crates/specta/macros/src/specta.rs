@@ -5,6 +5,10 @@ use quote::{format_ident, quote};
 use syn::{parse_macro_input, FnArg, ItemFn, Visibility};
 
 pub fn attribute(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    if cfg!(feature = "function") {
+        panic!("Please enable the 'function' feature on the Specta crate to work with Functions.");
+    }
+
     let function = parse_macro_input!(item as ItemFn);
     let wrapper = format_command_wrapper(&function.sig.ident);
 

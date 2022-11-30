@@ -84,7 +84,7 @@ pub fn derive(
 
     let type_impl_heading = impl_heading(quote!(#crate_ref::Type), ident, generics);
 
-    let export = {
+    let export = cfg!(feature = "export").then(|| {
         let export_fn_name = format_ident!("__push_specta_type_{}", ident);
 
         let generic_params = generics
@@ -109,7 +109,7 @@ pub fn derive(
                 );
             }
         }
-    };
+    });
 
     quote! {
         #type_impl_heading {
