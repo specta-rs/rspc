@@ -1,14 +1,13 @@
 use crate::*;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-lazy_static! {
-    /// Global type store for collecting custom types to export.
-    ///
-    /// Populated by `#[ctor]` functions defined in the [`Type`](derive@crate::Type) macro.
-    pub static ref TYPES: Mutex<BTreeMap<&'static str, DataType>> = Mutex::new(Default::default());
-}
+/// Global type store for collecting custom types to export.
+///
+/// Populated by `#[ctor]` functions defined in the [`Type`](derive@crate::Type) macro.
+pub static TYPES: Lazy<Mutex<BTreeMap<&'static str, DataType>>> =
+    Lazy::new(|| Mutex::new(Default::default()));
 
 /// Exports all types in the [`TYPES`](static@crate::export::TYPES) map to the provided TypeScript file.
 pub fn ts(path: &str) {
