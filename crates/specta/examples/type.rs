@@ -1,4 +1,4 @@
-use specta::{ts::ts_export, Type};
+use specta::{ts, Type};
 
 pub enum MyEnum {
     A,
@@ -8,10 +8,10 @@ pub enum MyEnum {
 
 #[derive(Type)]
 pub struct MyCustomType {
-    #[specta(type_as=String)]
+    #[specta(type = String)]
     pub nested: MyEnum,
 }
 
 fn main() {
-    println!("{}", ts_export::<MyCustomType>().unwrap(),);
+    println!("{}", ts::export::<MyCustomType>().unwrap(),);
 }

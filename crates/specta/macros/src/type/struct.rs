@@ -49,7 +49,7 @@ pub fn parse_struct(
                     return None;
                 }
 
-                let field_ty = field_attrs.type_as.as_ref().unwrap_or(&field.ty);
+                let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
 
                 let ty = construct_datatype(
                     format_ident!("ty"),

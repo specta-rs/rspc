@@ -3,7 +3,7 @@ use specta::{ts::ts_inline, Type};
 #[derive(Type)]
 struct Override {
     a: i32,
-    #[specta(type_as = String)]
+    #[specta(type = String)]
     b: i32,
 }
 
