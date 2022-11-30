@@ -1,12 +1,12 @@
 use specta::{
-    ts::{export, ts_inline},
+    ts::{export, inline},
     Type,
 };
 
 #[test]
 fn test_tuple() {
     type Tuple = (String, i32, (i32, i32));
-    assert_eq!("[string, number, [number, number]]", ts_inline::<Tuple>());
+    assert_eq!("[string, number, [number, number]]", inline::<Tuple>());
 }
 
 #[test]

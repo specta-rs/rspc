@@ -2,32 +2,32 @@
 
 use std::borrow::Cow;
 
-use specta::{ts::ts_inline, Type};
+use specta::{ts::inline, Type};
 
 #[test]
 fn newtype() {
     #[derive(Type)]
     struct Newtype(Vec<Cow<'static, i32>>);
-    assert_eq!(ts_inline::<Newtype>(), "Array<number>");
+    assert_eq!(inline::<Newtype>(), "Array<number>");
 }
 
 #[test]
 fn newtype_nested() {
     #[derive(Type)]
     struct Newtype(Vec<Vec<i32>>);
-    assert_eq!(ts_inline::<Newtype>(), "Array<Array<number>>");
+    assert_eq!(inline::<Newtype>(), "Array<Array<number>>");
 }
 
 #[test]
 fn alias() {
     type Alias = Vec<String>;
-    assert_eq!(ts_inline::<Alias>(), "Array<string>");
+    assert_eq!(inline::<Alias>(), "Array<string>");
 }
 
 #[test]
 fn alias_nested() {
     type Alias = Vec<Vec<String>>;
-    assert_eq!(ts_inline::<Alias>(), "Array<Array<string>>");
+    assert_eq!(inline::<Alias>(), "Array<Array<string>>");
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn named() {
         c: [Vec<String>; 3],
     }
     assert_eq!(
-        ts_inline::<Struct>(),
+        inline::<Struct>(),
         "{ a: Array<string>, b: [Array<string>, Array<string>], c: Array<Array<string>> }"
     );
 }
@@ -52,7 +52,7 @@ fn named_nested() {
         b: (Vec<Vec<String>>, Vec<Vec<String>>),
         c: [Vec<Vec<String>>; 3],
     }
-    assert_eq!(ts_inline::<Struct>(), "{ a: Array<Array<string>>, b: [Array<Array<string>>, Array<Array<string>>], c: Array<Array<Array<string>>> }");
+    assert_eq!(inline::<Struct>(), "{ a: Array<Array<string>>, b: [Array<Array<string>>, Array<Array<string>>], c: Array<Array<Array<string>>> }");
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn tuple() {
     #[derive(Type)]
     struct Tuple(Vec<i32>, (Vec<i32>, Vec<i32>), [Vec<i32>; 3]);
     assert_eq!(
-        ts_inline::<Tuple>(),
+        inline::<Tuple>(),
         "[Array<number>, [Array<number>, Array<number>], Array<Array<number>>]"
     );
 }
@@ -74,7 +74,7 @@ fn tuple_nested() {
         [Vec<Vec<i32>>; 3],
     );
     assert_eq!(
-        ts_inline::<Tuple>(),
+        inline::<Tuple>(),
         "[Array<Array<number>>, [Array<Array<number>>, Array<Array<number>>], Array<Array<Array<number>>>]"
     );
 }

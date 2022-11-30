@@ -110,6 +110,8 @@ pub use specta_macros::RSPCType;
 /// ## Example
 ///
 /// ```rust
+/// use specta::{DataTypeFrom, ts};
+///
 /// #[derive(DataTypeFrom)]
 /// pub struct MyEnum(pub Vec<String>);
 ///

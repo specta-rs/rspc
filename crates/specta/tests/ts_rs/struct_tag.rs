@@ -1,4 +1,4 @@
-use specta::{ts::ts_inline, Type};
+use specta::{ts::inline, Type};
 
 #[derive(Type)]
 #[serde(tag = "type")]
@@ -11,7 +11,7 @@ struct TaggedType {
 #[cfg(feature = "serde")]
 fn test() {
     assert_eq!(
-        ts_inline::<TaggedType>(),
+        inline::<TaggedType>(),
         "{ a: number, b: number, type: \"TaggedType\" }"
     )
 }
@@ -19,5 +19,5 @@ fn test() {
 #[test]
 #[cfg(not(feature = "serde"))]
 fn test() {
-    assert_eq!(ts_inline::<TaggedType>(), "{ a: number, b: number }")
+    assert_eq!(inline::<TaggedType>(), "{ a: number, b: number }")
 }

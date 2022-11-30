@@ -7,11 +7,11 @@ use std::{
 };
 
 use serde::Serialize;
-use specta::{ts::ts_inline, Type};
+use specta::{ts, Type};
 
 macro_rules! assert_ts_type {
     ($t:ty, $e:expr) => {
-        assert_eq!(ts_inline::<$t>(), $e)
+        assert_eq!(ts::inline::<$t>(), $e)
     };
 }
 

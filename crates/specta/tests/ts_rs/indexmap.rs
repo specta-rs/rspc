@@ -1,7 +1,7 @@
 #![cfg(feature = "indexmap")]
 
 use indexmap::{IndexMap, IndexSet};
-use specta::{ts::ts_inline, Type};
+use specta::{ts, Type};
 
 #[test]
 fn indexmap() {
@@ -13,7 +13,7 @@ fn indexmap() {
     }
 
     assert_eq!(
-        ts_inline::<Indexes>(),
+        ts::inline::<Indexes>(),
         "{ map: Record<string, string>, set: Array<string> }"
     )
 }

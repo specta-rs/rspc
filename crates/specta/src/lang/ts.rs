@@ -11,8 +11,8 @@ pub fn export<T: Type>() -> Result<String, String> {
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string.
 /// Eg. `{ demo: string; };`
-pub fn ts_inline<T: Type>() -> String {
-    to_ts(&T::inline(
+pub fn inline<T: Type>() -> String {
+    datatype(&T::inline(
         DefOpts {
             parent_inline: true,
             type_map: &mut TypeDefs::default(),
@@ -24,7 +24,7 @@ pub fn ts_inline<T: Type>() -> String {
 /// Convert a DataType to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
 pub fn export_datatype(def: &DataType) -> Result<String, String> {
-    let inline_ts = to_ts(def);
+    let inline_ts = datatype(def);
 
     let declaration = match &def {
         // Named struct
@@ -88,7 +88,7 @@ macro_rules! primitive_def {
 
 /// Convert a DataType to a TypeScript string
 /// Eg. `{ demo: string; }`
-pub fn to_ts(typ: &DataType) -> String {
+pub fn datatype(typ: &DataType) -> String {
     match &typ {
         DataType::Any => "any".into(),
         primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
@@ -96,15 +96,18 @@ pub fn to_ts(typ: &DataType) -> String {
         primitive_def!(String char) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
         DataType::Literal(literal) => literal.to_ts(),
-        DataType::Nullable(def) => format!("{} | null", to_ts(def)),
+        DataType::Nullable(def) => format!("{} | null", datatype(def)),
         DataType::Record(def) => {
-            format!("Record<{}, {}>", to_ts(&def.0), to_ts(&def.1))
+            format!("Record<{}, {}>", datatype(&def.0), datatype(&def.1))
         }
-        DataType::List(def) => format!("Array<{}>", to_ts(def)),
+        DataType::List(def) => format!("Array<{}>", datatype(def)),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
-            [ty] => to_ts(ty),
-            tys => format!("[{}]", tys.iter().map(to_ts).collect::<Vec<_>>().join(", ")),
+            [ty] => datatype(ty),
+            tys => format!(
+                "[{}]",
+                tys.iter().map(datatype).collect::<Vec<_>>().join(", ")
+            ),
         },
         DataType::Object(ObjectType {
             fields, tag, name, ..
@@ -115,7 +118,7 @@ pub fn to_ts(typ: &DataType) -> String {
                     .iter()
                     .filter(|f| f.flatten)
                     .map(|field| {
-                        let type_str = to_ts(&field.ty);
+                        let type_str = datatype(&field.ty);
                         format!("({type_str})")
                     })
                     .collect::<Vec<_>>();
@@ -137,7 +140,7 @@ pub fn to_ts(typ: &DataType) -> String {
                             false => (field_name_safe, &field.ty),
                         };
 
-                        format!("{key}: {}", to_ts(ty))
+                        format!("{key}: {}", datatype(ty))
                     })
                     .collect::<Vec<_>>();
 
@@ -164,7 +167,7 @@ pub fn to_ts(typ: &DataType) -> String {
                             format!("{{ {tag}: \"{sanitised_name}\" }}")
                         }
                         (EnumRepr::Internal { tag }, EnumVariant::Unnamed(tuple)) => {
-                            let typ = to_ts(&DataType::Tuple(tuple.clone()));
+                            let typ = datatype(&DataType::Tuple(tuple.clone()));
 
                             format!("{{ {tag}: \"{sanitised_name}\" }} & {typ}")
                         }
@@ -184,17 +187,17 @@ pub fn to_ts(typ: &DataType) -> String {
                             format!("\"{sanitised_name}\"")
                         }
                         (EnumRepr::External, v) => {
-                            let ts_values = to_ts(&v.data_type());
+                            let ts_values = datatype(&v.data_type());
 
                             format!("{{ {sanitised_name}: {ts_values} }}")
                         }
                         (EnumRepr::Untagged, EnumVariant::Unit(_)) => "null".to_string(),
-                        (EnumRepr::Untagged, v) => to_ts(&v.data_type()),
+                        (EnumRepr::Untagged, v) => datatype(&v.data_type()),
                         (EnumRepr::Adjacent { tag, .. }, EnumVariant::Unit(_)) => {
                             format!("{{ {tag}: \"{sanitised_name}\" }}")
                         }
                         (EnumRepr::Adjacent { tag, content }, v) => {
-                            let ts_values = to_ts(&v.data_type());
+                            let ts_values = datatype(&v.data_type());
 
                             format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
                         }
@@ -206,7 +209,7 @@ pub fn to_ts(typ: &DataType) -> String {
         DataType::Reference { name, generics, .. } => match &generics[..] {
             [] => name.to_string(),
             generics => {
-                let generics = generics.iter().map(to_ts).collect::<Vec<_>>().join(", ");
+                let generics = generics.iter().map(datatype).collect::<Vec<_>>().join(", ");
 
                 format!("{name}<{generics}>")
             }
@@ -248,7 +251,7 @@ pub fn object_field_to_ts(field: &ObjectField) -> String {
         false => (field_name_safe, &field.ty),
     };
 
-    format!("{key}: {}", to_ts(ty))
+    format!("{key}: {}", datatype(ty))
 }
 
 /// sanitise a string to be a valid Typescript key

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use specta::{ts::ts_inline, Type};
+use specta::{ts::inline, Type};
 
 #[derive(Type)]
 struct Rename {
@@ -11,5 +11,5 @@ struct Rename {
 
 #[test]
 fn test() {
-    assert_eq!(ts_inline::<Rename>(), "{ a: number, bb: number }")
+    assert_eq!(inline::<Rename>(), "{ a: number, bb: number }")
 }

@@ -82,10 +82,10 @@ macro_rules! selection {
 
 #[cfg(test)]
 mod tests {
-    use specta::{ts::ts_inline, Type};
+    use specta::{ts::inline, Type};
 
     fn ts_export_ref<T: Type>(_t: &T) -> String {
-        ts_inline::<T>()
+        inline::<T>()
     }
 
     #[derive(Clone)]

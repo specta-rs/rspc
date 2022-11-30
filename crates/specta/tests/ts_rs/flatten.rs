@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use specta::{ts::ts_inline, Type};
+use specta::{ts::inline, Type};
 
 #[derive(Type)]
 struct A {
@@ -25,7 +25,7 @@ struct C {
 #[test]
 fn test() {
     assert_eq!(
-        ts_inline::<C>(),
+        inline::<C>(),
         "{ b: ({ a: number, b: number }) & { c: number }, d: number }"
     )
 }

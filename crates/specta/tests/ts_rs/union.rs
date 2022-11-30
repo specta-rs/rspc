@@ -1,5 +1,5 @@
 use specta::{
-    ts::{export, ts_inline},
+    ts::{export, inline},
     Type,
 };
 
@@ -19,7 +19,7 @@ fn test_empty() {
     #[derive(Type)]
     enum Empty {}
 
-    assert_eq!(ts_inline::<Empty>(), "never");
+    assert_eq!(inline::<Empty>(), "never");
 }
 
 #[test]

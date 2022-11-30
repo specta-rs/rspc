@@ -1,4 +1,4 @@
-use specta::{ts::ts_inline, Type};
+use specta::{ts::inline, Type};
 
 #[derive(Type)]
 #[serde(tag = "type")]
@@ -28,12 +28,12 @@ enum EnumWithInternalTag2 {
 #[cfg(feature = "serde")]
 fn test_enums_with_internal_tags() {
     assert_eq!(
-        ts_inline::<EnumWithInternalTag>(),
+        inline::<EnumWithInternalTag>(),
         r#"{ type: "A", foo: string } | { type: "B", bar: number }"#
     );
 
     assert_eq!(
-        ts_inline::<EnumWithInternalTag2>(),
+        inline::<EnumWithInternalTag2>(),
         r#"{ type: "A" } & InnerA | { type: "B" } & InnerB"#
     );
 }

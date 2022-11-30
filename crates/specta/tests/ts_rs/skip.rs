@@ -1,4 +1,4 @@
-use specta::{ts::ts_inline, Type};
+use specta::{ts::inline, Type};
 
 #[derive(Type)]
 struct Skip {
@@ -10,5 +10,5 @@ struct Skip {
 
 #[test]
 fn test_def() {
-    assert_eq!(ts_inline::<Skip>(), "{ a: number, b: number }");
+    assert_eq!(inline::<Skip>(), "{ a: number, b: number }");
 }
