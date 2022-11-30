@@ -13,7 +13,12 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     } = &derive_input;
 
     let container_attrs = ContainerAttr::from_attrs(attrs).unwrap();
-    let crate_name = format_ident!("{}", container_attrs.crate_name.unwrap_or("specta".into()));
+    let crate_name = format_ident!(
+        "{}",
+        container_attrs
+            .crate_name
+            .unwrap_or_else(|| "specta".into())
+    );
 
     let body = match data {
         Data::Struct(data) => match &data.fields {
@@ -28,9 +33,9 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let ident = &field.ident;
 
                     Some(quote! {
-                        #crate_name::r#type::ObjectField {
+                        #crate_name::ObjectField {
                             name: stringify!(#ident).to_string(),
-                            ty: self.#ident.to_data_type(),
+                            ty: t.#ident.into(),
                             optional: false,
                             flatten: false
                         }
@@ -38,27 +43,27 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 });
 
                 quote! {
-                    #crate_name::datatype::DataType::Object(#crate_name::r#type::ObjectType {
+                    #crate_name::ObjectType {
                         name: stringify!(#ident).to_string(),
                         generics: vec![],
                         fields: vec![#(#fields),*],
                         tag: None,
                         type_id: None
-                    })
+                    }.into()
                 }
             }
             Fields::Unnamed(_) => {
                 let fields = data.fields.iter().enumerate().map(|(i, _)| {
                     let i = proc_macro2::Literal::usize_unsuffixed(i);
-                    quote!(self.#i.to_data_type())
+                    quote!(t.#i.into())
                 });
 
                 quote! {
-                    #crate_name::datatype::DataType::Tuple(#crate_name::datatype::TupleType {
+                    #crate_name::TupleType {
                         name: stringify!(#ident).to_string(),
                         generics: vec![],
                         fields: vec![#(#fields),*]
-                    })
+                    }.into()
                 }
             }
             _ => todo!("ToDataType only supports named structs"),
@@ -67,8 +72,8 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     };
 
     quote! {
-        impl #crate_name::ToDataType for #ident {
-            fn to_data_type(self) -> #crate_name::datatype::DataType {
+        impl From<#ident> for #crate_name::DataType {
+            fn from(t: #ident) -> Self {
                 #body
             }
         }

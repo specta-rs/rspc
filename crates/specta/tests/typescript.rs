@@ -7,11 +7,11 @@ use std::{
 };
 
 use serde::Serialize;
-use specta::{ts::ts_inline, Type};
+use specta::{ts, Type};
 
 macro_rules! assert_ts_type {
     ($t:ty, $e:expr) => {
-        assert_eq!(ts_inline::<$t>(), $e)
+        assert_eq!(ts::inline::<$t>(), $e)
     };
 }
 
@@ -74,8 +74,6 @@ fn typescript_types() {
     assert_ts_type!(TupleStruct1, "number");
     assert_ts_type!(TupleStruct3, "[number, boolean, string]");
 
-    // assert_ts_type!(Wrapper<String>, "string");
-
     assert_ts_type!(
         TestEnum,
         r#""Unit" | { Single: number } | { Multiple: [number, number] } | { Struct: { a: number } }"#
@@ -93,7 +91,10 @@ fn typescript_types() {
     assert_ts_type!(
         FlattenEnumStruct,
         r#"({ tag: "One" } | { tag: "Two" } | { tag: "Three" }) & { outer: string }"#
-    )
+    );
+
+    assert_ts_type!(OverridenStruct, "{ overriden_field: string }");
+    assert_ts_type!(HasGenericAlias, r#"Record<number, string>"#);
 }
 
 #[derive(Type)]
@@ -167,3 +168,14 @@ enum FlattenEnum {
     Two,
     Three,
 }
+
+#[derive(Serialize, Type)]
+struct OverridenStruct {
+    #[specta(type = String)]
+    overriden_field: i32,
+}
+
+#[derive(Type)]
+struct HasGenericAlias(GenericAlias<i32>);
+
+type GenericAlias<T> = std::collections::HashMap<T, String>;

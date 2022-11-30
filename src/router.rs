@@ -10,7 +10,7 @@ use std::{
 
 use futures::Stream;
 use serde_json::Value;
-use specta::{r#type::TypeDefs, ts::ts_export_datatype, ToDataType};
+use specta::{ts, DataTypeFrom, TypeDefs};
 
 use crate::{
     internal::{
@@ -141,13 +141,13 @@ where
         writeln!(
             file,
             "{}",
-            ts_export_datatype(&Procedures::new(self).to_data_type()).unwrap()
+            ts::export_datatype(&Procedures::new(self).into()).unwrap()
         )?;
 
         for export in self
             .typ_store
             .values()
-            .filter_map(|v| ts_export_datatype(v).ok())
+            .filter_map(|v| ts::export_datatype(v).ok())
         {
             writeln!(file, "\n{}", export)?;
         }
@@ -156,7 +156,7 @@ where
     }
 }
 
-#[derive(ToDataType)]
+#[derive(DataTypeFrom)]
 struct Procedures {
     pub queries: Vec<ProcedureDataType>,
     pub mutations: Vec<ProcedureDataType>,

@@ -9,6 +9,7 @@ pub struct ContainerAttr {
     pub tag: Option<String>,
     pub crate_name: Option<String>,
     pub inline: bool,
+    pub remote: Option<String>,
 }
 
 #[cfg(feature = "serde")]
@@ -33,6 +34,7 @@ impl ContainerAttr {
             tag,
             crate_name,
             inline,
+            remote,
         }: ContainerAttr,
     ) {
         self.rename = self.rename.take().or(rename);
@@ -40,6 +42,7 @@ impl ContainerAttr {
         self.tag = self.tag.take().or(tag);
         self.crate_name = self.crate_name.take().or(crate_name);
         self.inline = self.inline || inline;
+        self.remote = self.remote.take().or(remote);
     }
 }
 
@@ -48,7 +51,8 @@ impl_parse! {
         "rename" => out.rename = Some(parse_assign_str(input)?),
         "rename_all" => out.rename_all = Some(parse_assign_inflection(input)?),
         "crate" => out.crate_name = Some(parse_assign_str(input)?),
-        "inline" => out.inline = true
+        "inline" => out.inline = true,
+        "remote" => out.remote = Some(parse_assign_str(input)?)
     }
 }
 

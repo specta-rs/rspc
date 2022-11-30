@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use specta::{datatype::DataType, ToDataType};
+use specta::{datatype::DataType, DataTypeFrom};
 
 use crate::is_valid_procedure_name;
 
 use super::Layer;
 
-#[derive(Debug, Clone, ToDataType)]
+#[derive(Debug, Clone, DataTypeFrom)]
 pub struct ProcedureDataType {
     pub key: String,
     pub input: DataType,

@@ -6,8 +6,8 @@
 //!
 #[macro_use]
 mod utils;
-mod command;
-mod to_data_type;
+mod data_type_from;
+mod specta;
 mod r#type;
 
 #[proc_macro_derive(Type, attributes(specta, serde))]
@@ -23,15 +23,15 @@ pub fn derive_rspc_type(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     r#type::derive(input, "rspc::internal::specta".into())
 }
 
-#[proc_macro_derive(ToDataType, attributes(specta))]
-pub fn derive_to_data_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    to_data_type::derive(input)
+#[proc_macro_derive(DataTypeFrom, attributes(specta))]
+pub fn derive_data_type_from(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    data_type_from::derive(input)
 }
 
 #[proc_macro_attribute]
-pub fn command(
+pub fn specta(
     _: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    command::command(item)
+    specta::attribute(item)
 }

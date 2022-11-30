@@ -3,10 +3,7 @@ use std::marker::PhantomData;
 use futures::{Stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::{
-    r#type::{DefOpts, TypeDefs},
-    Type,
-};
+use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{ProcedureDataType, RequestResult, StreamFuture, TypedRequestFuture},

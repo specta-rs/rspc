@@ -12,6 +12,8 @@ categories = ["web-programming", "asynchronous"]
 
 [features]
 serde = ["termcolor"]
+function = []
+export = []
 
 [lib]
 proc-macro = true

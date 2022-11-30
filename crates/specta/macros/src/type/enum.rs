@@ -31,9 +31,9 @@ pub fn parse_enum(
         let ident = &ident.clone();
 
         quote! {
-            generics.get(#i).cloned().unwrap_or(
-                <#ident as #crate_ref::Type>::reference(
-                    #crate_ref::r#type::DefOpts {
+            generics.get(#i).cloned().unwrap_or_else(
+                || <#ident as #crate_ref::Type>::reference(
+                    #crate_ref::DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map
                     },
@@ -58,11 +58,9 @@ pub fn parse_enum(
         ),
         Tagged::Untagged => (
             quote!(Untagged),
-            data.variants.iter().any(|v| match &v.fields {
-                Fields::Unit => true,
-                Fields::Named(_) => true,
-                _ => false,
-            }),
+            data.variants
+                .iter()
+                .any(|v| matches!(&v.fields, Fields::Unit | Fields::Named(_))),
         ),
         Tagged::Adjacently { tag, content } => (
             quote!(Adjacent { tag: #tag.to_string(), content: #content.to_string() }),
@@ -70,11 +68,9 @@ pub fn parse_enum(
         ),
         Tagged::Internally { tag } => (
             quote!(Internal { tag: #tag.to_string() }),
-            data.variants.iter().any(|v| match &v.fields {
-                Fields::Unit => true,
-                Fields::Named(_) => true,
-                _ => false,
-            }),
+            data.variants
+                .iter()
+                .any(|v| matches!(&v.fields, Fields::Unit | Fields::Named(_))),
         ),
     };
 
@@ -100,7 +96,7 @@ pub fn parse_enum(
 
             match &variant.fields {
                 Fields::Unit => {
-                    quote!(#crate_ref::r#type::EnumVariant::Unit(#variant_name_str.to_string()))
+                    quote!(#crate_ref::EnumVariant::Unit(#variant_name_str.to_string()))
                 }
                 Fields::Unnamed(fields) => {
                     let fields = fields.unnamed.iter().map(|field| {
@@ -121,7 +117,7 @@ pub fn parse_enum(
                         })
                     });
 
-                    quote!(#crate_ref::r#type::EnumVariant::Unnamed(#crate_ref::datatype::TupleType {
+                    quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
                         name: #variant_name_str.to_string(),
                         fields: vec![#(#fields),*],
                         generics: vec![]
@@ -147,7 +143,7 @@ pub fn parse_enum(
                             (_, _) => field_ident_str,
                         };
 
-                        quote!(#crate_ref::r#type::ObjectField {
+                        quote!(#crate_ref::ObjectField {
                             name: #field_name.to_string(),
                             optional: false,
                             flatten: false,
@@ -159,7 +155,7 @@ pub fn parse_enum(
                         })
                     });
 
-                    quote!(#crate_ref::r#type::EnumVariant::Named(#crate_ref::r#type::ObjectType {
+                    quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
                         name: #variant_name_str.to_string(),
                         fields: vec![#(#fields),*],
                         generics: vec![],
@@ -171,18 +167,30 @@ pub fn parse_enum(
         });
 
     (
-        quote!(#crate_ref::datatype::DataType::Enum(#crate_ref::r#type::EnumType {
+        quote!(#crate_ref::EnumType {
             name: #enum_name_str.to_string(),
             generics: vec![#(#definition_generics),*],
             variants: vec![#(#variants),*],
-            repr: #crate_ref::r#type::EnumRepr::#repr_tokens,
+            repr: #crate_ref::EnumRepr::#repr_tokens,
             type_id: std::any::TypeId::of::<Self>()
-        })),
-        quote!(#crate_ref::datatype::DataType::Reference {
-            name: #enum_name_str.to_string(),
-            generics: vec![#(#reference_generics),*],
-            type_id: std::any::TypeId::of::<Self>()
-        }),
+        }.into()),
+        quote! {
+            #crate_ref::TypeCategory::Reference {
+                reference: #crate_ref::DataType::Reference {
+                    name: #enum_name_str.to_string(),
+                    generics: vec![#(#reference_generics),*],
+                    type_id: std::any::TypeId::of::<Self>()
+                },
+                // TODO: make accurate
+                placeholder: #crate_ref::ObjectType {
+                    name: #enum_name_str.to_string(),
+                    generics: vec![],
+                    fields: vec![],
+                    tag: None,
+                    type_id: Some(std::any::TypeId::of::<Self>())
+                }.into()
+            }
+        },
         can_flatten,
     )
 }

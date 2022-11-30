@@ -1,5 +1,5 @@
 use specta::{
-    ts::{ts_export, ts_inline},
+    ts::{export, inline},
     Type,
 };
 
@@ -19,13 +19,13 @@ fn test_empty() {
     #[derive(Type)]
     enum Empty {}
 
-    assert_eq!(ts_inline::<Empty>(), "never");
+    assert_eq!(inline::<Empty>(), "never");
 }
 
 #[test]
 fn test_simple_enum() {
     assert_eq!(
-        ts_export::<SimpleEnum>().unwrap(),
+        export::<SimpleEnum>().unwrap(),
         r#"export type SimpleEnum = "asdf" | "B" | { C: { enumField: null } }"#
     )
 }

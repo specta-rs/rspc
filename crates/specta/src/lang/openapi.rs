@@ -2,11 +2,7 @@ use openapiv3::{
     ArrayType, NumberType, ReferenceOr, Schema, SchemaData, SchemaKind, StringType, Type,
 };
 
-use crate::{
-    datatype::{PrimitiveType, TupleType},
-    r#type::{EnumType, EnumVariant, ObjectField, ObjectType},
-    DataType,
-};
+use crate::*;
 
 // pub fn to_openapi_export(def: &DataType) -> Result<openapiv3::Schema, String> {
 //     Ok(match &def {
