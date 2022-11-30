@@ -10,7 +10,8 @@ pub use result::*;
 
 use crate::*;
 
-/// A helper for exporting the type of a Specta command.
+/// Returns a [`FunctionDataType`] for a given function that has been annotated with
+/// [`specta`](macro@crate::specta).
 ///
 /// ```rust
 /// use specta::*;
@@ -50,7 +51,8 @@ macro_rules! fn_datatype {
     }};
 }
 
-/// is a struct which represents the datatype of a Specta command.
+/// Contains type information about a function annotated with [`specta`](macro@crate::specta).
+/// Returned by [`fn_datatype`].
 #[derive(Debug, DataTypeFrom)]
 #[specta(crate = "crate")]
 pub struct FunctionDataType {
