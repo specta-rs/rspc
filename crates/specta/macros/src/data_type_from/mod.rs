@@ -13,7 +13,12 @@ pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     } = &derive_input;
 
     let container_attrs = ContainerAttr::from_attrs(attrs).unwrap();
-    let crate_name = format_ident!("{}", container_attrs.crate_name.unwrap_or("specta".into()));
+    let crate_name = format_ident!(
+        "{}",
+        container_attrs
+            .crate_name
+            .unwrap_or_else(|| "specta".into())
+    );
 
     let body = match data {
         Data::Struct(data) => match &data.fields {

@@ -15,6 +15,7 @@ pub struct EnumType {
 
 impl EnumType {
     /// An enum may contain variants which are invalid and will cause a runtime errors during serialize/deserialization. This function will filter them out so types can be exported for valid variants.
+    #[allow(clippy::needless_collect)]
     pub fn make_flattenable(&mut self) {
         let indexes = self
             .variants
@@ -25,17 +26,11 @@ impl EnumType {
                     EnumVariant::Named(_) => false,
                     _ => true,
                 },
-                EnumRepr::Untagged => match v {
-                    EnumVariant::Unit(_) => false,
-                    EnumVariant::Named(_) => false,
-                    _ => true,
-                },
+                EnumRepr::Untagged => !matches!(v, EnumVariant::Unit(_) | EnumVariant::Named(_)),
                 EnumRepr::Adjacent { .. } => false,
-                EnumRepr::Internal { .. } => match v {
-                    EnumVariant::Unit(_) => false,
-                    EnumVariant::Named(_) => false,
-                    _ => true,
-                },
+                EnumRepr::Internal { .. } => {
+                    !matches!(v, EnumVariant::Unit(_) | EnumVariant::Named(_))
+                }
             })
             .enumerate()
             .map(|(i, _)| i)

@@ -6,7 +6,7 @@ use syn::{
 };
 
 pub fn generics_with_ident_and_bounds_only(generics: &Generics) -> Option<TokenStream> {
-    (generics.params.len() > 0)
+    (!generics.params.is_empty())
         .then(|| {
             use GenericParam::*;
             generics.params.iter().map(|param| match param {
@@ -35,7 +35,7 @@ pub fn generics_with_ident_and_bounds_only(generics: &Generics) -> Option<TokenS
 }
 
 pub fn generics_with_ident_only(generics: &Generics) -> Option<TokenStream> {
-    (generics.params.len() > 0)
+    (!generics.params.is_empty())
         .then(|| {
             use GenericParam::*;
 

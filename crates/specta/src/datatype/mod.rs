@@ -155,7 +155,8 @@ impl<T: Into<DataType> + 'static> From<Vec<T>> for DataType {
 
 impl<T: Into<DataType> + 'static> From<Option<T>> for DataType {
     fn from(t: Option<T>) -> Self {
-        t.map(Into::into).unwrap_or(LiteralType::None.into())
+        t.map(Into::into)
+            .unwrap_or_else(|| LiteralType::None.into())
     }
 }
 

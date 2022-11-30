@@ -34,7 +34,7 @@ pub fn export_datatype(def: &DataType) -> Result<String, String> {
             fields,
             ..
         }) => {
-            if name == "" {
+            if name.is_empty() {
                 return Err(
                     "Cannot export anonymous object. Try wrapping the type in a tuple struct which has the `ToDataType` derive macro on it.".to_string(),
                 );
@@ -54,7 +54,7 @@ pub fn export_datatype(def: &DataType) -> Result<String, String> {
         }
         // Enum
         DataType::Enum(EnumType { name, generics, .. }) => {
-            if name == "" {
+            if name.is_empty() {
                 return Err("Cannot export anonymous enum. Try wrapping the type in a tuple struct which has the `ToDataType` derive macro on it.".to_string());
             }
 
@@ -145,7 +145,7 @@ pub fn to_ts(typ: &DataType) -> String {
                     unflattened_fields.push(format!("{tag}: \"{name}\""));
                 }
 
-                if unflattened_fields.len() > 0 {
+                if !unflattened_fields.is_empty() {
                     field_sections.push(format!("{{ {} }}", unflattened_fields.join(", ")));
                 }
 
@@ -174,7 +174,7 @@ pub fn to_ts(typ: &DataType) -> String {
                             fields.extend(
                                 obj.fields
                                     .iter()
-                                    .map(|field| object_field_to_ts(field))
+                                    .map(object_field_to_ts)
                                     .collect::<Vec<_>>(),
                             );
 

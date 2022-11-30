@@ -58,11 +58,9 @@ pub fn parse_enum(
         ),
         Tagged::Untagged => (
             quote!(Untagged),
-            data.variants.iter().any(|v| match &v.fields {
-                Fields::Unit => true,
-                Fields::Named(_) => true,
-                _ => false,
-            }),
+            data.variants
+                .iter()
+                .any(|v| matches!(&v.fields, Fields::Unit | Fields::Named(_))),
         ),
         Tagged::Adjacently { tag, content } => (
             quote!(Adjacent { tag: #tag.to_string(), content: #content.to_string() }),
@@ -70,11 +68,9 @@ pub fn parse_enum(
         ),
         Tagged::Internally { tag } => (
             quote!(Internal { tag: #tag.to_string() }),
-            data.variants.iter().any(|v| match &v.fields {
-                Fields::Unit => true,
-                Fields::Named(_) => true,
-                _ => false,
-            }),
+            data.variants
+                .iter()
+                .any(|v| matches!(&v.fields, Fields::Unit | Fields::Named(_))),
         ),
     };
 

@@ -38,7 +38,7 @@ pub fn derive(
         .remote
         .as_ref()
         .map(|i| format_ident!("{}", i))
-        .unwrap_or(ident.clone());
+        .unwrap_or_else(|| ident.clone());
 
     let crate_name: TokenStream = container_attrs
         .crate_name

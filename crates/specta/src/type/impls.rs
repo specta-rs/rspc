@@ -218,6 +218,7 @@ mod chrono_impls {
         }
     }
 
+    #[allow(deprecated)]
     impl<T: TimeZone> Type for Date<T> {
         const NAME: &'static str = "DateTime";
 
@@ -278,10 +279,7 @@ pub use uhlc_impls::*;
 
 #[cfg(feature = "uhlc")]
 mod uhlc_impls {
-    use crate::r#type::ObjectType;
-
     use super::*;
-    use std::any::TypeId;
     use uhlc::*;
 
     impl_as!(
@@ -291,6 +289,7 @@ mod uhlc_impls {
 
     #[derive(Type)]
     #[specta(remote = "Timestamp", crate = "crate")]
+    #[allow(dead_code)]
     struct TimestampDef {
         time: NTP64,
         id: ID,

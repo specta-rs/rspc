@@ -110,22 +110,18 @@ pub use specta_macros::RSPCType;
 /// ## Example
 ///
 /// ```rust
-/// use specta::*;
-///
 /// #[derive(DataTypeFrom)]
 /// pub struct MyEnum(pub Vec<String>);
 ///
-/// fn main() {
-///     let e = MyEnum(vec![
-///         "A".to_string(),
-///         "B".to_string(),
-///     ]);
+//  let e = MyEnum(vec![
+///     "A".to_string(),
+///     "B".to_string(),
+/// ]);
 ///
-///     assert_eq!(
-///         ts::export_datatype(&e.into()).unwrap(),
-///         "export type MyEnum = \"A\" | \"B\""
-///     );
-/// }
+/// assert_eq!(
+///     ts::export_datatype(&e.into()).unwrap(),
+///     "export type MyEnum = \"A\" | \"B\""
+/// );
 /// ```
 ///
 pub use specta_macros::DataTypeFrom;
