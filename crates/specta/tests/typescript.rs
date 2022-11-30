@@ -178,4 +178,4 @@ struct OverridenStruct {
 #[derive(Type)]
 struct HasGenericAlias(GenericAlias<i32>);
 
-type GenericAlias<T: std::hash::Hash> = std::collections::HashMap<T, String>;
+type GenericAlias<T> = std::collections::HashMap<T, String>;

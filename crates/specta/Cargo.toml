@@ -22,7 +22,7 @@ export = ["dep:ctor", "specta-macros/export"]
 #! Compatability
 ## Support for [serde](https://serde.rs) and [serde-json](https://github.com/serde-rs/json)
 serde = ["specta-macros/serde", "dep:serde_json"]
-## Support for [Tauri](https://tauri.app). This is required when using [`specta::function`](macro@crate::function) with Tauri Commands.
+## Support for [Tauri](https://tauri.app). This is required when using [`specta::function`](macro@crate::specta) with Tauri Commands.
 tauri = ["dep:tauri"]
 
 #! Language Exporter

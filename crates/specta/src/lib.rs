@@ -113,7 +113,7 @@ pub use specta_macros::RSPCType;
 /// #[derive(DataTypeFrom)]
 /// pub struct MyEnum(pub Vec<String>);
 ///
-//  let e = MyEnum(vec![
+/// let e = MyEnum(vec![
 ///     "A".to_string(),
 ///     "B".to_string(),
 /// ]);
