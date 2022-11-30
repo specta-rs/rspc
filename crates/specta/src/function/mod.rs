@@ -133,7 +133,7 @@ macro_rules! impl_typed_command {
                                     })
                                     .map(|ty| ObjectField {
                                         name: fields.next().expect("Tauri Specta reached an unreachable state. The macro returns the incorrect number of fields. Please file this as a bug on GitHub!").to_string(),
-                                        ty: ty,
+                                        ty,
                                         optional: false,
                                         flatten: false,
                                     })
