@@ -31,22 +31,19 @@ use crate::*;
 /// ```
 #[macro_export]
 macro_rules! fn_datatype {
-    ($command:ident) => {{
-        let mut type_map = ::specta::TypeDefs::default();
-        ::specta::function::get_datatype_internal(
-            $command as $crate::internal::_specta_paste! { [<__specta__ $command>]!(@signature) },
-            $crate::internal::_specta_paste! { [<__specta__ $command>]!(@name) },
-            &mut type_map,
-            $crate::internal::_specta_paste! { [<__specta__ $command>]!(@arg_names) },
-        )
+    ($function:ident) => {{
+        let mut type_map = $crate::TypeDefs::default();
+
+        $crate::fn_datatype!(&mut type_map, $function)
     }};
-    ($type_map:ident, $command:ident) => {{
-        let mut type_map: ::specta::r#type::TypeDefs = $type_map;
-        ::specta::command::get_datatype_internal(
-            $command as $crate::internal::_specta_paste! { [<__specta__ $command>]!(@signature) },
-            $crate::internal::_specta_paste! { [<__specta__ $command>]!(@name) },
-            &mut $type_map,
-            $crate::internal::_specta_paste! { [<__specta__ $command>]!(@arg_names) },
+    (&mut $type_map:ident, $function:ident) => {{
+        let type_map: &mut $crate::TypeDefs = &mut $type_map;
+
+        $crate::function::get_datatype_internal(
+            $function as $crate::internal::_specta_paste! { [<__specta__ $function>]!(@signature) },
+            $crate::internal::_specta_paste! { [<__specta__ $function>]!(@name) },
+            type_map,
+            $crate::internal::_specta_paste! { [<__specta__ $function>]!(@arg_names) },
         )
     }};
 }
