@@ -91,7 +91,7 @@ impl<TResultMarker, TResult: SpectaFunctionResult<TResultMarker>> SpectaFunction
     }
 }
 
-/// is a helper for exporting a command to a `CommandDataType`. You shouldn't use this directly and instead should use [`export_fn!`](crate::export_fn).
+/// is a helper for exporting a command to a `CommandDataType`. You shouldn't use this directly and instead should use [`fn_datatype!`](crate::fn_datatype).
 pub fn get_datatype_internal<TMarker, T: SpectaFunction<TMarker>>(
     _: T,
     name: &'static str,
