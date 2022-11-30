@@ -34,13 +34,19 @@ pub fn derive(
 
     let container_attrs = ContainerAttr::from_attrs(attrs).unwrap();
 
+    let ident = container_attrs
+        .remote
+        .as_ref()
+        .map(|i| format_ident!("{}", i))
+        .unwrap_or(ident.clone());
+
     let crate_name: TokenStream = container_attrs
         .crate_name
         .clone()
         .unwrap_or(default_crate_name)
         .parse()
         .unwrap();
-    let crate_ref = quote!(::#crate_name);
+    let crate_ref = quote!(#crate_name);
 
     let name_str = unraw_raw_ident(&format_ident!(
         "{}",
@@ -82,7 +88,7 @@ pub fn derive(
         quote!(impl #bounds #crate_ref::Flatten for #ident #type_args #where_bound {})
     });
 
-    let type_impl_heading = impl_heading(quote!(#crate_ref::Type), ident, generics);
+    let type_impl_heading = impl_heading(quote!(#crate_ref::Type), &ident, generics);
 
     let export = cfg!(feature = "export").then(|| {
         let export_fn_name = format_ident!("__push_specta_type_{}", ident);

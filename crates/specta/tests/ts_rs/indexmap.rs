@@ -1,7 +1,7 @@
 #![cfg(feature = "indexmap")]
 
 use indexmap::{IndexMap, IndexSet};
-use specta::{ts::ts_export, Type};
+use specta::{ts::ts_inline, Type};
 
 #[test]
 fn indexmap() {
@@ -13,7 +13,7 @@ fn indexmap() {
     }
 
     assert_eq!(
-        ts_export::<Indexes>().unwrap(),
-        "export type Indexes = { map: Record<string, string>, set: Array<string> }"
+        ts_inline::<Indexes>(),
+        "{ map: Record<string, string>, set: Array<string> }"
     )
 }

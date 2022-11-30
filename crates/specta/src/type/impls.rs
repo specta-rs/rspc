@@ -289,62 +289,10 @@ mod uhlc_impls {
         ID as NonZeroU128
     );
 
-    impl Type for Timestamp {
-        const NAME: &'static str = "Timestamp";
-
-        fn inline(opts: DefOpts, _: &[DataType]) -> DataType {
-            use r#type::ObjectField;
-
-            DataType::Object(ObjectType {
-                name: "Timestamp".to_string(),
-                generics: vec![],
-                fields: vec![
-                    ObjectField {
-                        name: "id".to_string(),
-                        optional: false,
-                        flatten: false,
-                        ty: {
-                            let ty = <ID as Type>::reference(
-                                DefOpts {
-                                    parent_inline: false,
-                                    type_map: opts.type_map,
-                                },
-                                &[],
-                            );
-                            ty
-                        },
-                    },
-                    ObjectField {
-                        name: "time".to_string(),
-                        optional: false,
-                        flatten: false,
-                        ty: {
-                            let ty = <NTP64 as Type>::reference(
-                                DefOpts {
-                                    parent_inline: false,
-                                    type_map: opts.type_map,
-                                },
-                                &[],
-                            );
-                            ty
-                        },
-                    },
-                ],
-                tag: None,
-                type_id: Some(TypeId::of::<Self>()),
-            })
-        }
-
-        fn reference(opts: DefOpts, _: &[DataType]) -> DataType {
-            DataType::Reference {
-                name: Self::NAME.to_string(),
-                generics: vec![],
-                type_id: TypeId::of::<Self>(),
-            }
-        }
+    #[derive(Type)]
+    #[specta(remote = "Timestamp", crate = "crate")]
+    struct TimestampDef {
+        time: NTP64,
+        id: ID,
     }
-
-    impl Flatten for Timestamp {}
 }
-
-// TODO: impl Type for Fn()
