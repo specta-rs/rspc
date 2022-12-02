@@ -31,12 +31,12 @@ use crate::*;
 /// ```
 #[macro_export]
 macro_rules! fn_datatype {
-    ($function:ident) => {{
+    ($function:path) => {{
         let mut type_map = $crate::TypeDefs::default();
 
         $crate::fn_datatype!(&mut type_map, $function)
     }};
-    (&mut $type_map:ident, $function:ident) => {{
+    (&mut $type_map:ident, $function:path) => {{
         let type_map: &mut $crate::TypeDefs = &mut $type_map;
 
         $crate::function::get_datatype_internal(
