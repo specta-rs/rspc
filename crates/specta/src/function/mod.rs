@@ -50,29 +50,7 @@ pub struct FunctionDataType {
     /// The name of the command. This will be derived from the Rust function name.
     pub name: &'static str,
     /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
-    pub args: Vec<(String, DataType)>,
-    /// The result type of the command. This would be the return type of the Rust function.
-    pub result: DataType,
-}
-
-impl From<FunctionDataType> for DataType {
-    fn from(t: FunctionDataType) -> Self {
-        FunctionDataTypeDefinition {
-            name: t.name,
-            result: t.result,
-            args: t.args.into_iter().collect(),
-        }
-        .into()
-    }
-}
-
-#[derive(Debug, Clone, DataTypeFrom)]
-#[specta(crate = "crate")]
-pub struct FunctionDataTypeDefinition {
-    /// The name of the command. This will be derived from the Rust function name.
-    pub name: &'static str,
-    /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
-    pub args: std::collections::BTreeMap<String, DataType>,
+    pub args: Vec<(&'static str, DataType)>,
     /// The result type of the command. This would be the return type of the Rust function.
     pub result: DataType,
 }
@@ -142,7 +120,7 @@ macro_rules! impl_typed_command {
                                     parent_inline: false,
                                     type_map,
                                 })
-                                .map(|ty| (field.to_string(), ty))
+                                .map(|ty| (*field, ty))
                             )
                         ),*,]
                         .into_iter()
