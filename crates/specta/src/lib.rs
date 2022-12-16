@@ -142,5 +142,5 @@ pub use specta_macros::specta;
 pub mod internal {
     #[cfg(feature = "export")]
     pub use ctor;
-    pub use paste::paste as _specta_paste;
+    pub use specta_macros::fn_datatype;
 }

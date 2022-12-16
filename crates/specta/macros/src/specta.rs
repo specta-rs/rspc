@@ -41,5 +41,5 @@ pub fn attribute(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 fn format_command_wrapper(function: &Ident) -> Ident {
-    format_ident!("__specta__{}", function)
+    format_ident!("__specta__fn__{}", function)
 }

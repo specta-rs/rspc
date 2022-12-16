@@ -91,8 +91,10 @@ macro_rules! primitive_def {
 pub fn datatype(typ: &DataType) -> String {
     match &typ {
         DataType::Any => "any".into(),
-        primitive_def!(i8 i16 i32 isize u8 u16 u32 usize f32 f64) => "number".into(),
-        primitive_def!(i64 u64 i128 u128) => "bigint".into(),
+        primitive_def!(i8 i16 i32 u8 u16 u32 f32 f64) => "number".into(),
+        primitive_def!(usize isize i64 u64 i128 u128) => {
+            panic!("TypeScript does not support 64 bit numbers!")
+        }
         primitive_def!(String char) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
         DataType::Literal(literal) => literal.to_ts(),

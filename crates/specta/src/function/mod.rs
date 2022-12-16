@@ -34,29 +34,23 @@ macro_rules! fn_datatype {
     ($function:path) => {{
         let mut type_map = $crate::TypeDefs::default();
 
-        $crate::fn_datatype!(&mut type_map, $function)
+        $crate::fn_datatype!(type_map, $function)
     }};
-    (&mut $type_map:ident, $function:path) => {{
+    ($type_map:ident, $function:path) => {{
         let type_map: &mut $crate::TypeDefs = &mut $type_map;
 
-        $crate::function::get_datatype_internal(
-            $function as $crate::internal::_specta_paste! { [<__specta__ $function>]!(@signature) },
-            $crate::internal::_specta_paste! { [<__specta__ $function>]!(@name) },
-            type_map,
-            $crate::internal::_specta_paste! { [<__specta__ $function>]!(@arg_names) },
-        )
+        $crate::internal::fn_datatype!(type_map, $function)
     }};
 }
 
 /// Contains type information about a function annotated with [`specta`](macro@crate::specta).
 /// Returned by [`fn_datatype`].
-#[derive(Debug, DataTypeFrom)]
-#[specta(crate = "crate")]
+#[derive(Debug)]
 pub struct FunctionDataType {
     /// The name of the command. This will be derived from the Rust function name.
     pub name: &'static str,
     /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
-    pub input: Option<DataType>,
+    pub args: Vec<(&'static str, DataType)>,
     /// The result type of the command. This would be the return type of the Rust function.
     pub result: DataType,
 }
@@ -81,7 +75,7 @@ impl<TResultMarker, TResult: SpectaFunctionResult<TResultMarker>> SpectaFunction
     ) -> FunctionDataType {
         FunctionDataType {
             name,
-            input: None,
+            args: vec![],
             result: TResult::to_datatype(DefOpts {
                 parent_inline: false,
                 type_map,
@@ -90,6 +84,7 @@ impl<TResultMarker, TResult: SpectaFunctionResult<TResultMarker>> SpectaFunction
     }
 }
 
+#[doc(hidden)]
 /// is a helper for exporting a command to a `CommandDataType`. You shouldn't use this directly and instead should use [`fn_datatype!`](crate::fn_datatype).
 pub fn get_datatype_internal<TMarker, T: SpectaFunction<TMarker>>(
     _: T,
@@ -119,29 +114,18 @@ macro_rules! impl_typed_command {
 
                     FunctionDataType {
                         name,
-                        input: Some(DataType::Object(ObjectType {
-                            name: "_unreachable_".into(),
-                            generics: vec![],
-                            fields: [
-                                $(
-                                    $i::to_datatype(DefOpts {
-                                        parent_inline: false,
-                                        type_map,
-                                    })
-                                    .map(|ty| ObjectField {
-                                        name: fields.next().expect("Tauri Specta reached an unreachable state. The macro returns the incorrect number of fields. Please file this as a bug on GitHub!").to_string(),
-                                        ty,
-                                        optional: false,
-                                        flatten: false,
-                                    })
-                                ),*,
-                            ]
-                            .into_iter()
-                            .filter_map(|v| v)
-                            .collect(),
-                            tag: None,
-                            type_id: None,
-                        })),
+                        args: [$(
+                            fields.next().and_then(|field|
+                                $i::to_datatype(DefOpts {
+                                    parent_inline: false,
+                                    type_map,
+                                })
+                                .map(|ty| (*field, ty))
+                            )
+                        ),*,]
+                        .into_iter()
+                        .filter_map(|v| v)
+                        .collect(),
                         result: TResult::to_datatype(DefOpts {
                             parent_inline: false,
                             type_map,
