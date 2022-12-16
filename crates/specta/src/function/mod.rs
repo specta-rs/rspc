@@ -45,12 +45,34 @@ macro_rules! fn_datatype {
 
 /// Contains type information about a function annotated with [`specta`](macro@crate::specta).
 /// Returned by [`fn_datatype`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionDataType {
     /// The name of the command. This will be derived from the Rust function name.
     pub name: &'static str,
     /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
     pub args: Vec<(&'static str, DataType)>,
+    /// The result type of the command. This would be the return type of the Rust function.
+    pub result: DataType,
+}
+
+impl From<FunctionDataType> for DataType {
+    fn from(t: FunctionDataType) -> Self {
+        FunctionDataTypeDefinition {
+            name: t.name,
+            result: t.result,
+            args: t.args.into_iter().collect(),
+        }
+        .into()
+    }
+}
+
+#[derive(Debug, Clone, DataTypeFrom)]
+#[specta(crate = "crate")]
+pub struct FunctionDataTypeDefinition {
+    /// The name of the command. This will be derived from the Rust function name.
+    pub name: &'static str,
+    /// The input arguments of the command. The Rust functions arguments are converted into an [`DataType::Object`](crate::DataType::Object).
+    pub args: std::collections::BTreeMap<&'static str, DataType>,
     /// The result type of the command. This would be the return type of the Rust function.
     pub result: DataType,
 }
