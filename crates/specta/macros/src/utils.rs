@@ -1,3 +1,4 @@
+use quote::format_ident;
 use std::convert::TryFrom;
 use syn::{
     parse::{Parse, ParseStream},
@@ -130,4 +131,8 @@ pub fn parse_assign_str(input: ParseStream) -> Result<String> {
 
 pub fn parse_assign_inflection(input: ParseStream) -> Result<Inflection> {
     parse_assign_str(input).and_then(Inflection::try_from)
+}
+
+pub fn format_fn_wrapper(function: &Ident) -> Ident {
+    format_ident!("__specta__fn__{}", function)
 }

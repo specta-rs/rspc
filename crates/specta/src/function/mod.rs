@@ -99,12 +99,11 @@ macro_rules! impl_typed_command {
     ( impl $($i:ident),* ) => {
        paste::paste! {
             impl<
-                    TResultMarker,
-                    TResult: SpectaFunctionResult<TResultMarker>,
-                    $([<$i Marker>]),*,
-                    $($i: SpectaFunctionArg<[<$i Marker>]>),*
-                > SpectaFunction<(TResultMarker, $([<$i Marker>]),*)> for fn($($i),*) -> TResult
-            {
+                TResultMarker,
+                TResult: SpectaFunctionResult<TResultMarker>,
+                $([<$i Marker>]),*,
+                $($i: SpectaFunctionArg<[<$i Marker>]>),*
+            > SpectaFunction<(TResultMarker, $([<$i Marker>]),*)> for fn($($i),*) -> TResult {
                 fn to_datatype(
                     name: &'static str,
                     type_map: &mut TypeDefs,

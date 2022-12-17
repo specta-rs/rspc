@@ -154,27 +154,6 @@ impl<T: Into<DataType> + 'static> From<Vec<T>> for DataType {
     }
 }
 
-impl<K: Into<String> + 'static, V: Into<DataType> + 'static> From<BTreeMap<K, V>> for DataType {
-    fn from(t: BTreeMap<K, V>) -> Self {
-        ObjectType {
-            name: "".to_string(),
-            generics: vec![],
-            tag: None,
-            type_id: Some(std::any::TypeId::of::<BTreeMap<K, V>>()),
-            fields: t
-                .into_iter()
-                .map(|(k, v)| ObjectField {
-                    name: k.into(),
-                    ty: v.into(),
-                    optional: false,
-                    flatten: false,
-                })
-                .collect(),
-        }
-        .into()
-    }
-}
-
 impl<T: Into<DataType> + 'static> From<Option<T>> for DataType {
     fn from(t: Option<T>) -> Self {
         t.map(Into::into)

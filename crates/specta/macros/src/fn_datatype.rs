@@ -1,5 +1,6 @@
+use crate::utils::format_fn_wrapper;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
     Ident, Path, Token,
@@ -23,18 +24,12 @@ impl Parse for FnDatatypeInput {
 pub fn proc_macro(FnDatatypeInput { type_map, function }: FnDatatypeInput) -> TokenStream {
     let mut specta_fn_macro = function.clone();
 
-    let function_name = specta_fn_macro
+    let last = specta_fn_macro
         .segments
-        .pop()
-        .expect("Function path is empty!")
-        .into_value();
+        .last_mut()
+        .expect("Function path is empty!");
 
-    let specta_fn_ident = format_ident!("__specta__fn__{}", function_name.ident);
-
-    specta_fn_macro.segments.push(syn::PathSegment {
-        ident: specta_fn_ident,
-        ..function_name
-    });
+    last.ident = format_fn_wrapper(&last.ident.clone());
 
     let fn_signature = quote!(#specta_fn_macro!(@signature));
     let fn_name = quote!(#specta_fn_macro!(@name));
