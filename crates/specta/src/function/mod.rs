@@ -22,11 +22,11 @@ use crate::*;
 /// }
 ///
 /// fn main() {
-///      // This API is pretty new and will likely under go API changes in the future.
-///      assert_eq!(
-///         ts::export_datatype(&fn_datatype!(some_function).into()),
-///         Ok("export type FunctionDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
-///      );
+///     let typ = fn_datatype!(some_function);
+///
+///     assert_eq!(typ.name, "some_function");
+///     assert_eq!(typ.args.len(), 2);
+///     assert_eq!(typ.result, DataType::Primitive(PrimitiveType::bool))
 /// }
 /// ```
 #[macro_export]
