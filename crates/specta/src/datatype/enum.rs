@@ -14,30 +14,20 @@ pub struct EnumType {
 }
 
 impl EnumType {
-    /// An enum may contain variants which are invalid and will cause a runtime errors during serialize/deserialization. This function will filter them out so types can be exported for valid variants.
-    #[allow(clippy::needless_collect)]
+    /// An enum may contain variants which are invalid and will cause a runtime errors during serialize/deserialization.
+    /// This function will filter them out so types can be exported for valid variants.
     pub fn make_flattenable(&mut self) {
-        let indexes = self
-            .variants
-            .iter()
-            .filter(|v| match self.repr {
-                EnumRepr::External => match v {
-                    EnumVariant::Unnamed(v) if v.fields.len() == 1 => false,
-                    EnumVariant::Named(_) => false,
-                    _ => true,
-                },
-                EnumRepr::Untagged => !matches!(v, EnumVariant::Unit(_) | EnumVariant::Named(_)),
-                EnumRepr::Adjacent { .. } => false,
-                EnumRepr::Internal { .. } => {
-                    !matches!(v, EnumVariant::Unit(_) | EnumVariant::Named(_))
-                }
-            })
-            .enumerate()
-            .map(|(i, _)| i)
-            .collect::<Vec<_>>();
-
-        indexes.into_iter().rev().for_each(|i| {
-            self.variants.remove(i);
+        self.variants.retain(|v| match self.repr {
+            EnumRepr::External => match v {
+                EnumVariant::Unnamed(v) if v.fields.len() == 1 => true,
+                EnumVariant::Named(_) => true,
+                _ => false,
+            },
+            EnumRepr::Untagged => matches!(v, EnumVariant::Unit(_) | EnumVariant::Named(_)),
+            EnumRepr::Adjacent { .. } => true,
+            EnumRepr::Internal { .. } => {
+                matches!(v, EnumVariant::Unit(_) | EnumVariant::Named(_))
+            }
         });
     }
 }
@@ -81,8 +71,8 @@ impl EnumVariant {
     pub fn data_type(&self) -> DataType {
         match self {
             Self::Unit(_) => unreachable!("Unit enum variants have no type!"),
-            Self::Unnamed(tuple_type) => DataType::Tuple(tuple_type.clone()),
-            Self::Named(object_type) => DataType::Object(object_type.clone()),
+            Self::Unnamed(tuple_type) => tuple_type.clone().into(),
+            Self::Named(object_type) => object_type.clone().into(),
         }
     }
 }

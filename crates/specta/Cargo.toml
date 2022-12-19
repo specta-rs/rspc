@@ -82,6 +82,7 @@ paste = "1.0.9"
 document-features = "0.2.6"
 ctor = { version = "0.1.26", optional = true }
 once_cell = "1.16.0"
+indoc = "1.0.8"
 
 [dev-dependencies]
 serde = { version = "1.0.147", features = ["derive"] }
