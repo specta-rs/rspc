@@ -25,14 +25,15 @@ fn typescript_types() {
     assert_ts_type!(u32, "number");
     assert_ts_type!(f32, "number");
     assert_ts_type!(f64, "number");
-    assert_ts_type!(usize, "number");
-    assert_ts_type!(isize, "number");
 
-    assert_ts_type!(i64, "bigint");
-    assert_ts_type!(u64, "bigint");
-    assert_ts_type!(i128, "bigint");
-    assert_ts_type!(i64, "bigint");
-    assert_ts_type!(u128, "bigint");
+    // panic by design
+    // assert_ts_type!(usize, "number");
+    // assert_ts_type!(isize, "number");
+    // assert_ts_type!(i64, "bigint");
+    // assert_ts_type!(u64, "bigint");
+    // assert_ts_type!(i128, "bigint");
+    // assert_ts_type!(i64, "bigint");
+    // assert_ts_type!(u128, "bigint");
 
     assert_ts_type!(bool, "boolean");
 

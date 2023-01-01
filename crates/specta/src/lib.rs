@@ -20,14 +20,7 @@
 //!     assert_eq!(
 //!         ts::export::<MyCustomType>(),
 //!         Ok("export type MyCustomType = { my_field: string }".to_string())
-//!         
 //!     );
-//!
-//!      // This API is pretty new and will likely under go API changes in the future.
-//!      assert_eq!(
-//!         ts::export_datatype(&fn_datatype!(some_function).into()),
-//!         Ok("export type FunctionDataType = { name: \"some_function\", input: { name: string, age: number }, result: boolean }".to_string())
-//!      );
 //! }
 //! ```
 //!
@@ -142,5 +135,5 @@ pub use specta_macros::specta;
 pub mod internal {
     #[cfg(feature = "export")]
     pub use ctor;
-    pub use paste::paste as _specta_paste;
+    pub use specta_macros::fn_datatype;
 }
