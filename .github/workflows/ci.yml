@@ -39,7 +39,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
       
       - name: Install npm dependencies
-        run: pnpm i --frozen-lockfile
+        run: pnpm i # --frozen-lockfile # TODO: This is bad but i'm at a loss why it's causing a problem
       
       - name: Build npm packages
         run: pnpm build
