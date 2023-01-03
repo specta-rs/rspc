@@ -1,12 +1,15 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
-import { client, queryClient, RSPCProvider } from "../src/rspc";
+import { client, rspc } from "../src/rspc";
+import { QueryClient } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <RSPCProvider client={client} queryClient={queryClient}>
+    <rspc.Provider client={client} queryClient={queryClient}>
       <Component {...pageProps} />
-    </RSPCProvider>
+    </rspc.Provider>
   );
 }
 
