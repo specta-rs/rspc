@@ -70,7 +70,7 @@ jobs:
     name: Publish to NPM
     runs-on: ubuntu-latest
     needs: test
-    if: needs.test.outputs.filter == 'true' && github.event_name == 'push' && github.repository == 'oscartbeaumont/rspc'
+    if: (github.event_name == 'workflow_dispatch' || (needs.test.outputs.filter == 'true' && github.event_name == 'push')) && github.repository == 'oscartbeaumont/rspc'
     steps:
       - uses: actions/checkout@v3
         with:
