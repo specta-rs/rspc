@@ -1,4 +1,9 @@
-import { JSX, createContext, useContext as _useContext } from "solid-js";
+import {
+  JSX,
+  createContext,
+  useContext as _useContext,
+  createEffect,
+} from "solid-js";
 import {
   Client,
   inferInfiniteQueries,
@@ -26,6 +31,7 @@ import {
   CreateMutationOptions,
   CreateMutationResult,
   QueryClientProvider,
+  hashQueryKey,
 } from "@tanstack/solid-query";
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
@@ -179,41 +185,40 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     if (!client) {
       client = useContext().client;
     }
-    // const queryKey = hashQueryKey(keyAndInput);
-    // const enabled = opts?.enabled ?? true;
+    const queryKey = () => hashQueryKey(keyAndInput());
+    const enabled = () => opts?.enabled ?? true;
 
-    throw new Error("TODO: SolidJS Subscriptions are not supported yet!");
+    return createEffect(() => {
+      if (!enabled()) {
+        return;
+      }
 
-    // return useEffect(() => {
-    //   if (!enabled) {
-    //     return;
-    //   }
-    //   let isStopped = false;
-    //   const unsubscribe = client.addSubscription<K, TData>(
-    //     keyAndInput,
-    //     {
-    //       onStarted: () => {
-    //         if (!isStopped) {
-    //           opts.onStarted?.();
-    //         }
-    //       },
-    //       onData: (data) => {
-    //         if (!isStopped) {
-    //           opts.onData(data);
-    //         }
-    //       },
-    //       onError: (err) => {
-    //         if (!isStopped) {
-    //           opts.onError?.(err);
-    //         }
-    //       },
-    //     }
-    //   );
-    //   return () => {
-    //     isStopped = true;
-    //     unsubscribe();
-    //   };
-    // }, [queryKey, enabled]);
+      queryKey();
+
+      let isStopped = false;
+
+      const subscription = client!.subscription(keyAndInput(), {
+        onStarted: () => {
+          if (!isStopped) {
+            opts.onStarted?.();
+          }
+        },
+        onData: (data) => {
+          if (!isStopped) {
+            opts.onData(data);
+          }
+        },
+        onError: (err) => {
+          if (!isStopped) {
+            opts.onError?.(err);
+          }
+        },
+      });
+      return () => {
+        isStopped = true;
+        subscription.unsubscribe();
+      };
+    });
   }
 
   return {
@@ -240,6 +245,6 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     createQuery,
     // createInfiniteQuery,
     createMutation,
-    // createSubscription,
+    createSubscription,
   };
 }
