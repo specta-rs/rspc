@@ -2,7 +2,14 @@
 name = "normi"
 description = "A normalised caching layer for rspc."
 version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/oscartbeaumont/rspc/tree/main/crates/normi"
+readme = "README.md"
+documentation = "https://docs.rs/normi"
+keywords = ["async", "rspc", "normalised-cache", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
 
 [features]
 default = ["rspc"]

@@ -23,7 +23,7 @@ fn mount() -> Arc<Router<(), ()>> {
         .merge("subscriptions.", subscriptions::mount())
         .merge("selection.", selection::mount())
         // This middleware changes the TCtx (context type) from `()` to `i32`. All routers being merge under need to take `i32` as their context type.
-        .middleware(|mw| mw.middleware(|ctx| async move { return Ok(ctx.with_ctx(42i32)) }))
+        .middleware(|mw| mw.middleware(|ctx| async move { Ok(ctx.with_ctx(42i32)) }))
         .merge("r1.", r1)
         .build()
         .arced() // This function is a shortcut to wrap the router in an `Arc`.
@@ -41,7 +41,6 @@ async fn main() {
             router
                 .endpoint(|path: Path<String>| {
                     println!("Client requested operation '{}'", *path);
-                    ()
                 })
                 .axum(),
         )

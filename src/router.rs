@@ -126,6 +126,7 @@ where
         &self.subscriptions.store
     }
 
+    #[allow(clippy::unwrap_used)]
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
         let export_path = PathBuf::from(export_path.as_ref());
         if let Some(export_dir) = export_path.parent() {

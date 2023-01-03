@@ -129,7 +129,7 @@ fn try_main() -> Result<(), errors::Error> {
         frontend_framework,
         // extras,
         &path,
-        &project_name,
+        project_name,
     )?;
 
     package_manager.exec(path.clone())?;
@@ -141,7 +141,7 @@ fn try_main() -> Result<(), errors::Error> {
 
 fn main() {
     if let Err(e) = try_main() {
-        if matches!(e, errors::Error::RequestTtyError(ErrorKind::Interrupted)) {
+        if matches!(e, errors::Error::RequestTty(ErrorKind::Interrupted)) {
             return;
         }
 
