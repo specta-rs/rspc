@@ -23,10 +23,9 @@ import {
   _inferInfiniteQueryProcedureHandlerInput,
   ProcedureDef,
   ProceduresDef,
-  createClient as _createClient,
+  createVanillaClient as _createVanillaClient,
   ClientArgs,
   HookOptions,
-  Hooks,
 } from "@rspc/client";
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
@@ -53,8 +52,15 @@ export interface Context<
   queryClient: QueryClient;
 }
 
-export function internal_createReactHooksFactory() {
-  const Context = createContext<Context<any, any, any, any>>(undefined!); // TODO: Types
+export function internal_createReactHooksFactory<
+  TBaseProcedures extends ProceduresDef = never,
+  TQueries extends ProcedureDef = TBaseProcedures["queries"],
+  TMutations extends ProcedureDef = TBaseProcedures["mutations"],
+  TSubscriptions extends ProcedureDef = TBaseProcedures["subscriptions"]
+>() {
+  const Context = createContext<
+    Context<TBaseProcedures, TQueries, TMutations, TSubscriptions>
+  >(undefined!);
 
   const Provider = ({
     children,
@@ -62,12 +68,12 @@ export function internal_createReactHooksFactory() {
     queryClient,
   }: {
     children?: ReactElement;
-    client: _Client<any, any, any, any>; // TODO: Types
+    client: _Client<TBaseProcedures, TQueries, TMutations, TSubscriptions>;
     queryClient: QueryClient;
   }) => (
     <Context.Provider
       value={{
-        client: client as any, // TODO: Types
+        client,
         queryClient,
       }}
     >
@@ -76,7 +82,12 @@ export function internal_createReactHooksFactory() {
   );
 
   function createClient(opts: ClientArgs) {
-    return _createClient<any>(opts);
+    return _createVanillaClient<
+      TBaseProcedures,
+      TQueries,
+      TMutations,
+      TSubscriptions
+    >(opts);
   }
 
   return {
@@ -266,11 +277,11 @@ export function internal_createReactHooksFactory() {
       }
 
       return {
-        createClient: createClient as any, // TODO: Fix types
+        createClient,
         useContext,
         Provider,
         useQuery,
-        // // TODO: useInfiniteQuery
+        // useInfiniteQuery, // TODO
         useMutation,
         useSubscription,
       };
@@ -284,7 +295,12 @@ export function createReactHooks<
   TMutations extends ProcedureDef = TBaseProcedures["mutations"],
   TSubscriptions extends ProcedureDef = TBaseProcedures["subscriptions"]
 >(hookOpts?: HookOptions) {
-  let hooks = internal_createReactHooksFactory();
+  let hooks = internal_createReactHooksFactory<
+    TBaseProcedures,
+    TQueries,
+    TMutations,
+    TSubscriptions
+  >();
   return hooks.createHooks<
     TBaseProcedures,
     TQueries,

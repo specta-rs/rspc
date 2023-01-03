@@ -18,6 +18,8 @@ import {
   RSPCError,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  createVanillaClient as _createVanillaClient,
+  ClientArgs,
 } from "@rspc/client";
 import {
   QueryClient,
@@ -52,11 +54,43 @@ interface Context<TProcedures extends ProceduresDef> {
   queryClient: QueryClient;
 }
 
+// TODO: The React side is handling types in a whole different way for the normi prototype. Should this be changed to match or should React be rolled back?
+// TODO: Also should SolidJS use the hook factory pattern???
 export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
   type TProcedures = inferProcedures<TProceduresLike>;
   type TBaseOptions = BaseOptions<TProcedures>;
 
   const Context = createContext<Context<TProcedures>>(undefined!);
+
+  const Provider = (props: {
+    children?: JSX.Element;
+    client: { _rspc_def: any }; // TODO: This type is just a slightly safer `as any`. Replace it with proper `Client` type. This will work for now before release.
+    queryClient: QueryClient;
+  }): JSX.Element => {
+    return (
+      <Context.Provider
+        value={{
+          // @ts-expect-error: Bad type for the argument.
+          client: props.client,
+          queryClient: props.queryClient,
+        }}
+      >
+        <QueryClientProvider client={props.queryClient}>
+          {props.children as any}
+        </QueryClientProvider>
+      </Context.Provider>
+    );
+  };
+
+  function createClient(opts: ClientArgs) {
+    // TODO: Changed this to be typed like the React side.
+    return _createVanillaClient<
+      TProceduresLike,
+      TProceduresLike["queries"],
+      TProceduresLike["mutations"],
+      TProceduresLike["subscriptions"]
+    >(opts);
+  }
 
   function useContext() {
     const ctx = _useContext(Context);
@@ -131,7 +165,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     return __createInfiniteQuery(
       keyAndInput,
       async () => {
-        throw new Error("TODO"); // TODO: Finish this
+        throw new Error("TODO: Support infinite query on SolidJS!"); // TODO: Finish this
       },
       rawOpts as any
     );
@@ -222,28 +256,12 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
   }
 
   return {
-    _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
-    Provider: (props: {
-      children?: JSX.Element;
-      client: Client<TProcedures>;
-      queryClient: QueryClient;
-    }): JSX.Element => {
-      return (
-        <Context.Provider
-          value={{
-            client: props.client,
-            queryClient: props.queryClient,
-          }}
-        >
-          <QueryClientProvider client={props.queryClient}>
-            {props.children as any}
-          </QueryClientProvider>
-        </Context.Provider>
-      ) as any;
-    },
+    _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers // TODO: This was removed on React side. Mistake or not?
+    createClient,
     useContext,
+    Provider,
     createQuery,
-    // createInfiniteQuery,
+    // createInfiniteQuery, // TODO
     createMutation,
     createSubscription,
   };
