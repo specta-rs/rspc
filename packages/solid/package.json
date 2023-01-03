@@ -30,11 +30,11 @@
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/solid-query": "^4.14.5",
-    "rollup": "^3.2.5",
+    "@tanstack/solid-query": "^4.20.4",
+    "rollup": "^3.9.1",
     "rollup-preset-solid": "^1.4.0",
-    "solid-js": "^1.6.1",
-    "typescript": "^4.8.4"
+    "solid-js": "^1.6.6",
+    "typescript": "^4.9.4"
   },
   "peerDependencies": {
     "@tanstack/solid-query": "^4.6.0",
