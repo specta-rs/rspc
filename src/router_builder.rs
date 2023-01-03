@@ -300,7 +300,8 @@ where
             ..
         } = self;
 
-        for (key, query) in router.queries.store {
+        for (key, mut query) in router.queries.store {
+            query.ty.key = format!("{}{}", prefix, key);
             queries.append(
                 format!("{}{}", prefix, key),
                 middleware.build(query.exec),
@@ -308,7 +309,8 @@ where
             );
         }
 
-        for (key, mutation) in router.mutations.store {
+        for (key, mut mutation) in router.mutations.store {
+            mutation.ty.key = format!("{}{}", prefix, key);
             mutations.append(
                 format!("{}{}", prefix, key),
                 middleware.build(mutation.exec),
@@ -316,7 +318,8 @@ where
             );
         }
 
-        for (key, subscription) in router.subscriptions.store {
+        for (key, mut subscription) in router.subscriptions.store {
+            subscription.ty.key = format!("{}{}", prefix, key);
             subscriptions.append(
                 format!("{}{}", prefix, key),
                 middleware.build(subscription.exec),
