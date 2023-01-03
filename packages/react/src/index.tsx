@@ -68,11 +68,13 @@ export function internal_createReactHooksFactory<
     queryClient,
   }: {
     children?: ReactElement;
-    client: _Client<TBaseProcedures, TQueries, TMutations, TSubscriptions>;
+    client: { _rspc_def: any }; // TODO: This type is just a slightly safer `as any`. Replace it with proper `Client` type. This will work for now before release.
+    // client: _Client<TBaseProcedures, TQueries, TMutations, TSubscriptions>;
     queryClient: QueryClient;
   }) => (
     <Context.Provider
       value={{
+        // @ts-expect-error: Bad type for the argument.
         client,
         queryClient,
       }}
