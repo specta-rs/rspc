@@ -16,7 +16,7 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
         ident, data, attrs, ..
     } = parse_macro_input!(input);
     let args = StructAttrs::from_attrs(&attrs).unwrap();
-    let type_name = args.rename.unwrap_or(ident.to_string());
+    let type_name = args.rename.unwrap_or_else(|| ident.to_string());
 
     match data {
         Data::Struct(data) => {
@@ -26,7 +26,7 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
             let mut id_fields = Vec::new();
             for (i, field) in fields.enumerate() {
                 let attrs = FieldAttrs::from_attrs(&field.attrs).unwrap();
-                
+
                 attrs.id.then(|| id_fields.push(
                     match &field.ident {
                         Some(ident) => quote!(self.#ident),
@@ -37,7 +37,7 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
                     })
                 );
             }
-            
+
             let mut id_fields = id_fields.into_iter().peekable();
             let _ = id_fields.peek().ok_or_else(|| panic!("normi::Object must have an id field set. Ensure you add `#[normi(id)]`"));
             let id_impl = id_fields.peek().map(|field| quote! ( #crate_name::internal::to_value(&#field).unwrap() )).unwrap_or(quote! ( #crate_name::internal::to_value(&[#(&#id_fields),*]).unwrap() ));
@@ -57,7 +57,6 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
                         }
                     })
                     .collect::<Vec<_>>();
-                    
                     quote!( #(#fields),* )
                 },
                 false => {
@@ -78,12 +77,12 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
                     // if fields.len() == 1 {
                     //     panic!("You must have more than one field on a tuple struct!");
                     // }
-                    
+
                     // quote!( #(#fields),* )
                     panic!("Normi does not currently support normalising tuple structs.");
                 }
             };
-            
+
             quote! {
                 impl #crate_name::Object for #ident {
                     fn type_name() -> &'static str {
@@ -115,7 +114,6 @@ pub fn derive_object(input: TokenStream) -> TokenStream {
                     }
                 }
             }
-            
         }
         Data::Enum(_) => panic!("TODO: enums not supported"), // TODO
         Data::Union(_) => panic!("normi::Object can't be derived for unions!"),

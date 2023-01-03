@@ -1,12 +1,13 @@
 use std::{
     boxed::Box,
-    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
+    collections::HashMap,
+    // collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque},
     hash::Hash,
 };
 
-use serde::Serialize;
+// use serde::Serialize;
 use serde_json::{json, Value};
-use specta::Type;
+// use specta::Type;
 
 /// TODO
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -15,11 +16,11 @@ pub struct ObjectRef {
     pub ty: &'static str,
 }
 
-impl Into<Value> for ObjectRef {
-    fn into(self) -> serde_json::Value {
+impl From<ObjectRef> for Value {
+    fn from(value: ObjectRef) -> Self {
         json!({
-            "$id": self.id,
-            "$ty": self.ty,
+            "$id": value.id,
+            "$ty": value.ty,
         })
     }
 }
@@ -44,6 +45,7 @@ impl<T: Object> Object for Vec<T> {
         T::type_name()
     }
 
+    #[allow(clippy::panic_in_result_fn)]
     fn id(&self) -> Result<Value, serde_json::Error> {
         unreachable!();
     }
@@ -63,7 +65,7 @@ impl<T: Object> Object for Box<T> {
     }
 
     fn id(&self) -> Result<Value, serde_json::Error> {
-        <T as Object>::id(&self)
+        <T as Object>::id(self)
     }
 
     fn normalize(self, refs: &mut RefMap) -> Result<serde_json::Value, serde_json::Error> {

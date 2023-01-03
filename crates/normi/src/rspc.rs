@@ -18,6 +18,7 @@ pub struct NormiContext {
 }
 
 // TODO: Convert this in a macro in rspc maybe???
+#[allow(clippy::panic)]
 pub fn normi<TResolver, TCtx, TArg, TMarker, TResultMarker>(
     builder: BuiltProcedureBuilder<TResolver>,
 ) -> BuiltProcedureBuilder<
@@ -37,20 +38,23 @@ where
     TArg: Type + DeserializeOwned,
 {
     {
-        let mut data = builder.data.write().unwrap();
+        let mut data = builder
+            .data
+            .write()
+            .expect("Error getting mutex lock on rspc data store!");
 
         let ctx = data
             .entry(TypeId::of::<NormiContext>())
             .or_insert_with(|| {
-                Box::new(NormiContext::default()) as Box<dyn std::any::Any + Send + Sync + 'static>
+                Box::<NormiContext>::default() as Box<dyn std::any::Any + Send + Sync + 'static>
             })
             .downcast_mut::<NormiContext>()
-            .unwrap();
+            .expect("`NormiContext` was not of the correct type! This is almost certainly a bug in Normi.");
 
         let expected_tid = ctx
             .types
             .entry(TResolver::Data::type_name())
-            .or_insert_with(|| TypeId::of::<TResolver::Data>());
+            .or_insert_with(TypeId::of::<TResolver::Data>);
         if *expected_tid != TypeId::of::<TResolver::Data>() {
             panic!("A types with typeid '{:?}' and '{:?}' were both mounted with an identical type name '{}'. The type name must be unique!", expected_tid, TypeId::of::<TResolver::Data>(), TResolver::Data::type_name());
         }

@@ -65,7 +65,6 @@ async fn main() {
                     },
                     |path: Path<String>| {
                         println!("Client requested operation '{}'", *path);
-                        ()
                     },
                 )
                 .axum(),
@@ -76,7 +75,6 @@ async fn main() {
             router
                 .endpoint(|path: Path<String>| {
                     println!("Client requested operation '{}'", *path);
-                    ()
                 })
                 .axum(),
         )

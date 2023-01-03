@@ -18,7 +18,7 @@ pub fn replace_in_file(path: &Path, from: &str, to: &str) -> io::Result<()> {
 
     {
         let mut dst = File::create(path)?;
-        dst.write(data.as_bytes())?;
+        dst.write_all(data.as_bytes())?;
     }
 
     Ok(())
@@ -47,10 +47,9 @@ pub(crate) fn check_version() -> Result<(), Box<dyn std::error::Error>> {
     .into_json()?;
 
     let latest = resp.get("crate")
-        .ok_or_else(|| "Unable to find crate key in response from crates.io, please try again later.")?
-        .get("max_version").ok_or_else(|| {
-        "Unable to find crate>max_version key in response from crates.io, please try again later."
-    })?
+        .ok_or("Unable to find crate key in response from crates.io, please try again later.")?
+        .get("max_version")
+        .ok_or("Unable to find crate>max_version key in response from crates.io, please try again later.")?
     .as_str()
     .unwrap();
 
@@ -59,8 +58,7 @@ pub(crate) fn check_version() -> Result<(), Box<dyn std::error::Error>> {
             "A new version of create-rspc-app is available, please update to {}.",
             latest
         );
-        println!("To update, run `cargo install create-rspc-app --force`.");
-        println!("");
+        println!("To update, run `cargo install create-rspc-app --force`.\n");
     }
 
     Ok(())

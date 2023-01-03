@@ -15,6 +15,7 @@
     // missing_panics_doc
     // missing_debug_implementations
 )]
+#![allow(clippy::cargo_common_metadata)] // TODO: I enable this because it's doing a false positive on the `normi-macros` crate.
 
 mod config;
 mod error;

@@ -5,6 +5,7 @@ use strum::{Display, EnumIter, EnumString};
 use crate::database::Database;
 
 #[derive(Debug, Display, EnumIter, EnumString)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum PackageManager {
     NPM,
     Yarn,
@@ -13,16 +14,16 @@ pub enum PackageManager {
 }
 
 pub fn run_cargo_steps(path: PathBuf, db: Database) -> io::Result<()> {
-    std::env::set_current_dir(path.clone())?;
+    std::env::set_current_dir(path)?;
     if db == Database::PrismaClientRust {
         #[cfg(target_os = "windows")]
         let mut child = std::process::Command::new("cmd")
-            .args(&["/C", "cargo", "prisma", "generate"])
+            .args(["/C", "cargo", "prisma", "generate"])
             .spawn()?;
 
         #[cfg(not(target_os = "windows"))]
         let mut child = std::process::Command::new("cargo")
-            .args(&["prisma", "generate"])
+            .args(["prisma", "generate"])
             .spawn()?;
 
         child.wait()?;
@@ -34,19 +35,19 @@ pub fn run_cargo_steps(path: PathBuf, db: Database) -> io::Result<()> {
 impl PackageManager {
     pub fn exec(&self, path: PathBuf) -> io::Result<()> {
         let pkg_path = path.join("web");
-        std::env::set_current_dir(pkg_path.clone())?;
+        std::env::set_current_dir(pkg_path)?;
 
         match self {
             PackageManager::NPM => {
                 println!("$ npm install");
                 #[cfg(target_os = "windows")]
                 let mut child = std::process::Command::new("cmd")
-                    .args(&["/C", "npm", "install"])
+                    .args(["/C", "npm", "install"])
                     .spawn()?;
 
                 #[cfg(not(target_os = "windows"))]
                 let mut child = std::process::Command::new("npm")
-                    .args(&["install"])
+                    .args(["install"])
                     .spawn()?;
 
                 child.wait()?;
@@ -56,12 +57,12 @@ impl PackageManager {
                 println!("$ yarn install");
                 #[cfg(target_os = "windows")]
                 let mut child = std::process::Command::new("cmd")
-                    .args(&["/C", "yarn", "install"])
+                    .args(["/C", "yarn", "install"])
                     .spawn()?;
 
                 #[cfg(not(target_os = "windows"))]
                 let mut child = std::process::Command::new("yarn")
-                    .args(&["install"])
+                    .args(["install"])
                     .spawn()?;
 
                 child.wait()?;
@@ -71,12 +72,12 @@ impl PackageManager {
                 println!("$ pnpm install");
                 #[cfg(target_os = "windows")]
                 let mut child = std::process::Command::new("cmd")
-                    .args(&["/C", "pnpm", "install"])
+                    .args(["/C", "pnpm", "install"])
                     .spawn()?;
 
                 #[cfg(not(target_os = "windows"))]
                 let mut child = std::process::Command::new("pnpm")
-                    .args(&["install"])
+                    .args(["install"])
                     .spawn()?;
 
                 child.wait()?;

@@ -42,7 +42,7 @@ impl Database {
     pub fn render(&self, path: &Path, project_name: &str, framework: Framework) -> io::Result<()> {
         match framework {
             Framework::Tauri => {
-                create_dir_all(&path).unwrap();
+                create_dir_all(path).unwrap();
                 BASE.extract(path)?;
                 TAURI_BASE_TEMPLATE.extract(path)?;
                 PCR_BASE.extract(path)?;
@@ -54,7 +54,7 @@ impl Database {
                 )?;
             }
             Framework::Axum => {
-                create_dir_all(&path).unwrap();
+                create_dir_all(path).unwrap();
                 BASE.extract(path)?;
                 AXUM_BASE_TEMPLATE.extract(path)?;
                 PCR_BASE.extract(path)?;
