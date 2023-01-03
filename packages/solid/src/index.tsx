@@ -82,14 +82,17 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     );
   };
 
-  function createClient(opts: ClientArgs) {
-    // TODO: Changed this to be typed like the React side.
-    return _createVanillaClient<
-      TProceduresLike,
-      TProceduresLike["queries"],
-      TProceduresLike["mutations"],
-      TProceduresLike["subscriptions"]
-    >(opts);
+  // TODO: This function should require an explicit return type but it's infered as `any` if I don't
+  // TODO: Changed this to be typed like the React side.
+  function createClient(
+    opts: ClientArgs
+  ): Client<
+    TProcedures,
+    TProcedures["queries"],
+    TProcedures["mutations"],
+    TProcedures["subscriptions"]
+  > {
+    return _createVanillaClient(opts);
   }
 
   function useContext() {
