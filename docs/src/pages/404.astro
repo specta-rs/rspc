@@ -1,10 +1,10 @@
 ---
 import { config } from "../config";
-import LandingPage from "../layouts/Layout.astro";
+import Layout from "../layouts/Layout.astro";
 ---
 
 <!DOCTYPE html>
-<LandingPage title={config.seo.title}>
+<Layout title={config.seo.title}>
   <div
     class="min-h-full px-4 py-16 sm:px-6 sm:py-24 md:grid md:place-items-center lg:px-8"
   >
@@ -38,4 +38,4 @@ import LandingPage from "../layouts/Layout.astro";
       </main>
     </div>
   </div>
-</LandingPage>
+</Layout>

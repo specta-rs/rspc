@@ -25,14 +25,6 @@ caches.keys().then((c) =>
   })
 );
 
-// Mobile navigation bar handler
-const button = document.querySelector("#sidebar-toggle");
-const body = document.querySelector("body");
-function toggleMobileNav() {
-  body?.classList.toggle("mobile-sidebar-toggle");
-  button?.toggleAttribute("aria-pressed");
-}
-
 // Handle change page to a specific URL
 async function navigate(url: URL, force?: boolean) {
   if (force !== true && url.pathname === window.location.pathname) return;
@@ -87,18 +79,14 @@ async function navigate(url: URL, force?: boolean) {
     );
 
     window.history.pushState(undefined, "", url);
+    window.dispatchEvent(new CustomEvent("nav", { detail: url }));
   }
-
-  body?.classList.remove("mobile-sidebar-toggle");
-  button?.removeAttribute("aria-pressed");
 
   hydratePage();
 }
 
 // Mount the handlers for links we are preloading and navigating with
 function hydratePage() {
-  if (button) button.addEventListener("click", toggleMobileNav);
-
   // When moving between docs and landing hide/show the mobile sidebar toggle
   const sidebarToggle = document.getElementById("sidebar-toggle");
   if (window.location.pathname === "/") {

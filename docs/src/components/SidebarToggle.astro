@@ -1,8 +1,17 @@
+---
+export interface Props {
+  isLanding: boolean;
+}
+
+const isLanding = Astro.props.isLanding;
+---
+
 <button
   id="sidebar-toggle"
   type="button"
   aria-pressed="false"
-  class="z-20 block md:hidden text-black dark:text-white"
+  class={(isLanding ? "none" : "block") +
+    " z-20 pr-4 md:hidden md:pl-4 md:pr-0 text-black dark:text-white"}
 >
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -17,3 +26,27 @@
   </svg>
   <span class="sr-only">Toggle sidebar</span>
 </button>
+
+<script>
+  const body = document.querySelector("body");
+  const toggleBtn =
+    document.querySelector<HTMLButtonElement>("#sidebar-toggle");
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () =>
+      body?.classList.toggle("mobile-sidebar-toggle")
+    );
+
+    window.addEventListener("nav", function (e) {
+      const url: URL = (e as any).detail;
+
+      if (url.pathname === "/") {
+        toggleBtn.style.display = "none";
+      } else {
+        toggleBtn.style.display = "block";
+      }
+    });
+  } else {
+    console.warn("sidebar-toggle button not found");
+  }
+</script>

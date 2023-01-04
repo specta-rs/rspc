@@ -1,6 +1,8 @@
 ---
 import clsx from "clsx";
 import { getSidebarData } from "../utils";
+import ThemeToggleButton from "./ThemeToggleButton.astro";
+import { config } from "../config";
 
 export interface Props {
   currentPage: string;
@@ -12,6 +14,30 @@ const { currentPage, class: className } = Astro.props;
 ---
 
 <nav class={clsx("text-base lg:text-sm", className)}>
+  <div class="items-center justify-center flex sm:hidden">
+    {
+      config.header?.links?.map((link) => (
+        <a
+          href={link.href}
+          rel="noreferrer noopener"
+          target="_black"
+          class="mx-2"
+          aria-label={link.alt}
+        >
+          <img
+            class="h-9 w-9 object-contain"
+            src={link.src}
+            alt={link.alt}
+            draggable={false}
+          />
+        </a>
+      ))
+    }
+
+    <div class="text-center mx-4 md:mx-4 select-none">
+      <ThemeToggleButton />
+    </div>
+  </div>
   <ul role="list" class="space-y-9">
     {
       [...sidebar.values()].map((category) => (
@@ -29,7 +55,7 @@ const { currentPage, class: className } = Astro.props;
                   href={`/${page.url}`}
                   rel="prefetch"
                   class={clsx(
-                    "block w-full pl-3.5 before:pointer-events-none before:absolute before:-left-1 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full",
+                    "block w-full pl-3.5 before:pointer-events-none before:absolute before:-left-1 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:rounded-full close-sidebar-on-click",
                     currentPage === `/${page.url}/` ||
                       currentPage === `/${page.url}`
                       ? "font-semibold text-sky-500 before:bg-sky-500"
@@ -46,3 +72,11 @@ const { currentPage, class: className } = Astro.props;
     }
   </ul>
 </nav>
+
+<script>
+  document.querySelectorAll(".close-sidebar-on-click").forEach((e) => {
+    e.addEventListener("click", () =>
+      document.body.classList.remove("mobile-sidebar-toggle")
+    );
+  });
+</script>

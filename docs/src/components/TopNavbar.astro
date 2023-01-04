@@ -1,32 +1,95 @@
 ---
-import QuickLinks from "./QuickLinks.astro";
 import Logo from "./Logo.astro";
 import SidebarToggle from "./SidebarToggle.astro";
 import ThemeToggleButton from "./ThemeToggleButton.astro";
+import { config } from "../config";
 
 const isLanding = Astro.url.pathname === "/";
+
+// TODO: Move all this code into `config.ts`
+import fs from "node:fs/promises";
+import TOML from "@iarna/toml";
+
+const url = new URL("../../../Cargo.toml", import.meta.url);
+const json = await fs.readFile(url, "utf-8");
+const cargoToml: any = TOML.parse(json);
+const version = cargoToml?.package?.version || "unknown";
 ---
 
-<nav
-  class="flex flex-col relative justify-between items-center py-4 my-2 transition-colors z-20"
-  aria-label="Global"
+<header
+  class="sticky top-0 h-20 z-100 bg-white dark:bg-black shadow-sm items-center justify-between justify-items-center flex py-4 sm:px-4 md:px-6 lg:px-8"
 >
-  <div class="flex items-center justify-between w-full px-10">
-    <div class="flex justify-between items-center w-full md:w-auto">
-      <a href="/" rel="prefetch" aria-label="rspc landing page">
-        <Logo width="50" height="50" />
-      </a>
-    </div>
-    <div class="flex flex-grow justify-end items-center">
-      <QuickLinks class="hidden sm:flex" />
+  <div class="flex items-center pl-8">
+    <SidebarToggle isLanding={isLanding} />
 
-      <div class="text-center mx-4 md:mx-4 hidden sm:block">
-        <ThemeToggleButton />
-      </div>
+    <a
+      href="/"
+      rel="prefetch"
+      class="flex justify-center items-center mr-4 !no-underline close-sidebar-on-click"
+      aria-label="back to landing page"
+    >
+      <Logo width="42" height="42" />
 
-      <div id="sidebar-toggle" class={isLanding ? "hidden" : ""}>
-        <SidebarToggle />
-      </div>
+      <h1 class="text-3xl font-normal md:ml-4 p-3 sm:p-8 md:p-0">
+        rspc
+        <!-- <span class="text-sm font-medium">- Rust Procedure Call</span> -->
+      </h1>
+    </a>
+    <a
+      href="https://github.com/oscartbeaumont/rspc/releases"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="md:ml-4 h-22 bg-gray-100 dark:bg-gray-700 text-sm font-medium rounded-md py-[2px] px-3 !no-underline hover:bg-gray-200 hover:dark:bg-black-200 transition-colors"
+    >
+      <span>{version}</span>
+    </a>
+  </div>
+
+  <div class="items-center hidden sm:flex">
+    {
+      config.header?.links?.map((link) => (
+        <a
+          href={link.href}
+          rel="noreferrer noopener"
+          target="_black"
+          class="mx-2"
+          aria-label={link.alt}
+        >
+          <img
+            class="h-9 w-9 object-contain logo"
+            src={link.src}
+            data-light-src={link.src}
+            data-dark-src={link.darkSrc}
+            alt={link.alt}
+            draggable={false}
+          />
+        </a>
+      ))
+    }
+
+    <div class="text-center mx-4 md:mx-4 hidden sm:block select-none">
+      <ThemeToggleButton />
     </div>
   </div>
-</nav>
+</header>
+
+<script>
+  const logos = document.querySelectorAll<HTMLImageElement>(".logo");
+
+  window.addEventListener(
+    "theme-change",
+    (event) => {
+      const theme: string = (event as any).detail;
+      logos.forEach((elem) => {
+        if (theme === "dark") {
+          const src = elem.getAttribute("data-light-src");
+          if (src) elem.src = src;
+        } else {
+          const src = elem.getAttribute("data-dark-src");
+          if (src) elem.src = src;
+        }
+      });
+    },
+    false
+  );
+</script>
