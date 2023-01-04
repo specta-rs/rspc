@@ -10,7 +10,9 @@ const isLanding = Astro.url.pathname === "/";
 import fs from "node:fs/promises";
 import TOML from "@iarna/toml";
 
-const url = new URL("../../../Cargo.toml", import.meta.url);
+const url = import.meta.env.DEV
+  ? new URL("../../../Cargo.toml", import.meta.url)
+  : new URL("../../Cargo.toml", import.meta.url);
 const json = await fs.readFile(url, "utf-8");
 const cargoToml: any = TOML.parse(json);
 const version = cargoToml?.package?.version || "unknown";
