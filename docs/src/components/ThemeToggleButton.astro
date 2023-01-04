@@ -48,7 +48,7 @@
 
       const themeToggle = this.querySelector<HTMLDivElement>(".theme-toggle");
       if (themeToggle) {
-        themeToggle.addEventListener("click", (e) => {
+        themeToggle.addEventListener("click", () => {
           theme = theme === "light" ? "dark" : "light";
           this.persistTheme();
         });
