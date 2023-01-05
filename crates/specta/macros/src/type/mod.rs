@@ -57,7 +57,13 @@ pub fn derive(
     ));
 
     let (inlines, category, can_flatten) = match data {
-        Data::Struct(data) => parse_struct(&name_str, &container_attrs, generics, &crate_ref, data),
+        Data::Struct(data) => parse_struct(
+            &name_str,
+            (&container_attrs, StructAttr::from_attrs(attrs).unwrap()),
+            generics,
+            &crate_ref,
+            data,
+        ),
         Data::Enum(data) => {
             let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
 

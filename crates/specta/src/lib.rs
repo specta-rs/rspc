@@ -35,7 +35,7 @@
 //! If you are using [Prisma Client Rust](https://prisma.brendonovich.dev) you can enable the `rspc` feature on it to allow for Specta support on types coming directly from your database. This includes support for the types created via a selection.
 //!
 //! ## Feature flags
-#![doc = document_features::document_features!()]
+// #![doc = document_features::document_features!()]
 #![forbid(unsafe_code)]
 #![warn(clippy::all, clippy::unwrap_used, clippy::panic, missing_docs)]
 

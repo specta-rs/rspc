@@ -91,11 +91,13 @@ macro_rules! primitive_def {
 pub fn datatype(typ: &DataType) -> String {
     match &typ {
         DataType::Any => "any".into(),
-        primitive_def!(i8 i16 i32 u8 u16 u32 f32 f64) => "number".into(),
-        #[allow(clippy::panic)] // TODO: This is a temporary measure and will be converted to an error in the future.
-        primitive_def!(usize isize i64 u64 i128 u128) => panic!(
-            "TypeScript does not support integers larger than 54 bits. If you need to use these, we recommend serializing them as strings and using #[specta(type = String)] to override the type."
-        ),
+        primitive_def!(i8 i16 i32 u8 u16 u32 f32 f64 usize isize i64 u64 i128 u128) => {
+            "number".into()
+        }
+        // #[allow(clippy::panic)] // TODO: This is a temporary measure and will be converted to an error in the future.
+        // primitive_def!(i64 u64 i128 u128) => panic!(
+        //     "TypeScript does not support integers larger than 54 bits. If you need to use these, we recommend serializing them as strings and using #[specta(type = String)] to override the type."
+        // ),
         primitive_def!(String char) => "string".into(),
         primitive_def!(bool) => "boolean".into(),
         DataType::Literal(literal) => literal.to_ts(),

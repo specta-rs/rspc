@@ -56,6 +56,8 @@ bson = ["dep:bson"]
 uhlc = ["dep:uhlc"]
 ## [bytesize](https://docs.rs/bytesize) crate
 bytesize = ["dep:bytesize"]
+## [glam](https://docs.rs/glam) crate
+# glam = ["dep:glam"]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -78,6 +80,7 @@ openapiv3 = { version = "1.0.1", optional = true, default-features = false, feat
 uhlc = { version = "0.5.1", optional = true, default-features = false, features = [] }
 tauri = { version = "1.2.1", optional = true, default-features = false, features = [] }
 bytesize = { version = "1.1.0", optional = true, default-features = false, features = [] }
+glam = { version = "0.22" }
 paste = "1.0.9"
 document-features = "0.2.6"
 ctor = { version = "0.1.26", optional = true }
