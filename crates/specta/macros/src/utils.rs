@@ -31,7 +31,7 @@ macro_rules! impl_parse {
                     match &*key.to_string() {
                         $($k => $e,)*
                         #[allow(unreachable_patterns)]
-                        _ => syn_err!($input.span(); "unexpected attribute")
+                        _ => {},
                     }
 
                     match $input.is_empty() {
@@ -55,8 +55,8 @@ where
     Ok(attrs
         .iter()
         .filter(|a| a.path.is_ident("specta"))
-        .map(A::try_from)
-        .collect::<Result<Vec<A>>>()?
+        .flat_map(A::try_from)
+        .collect::<Vec<A>>()
         .into_iter())
 }
 
@@ -68,6 +68,15 @@ pub fn parse_serde_attrs<'a, A: TryFrom<&'a Attribute, Error = Error> + 'a>(
     attrs
         .iter()
         .filter(|a| a.path.is_ident("serde"))
+        .flat_map(|attr| A::try_from(attr).ok())
+}
+
+pub fn parse_repr_attrs<'a, A: TryFrom<&'a Attribute, Error = Error> + 'a>(
+    attrs: &'a [Attribute],
+) -> impl Iterator<Item = A> + 'a {
+    attrs
+        .iter()
+        .filter(|a| a.path.is_ident("repr"))
         .flat_map(|attr| A::try_from(attr).ok())
 }
 

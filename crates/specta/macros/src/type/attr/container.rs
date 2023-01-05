@@ -52,7 +52,7 @@ impl_parse! {
         "rename_all" => out.rename_all = Some(parse_assign_inflection(input)?),
         "crate" => out.crate_name = Some(parse_assign_str(input)?),
         "inline" => out.inline = true,
-        "remote" => out.remote = Some(parse_assign_str(input)?)
+        "remote" => out.remote = Some(parse_assign_str(input)?),
     }
 }
 

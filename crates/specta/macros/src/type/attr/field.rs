@@ -20,8 +20,10 @@ impl FieldAttr {
     pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut result = Self::default();
         parse_attrs(attrs)?.for_each(|a| result.merge(a));
+
         #[cfg(feature = "serde")]
         crate::utils::parse_serde_attrs::<SerdeFieldAttr>(attrs).for_each(|a| result.merge(a.0));
+
         Ok(result)
     }
 
