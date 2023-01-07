@@ -138,9 +138,11 @@ pub fn parse_struct(
                         return None;
                     }
 
+                    let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
+
                     let generic_vars = construct_datatype(
                         format_ident!("gen"),
-                        &field.ty,
+                        &field_ty,
                         &generic_idents,
                         crate_ref,
                         field_attrs.inline,
