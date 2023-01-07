@@ -131,7 +131,7 @@ pub fn parse_enum(
 
                         let generic_vars = construct_datatype(
                             format_ident!("gen"),
-                            &field.ty,
+                            &field_ty,
                             &generic_idents,
                             crate_ref,
                             false,
