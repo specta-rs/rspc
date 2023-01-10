@@ -8,15 +8,19 @@ pub mod openapi;
 #[cfg(feature = "typescript")]
 pub mod ts;
 
-/// [Swift](https://www.swift.org/) support.
+/// [Rust](https://www.rust-lang.org) support.
+#[cfg(feature = "rust")]
+pub mod rust;
+
+/// [Swift](https://www.swift.org) support.
 #[cfg(feature = "swift")]
 pub mod swift;
 
-/// [Kotlin](https://kotlinlang.org/) support.
+/// [Kotlin](https://kotlinlang.org) support.
 #[cfg(feature = "kotlin")]
 pub mod kotlin;
 
-/// [Go Lang](https://go.dev/) support.
+/// [Go Lang](https://go.dev) support.
 #[cfg(feature = "go")]
 pub mod go;
 
