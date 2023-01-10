@@ -304,8 +304,10 @@ mod uhlc_impls {
     }
 }
 
+#[cfg(feature = "glam")]
 pub use glam_impls::*;
 
+#[cfg(feature = "glam")]
 mod glam_impls {
     use super::*;
     use glam::*;
