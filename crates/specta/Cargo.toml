@@ -28,6 +28,14 @@ tauri = ["dep:tauri"]
 #! Language Exporter
 ## Support for [TypeScript](https://www.typescriptlang.org) language exporting
 typescript = []
+## Support for [Rust](https://www.rust-lang.org) language exporting
+rust = []
+## Support for [Swift](https://www.swift.org/) language exporting
+swift = []
+## Support for [Kotlin](https://kotlinlang.org/) language exporting
+kotlin = []
+## Support for [Go Lang](https://go.dev/) language exporting
+go = []
 ## Support for [OpenAPI](https://www.openapis.org) language exporting
 openapi = ["dep:openapiv3"]
 
@@ -85,6 +93,7 @@ paste = "1.0.9"
 document-features = "0.2.6"
 ctor = { version = "0.1.26", optional = true }
 once_cell = "1.16.0"
+indoc = "1.0.8"
 
 [dev-dependencies]
 serde = { version = "1.0.147", features = ["derive"] }

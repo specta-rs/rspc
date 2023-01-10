@@ -114,19 +114,13 @@ pub fn export_datatype(conf: &ExportConfiguration, def: &DataType) -> Result<Str
     Ok(format!("export {declaration}"))
 }
 
-macro_rules! primitive_def {
-    ($($t:ident)+) => {
-        $(DataType::Primitive(PrimitiveType::$t))|+
-    }
-}
-
 /// Convert a DataType to a TypeScript string
 /// Eg. `{ demo: string; }`
 pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, String> {
     Ok(match &typ {
         DataType::Any => "any".into(),
-        primitive_def!(i8 i16 i32 u8 u16 u32 f32 f64 usize isize) => "number".into(),
-        primitive_def!(i64 u64 i128 u128) => match conf.bigint {
+        primitive_def!(i8 i16 i32 u8 u16 u32 f32 f64) => "number".into(),
+        primitive_def!(usize isize i64 u64 i128 u128) => match conf.bigint {
             BigIntExportBehavior::String => "string".into(),
             BigIntExportBehavior::Number => "number".into(),
             BigIntExportBehavior::BigInt => "BigInt".into(),

@@ -70,6 +70,31 @@ pub enum PrimitiveType {
     String,
 }
 
+impl PrimitiveType {
+    /// Converts a `PrimitiveType` into a Rust code string.
+    pub fn to_rust_str(&self) -> &'static str {
+        match self {
+            Self::i8 => "i8",
+            Self::i16 => "i16",
+            Self::i32 => "i32",
+            Self::i64 => "i64",
+            Self::i128 => "i128",
+            Self::isize => "isize",
+            Self::u8 => "u8",
+            Self::u16 => "u16",
+            Self::u32 => "u32",
+            Self::u64 => "u64",
+            Self::u128 => "u128",
+            Self::usize => "usize",
+            Self::f32 => "f32",
+            Self::f64 => "f64",
+            Self::bool => "bool",
+            Self::char => "char",
+            Self::String => "String",
+        }
+    }
+}
+
 /// this is used internally to represent the types.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
