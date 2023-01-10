@@ -142,7 +142,7 @@ pub fn parse_struct(
 
                     let generic_vars = construct_datatype(
                         format_ident!("gen"),
-                        &field_ty,
+                        field_ty,
                         &generic_idents,
                         crate_ref,
                         field_attrs.inline,
