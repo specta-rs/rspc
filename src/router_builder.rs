@@ -45,6 +45,28 @@ pub struct RouterBuilder<
     phantom: PhantomData<TMeta>,
 }
 
+pub trait RouterBuilderLike<TCtx>
+where
+    TCtx: Send + Sync + 'static,
+{
+    type Middleware: MiddlewareBuilderLike<TCtx> + Send + 'static;
+
+    fn expose(self) -> RouterBuilder<TCtx, (), Self::Middleware>;
+}
+
+// TODO: Remove `TMeta` from router
+impl<TCtx, TMiddleware> RouterBuilderLike<TCtx> for RouterBuilder<TCtx, (), TMiddleware>
+where
+    TCtx: Send + Sync + 'static,
+    TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
+{
+    type Middleware = TMiddleware;
+
+    fn expose(self) -> RouterBuilder<TCtx, (), Self::Middleware> {
+        self
+    }
+}
+
 #[allow(clippy::new_without_default, clippy::new_ret_no_self)]
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
@@ -268,7 +290,7 @@ where
     pub fn merge<TNewLayerCtx, TIncomingMiddleware>(
         self,
         prefix: &'static str,
-        router: RouterBuilder<TLayerCtx, TMeta, TIncomingMiddleware>,
+        router: impl RouterBuilderLike<TLayerCtx, Middleware = TIncomingMiddleware>,
     ) -> RouterBuilder<
         TCtx,
         TMeta,
@@ -279,6 +301,8 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
+        let router = router.expose();
+
         #[allow(clippy::panic)]
         if is_valid_procedure_name(prefix) {
             panic!(
