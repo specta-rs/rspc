@@ -94,10 +94,9 @@ impl<TResolver> OpenAPI<TResolver> for BuiltProcedureBuilder<TResolver> {
     }
 }
 
-impl<TCtx, TMeta> Router<TCtx, TMeta>
+impl<TCtx> Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
 {
     #[allow(clippy::unwrap_used, clippy::panic)] // TODO: Remove lint override once this feature is stable
     pub fn openapi_doc(&self, config: OpenAPIConfig) -> openapiv3::OpenAPI {

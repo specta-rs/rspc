@@ -131,10 +131,10 @@ impl<'a> Sender<'a> {
     }
 }
 
-pub async fn handle_json_rpc<TCtx, TMeta>(
+pub async fn handle_json_rpc<TCtx>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    router: &Arc<Router<TCtx, TMeta>>,
+    router: &Arc<Router<TCtx>>,
     sender: &mut Sender<'_>,
     subscriptions: &mut SubscriptionMap<'_>,
 ) where

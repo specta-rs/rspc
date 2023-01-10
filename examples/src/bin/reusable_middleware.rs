@@ -28,8 +28,7 @@ fn logger_middleware(
 
 #[tokio::main]
 async fn main() {
-    // TODO: For some reson you have to hardcode `TMeta` (2nd generic) for this to work which is undesired.
-    let router = Router::<(), ()>::new()
+    let router = Router::<()>::new()
         .middleware(logger_middleware)
         .query("version", |t| {
             t(|_, _: ()| async move { env!("CARGO_PKG_VERSION") })

@@ -19,10 +19,9 @@ use crate::{
     Router,
 };
 
-impl<TCtx, TMeta> Router<TCtx, TMeta>
+impl<TCtx> Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
 {
     pub fn endpoint<TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
         self: Arc<Self>,
@@ -90,13 +89,13 @@ where
     }
 }
 
-pub async fn handle_http<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
+pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     url_prefix: &str,
     kind: ProcedureKind,
     req: Request,
     cookies: CookieJar,
-    router: &Arc<Router<TCtx, TMeta>>,
+    router: &Arc<Router<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
@@ -246,15 +245,14 @@ where
     }
 }
 
-pub fn handle_websocket<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
+pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     req: Request,
     cookies: CookieJar,
-    router: Arc<Router<TCtx, TMeta>>,
+    router: Arc<Router<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
     #[cfg(feature = "tracing")]

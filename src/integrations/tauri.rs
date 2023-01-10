@@ -14,13 +14,12 @@ use crate::{
     Router,
 };
 
-pub fn plugin<R: Runtime, TCtx, TMeta>(
-    router: Arc<Router<TCtx, TMeta>>,
+pub fn plugin<R: Runtime, TCtx>(
+    router: Arc<Router<TCtx>>,
     ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
     TCtx: Send + 'static,
-    TMeta: Send + Sync + 'static,
 {
     Builder::new("rspc")
         .setup(|app_handle| {

@@ -28,11 +28,9 @@ pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
 
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
-    TMeta = (),
     TMiddleware = BaseMiddleware<TCtx>,
 > where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
     data: GlobalData,
@@ -42,7 +40,6 @@ pub struct RouterBuilder<
     mutations: ProcedureStore<TCtx>,
     subscriptions: ProcedureStore<TCtx>,
     typ_store: TypeDefs,
-    phantom: PhantomData<TMeta>,
 }
 
 pub trait RouterBuilderLike<TCtx>
@@ -51,38 +48,35 @@ where
 {
     type Middleware: MiddlewareBuilderLike<TCtx> + Send + 'static;
 
-    fn expose(self) -> RouterBuilder<TCtx, (), Self::Middleware>;
+    fn expose(self) -> RouterBuilder<TCtx, Self::Middleware>;
 }
 
-// TODO: Remove `TMeta` from router
-impl<TCtx, TMiddleware> RouterBuilderLike<TCtx> for RouterBuilder<TCtx, (), TMiddleware>
+impl<TCtx, TMiddleware> RouterBuilderLike<TCtx> for RouterBuilder<TCtx, TMiddleware>
 where
     TCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
     type Middleware = TMiddleware;
 
-    fn expose(self) -> RouterBuilder<TCtx, (), Self::Middleware> {
+    fn expose(self) -> RouterBuilder<TCtx, Self::Middleware> {
         self
     }
 }
 
 #[allow(clippy::new_without_default, clippy::new_ret_no_self)]
-impl<TCtx, TMeta> Router<TCtx, TMeta>
+impl<TCtx> Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + 'static,
 {
-    pub fn new() -> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>> {
+    pub fn new() -> RouterBuilder<TCtx, BaseMiddleware<TCtx>> {
         RouterBuilder::new()
     }
 }
 
 #[allow(clippy::new_without_default)]
-impl<TCtx, TMeta> RouterBuilder<TCtx, TMeta, BaseMiddleware<TCtx>>
+impl<TCtx> RouterBuilder<TCtx, BaseMiddleware<TCtx>>
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -93,15 +87,13 @@ where
             mutations: ProcedureStore::new("mutation"),
             subscriptions: ProcedureStore::new("subscription"),
             typ_store: TypeDefs::new(),
-            phantom: PhantomData,
         }
     }
 }
 
-impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
+impl<TCtx, TLayerCtx, TMiddleware> RouterBuilder<TCtx, TMiddleware>
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + 'static,
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
@@ -116,7 +108,6 @@ where
         builder: impl Fn(MiddlewareBuilder<TLayerCtx>) -> TNewMiddleware,
     ) -> RouterBuilder<
         TCtx,
-        TMeta,
         MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>,
     >
     where
@@ -147,7 +138,6 @@ where
             mutations,
             subscriptions,
             typ_store,
-            phantom: PhantomData,
         }
     }
 
@@ -293,7 +283,6 @@ where
         router: impl RouterBuilderLike<TLayerCtx, Middleware = TIncomingMiddleware>,
     ) -> RouterBuilder<
         TCtx,
-        TMeta,
         MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>,
     >
     where
@@ -367,11 +356,10 @@ where
             mutations,
             subscriptions,
             typ_store,
-            phantom: PhantomData,
         }
     }
 
-    pub fn build(self) -> Router<TCtx, TMeta> {
+    pub fn build(self) -> Router<TCtx> {
         let Self {
             data,
             config,
@@ -390,7 +378,6 @@ where
             mutations,
             subscriptions,
             typ_store,
-            phantom: PhantomData,
         };
 
         #[cfg(debug_assertions)]

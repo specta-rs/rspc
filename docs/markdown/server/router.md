@@ -3,7 +3,7 @@ title: Router
 index: 20
 ---
 
-A router contains a collection of procedures (queries, mutations or subscriptions) that can be called by a client. A router has many generic arguments which can be configured by the user to match the type of data that the router will be handling. A router is defined as `Router<TCtx, TMeta, TMiddleware>`.
+A router contains a collection of procedures (queries, mutations or subscriptions) that can be called by a client. A router has many generic arguments which can be configured by the user to match the type of data that the router will be handling. A router is defined as `Router<TCtx, TMiddleware>`.
 
 # TCtx
 
@@ -77,6 +77,8 @@ let router = Router::<MyCtx>::new()
 ```
 
 # TMeta
+
+(deprecated and pending removal)
 
 For all intents and purposes keep this `()`. This generic argument does nothing in the current release and may be deprecated in the future.
 

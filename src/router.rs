@@ -2,7 +2,6 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::Write,
-    marker::PhantomData,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
@@ -24,7 +23,7 @@ use crate::{
 };
 
 /// TODO
-pub struct Router<TCtx = (), TMeta = ()>
+pub struct Router<TCtx = ()>
 where
     TCtx: 'static,
 {
@@ -34,7 +33,6 @@ where
     pub(crate) mutations: ProcedureStore<TCtx>,
     pub(crate) subscriptions: ProcedureStore<TCtx>,
     pub(crate) typ_store: TypeDefs,
-    pub(crate) phantom: PhantomData<TMeta>,
 }
 
 // TODO: Move this out of this file
@@ -45,7 +43,7 @@ pub enum ExecKind {
     Mutation,
 }
 
-impl<TCtx, TMeta> Router<TCtx, TMeta>
+impl<TCtx> Router<TCtx>
 where
     TCtx: 'static,
 {
@@ -173,7 +171,7 @@ struct Procedures {
 }
 
 impl Procedures {
-    pub fn new<TCtx, TMeta>(router: &Router<TCtx, TMeta>) -> Self {
+    pub fn new<TCtx>(router: &Router<TCtx>) -> Self {
         Self {
             queries: store_to_datatypes(&router.queries.store),
             mutations: store_to_datatypes(&router.mutations.store),

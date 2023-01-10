@@ -11,7 +11,7 @@ fn mount() -> impl RouterBuilderLike<()> {
 }
 
 fn main() {
-    let r = Router::<(), ()>::new().merge("java.", mount());
+    let r = Router::<()>::new().merge("java.", mount());
 
     // TODO: Hookup your router to a webserver like Axum or a Tauri desktop app using the Tauri IPC adapter.
 }
