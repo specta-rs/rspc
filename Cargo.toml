@@ -40,6 +40,8 @@ mac_address = ["specta/mac_address"]
 bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
 uhlc = ["specta/uhlc"]
+bytesize = ["specta/bytesize"]
+glam = ["specta/glam"]
 
 [dependencies]
 specta = { version = "0.0.6", path = "./crates/specta", features = ["serde"] }
