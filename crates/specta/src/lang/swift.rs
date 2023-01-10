@@ -1,15 +1,16 @@
 use crate::*;
 use indoc::*;
 
-pub fn export<T: Type>() -> String {
+/// TODO
+pub fn export<T: Type>() -> Result<String, String> {
     datatype(&T::definition(DefOpts {
         parent_inline: true,
         type_map: &mut TypeDefs::default(),
     }))
 }
 
-fn datatype(t: &DataType) -> String {
-    match t {
+fn datatype(t: &DataType) -> Result<String, String> {
+    Ok(match t {
         DataType::Primitive(p) => match p {
             PrimitiveType::String | PrimitiveType::char => "String",
             PrimitiveType::i8 => "Int8",
@@ -26,31 +27,38 @@ fn datatype(t: &DataType) -> String {
             PrimitiveType::f32 => "Float",
             PrimitiveType::f64 => "Double",
             PrimitiveType::i128 | PrimitiveType::u128 => {
-                panic!("Swift does not support 128 numbers!")
+                return Err("Swift does not support 128 numbers!".to_owned());
             }
         }
         .to_string(),
         DataType::Any => "Codable".to_string(),
-        DataType::List(t) => format!("[{}]", datatype(&t)),
+        DataType::List(t) => format!("[{}]", datatype(&t)?),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "CodableVoid".to_string(),
-            [ty] => datatype(ty),
+            [ty] => datatype(ty)?,
             tys => format!(
                 "({})",
-                tys.iter().map(datatype).collect::<Vec<_>>().join(", ")
+                tys.iter()
+                    .map(datatype)
+                    .collect::<Result<Vec<_>, _>>()?
+                    .join(", ")
             ),
         },
-        DataType::Record(t) => format!("[{}: {}]", datatype(&t.0), datatype(&t.1)),
+        DataType::Record(t) => format!("[{}: {}]", datatype(&t.0)?, datatype(&t.1)?),
         DataType::Generic(GenericType(t)) => t.to_string(),
         DataType::Reference { name, generics, .. } => match &generics[..] {
             [] => name.to_string(),
             generics => {
-                let generics = generics.iter().map(datatype).collect::<Vec<_>>().join(", ");
+                let generics = generics
+                    .iter()
+                    .map(datatype)
+                    .collect::<Result<Vec<_>, _>>()?
+                    .join(", ");
 
                 format!("{name}<{generics}>")
             }
         },
-        DataType::Nullable(t) => format!("{}?", datatype(t)),
+        DataType::Nullable(t) => format!("{}?", datatype(t)?),
         DataType::Object(ObjectType {
             fields,
             tag,
@@ -78,11 +86,11 @@ fn datatype(t: &DataType) -> String {
                     .iter()
                     .map(|f| {
                         let name = &f.name;
-                        let typ = datatype(&f.ty);
+                        let typ = datatype(&f.ty)?;
 
-                        format!("\tpublic let {name}: {typ}")
+                        Ok(format!("\tpublic let {name}: {typ}"))
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Result<Vec<_>, String>>()?
                     .join("\n");
 
                 let tag = tag
@@ -99,7 +107,7 @@ fn datatype(t: &DataType) -> String {
                 }
             }
         },
-        DataType::Literal(_) => panic!("Swift does not support literal types!"),
+        DataType::Literal(_) => return Err("Swift does not support literal types!".to_owned()),
         _ => todo!(),
-    }
+    })
 }

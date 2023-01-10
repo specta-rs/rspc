@@ -2,15 +2,16 @@ use indoc::formatdoc;
 
 use crate::*;
 
-pub fn export<T: Type>() -> String {
+/// TODO
+pub fn export<T: Type>() -> Result<String, String> {
     datatype(&T::definition(DefOpts {
         parent_inline: true,
         type_map: &mut TypeDefs::default(),
     }))
 }
 
-fn datatype(t: &DataType) -> String {
-    match t {
+fn datatype(t: &DataType) -> Result<String, String> {
+    Ok(match t {
         DataType::Primitive(p) => match p {
             PrimitiveType::String => "String",
             PrimitiveType::char => "Char",
@@ -26,23 +27,27 @@ fn datatype(t: &DataType) -> String {
             PrimitiveType::f32 => "Float",
             PrimitiveType::f64 => "Double",
             PrimitiveType::i128 | PrimitiveType::u128 => {
-                panic!("Swift does not support 128 numbers!")
+                return Err("Swift does not support 128 numbers!".to_owned())
             }
         }
         .to_string(),
-        DataType::List(t) => format!("List<{}>", datatype(t)),
-        DataType::Tuple(_) => panic!("Kotlin does not support tuple types"),
-        DataType::Record(t) => format!("HashMap<{}, {}>", datatype(&t.0), datatype(&t.1)),
+        DataType::List(t) => format!("List<{}>", datatype(t)?),
+        DataType::Tuple(_) => return Err("Kotlin does not support tuple types".to_owned()),
+        DataType::Record(t) => format!("HashMap<{}, {}>", datatype(&t.0)?, datatype(&t.1)?),
         DataType::Generic(GenericType(t)) => t.to_string(),
         DataType::Reference { name, generics, .. } => match &generics[..] {
             [] => name.to_string(),
             generics => {
-                let generics = generics.iter().map(datatype).collect::<Vec<_>>().join(", ");
+                let generics = generics
+                    .iter()
+                    .map(datatype)
+                    .collect::<Result<Vec<_>, _>>()?
+                    .join(", ");
 
                 format!("{name}<{generics}>")
             }
         },
-        DataType::Nullable(t) => format!("{}?", datatype(t)),
+        DataType::Nullable(t) => format!("{}?", datatype(t)?),
         DataType::Object(ObjectType {
             name,
             generics,
@@ -61,14 +66,14 @@ fn datatype(t: &DataType) -> String {
                         .iter()
                         .map(|f| {
                             let name = &f.name;
-                            let typ = datatype(&f.ty);
+                            let typ = datatype(&f.ty)?;
                             let optional = matches!(f.ty, DataType::Nullable(_))
                                 .then(|| "= null")
                                 .unwrap_or_default();
 
-                            format!("\tvar {name}: {typ}{optional}")
+                            Ok(format!("\tvar {name}: {typ}{optional}"))
                         })
-                        .collect::<Vec<_>>()
+                        .collect::<Result<Vec<_>, String>>()?
                         .join(", ");
 
                     let tag = tag
@@ -86,7 +91,7 @@ fn datatype(t: &DataType) -> String {
                 "#
             }
         }
-        DataType::Literal(_) => panic!("Kotlin does not support literal types!"),
+        DataType::Literal(_) => return Err("Kotlin does not support literal types!".to_owned()),
         _ => todo!(),
-    }
+    })
 }

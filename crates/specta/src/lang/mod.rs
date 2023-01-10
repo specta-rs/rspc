@@ -4,12 +4,14 @@
 #[allow(warnings)] // TODO: Remove once this is out of dev
 pub mod openapi;
 
-/// [Swift](https://www.swift.org/) support.
-// #[cfg(feature = "swift")]
-pub mod swift;
-
-pub mod kotlin;
-
 /// [Typescript](https://www.typescriptlang.org) support.
 #[cfg(feature = "typescript")]
 pub mod ts;
+
+/// [Swift](https://www.swift.org/) support.
+#[cfg(feature = "swift")]
+pub mod swift;
+
+/// [Kotlin](https://kotlinlang.org/) support.
+#[cfg(feature = "kotlin")]
+pub mod kotlin;
