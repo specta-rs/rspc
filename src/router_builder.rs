@@ -286,7 +286,7 @@ where
         MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>,
     >
     where
-        TNewLayerCtx: 'static,
+        TNewLayerCtx: Send + Sync + 'static,
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {

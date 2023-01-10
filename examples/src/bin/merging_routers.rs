@@ -1,3 +1,4 @@
+use async_stream::stream;
 use rspc::{Router, RouterBuilderLike};
 
 fn mount_inner() -> impl RouterBuilderLike<()> {
@@ -8,6 +9,11 @@ fn mount() -> impl RouterBuilderLike<()> {
     Router::<()>::new()
         .query("demo", |t| t(|ctx, _: ()| async move { "Hello World" }))
         .merge("inner.", mount_inner())
+        .subscription("pings", |t| {
+            t(|_ctx, _args: ()| {
+                stream! {}
+            })
+        })
 }
 
 fn main() {

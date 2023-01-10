@@ -8,7 +8,7 @@ use specta::Type;
 use crate::{internal::MiddlewareLike, ExecError};
 
 pub trait MiddlewareBuilderLike<TCtx> {
-    type LayerContext: 'static;
+    type LayerContext: Send + Sync + 'static;
 
     fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
@@ -30,7 +30,7 @@ impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware> Middleware
 where
     TCtx: 'static,
     TLayerCtx: 'static,
-    TNewLayerCtx: 'static,
+    TNewLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx>,
     TIncomingMiddleware: MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx>,
 {
@@ -120,7 +120,7 @@ where
 
 impl<TCtx> MiddlewareBuilderLike<TCtx> for BaseMiddleware<TCtx>
 where
-    TCtx: Send + 'static,
+    TCtx: Send + Sync + 'static,
 {
     type LayerContext = TCtx;
 
