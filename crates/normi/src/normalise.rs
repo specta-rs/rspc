@@ -5,6 +5,7 @@ pub fn normalise(value: impl Object) -> Result<Value, serde_json::Error> {
     let mut refs = RefMap::default();
     Ok(Value::Object({
         let mut map = serde_json::Map::new();
+        #[allow(clippy::unwrap_used)] // TODO: Remove this lint override
         map.insert("$data".to_string(), value.normalize(&mut refs).unwrap());
         map.insert(
             "$refs".to_string(),
@@ -17,6 +18,7 @@ pub fn normalise(value: impl Object) -> Result<Value, serde_json::Error> {
                                 map.insert("$ty".to_string(), k.ty.into());
                                 Value::Object(map)
                             }
+                            #[allow(clippy::panic)]
                             _ => panic!("Expected object"), // TODO: Is this something I need to handle?
                         }
                     })

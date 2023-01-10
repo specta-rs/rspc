@@ -49,6 +49,7 @@ pub trait OpenAPI<TResolver> {
 }
 
 impl<TResolver> OpenAPI<TResolver> for BuiltProcedureBuilder<TResolver> {
+    #[allow(clippy::unwrap_used, clippy::panic)] // TODO: Remove once this feature is stable
     fn openapi(self, method: Method, url: &'static str) -> Self {
         {
             let mut data = self.data.write().unwrap();
@@ -56,7 +57,7 @@ impl<TResolver> OpenAPI<TResolver> for BuiltProcedureBuilder<TResolver> {
             let ctx = data
                 .entry(TypeId::of::<OpenAPIContext>())
                 .or_insert_with(|| {
-                    Box::new(OpenAPIContext::default())
+                    Box::<OpenAPIContext>::default()
                         as Box<dyn std::any::Any + Send + Sync + 'static>
                 })
                 .downcast_mut::<OpenAPIContext>()
@@ -98,14 +99,14 @@ where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
+    #[allow(clippy::unwrap_used, clippy::panic)] // TODO: Remove lint override once this feature is stable
     pub fn openapi_doc(&self, config: OpenAPIConfig) -> openapiv3::OpenAPI {
         let mut data = self.data.write().unwrap();
 
         let ctx = data
             .entry(TypeId::of::<OpenAPIContext>())
             .or_insert_with(|| {
-                Box::new(OpenAPIContext::default())
-                    as Box<dyn std::any::Any + Send + Sync + 'static>
+                Box::<OpenAPIContext>::default() as Box<dyn std::any::Any + Send + Sync + 'static>
             })
             .downcast_mut::<OpenAPIContext>()
             .unwrap();
@@ -307,6 +308,7 @@ where
         }
     }
 
+    #[allow(clippy::unwrap_used)] // TODO: Remove lint override once this feature is stable
     pub fn openapi_endpoint<
         TCtxFnMarker: Send + Sync + 'static,
         TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
@@ -324,7 +326,7 @@ where
             let ctx = data
                 .entry(TypeId::of::<OpenAPIContext>())
                 .or_insert_with(|| {
-                    Box::new(OpenAPIContext::default())
+                    Box::<OpenAPIContext>::default()
                         as Box<dyn std::any::Any + Send + Sync + 'static>
                 })
                 .downcast_mut::<OpenAPIContext>()
@@ -332,7 +334,7 @@ where
 
             ctx.endpoints
                 .iter()
-                .map(|((method, url), v)| (format!("/api{}", url), v.clone()))
+                .map(|((_method, url), v)| (format!("/api{}", url), v.clone()))
                 .collect::<BTreeMap<_, _>>()
         });
 

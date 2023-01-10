@@ -48,7 +48,7 @@ impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
 
     pub fn from_builder<T>(builder: &UnbuiltProcedureBuilder<TLayerCtx, T>) -> Self {
         let (name, kind, typedef, data) = (
-            builder.name.clone(),
+            builder.name,
             builder.kind.clone(),
             builder.typedef.clone(),
             builder.data.clone(),
@@ -60,7 +60,7 @@ impl<TLayerCtx, TResolver> UnbuiltProcedureBuilder<TLayerCtx, TResolver> {
             typedef: typedef.clone(),
             data: data.clone(),
             deref_handler: Box::new(move |resolver| BuiltProcedureBuilder {
-                name: name.clone(),
+                name,
                 kind: kind.clone(),
                 typedef: typedef.clone(),
                 data: data.clone(),

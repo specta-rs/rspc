@@ -14,17 +14,17 @@
     "@rspc/normi": "workspace:*",
     "@rspc/react": "workspace:*",
     "@rspc/solid": "workspace:*",
-    "@tanstack/react-query": "^4.14.5",
-    "@tanstack/solid-query": "^4.14.5",
-    "astro": "1.6.5",
+    "@tanstack/react-query": "^4.20.4",
+    "@tanstack/solid-query": "^4.20.4",
+    "astro": "1.8.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "solid-js": "^1.6.1"
+    "solid-js": "^1.6.6"
   },
   "devDependencies": {
     "@astrojs/react": "^1.2.2",
-    "@astrojs/solid-js": "^1.2.2",
-    "@types/react": "^18.0.25"
+    "@astrojs/solid-js": "^1.2.3",
+    "@types/react": "^18.0.26"
   },
   "pnpm": {
     "peerDependencyRules": {

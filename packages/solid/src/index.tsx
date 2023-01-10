@@ -1,4 +1,9 @@
-import { JSX, createContext, useContext as _useContext } from "solid-js";
+import {
+  JSX,
+  createContext,
+  useContext as _useContext,
+  createEffect,
+} from "solid-js";
 import {
   Client,
   inferInfiniteQueries,
@@ -13,6 +18,8 @@ import {
   RSPCError,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  createVanillaClient as _createVanillaClient,
+  ClientArgs,
 } from "@rspc/client";
 import {
   QueryClient,
@@ -26,6 +33,7 @@ import {
   CreateMutationOptions,
   CreateMutationResult,
   QueryClientProvider,
+  hashQueryKey,
 } from "@tanstack/solid-query";
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
@@ -46,11 +54,46 @@ interface Context<TProcedures extends ProceduresDef> {
   queryClient: QueryClient;
 }
 
+// TODO: The React side is handling types in a whole different way for the normi prototype. Should this be changed to match or should React be rolled back?
+// TODO: Also should SolidJS use the hook factory pattern???
 export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
   type TProcedures = inferProcedures<TProceduresLike>;
   type TBaseOptions = BaseOptions<TProcedures>;
 
   const Context = createContext<Context<TProcedures>>(undefined!);
+
+  const Provider = (props: {
+    children?: JSX.Element;
+    client: { _rspc_def: any }; // TODO: This type is just a slightly safer `as any`. Replace it with proper `Client` type. This will work for now before release.
+    queryClient: QueryClient;
+  }): JSX.Element => {
+    return (
+      <Context.Provider
+        value={{
+          // @ts-expect-error: Bad type for the argument.
+          client: props.client,
+          queryClient: props.queryClient,
+        }}
+      >
+        <QueryClientProvider client={props.queryClient}>
+          {props.children as any}
+        </QueryClientProvider>
+      </Context.Provider>
+    );
+  };
+
+  // TODO: This function should require an explicit return type but it's infered as `any` if I don't
+  // TODO: Changed this to be typed like the React side.
+  function createClient(
+    opts: ClientArgs
+  ): Client<
+    TProcedures,
+    TProcedures["queries"],
+    TProcedures["mutations"],
+    TProcedures["subscriptions"]
+  > {
+    return _createVanillaClient(opts);
+  }
 
   function useContext() {
     const ctx = _useContext(Context);
@@ -125,7 +168,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     return __createInfiniteQuery(
       keyAndInput,
       async () => {
-        throw new Error("TODO"); // TODO: Finish this
+        throw new Error("TODO: Support infinite query on SolidJS!"); // TODO: Finish this
       },
       rawOpts as any
     );
@@ -179,67 +222,50 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     if (!client) {
       client = useContext().client;
     }
-    // const queryKey = hashQueryKey(keyAndInput);
-    // const enabled = opts?.enabled ?? true;
+    const queryKey = () => hashQueryKey(keyAndInput());
+    const enabled = () => opts?.enabled ?? true;
 
-    throw new Error("TODO: SolidJS Subscriptions are not supported yet!");
+    return createEffect(() => {
+      if (!enabled()) {
+        return;
+      }
 
-    // return useEffect(() => {
-    //   if (!enabled) {
-    //     return;
-    //   }
-    //   let isStopped = false;
-    //   const unsubscribe = client.addSubscription<K, TData>(
-    //     keyAndInput,
-    //     {
-    //       onStarted: () => {
-    //         if (!isStopped) {
-    //           opts.onStarted?.();
-    //         }
-    //       },
-    //       onData: (data) => {
-    //         if (!isStopped) {
-    //           opts.onData(data);
-    //         }
-    //       },
-    //       onError: (err) => {
-    //         if (!isStopped) {
-    //           opts.onError?.(err);
-    //         }
-    //       },
-    //     }
-    //   );
-    //   return () => {
-    //     isStopped = true;
-    //     unsubscribe();
-    //   };
-    // }, [queryKey, enabled]);
+      queryKey();
+
+      let isStopped = false;
+
+      const subscription = client!.subscription(keyAndInput(), {
+        onStarted: () => {
+          if (!isStopped) {
+            opts.onStarted?.();
+          }
+        },
+        onData: (data) => {
+          if (!isStopped) {
+            opts.onData(data);
+          }
+        },
+        onError: (err) => {
+          if (!isStopped) {
+            opts.onError?.(err);
+          }
+        },
+      });
+      return () => {
+        isStopped = true;
+        subscription.unsubscribe();
+      };
+    });
   }
 
   return {
-    _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
-    Provider: (props: {
-      children?: JSX.Element;
-      client: Client<TProcedures>;
-      queryClient: QueryClient;
-    }): JSX.Element => {
-      return (
-        <Context.Provider
-          value={{
-            client: props.client,
-            queryClient: props.queryClient,
-          }}
-        >
-          <QueryClientProvider client={props.queryClient}>
-            {props.children as any}
-          </QueryClientProvider>
-        </Context.Provider>
-      ) as any;
-    },
+    _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers // TODO: This was removed on React side. Mistake or not?
+    createClient,
     useContext,
+    Provider,
     createQuery,
-    // createInfiniteQuery,
+    // createInfiniteQuery, // TODO
     createMutation,
-    // createSubscription,
+    createSubscription,
   };
 }

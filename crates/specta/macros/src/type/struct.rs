@@ -7,7 +7,7 @@ use super::{attr::*, generics::construct_datatype};
 
 pub fn parse_struct(
     struct_name: &str,
-    container_attrs: &ContainerAttr,
+    (container_attrs, struct_attrs): (&ContainerAttr, StructAttr),
     generics: &Generics,
     crate_ref: &TokenStream,
     data: &DataStruct,
@@ -127,33 +127,40 @@ pub fn parse_struct(
             }.into())
         }
         Fields::Unnamed(_) => {
-            let fields = data.fields.iter().filter_map(|field| {
-                let field_attrs = FieldAttr::from_attrs(&field.attrs).unwrap();
+            if struct_attrs.transparent {
+                let ty = &data.fields.iter().next().unwrap().ty;
+                quote!(#ty)
+            } else {
+                let fields = data.fields.iter().filter_map(|field| {
+                    let field_attrs = FieldAttr::from_attrs(&field.attrs).unwrap();
 
-                if field_attrs.skip {
-                    return None;
-                }
+                    if field_attrs.skip {
+                        return None;
+                    }
 
-                let generic_vars = construct_datatype(
-                    format_ident!("gen"),
-                    &field.ty,
-                    &generic_idents,
-                    crate_ref,
-                    field_attrs.inline,
-                );
+                    let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
 
-                Some(quote! {{
-                    #generic_vars
+                    let generic_vars = construct_datatype(
+                        format_ident!("gen"),
+                        field_ty,
+                        &generic_idents,
+                        crate_ref,
+                        field_attrs.inline,
+                    );
 
-                    gen
-                }})
-            });
+                    Some(quote! {{
+                        #generic_vars
 
-            quote!(#crate_ref::TupleType {
-                name: #struct_name.to_string(),
-                generics: vec![#(#definition_generics),*],
-                fields: vec![#(#fields),*]
-            }.into())
+                        gen
+                    }})
+                });
+
+                quote!(#crate_ref::TupleType {
+                    name: #struct_name.to_string(),
+                    generics: vec![#(#definition_generics),*],
+                    fields: vec![#(#fields),*]
+                }.into())
+            }
         }
         Fields::Unit => {
             quote!(#crate_ref::TupleType {

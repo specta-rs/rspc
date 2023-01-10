@@ -112,6 +112,9 @@ function getTransformer(opts: ClientArgs): DataTransformer {
   return opts.transformer;
 }
 
+/**
+ * @deprecated It is recommended you use `hooks.createClient` where `const hooks = createSolidQueryHooks<Procedures>();` instead if your using hooks or `createVanillaClient` if you're not.
+ */
 export function createClient<
   TBaseProceduresLike extends ProceduresLike,
   TQueries extends ProcedureDef = inferProcedures<TBaseProceduresLike>["queries"],
@@ -266,6 +269,20 @@ export function createClient<
     mutation,
     subscription,
   };
+}
+
+export function createVanillaClient<
+  TBaseProceduresLike extends ProceduresLike,
+  TQueries extends ProcedureDef = inferProcedures<TBaseProceduresLike>["queries"],
+  TMutations extends ProcedureDef = inferProcedures<TBaseProceduresLike>["mutations"],
+  TSubscriptions extends ProcedureDef = inferProcedures<TBaseProceduresLike>["subscriptions"]
+>(opts: ClientArgs) {
+  return createClient<
+    TBaseProceduresLike,
+    TQueries,
+    TMutations,
+    TSubscriptions
+  >(opts);
 }
 
 export type Client<

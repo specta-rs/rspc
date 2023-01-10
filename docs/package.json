@@ -12,21 +12,21 @@
     "astro-spa": "^1.3.9",
     "clsx": "^1.2.1",
     "morphdom": "^2.6.1",
-    "solid-js": "^1.6.1"
+    "solid-js": "^1.6.6"
   },
   "devDependencies": {
     "@astrojs/sitemap": "^1.0.0",
-    "@astrojs/solid-js": "^1.2.2",
-    "@astrojs/tailwind": "^2.1.2",
+    "@astrojs/solid-js": "^1.2.3",
+    "@astrojs/tailwind": "^2.1.3",
     "@tailwindcss/typography": "^0.5.8",
-    "astro": "1.6.5",
-    "astro-compress": "^1.1.1",
+    "astro": "1.8.0",
+    "astro-compress": "^1.1.24",
     "astro-icon": "^0.8.0",
-    "node-html-parser": "^6.1.1",
+    "node-html-parser": "^6.1.4",
     "rehype-external-links": "^2.0.1",
-    "svgo": "^2.8.0",
-    "tailwind-scrollbar": "2.0.1",
-    "tailwindcss": "^3.2.2"
+    "svgo": "^3.0.2",
+    "tailwind-scrollbar": "2.1.0",
+    "tailwindcss": "^3.2.4"
   },
   "engines": {
     "pnpm": ">=7.0.0",

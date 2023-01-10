@@ -127,9 +127,11 @@ pub fn parse_enum(
                     let fields = fields.named.iter().map(|field| {
                         let field_attrs = FieldAttr::from_attrs(&field.attrs).unwrap();
 
+                        let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
+
                         let generic_vars = construct_datatype(
                             format_ident!("gen"),
-                            &field.ty,
+                            field_ty,
                             &generic_idents,
                             crate_ref,
                             false,

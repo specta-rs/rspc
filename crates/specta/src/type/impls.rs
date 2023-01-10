@@ -32,7 +32,15 @@ impl<'a, T: Type + 'static> Type for &'a T {
     }
 }
 
-impl<'a, T: ToOwned + Type + 'static> Type for std::borrow::Cow<'a, T> {
+impl<T: Type> Type for [T] {
+    const NAME: &'static str = T::NAME;
+
+    fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
+        T::inline(defs, generics)
+    }
+}
+
+impl<'a, T: ?Sized + ToOwned + Type + 'static> Type for std::borrow::Cow<'a, T> {
     const NAME: &'static str = T::NAME;
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
@@ -293,5 +301,46 @@ mod uhlc_impls {
     struct TimestampDef {
         time: NTP64,
         id: ID,
+    }
+}
+
+#[cfg(feature = "glam")]
+pub use glam_impls::*;
+
+#[cfg(feature = "glam")]
+mod glam_impls {
+    use super::*;
+    use glam::*;
+
+    #[derive(Type)]
+    #[specta(remote = "DVec2", crate = "crate")]
+    #[allow(dead_code)]
+    struct DVec2Def {
+        x: f64,
+        y: f64,
+    }
+
+    #[derive(Type)]
+    #[specta(remote = "IVec2", crate = "crate")]
+    #[allow(dead_code)]
+    struct IVec2Def {
+        x: i32,
+        y: i32,
+    }
+
+    #[derive(Type)]
+    #[specta(remote = "DMat2", crate = "crate")]
+    #[allow(dead_code)]
+    struct DMat2Def {
+        pub x_axis: DVec2,
+        pub y_axis: DVec2,
+    }
+
+    #[derive(Type)]
+    #[specta(remote = "DAffine2", crate = "crate")]
+    #[allow(dead_code)]
+    struct DAffine2Def {
+        matrix2: DMat2,
+        translation: DVec2,
     }
 }
