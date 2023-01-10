@@ -85,7 +85,7 @@ mod tests {
     use specta::{ts::inline, Type};
 
     fn ts_export_ref<T: Type>(_t: &T) -> String {
-        inline::<T>()
+        inline::<T>(&Default::default()).unwrap()
     }
 
     #[derive(Clone)]
