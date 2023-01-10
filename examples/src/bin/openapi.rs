@@ -1,3 +1,5 @@
+//! This is more of a proof on concept than feature. Be aware will 110% run into problems using it.
+//!
 use axum::{extract::Path, routing::get};
 use rspc::{
     plugins::openapi::{Method, OpenAPI, OpenAPIConfig},
