@@ -114,12 +114,6 @@ pub fn export_datatype(conf: &ExportConfiguration, def: &DataType) -> Result<Str
     Ok(format!("export {declaration}"))
 }
 
-macro_rules! primitive_def {
-    ($($t:ident)+) => {
-        $(DataType::Primitive(PrimitiveType::$t))|+
-    }
-}
-
 /// Convert a DataType to a TypeScript string
 /// Eg. `{ demo: string; }`
 pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, String> {

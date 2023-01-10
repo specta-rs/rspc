@@ -30,8 +30,10 @@ tauri = ["dep:tauri"]
 typescript = []
 ## Support for [Swift](https://www.swift.org/) language exporting
 swift = []
-## Support for [Kotlin](https://kotlinlang.org/) support. language exporting
+## Support for [Kotlin](https://kotlinlang.org/) language exporting
 kotlin = []
+## Support for [Go Lang](https://go.dev/) language exporting
+go = []
 ## Support for [OpenAPI](https://www.openapis.org) language exporting
 openapi = ["dep:openapiv3"]
 
