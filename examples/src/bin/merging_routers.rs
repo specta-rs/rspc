@@ -5,10 +5,15 @@ fn mount_inner() -> impl RouterBuilderLike<()> {
     Router::new().query("demo", |t| t(|_ctx, _: ()| async move { "Hello World" }))
 }
 
+fn mount_inner2() -> impl RouterBuilderLike<()> {
+    Router::new().query("demo", |t| t(|_ctx, _: ()| async move { "Hello World" }))
+}
+
 fn mount() -> impl RouterBuilderLike<()> {
     Router::<()>::new()
         .query("demo", |t| t(|_ctx, _: ()| async move { "Hello World" }))
-        .merge("inner.", mount_inner())
+        .yolo_merge("inner.", mount_inner())
+        .yolo_merge("inner2.", mount_inner2())
         .subscription("pings", |t| {
             t(|_ctx, _args: ()| {
                 stream! {}

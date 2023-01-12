@@ -359,6 +359,61 @@ where
         }
     }
 
+    // TODO: Remove this
+    // It allows for merging a router without the `TMiddleware` and `TCtx` "flowing" out of the child router.
+    // This is required to mount more than two routers which use `impl RouterBuilderLike`.
+    // This should be fixed with the new syntax.
+    pub fn yolo_merge(
+        mut self,
+        prefix: &'static str,
+        router: impl RouterBuilderLike<TLayerCtx>,
+    ) -> Self {
+        let router = router.expose();
+
+        #[allow(clippy::panic)]
+        if is_valid_procedure_name(prefix) {
+            panic!(
+                "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
+                prefix
+            );
+        }
+
+        // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
+
+        for (key, mut query) in router.queries.store {
+            query.ty.key = format!("{}{}", prefix, key);
+            self.queries.append(
+                format!("{}{}", prefix, key),
+                self.middleware.build(query.exec),
+                query.ty,
+            );
+        }
+
+        for (key, mut mutation) in router.mutations.store {
+            mutation.ty.key = format!("{}{}", prefix, key);
+            self.mutations.append(
+                format!("{}{}", prefix, key),
+                self.middleware.build(mutation.exec),
+                mutation.ty,
+            );
+        }
+
+        for (key, mut subscription) in router.subscriptions.store {
+            subscription.ty.key = format!("{}{}", prefix, key);
+            self.subscriptions.append(
+                format!("{}{}", prefix, key),
+                self.middleware.build(subscription.exec),
+                subscription.ty,
+            );
+        }
+
+        for (name, typ) in router.typ_store {
+            self.typ_store.insert(name, typ);
+        }
+
+        self
+    }
+
     pub fn build(self) -> Router<TCtx> {
         let Self {
             data,
