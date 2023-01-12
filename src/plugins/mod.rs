@@ -1,2 +1,2 @@
-#[cfg(feature = "openapi")]
-pub mod openapi;
+// #[cfg(feature = "openapi")]
+// pub mod openapi;

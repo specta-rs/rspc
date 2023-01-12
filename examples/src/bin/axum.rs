@@ -2,11 +2,11 @@ use std::{path::PathBuf, sync::Arc};
 
 use example::{basic, selection, subscriptions};
 
-use axum::{extract::Path, routing::get};
-use rspc::{Config, Router};
+use axum::routing::get;
+use rspc::{integrations::httpz::Request, Config, Router};
 use tower_http::cors::{Any, CorsLayer};
 
-fn mount() -> Arc<Router<(), ()>> {
+fn mount() -> Arc<Router<()>> {
     let r1 = Router::<i32>::new().query("demo", |t| t(|_, _: ()| "Merging Routers!"));
 
     <rspc::Router>::new()
@@ -36,11 +36,11 @@ async fn main() {
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
-        .route(
-            "/rspc/:id",
+        .nest(
+            "/rspc",
             router
-                .endpoint(|path: Path<String>| {
-                    println!("Client requested operation '{}'", *path);
+                .endpoint(|req: Request| {
+                    println!("Client requested operation '{}'", req.uri().path());
                 })
                 .axum(),
         )

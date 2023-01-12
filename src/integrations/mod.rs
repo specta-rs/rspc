@@ -1,21 +1,7 @@
-#[cfg(any(
-    feature = "httpz",
-    feature = "axum",
-    feature = "actix-web",
-    feature = "rocket",
-    feature = "lambda",
-    feature = "workers"
-))]
+#[cfg(feature = "httpz")]
 pub mod httpz;
 
-#[cfg(any(
-    feature = "httpz",
-    feature = "axum",
-    feature = "actix-web",
-    feature = "rocket",
-    feature = "lambda",
-    feature = "workers"
-))]
+#[cfg(feature = "httpz")]
 pub(crate) mod httpz_extractors;
 
 #[cfg(feature = "tauri")]

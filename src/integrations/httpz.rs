@@ -1,14 +1,15 @@
-pub use super::httpz_extractors::*;
-pub use super::httpz_extractors::*;
 use futures::{SinkExt, StreamExt};
 use httpz::{
-    cookie::CookieJar,
     http::{Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
-    Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse, Request,
+    Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
 };
 use serde_json::Value;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    mem,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -19,6 +20,465 @@ use crate::{
     Router,
 };
 
+pub use super::httpz_extractors::*;
+pub use httpz::cookie::Cookie;
+
+/// TODO
+///
+// TODO: Can `Rc<RefCell<T>>` be used so I don't need to await a borrow and use Tokio specific API's???
+// TODO: The `Mutex` will block. This isn't great, work to remove it. The Tokio `Mutex` makes everything annoyingly async so I don't use it.
+#[derive(Debug)]
+pub struct CookieJar(Arc<Mutex<httpz::cookie::CookieJar>>);
+
+impl CookieJar {
+    pub(super) fn new(cookies: Arc<Mutex<httpz::cookie::CookieJar>>) -> Self {
+        Self(cookies)
+    }
+
+    /// Returns a reference to the `Cookie` inside this jar with the name
+    /// `name`. If no such cookie exists, returns `None`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use cookie::{CookieJar, Cookie};
+    ///
+    /// let mut jar = CookieJar::new();
+    /// assert!(jar.get("name").is_none());
+    ///
+    /// jar.add(Cookie::new("name", "value"));
+    /// assert_eq!(jar.get("name").map(|c| c.value()), Some("value"));
+    /// ```
+    pub fn get(&self, name: &str) -> Option<Cookie<'static>> {
+        self.0.lock().unwrap().get(name).cloned() // TODO: `cloned` is cringe avoid it by removing `Mutex`?
+    }
+
+    /// Adds an "original" `cookie` to this jar. If an original cookie with the
+    /// same name already exists, it is replaced with `cookie`. Cookies added
+    /// with `add` take precedence and are not replaced by this method.
+    ///
+    /// Adding an original cookie does not affect the [delta](#method.delta)
+    /// computation. This method is intended to be used to seed the cookie jar
+    /// with cookies received from a client's HTTP message.
+    ///
+    /// For accurate `delta` computations, this method should not be called
+    /// after calling `remove`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use cookie::{CookieJar, Cookie};
+    ///
+    /// let mut jar = CookieJar::new();
+    /// jar.add_original(Cookie::new("name", "value"));
+    /// jar.add_original(Cookie::new("second", "two"));
+    ///
+    /// assert_eq!(jar.get("name").map(|c| c.value()), Some("value"));
+    /// assert_eq!(jar.get("second").map(|c| c.value()), Some("two"));
+    /// assert_eq!(jar.iter().count(), 2);
+    /// assert_eq!(jar.delta().count(), 0);
+    /// ```
+    pub fn add_original(&self, cookie: Cookie<'static>) {
+        self.0.lock().unwrap().add_original(cookie)
+    }
+
+    /// Adds `cookie` to this jar. If a cookie with the same name already
+    /// exists, it is replaced with `cookie`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use cookie::{CookieJar, Cookie};
+    ///
+    /// let mut jar = CookieJar::new();
+    /// jar.add(Cookie::new("name", "value"));
+    /// jar.add(Cookie::new("second", "two"));
+    ///
+    /// assert_eq!(jar.get("name").map(|c| c.value()), Some("value"));
+    /// assert_eq!(jar.get("second").map(|c| c.value()), Some("two"));
+    /// assert_eq!(jar.iter().count(), 2);
+    /// assert_eq!(jar.delta().count(), 2);
+    /// ```
+    pub fn add(&self, cookie: Cookie<'static>) {
+        self.0.lock().unwrap().add(cookie);
+    }
+
+    /// Removes `cookie` from this jar. If an _original_ cookie with the same
+    /// name as `cookie` is present in the jar, a _removal_ cookie will be
+    /// present in the `delta` computation. To properly generate the removal
+    /// cookie, `cookie` must contain the same `path` and `domain` as the cookie
+    /// that was initially set.
+    ///
+    /// A "removal" cookie is a cookie that has the same name as the original
+    /// cookie but has an empty value, a max-age of 0, and an expiration date
+    /// far in the past. See also [`Cookie::make_removal()`].
+    ///
+    /// # Example
+    ///
+    /// Removing an _original_ cookie results in a _removal_ cookie:
+    ///
+    /// ```rust
+    /// # extern crate cookie;
+    /// use cookie::{CookieJar, Cookie};
+    /// use cookie::time::Duration;
+    ///
+    /// # fn main() {
+    /// let mut jar = CookieJar::new();
+    ///
+    /// // Assume this cookie originally had a path of "/" and domain of "a.b".
+    /// jar.add_original(Cookie::new("name", "value"));
+    ///
+    /// // If the path and domain were set, they must be provided to `remove`.
+    /// jar.remove(Cookie::build("name", "").path("/").domain("a.b").finish());
+    ///
+    /// // The delta will contain the removal cookie.
+    /// let delta: Vec<_> = jar.delta().collect();
+    /// assert_eq!(delta.len(), 1);
+    /// assert_eq!(delta[0].name(), "name");
+    /// assert_eq!(delta[0].max_age(), Some(Duration::seconds(0)));
+    /// # }
+    /// ```
+    ///
+    /// Removing a new cookie does not result in a _removal_ cookie unless
+    /// there's an original cookie with the same name:
+    ///
+    /// ```rust
+    /// use cookie::{CookieJar, Cookie};
+    ///
+    /// let mut jar = CookieJar::new();
+    /// jar.add(Cookie::new("name", "value"));
+    /// assert_eq!(jar.delta().count(), 1);
+    ///
+    /// jar.remove(Cookie::named("name"));
+    /// assert_eq!(jar.delta().count(), 0);
+    ///
+    /// jar.add_original(Cookie::new("name", "value"));
+    /// jar.add(Cookie::new("name", "value"));
+    /// assert_eq!(jar.delta().count(), 1);
+    ///
+    /// jar.remove(Cookie::named("name"));
+    /// assert_eq!(jar.delta().count(), 1);
+    /// ```
+    pub fn remove(&self, cookie: Cookie<'static>) {
+        self.0.lock().unwrap().remove(cookie)
+    }
+
+    /// Removes `cookie` from this jar completely. This method differs from
+    /// `remove` in that no delta cookie is created under any condition. Neither
+    /// the `delta` nor `iter` methods will return a cookie that is removed
+    /// using this method.
+    ///
+    /// # Example
+    ///
+    /// Removing an _original_ cookie; no _removal_ cookie is generated:
+    ///
+    /// ```rust
+    /// # extern crate cookie;
+    /// use cookie::{CookieJar, Cookie};
+    /// use cookie::time::Duration;
+    ///
+    /// # fn main() {
+    /// let mut jar = CookieJar::new();
+    ///
+    /// // Add an original cookie and a new cookie.
+    /// jar.add_original(Cookie::new("name", "value"));
+    /// jar.add(Cookie::new("key", "value"));
+    /// assert_eq!(jar.delta().count(), 1);
+    /// assert_eq!(jar.iter().count(), 2);
+    ///
+    /// // Now force remove the original cookie.
+    /// jar.force_remove(&Cookie::named("name"));
+    /// assert_eq!(jar.delta().count(), 1);
+    /// assert_eq!(jar.iter().count(), 1);
+    ///
+    /// // Now force remove the new cookie.
+    /// jar.force_remove(&Cookie::named("key"));
+    /// assert_eq!(jar.delta().count(), 0);
+    /// assert_eq!(jar.iter().count(), 0);
+    /// # }
+    /// ```
+    pub fn force_remove<'a>(&self, cookie: &Cookie<'a>) {
+        self.0.lock().unwrap().force_remove(cookie)
+    }
+
+    /// Removes all delta cookies, i.e. all cookies not added via
+    /// [`CookieJar::add_original()`], from this `CookieJar`. This undoes any
+    /// changes from [`CookieJar::add()`] and [`CookieJar::remove()`]
+    /// operations.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use cookie::{CookieJar, Cookie};
+    ///
+    /// let mut jar = CookieJar::new();
+    ///
+    /// // Only original cookies will remain after calling `reset_delta`.
+    /// jar.add_original(Cookie::new("name", "value"));
+    /// jar.add_original(Cookie::new("language", "Rust"));
+    ///
+    /// // These operations, represented by delta cookies, will be reset.
+    /// jar.add(Cookie::new("language", "C++"));
+    /// jar.remove(Cookie::named("name"));
+    ///
+    /// // All is normal.
+    /// assert_eq!(jar.get("name"), None);
+    /// assert_eq!(jar.get("language").map(Cookie::value), Some("C++"));
+    /// assert_eq!(jar.iter().count(), 1);
+    /// assert_eq!(jar.delta().count(), 2);
+    ///
+    /// // Resetting undoes delta operations.
+    /// jar.reset_delta();
+    /// assert_eq!(jar.get("name").map(Cookie::value), Some("value"));
+    /// assert_eq!(jar.get("language").map(Cookie::value), Some("Rust"));
+    /// assert_eq!(jar.iter().count(), 2);
+    /// assert_eq!(jar.delta().count(), 0);
+    /// ```
+    pub fn reset_delta(&self) {
+        self.0.lock().unwrap().reset_delta()
+    }
+
+    // /// Returns an iterator over cookies that represent the changes to this jar
+    // /// over time. These cookies can be rendered directly as `Set-Cookie` header
+    // /// values to affect the changes made to this jar on the client.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust
+    // /// use cookie::{CookieJar, Cookie};
+    // ///
+    // /// let mut jar = CookieJar::new();
+    // /// jar.add_original(Cookie::new("name", "value"));
+    // /// jar.add_original(Cookie::new("second", "two"));
+    // ///
+    // /// // Add new cookies.
+    // /// jar.add(Cookie::new("new", "third"));
+    // /// jar.add(Cookie::new("another", "fourth"));
+    // /// jar.add(Cookie::new("yac", "fifth"));
+    // ///
+    // /// // Remove some cookies.
+    // /// jar.remove(Cookie::named("name"));
+    // /// jar.remove(Cookie::named("another"));
+    // ///
+    // /// // Delta contains two new cookies ("new", "yac") and a removal ("name").
+    // /// assert_eq!(jar.delta().count(), 3);
+    // /// ```
+    // pub fn delta(&self) -> Delta {
+    //     self.0.lock().unwrap().delta()
+    // }
+
+    // /// Returns an iterator over all of the cookies present in this jar.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust
+    // /// use cookie::{CookieJar, Cookie};
+    // ///
+    // /// let mut jar = CookieJar::new();
+    // ///
+    // /// jar.add_original(Cookie::new("name", "value"));
+    // /// jar.add_original(Cookie::new("second", "two"));
+    // ///
+    // /// jar.add(Cookie::new("new", "third"));
+    // /// jar.add(Cookie::new("another", "fourth"));
+    // /// jar.add(Cookie::new("yac", "fifth"));
+    // ///
+    // /// jar.remove(Cookie::named("name"));
+    // /// jar.remove(Cookie::named("another"));
+    // ///
+    // /// // There are three cookies in the jar: "second", "new", and "yac".
+    // /// # assert_eq!(jar.iter().count(), 3);
+    // /// for cookie in jar.iter() {
+    // ///     match cookie.name() {
+    // ///         "second" => assert_eq!(cookie.value(), "two"),
+    // ///         "new" => assert_eq!(cookie.value(), "third"),
+    // ///         "yac" => assert_eq!(cookie.value(), "fifth"),
+    // ///         _ => unreachable!("there are only three cookies in the jar")
+    // ///     }
+    // /// }
+    // /// ```
+    // pub fn iter(&self) -> Iter {
+    //     self.0.lock().unwrap().iter()
+    // }
+
+    // /// Returns a read-only `PrivateJar` with `self` as its parent jar using the
+    // /// key `key` to verify/decrypt cookies retrieved from the child jar. Any
+    // /// retrievals from the child jar will be made from the parent jar.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust
+    // /// use cookie::{Cookie, CookieJar, Key};
+    // ///
+    // /// // Generate a secure key.
+    // /// let key = Key::generate();
+    // ///
+    // /// // Add a private (signed + encrypted) cookie.
+    // /// let mut jar = CookieJar::new();
+    // /// jar.private_mut(&key).add(Cookie::new("private", "text"));
+    // ///
+    // /// // The cookie's contents are encrypted.
+    // /// assert_ne!(jar.get("private").unwrap().value(), "text");
+    // ///
+    // /// // They can be decrypted and verified through the child jar.
+    // /// assert_eq!(jar.private(&key).get("private").unwrap().value(), "text");
+    // ///
+    // /// // A tampered with cookie does not validate but still exists.
+    // /// let mut cookie = jar.get("private").unwrap().clone();
+    // /// jar.add(Cookie::new("private", cookie.value().to_string() + "!"));
+    // /// assert!(jar.private(&key).get("private").is_none());
+    // /// assert!(jar.get("private").is_some());
+    // /// ```
+    // #[cfg(feature = "private")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "private")))]
+    // pub fn private<'a>(&'a self, key: &Key) -> PrivateJar<&'a Self> {
+    //     PrivateJar::new(self, key)
+    // }
+
+    // /// Returns a read/write `PrivateJar` with `self` as its parent jar using
+    // /// the key `key` to sign/encrypt and verify/decrypt cookies added/retrieved
+    // /// from the child jar.
+    // ///
+    // /// Any modifications to the child jar will be reflected on the parent jar,
+    // /// and any retrievals from the child jar will be made from the parent jar.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust
+    // /// use cookie::{Cookie, CookieJar, Key};
+    // ///
+    // /// // Generate a secure key.
+    // /// let key = Key::generate();
+    // ///
+    // /// // Add a private (signed + encrypted) cookie.
+    // /// let mut jar = CookieJar::new();
+    // /// jar.private_mut(&key).add(Cookie::new("private", "text"));
+    // ///
+    // /// // Remove a cookie using the child jar.
+    // /// jar.private_mut(&key).remove(Cookie::named("private"));
+    // /// ```
+    // #[cfg(feature = "private")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "private")))]
+    // pub fn private_mut<'a>(&'a mut self, key: &Key) -> PrivateJar<&'a mut Self> {
+    //     PrivateJar::new(self, key)
+    // }
+
+    // /// Returns a read-only `SignedJar` with `self` as its parent jar using the
+    // /// key `key` to verify cookies retrieved from the child jar. Any retrievals
+    // /// from the child jar will be made from the parent jar.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust
+    // /// use cookie::{Cookie, CookieJar, Key};
+    // ///
+    // /// // Generate a secure key.
+    // /// let key = Key::generate();
+    // ///
+    // /// // Add a signed cookie.
+    // /// let mut jar = CookieJar::new();
+    // /// jar.signed_mut(&key).add(Cookie::new("signed", "text"));
+    // ///
+    // /// // The cookie's contents are signed but still in plaintext.
+    // /// assert_ne!(jar.get("signed").unwrap().value(), "text");
+    // /// assert!(jar.get("signed").unwrap().value().contains("text"));
+    // ///
+    // /// // They can be verified through the child jar.
+    // /// assert_eq!(jar.signed(&key).get("signed").unwrap().value(), "text");
+    // ///
+    // /// // A tampered with cookie does not validate but still exists.
+    // /// let mut cookie = jar.get("signed").unwrap().clone();
+    // /// jar.add(Cookie::new("signed", cookie.value().to_string() + "!"));
+    // /// assert!(jar.signed(&key).get("signed").is_none());
+    // /// assert!(jar.get("signed").is_some());
+    // /// ```
+    // #[cfg(feature = "signed")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "signed")))]
+    // pub fn signed<'a>(&'a self, key: &Key) -> SignedJar<&'a Self> {
+    //     SignedJar::new(self, key)
+    // }
+
+    // /// Returns a read/write `SignedJar` with `self` as its parent jar using the
+    // /// key `key` to sign/verify cookies added/retrieved from the child jar.
+    // ///
+    // /// Any modifications to the child jar will be reflected on the parent jar,
+    // /// and any retrievals from the child jar will be made from the parent jar.
+    // ///
+    // /// # Example
+    // ///
+    // /// ```rust
+    // /// use cookie::{Cookie, CookieJar, Key};
+    // ///
+    // /// // Generate a secure key.
+    // /// let key = Key::generate();
+    // ///
+    // /// // Add a signed cookie.
+    // /// let mut jar = CookieJar::new();
+    // /// jar.signed_mut(&key).add(Cookie::new("signed", "text"));
+    // ///
+    // /// // Remove a cookie.
+    // /// jar.signed_mut(&key).remove(Cookie::named("signed"));
+    // /// ```
+    // #[cfg(feature = "signed")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "signed")))]
+    // pub fn signed_mut<'a>(&'a mut self, key: &Key) -> SignedJar<&'a mut Self> {
+    //     SignedJar::new(self, key)
+    // }
+}
+
+/// TODO
+///
+/// This wraps [httpz::Request] removing any methods that are not safe with rspc such as `body`, `into_parts` and replacing the cookie handling API.
+///
+#[derive(Debug)]
+pub struct Request(httpz::Request, Option<CookieJar>);
+
+impl Request {
+    pub(crate) fn new(req: httpz::Request, cookies: Option<CookieJar>) -> Self {
+        Self(req, cookies)
+    }
+
+    /// Get the uri of the request.
+    pub fn uri(&self) -> &httpz::http::Uri {
+        self.0.uri()
+    }
+
+    /// Get the version of the request.
+    pub fn version(&self) -> httpz::http::Version {
+        self.0.version()
+    }
+
+    /// Get the method of the request.
+    pub fn method(&self) -> &httpz::http::Method {
+        self.0.method()
+    }
+
+    /// Get the headers of the request.
+    pub fn headers(&self) -> &httpz::http::HeaderMap {
+        self.0.headers()
+    }
+
+    /// TODO
+    pub fn cookies(&mut self) -> Option<CookieJar> {
+        // TODO: This take means a `None` response could be because it was already used or because it's a websocket. This is a confusing DX and needs fixing.
+
+        mem::replace(&mut self.1, None)
+    }
+
+    /// query_pairs returns an iterator of the query parameters.
+    pub fn query_pairs(&self) -> Option<httpz::form_urlencoded::Parse<'_>> {
+        self.0.query_pairs()
+    }
+
+    /// TODO
+    pub fn server(&self) -> httpz::Server {
+        self.0.server()
+    }
+
+    // TODO: Downcasting extensions both `mut` and `ref`
+    // TODO: Inserting extensions
+}
+
 impl<TCtx> Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
@@ -27,95 +487,49 @@ where
         self: Arc<Self>,
         ctx_fn: TCtxFn,
     ) -> Endpoint<impl HttpEndpoint> {
-        self.internal_endpoint(None, ctx_fn)
-    }
+        GenericEndpoint::new(
+            "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
+            [Method::GET, Method::POST],
+            move |req: httpz::Request| {
+                // TODO: It would be nice if these clones weren't per request.
+                // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
+                let router = self.clone();
+                let ctx_fn = ctx_fn.clone();
 
-    pub fn endpoint_with_prefix<
-        TCtxFnMarker: Send + Sync + 'static,
-        TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    >(
-        self: Arc<Self>,
-        url_prefix: &'static str,
-        ctx_fn: TCtxFn,
-    ) -> Endpoint<impl HttpEndpoint> {
-        self.internal_endpoint(Some(url_prefix), ctx_fn)
-    }
-
-    fn internal_endpoint<
-        TCtxFnMarker: Send + Sync + 'static,
-        TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    >(
-        self: Arc<Self>,
-        url_prefix: Option<&'static str>,
-        ctx_fn: TCtxFn,
-    ) -> Endpoint<impl HttpEndpoint> {
-        GenericEndpoint::new([Method::GET, Method::POST], move |req: Request| {
-            // TODO: It would be nice if these clones weren't per request. Maybe httpz could allow context to be generated per thread and stored in thread local?
-            let router = self.clone();
-            let ctx_fn = ctx_fn.clone();
-
-            async move {
-                let websocket_url = format!("{}/ws", url_prefix.unwrap_or("/rspc")); // TODO: Match on variable in URL and not not the entire URL??
-                let cookies = req.cookies();
-
-                match (req.method(), req.uri().path()) {
-                    (&Method::GET, url) if url == websocket_url => {
-                        handle_websocket(ctx_fn, req, cookies, router).into_response()
+                async move {
+                    match (req.method(), &req.uri().path()[1..]) {
+                        (&Method::GET, "ws") => {
+                            handle_websocket(ctx_fn, req, router).into_response()
+                        }
+                        (&Method::GET, _) => {
+                            handle_http(ctx_fn, ProcedureKind::Query, req, &router)
+                                .await
+                                .into_response()
+                        }
+                        (&Method::POST, _) => {
+                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
+                                .await
+                                .into_response()
+                        }
+                        _ => unreachable!(),
                     }
-                    (&Method::GET, _) => handle_http(
-                        ctx_fn,
-                        &format!("{}/", url_prefix.unwrap_or("/rspc")),
-                        ProcedureKind::Query,
-                        req,
-                        cookies,
-                        &router,
-                    )
-                    .await
-                    .into_response(),
-                    (&Method::POST, _) => handle_http(
-                        ctx_fn,
-                        &format!("{}/", url_prefix.unwrap_or("/rspc")),
-                        ProcedureKind::Mutation,
-                        req,
-                        cookies,
-                        &router,
-                    )
-                    .await
-                    .into_response(),
-                    _ => unreachable!(),
                 }
-            }
-        })
+            },
+        )
     }
 }
 
 pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
-    url_prefix: &str,
     kind: ProcedureKind,
-    req: Request,
-    cookies: CookieJar,
+    mut req: httpz::Request,
     router: &Arc<Router<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
-    let uri = req.uri().clone();
-
-    let key = match uri.path().strip_prefix(url_prefix) {
-        Some(key) => key,
-        None => {
-            return Ok((
-                Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .header("Content-Type", "application/json")
-                    .body(b"[]".to_vec())?,
-                cookies,
-            )); // TODO: Include error information in response
-        }
-    };
-
+    let procedure_name = req.uri().path()[1..].to_string(); // Has to be allocated because `TCtxFn` takes ownership of `req`
     let input = match *req.method() {
         Method::GET => req
             .query_pairs()
@@ -127,6 +541,7 @@ where
             .unwrap_or(Ok(None)),
         _ => unreachable!(),
     };
+    let cookies = req.cookies();
 
     let input = match input {
         Ok(input) => input,
@@ -135,7 +550,7 @@ where
             tracing::error!(
                 "Error passing parameters to operation '{}' with key '{:?}': {}",
                 kind.to_str(),
-                key,
+                procedure_name,
                 _err
             );
 
@@ -153,24 +568,14 @@ where
     tracing::debug!(
         "Executing operation '{}' with key '{}' with params {:?}",
         kind.to_str(),
-        key,
+        procedure_name,
         input
     );
 
     let mut resp = Sender::Response(None);
 
-    #[cfg(not(feature = "workers"))]
-    let ctx = match ctx_fn.exec(&mut httpz::axum::axum::extract::RequestParts::new(
-        req.into(),
-    )) {
-        TCtxFuncResult::Value(v) => v,
-        TCtxFuncResult::Future(v) => v.await,
-    };
-    #[cfg(feature = "workers")]
-    let ctx = match ctx_fn.exec() {
-        TCtxFuncResult::Value(v) => v,
-        TCtxFuncResult::Future(v) => v.await,
-    };
+    let cookie_jar = Arc::new(Mutex::new(cookies));
+    let ctx = ctx_fn.exec(&mut req, Some(CookieJar::new(cookie_jar.clone())));
 
     let ctx = match ctx {
         Ok(v) => v,
@@ -183,7 +588,7 @@ where
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .header("Content-Type", "application/json")
                     .body(b"[]".to_vec())?,
-                cookies,
+                req.cookies(), // If cookies were set in the context function they will be lost but it errored so thats probs fine.
             ));
         }
     };
@@ -195,11 +600,11 @@ where
             id: RequestId::Null,
             inner: match kind {
                 ProcedureKind::Query => jsonrpc::RequestInner::Query {
-                    path: key.to_string(),
+                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
                     input,
                 },
                 ProcedureKind::Mutation => jsonrpc::RequestInner::Mutation {
-                    path: key.to_string(),
+                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
                     input,
                 },
                 ProcedureKind::Subscription => {
@@ -211,7 +616,7 @@ where
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .header("Content-Type", "application/json")
                             .body(b"[]".to_vec())?,
-                        cookies,
+                        req.cookies(), // If cookies were set in the context function they will be lost but it errored so thats probs fine.
                     ));
                 }
             },
@@ -221,6 +626,20 @@ where
         &mut SubscriptionMap::None,
     )
     .await;
+
+    let cookies = {
+        match Arc::try_unwrap(cookie_jar) {
+            Ok(cookies) => cookies.into_inner().unwrap(),
+            Err(cookie_jar) => {
+                #[cfg(all(feature = "tracing", feature = "warning", debug_assertions))]
+                tracing::warn!("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
+                #[cfg(all(not(feature = "tracing"), feature = "warning", debug_assertions))]
+                println("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
+
+                cookie_jar.lock().unwrap().clone()
+            }
+        }
+    };
 
     match resp {
         Sender::Response(Some(resp)) => Ok((
@@ -247,8 +666,7 @@ where
 
 pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
-    req: Request,
-    cookies: CookieJar,
+    req: httpz::Request,
     router: Arc<Router<TCtx>>,
 ) -> impl HttpResponse
 where
@@ -258,21 +676,20 @@ where
     #[cfg(feature = "tracing")]
     tracing::debug!("Accepting websocket connection");
 
-    #[cfg(not(feature = "axum"))]
-    return {
-        println!("Sorry websocket are not supported on your platform yet!");
-        Ok(Response::builder()
+    if !req.server().supports_websockets() {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Websocket are not supported on your webserver!");
+
+        // TODO: Make this error be picked up on the frontend and expose it with a logical name
+        return Ok(Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(vec![])?)
-    };
+            .body(vec![])?);
+    }
 
-    #[cfg(feature = "axum")]
-    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
-        use httpz::axum::axum::extract::RequestParts;
-
+    let cookies = req.cookies();
+    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |mut req, mut socket| async move {
         let mut subscriptions = HashMap::new();
         let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
-        let mut req = RequestParts::new(req.into());
 
         loop {
             tokio::select! {
@@ -314,15 +731,7 @@ where
                                 }) {
                                 Ok(reqs) => {
                                     for request in reqs {
-                                        #[cfg(feature = "workers")]
-                                        compile_error!("You can't have the 'axum' and 'workers' features enabled at the same time!");
-                                        #[cfg(not(feature = "workers"))]
-                                        {
-                                            let ctx = match ctx_fn.exec(&mut req) {
-                                                TCtxFuncResult::Value(v) => v,
-                                                TCtxFuncResult::Future(v) => v.await,
-                                            };
-
+                                        let ctx = ctx_fn.exec(&mut req, None);
 
                                             handle_json_rpc(match ctx {
                                                 Ok(v) => v,
@@ -334,7 +743,6 @@ where
                                                 }
                                             }, request, &router, &mut Sender::Channel(&mut tx),
                                             &mut SubscriptionMap::Ref(&mut subscriptions)).await;
-                                        }
                                     }
                                 },
                                 Err(_err) => {
@@ -343,8 +751,6 @@ where
 
                                     // TODO: Send report of error to frontend
 
-                                    println!("Error in websocket: {}", _err);
-
                                     continue;
                                 }
                             };
@@ -352,8 +758,6 @@ where
                         Some(Err(_err)) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!("Error in websocket: {}", _err);
-
-                            println!("Error in websocket: {}", _err);
 
                             // TODO: Send report of error to frontend
 
@@ -371,5 +775,5 @@ where
                 }
             }
         }
-    })
+    }).into_response()
 }

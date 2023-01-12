@@ -45,12 +45,11 @@ jobs:
       # - name: Build npm packages
       #   run: pnpm build
 
-      # TODO: Can't have both 'axum' and 'workers' feature both enabled.
-      # - name: Build Rust crate
-      #   run: cargo build --all-features
+      - name: Build Rust crate
+        run: cargo build --all-features
       
       - name: Generate test bindings for typecheck
-        run: cargo test -p example tests::test_rspc_router -- --exact
+        run: cargo test -p example tests::test_rspc_router -- --exact # TODO: Move this into a the first unit test
       
       - name: Typecheck
         run: pnpm typecheck

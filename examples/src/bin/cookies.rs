@@ -2,14 +2,16 @@
 //! An official API will likely exist in the future but this works well for now.
 use std::{ops::Add, path::PathBuf};
 
-use axum::{extract::Path, routing::get};
-use rspc::Config;
+use axum::routing::get;
+use rspc::{
+    integrations::httpz::{Cookie, CookieJar, Request},
+    Config,
+};
 use time::OffsetDateTime;
-use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
 
 pub struct Ctx {
-    cookies: Cookies,
+    cookies: CookieJar,
 }
 
 #[tokio::main]
@@ -40,16 +42,20 @@ async fn main() {
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
-        .route(
-            "/rspc/:id",
+        .nest(
+            "/rspc",
             router
-                .endpoint(|path: Path<String>, cookies: Cookies| {
-                    println!("Client requested operation '{}'", *path);
-                    Ctx { cookies }
+                .endpoint(|mut req: Request| {
+                    println!("Client requested operation '{}'", req.uri().path());
+                    Ctx {
+                        // TODO: Come up with a system for a ready only cookie jar which can be used during a websocket connection -> Probs by using Marker?
+                        cookies: req
+                            .cookies()
+                            .expect("TODO: Websockets don't support the `CookieJar` for now."),
+                    }
                 })
                 .axum(),
         )
-        .layer(CookieManagerLayer::new())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(
             CorsLayer::new()
@@ -59,7 +65,7 @@ async fn main() {
         );
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
-    println!("listening on http://{}/rspc/version", addr);
+    println!("listening on http://{}/rspc/getCookie", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

@@ -12,7 +12,8 @@ keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
 [features]
-default = []
+default = ["warnings"]
+warnings = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies"]
@@ -20,13 +21,13 @@ openapi = ["dep:openapiv3", "dep:httpz", "dep:include_dir", "dep:mime_guess", "s
 # playground = []
 
 # Webservers # Axum feature basically always enabled because we use the extractors regardless of webserver
-axum = ["httpz/axum", "httpz/tokio-ws", "httpz/axum"]
-actix-web = ["httpz/actix-web", "httpz/tokio-ws", "httpz/axum"]
-# poem = ["httpz/poem"]
-rocket = ["httpz/rocket", "httpz/tokio-ws", "httpz/axum"]
-# warp = ["httpz/warp"]
-lambda = ["httpz/lambda", "httpz/ws", "httpz/axum"]
-workers = ["httpz/workers", "httpz/ws"]
+axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
+# actix-web = ["httpz", "httpz/actix-web", "httpz/tokio-ws", "httpz/axum"]
+# poem = ["httpz", "httpz/poem"]
+# rocket = ["httpz", "httpz/rocket", "httpz/tokio-ws", "httpz/axum"]
+# warp = ["httpz", "httpz/warp"]
+lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
+workers = ["httpz", "httpz/workers", "httpz/ws"]
 
 # Specta
 uuid = ["specta/uuid"]
@@ -45,16 +46,15 @@ glam = ["specta/glam"]
 
 [dependencies]
 specta = { version = "0.0.6", path = "./crates/specta", features = ["serde"] }
-# httpz = { git = "https://github.com/oscartbeaumont/httpz.git", rev = "28353d48aeddb43be1d6fce8a46165cfa671ae48", optional = true } # TODO: Axum 0.6 support # TODO: Move back to crates.io release
-httpz = { git = "https://github.com/oscartbeaumont/httpz.git", rev = "1ddbd9ad594ac7ee3e5b167afe689d1ce1228519", optional = true } # TODO: Move back to crates.io release
+httpz = { git = "https://github.com/oscartbeaumont/httpz.git", rev = "a5020adecb15b55d84a8330b4680eba82fa6b820", optional = true } # TODO: Move back to crates.io release
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 thiserror = "1.0.38"
 futures = "0.3.25"
-tokio = { version = "1.23.1", features = ["sync", "rt", "macros"] }
+tokio = { version = "1.23.1", features = ["sync", "rt", "macros"] } # TODO: Make tokio an optional dep to allow for other async runtimes to be supported
 tauri = { version = "1.2.3", optional = true }
 tracing = { version = "0.1.37", optional = true }
-async-stream = "0.3.3"
+async-stream = "0.3.3" # TODO: Remove this dep
 openapiv3 = { version = "1.0.2", optional = true }
 include_dir = { version = "0.7.3", optional = true, features = ["metadata"] }
 mime_guess = { version = "2.0.4", optional = true }
