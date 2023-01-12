@@ -8,7 +8,7 @@
   "dependencies": {
     "@rspc/client": "workspace:*",
     "@rspc/react": "workspace:*",
-    "@tanstack/react-query": "^4.20.4",
+    "@tanstack/react-query": "^4.22.0",
     "next": "^13.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

@@ -12,15 +12,15 @@
     "astro-spa": "^1.3.9",
     "clsx": "^1.2.1",
     "morphdom": "^2.6.1",
-    "solid-js": "^1.6.6"
+    "solid-js": "^1.6.8"
   },
   "devDependencies": {
     "@astrojs/sitemap": "^1.0.0",
     "@astrojs/solid-js": "^1.2.3",
     "@astrojs/tailwind": "^2.1.3",
-    "@tailwindcss/typography": "^0.5.8",
-    "astro": "1.8.0",
-    "astro-compress": "^1.1.24",
+    "@tailwindcss/typography": "^0.5.9",
+    "astro": "1.9.2",
+    "astro-compress": "^1.1.25",
     "astro-icon": "^0.8.0",
     "node-html-parser": "^6.1.4",
     "rehype-external-links": "^2.0.1",

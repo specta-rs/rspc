@@ -39,7 +39,7 @@ async fn main() {
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
-        .route("/rspc/:id", router.endpoint(|| ()).axum())
+        .nest("/rspc", router.endpoint(|| ()).axum())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(
             CorsLayer::new()

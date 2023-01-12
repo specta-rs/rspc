@@ -51,7 +51,7 @@ serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 thiserror = "1.0.38"
 futures = "0.3.25"
-tokio = { version = "1.23.1", features = ["sync", "rt", "macros"] } # TODO: Make tokio an optional dep to allow for other async runtimes to be supported
+tokio = { version = "1.24.1", features = ["sync", "rt", "macros"] } # TODO: Make tokio an optional dep to allow for other async runtimes to be supported
 tauri = { version = "1.2.3", optional = true }
 tracing = { version = "0.1.37", optional = true }
 async-stream = "0.3.3" # TODO: Remove this dep

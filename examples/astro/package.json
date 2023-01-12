@@ -14,12 +14,12 @@
     "@rspc/normi": "workspace:*",
     "@rspc/react": "workspace:*",
     "@rspc/solid": "workspace:*",
-    "@tanstack/react-query": "^4.20.4",
-    "@tanstack/solid-query": "^4.20.4",
-    "astro": "1.8.0",
+    "@tanstack/react-query": "^4.22.0",
+    "@tanstack/solid-query": "^4.22.0",
+    "astro": "1.9.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "solid-js": "^1.6.6"
+    "solid-js": "^1.6.8"
   },
   "devDependencies": {
     "@astrojs/react": "^1.2.2",
