@@ -1,107 +1,131 @@
 use quote::format_ident;
-use std::convert::TryFrom;
-use syn::{
-    parse::{Parse, ParseStream},
-    Attribute, Error, Ident, Lit, Result, Token,
-};
+use syn::{Attribute, Ident, Lit, MetaNameValue, Result, Type};
 
-macro_rules! syn_err {
-    ($l:literal $(, $a:expr)*) => {
-        syn_err!(proc_macro2::Span::call_site(); $l $(, $a)*)
-    };
-    ($s:expr; $l:literal $(, $a:expr)*) => {
-        return Err(syn::Error::new($s, format!($l $(, $a)*)))
-    };
+pub fn filter_attrs<'a>(
+    path: &'static str,
+    attrs: &'a [Attribute],
+) -> impl Iterator<Item = &'a Attribute> + 'a {
+    attrs.iter().filter(|a| a.path.is_ident(path))
 }
 
-macro_rules! impl_parse {
-    ($i:ident ($input:ident, $out:ident) { $($k:pat => $e:expr),* $(,)? }) => {
-        impl std::convert::TryFrom<&syn::Attribute> for $i {
-            type Error = syn::Error;
+pub struct AttributeParser(pub MetaNameValue);
 
-            fn try_from(attr: &syn::Attribute) -> syn::Result<Self> { attr.parse_args() }
+impl AttributeParser {
+    pub fn tag(&self) -> String {
+        self.0.path.get_ident().unwrap().to_string()
+    }
+
+    pub fn pass_string(&self) -> Result<String> {
+        match &self.0.lit {
+            Lit::Str(string) => Ok(string.value()),
+            lit => Err(syn::Error::new_spanned(
+                lit,
+                "specta: expected string literal",
+            )),
         }
+    }
 
-        impl syn::parse::Parse for $i {
-            fn parse($input: syn::parse::ParseStream) -> syn::Result<Self> {
-                #[allow(warnings)]
-                let mut $out = $i::default();
-                loop {
-                    let key: syn::Ident = $input.call(syn::ext::IdentExt::parse_any)?;
-                    match &*key.to_string() {
-                        $($k => $e,)*
-                        #[allow(unreachable_patterns)]
-                        _ => {},
-                    }
+    pub fn pass_type(&self) -> Result<Type> {
+        todo!();
+        // match &self.0.lit {
+        //     Lit::Str(string) => Ok(string.value()),
 
-                    match $input.is_empty() {
-                        true => break,
-                        false => {
-                            $input.parse::<syn::Token![,]>()?;
-                        }
-                    }
+        //     Lit::
+        //     lit => Err(syn::Error::new_spanned(
+        //         lit,
+        //         "specta: expected string literal",
+        //     )),
+        // }
+
+        // println!("{:?}", self.0.lit);
+        // Ok(Type::Verbatim(quote::quote!(TODO)))
+    }
+
+    pub fn pass_inflection(&self) -> Result<Inflection> {
+        match &self.0.lit {
+            Lit::Str(lit) => Ok(match lit.value().to_lowercase().replace('_', "").as_str() {
+                "lowercase" => Inflection::Lower,
+                "uppercase" => Inflection::Upper,
+                "camelcase" => Inflection::Camel,
+                "snakecase" => Inflection::Snake,
+                "pascalcase" => Inflection::Pascal,
+                "screamingsnakecase" => Inflection::ScreamingSnake,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        lit,
+                        "specta: string literal contains un unsupported inflection",
+                    ))
                 }
-
-                Ok($out)
-            }
-        }
-    };
-}
-
-pub fn parse_attrs<'a, A>(attrs: &'a [Attribute]) -> Result<impl Iterator<Item = A>>
-where
-    A: TryFrom<&'a Attribute, Error = Error>,
-{
-    Ok(attrs
-        .iter()
-        .filter(|a| a.path.is_ident("specta"))
-        .flat_map(A::try_from)
-        .collect::<Vec<A>>()
-        .into_iter())
-}
-
-#[cfg(feature = "serde")]
-#[allow(unused)]
-pub fn parse_serde_attrs<'a, A: TryFrom<&'a Attribute, Error = Error> + 'a>(
-    attrs: &'a [Attribute],
-) -> impl Iterator<Item = A> + 'a {
-    attrs
-        .iter()
-        .filter(|a| a.path.is_ident("serde"))
-        .flat_map(|attr| A::try_from(attr).ok())
-}
-
-pub fn parse_repr_attrs<'a, A: TryFrom<&'a Attribute, Error = Error> + 'a>(
-    attrs: &'a [Attribute],
-) -> impl Iterator<Item = A> + 'a {
-    attrs
-        .iter()
-        .filter(|a| a.path.is_ident("repr"))
-        .flat_map(|attr| A::try_from(attr).ok())
-}
-
-pub struct DocAttrs(Option<String>);
-
-impl Parse for DocAttrs {
-    fn parse(input: ParseStream) -> Result<Self> {
-        input.parse::<Token![=]>()?;
-        match input.parse::<Lit>()? {
-            Lit::Str(string) => Ok(DocAttrs(Some(string.value()))),
-            _ => unreachable!("specta: doc attribute should always be a literal string!"),
+            }),
+            lit => Err(syn::Error::new_spanned(
+                lit,
+                "specta: expected string literal containing an inflection",
+            )),
         }
     }
 }
 
-pub fn parse_doc_attrs(attrs: &[Attribute]) -> Vec<String> {
-    attrs
-        .iter()
-        .filter_map(|a| {
-            a.path
-                .is_ident("doc")
-                .then(|| syn::parse::<DocAttrs>(a.tokens.clone().into()).unwrap().0)
-                .flatten()
-        })
-        .collect::<Vec<_>>()
+macro_rules! impl_parse {
+    ($i:ident ($attr_paser:ident, $out:ident) { $($k:pat => $e:expr),* $(,)? }) => {
+        impl $i {
+            fn try_from_attrs<'a>(
+                attrs: impl Iterator<Item = &'a Attribute>,
+                $out: &mut Self,
+            ) -> syn::Result<()> {
+                for attr in attrs {
+                    let meta = attr.parse_meta()?;
+
+                    let mut handle = |$attr_paser: AttributeParser| {
+                        let tag = $attr_paser.tag();
+                        match tag.as_str() {
+                            $($k => $e,)*
+                            #[allow(unreachable_patterns)]
+                            _ => {
+                                // Throw error if the attribute is not matched by Specta
+                                // We ignore errors in any other attributes because their author could change them at any time.
+                                if attr.path.is_ident("specta") {
+                                    return Err(syn::Error::new_spanned(
+                                        attr,
+                                        format!("specta: found unknown Specta attribute '{}'", tag),
+                                    ));
+                                }
+                            }
+                        }
+                        Ok(())
+                    };
+
+                    match meta {
+                        // Specta or serde attributes
+                        syn::Meta::List(list) => {
+                            for nested in list.nested {
+                                match nested {
+                                    syn::NestedMeta::Meta(syn::Meta::NameValue(nv)) => handle(AttributeParser(nv))?,
+                                    nested => {
+                                        use quote::ToTokens;
+                                        return Err(syn::Error::new_spanned(
+                                            nested.clone(),
+                                            format!(
+                                                "specta: expected `NestedMeta::Meta`. Found '{}'.",
+                                                nested.to_token_stream().to_string()
+                                            ),
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                        // Doc comments
+                        syn::Meta::NameValue(nv) => handle(AttributeParser(nv))?,
+                        _ => return Err(syn::Error::new_spanned(
+                            attr,
+                            "specta: unexpected found `Meta::Path`.",
+                        )),
+                    }
+                }
+
+                Ok(())
+            }
+        }
+    };
 }
 
 pub fn unraw_raw_ident(ident: &Ident) -> String {
@@ -113,7 +137,7 @@ pub fn unraw_raw_ident(ident: &Ident) -> String {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub enum Inflection {
     Lower,
     Upper,
@@ -136,34 +160,6 @@ impl Inflection {
             Inflection::ScreamingSnake => string.to_screaming_snake_case(),
         }
     }
-}
-
-impl TryFrom<String> for Inflection {
-    type Error = Error;
-
-    fn try_from(value: String) -> Result<Self> {
-        Ok(match &*value.to_lowercase().replace('_', "") {
-            "lowercase" => Self::Lower,
-            "uppercase" => Self::Upper,
-            "camelcase" => Self::Camel,
-            "snakecase" => Self::Snake,
-            "pascalcase" => Self::Pascal,
-            "screamingsnakecase" => Self::ScreamingSnake,
-            _ => syn_err!("invalid inflection: '{}'", value),
-        })
-    }
-}
-
-pub fn parse_assign_str(input: ParseStream) -> Result<String> {
-    input.parse::<Token![=]>()?;
-    match Lit::parse(input)? {
-        Lit::Str(string) => Ok(string.value()),
-        other => Err(Error::new(other.span(), "expected string")),
-    }
-}
-
-pub fn parse_assign_inflection(input: ParseStream) -> Result<Inflection> {
-    parse_assign_str(input).and_then(Inflection::try_from)
 }
 
 pub fn format_fn_wrapper(function: &Ident) -> Ident {

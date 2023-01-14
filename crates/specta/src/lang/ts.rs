@@ -37,6 +37,10 @@ impl CommentStyle {
     pub fn render(&self, comments: &'static [&'static str]) -> String {
         match self {
             Self::JsDoc => {
+                if comments.len() == 0 {
+                    return "".to_owned();
+                }
+                
                 let mut result = "/**\n".to_owned();
                 for comment in comments {
                     result.push_str(&format!(" * {}\n", comment));

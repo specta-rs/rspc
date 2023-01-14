@@ -1,7 +1,7 @@
-use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_quote, ConstParam, GenericArgument, GenericParam, Generics, Ident, LifetimeDef,
+    parse_quote, ConstParam, Error, GenericArgument, GenericParam, Generics, Ident, LifetimeDef,
     PathArguments, Type, TypeArray, TypeParam, TypePtr, TypeReference, TypeSlice, WhereClause,
 };
 
@@ -85,7 +85,7 @@ pub fn construct_datatype(
     generic_idents: &[(usize, &Ident)],
     crate_ref: &TokenStream,
     inline: bool,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let method = match inline {
         true => quote!(inline),
         false => quote!(reference),
@@ -93,15 +93,20 @@ pub fn construct_datatype(
 
     let path = match ty {
         Type::Tuple(t) => {
-            let elems = t.elems.iter().enumerate().map(|(i, el)| {
-                construct_datatype(
-                    format_ident!("{}_{}", var_ident, i),
-                    el,
-                    generic_idents,
-                    crate_ref,
-                    inline,
-                )
-            });
+            let elems = t
+                .elems
+                .iter()
+                .enumerate()
+                .map(|(i, el)| {
+                    construct_datatype(
+                        format_ident!("{}_{}", var_ident, i),
+                        el,
+                        generic_idents,
+                        crate_ref,
+                        inline,
+                    )
+                })
+                .collect::<syn::Result<Vec<TokenStream>>>()?;
 
             let generic_var_idents = t
                 .elems
@@ -109,14 +114,14 @@ pub fn construct_datatype(
                 .enumerate()
                 .map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
 
-            return quote! {
+            return Ok(quote! {
                 #(#elems)*
 
                 let #var_ident = <#ty as #crate_ref::Type>::#method(#crate_ref::DefOpts {
                     parent_inline: false,
                     type_map: opts.type_map
                 }, &[#(#generic_var_idents),*]);
-            };
+            });
         }
         Type::Array(TypeArray { elem, .. }) | Type::Slice(TypeSlice { elem, .. }) => {
             let elem_var_ident = format_ident!("{}_el", &var_ident);
@@ -126,22 +131,30 @@ pub fn construct_datatype(
                 generic_idents,
                 crate_ref,
                 inline,
-            );
+            )?;
 
-            return quote! {
+            return Ok(quote! {
                 #elem
 
                 let #var_ident = <#ty as #crate_ref::Type>::#method(#crate_ref::DefOpts {
                     parent_inline: false,
                     type_map: opts.type_map
                 }, &[#elem_var_ident]);
-            };
+            });
         }
         Type::Ptr(TypePtr { elem, .. }) | Type::Reference(TypeReference { elem, .. }) => {
             return construct_datatype(var_ident, elem, generic_idents, crate_ref, inline)
         }
         Type::Path(p) => &p.path,
-        _ => panic!("Cannot get path from type {}", quote!(#ty)),
+        _ => {
+            return Err(syn::Error::new(
+                Span::call_site(),
+                format!(
+                    "Cannot get path from type {}",
+                    ty.to_token_stream().to_string()
+                ),
+            ))
+        }
     };
 
     if let Some(type_ident) = path.get_ident() {
@@ -149,7 +162,7 @@ pub fn construct_datatype(
             .iter()
             .find(|(_, ident)| ident == &type_ident)
         {
-            return quote! {
+            return Ok(quote! {
                 let #var_ident = generics.get(#i).map(Clone::clone).unwrap_or_else(||
                     <#generic_ident as #crate_ref::Type>::#method(
                         #crate_ref::DefOpts {
@@ -161,7 +174,7 @@ pub fn construct_datatype(
                         ).into()]
                     )
                 );
-            };
+            });
         }
     }
 
@@ -176,24 +189,32 @@ pub fn construct_datatype(
             })
             .collect(),
         PathArguments::None => vec![],
-        _ => panic!("Only angle bracketed generics are supported!"),
+        _ => {
+            return Err(Error::new(
+                Span::call_site(),
+                "Only angle bracketed generics are supported!",
+            ))
+        }
     };
 
-    let generic_vars = generic_args.iter().map(|(i, path)| {
-        construct_datatype(
-            format_ident!("{}_{}", &var_ident, i),
-            path,
-            generic_idents,
-            crate_ref,
-            false,
-        )
-    });
+    let generic_vars = generic_args
+        .iter()
+        .map(|(i, path)| {
+            construct_datatype(
+                format_ident!("{}_{}", &var_ident, i),
+                path,
+                generic_idents,
+                crate_ref,
+                false,
+            )
+        })
+        .collect::<syn::Result<Vec<TokenStream>>>()?;
 
     let generic_var_idents = generic_args
         .iter()
         .map(|(i, _)| format_ident!("{}_{}", &var_ident, i));
 
-    quote! {
+    Ok(quote! {
         #(#generic_vars)*
 
         let #var_ident = <#ty as #crate_ref::Type>::#method(
@@ -203,5 +224,5 @@ pub fn construct_datatype(
             },
             &[#(#generic_var_idents),*]
         );
-    }
+    })
 }

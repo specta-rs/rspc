@@ -52,8 +52,6 @@ mod tests {
         )
         .unwrap();
 
-        // TODO: Make comments work again
-
         let tys = collect_datatypes! {
             super::ProcedureDataType,
             crate::Procedures,

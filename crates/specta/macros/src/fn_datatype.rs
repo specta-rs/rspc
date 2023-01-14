@@ -21,7 +21,9 @@ impl Parse for FnDatatypeInput {
     }
 }
 
-pub fn proc_macro(FnDatatypeInput { type_map, function }: FnDatatypeInput) -> TokenStream {
+pub fn proc_macro(
+    FnDatatypeInput { type_map, function }: FnDatatypeInput,
+) -> syn::Result<TokenStream> {
     let mut specta_fn_macro = function.clone();
 
     let last = specta_fn_macro
@@ -35,12 +37,12 @@ pub fn proc_macro(FnDatatypeInput { type_map, function }: FnDatatypeInput) -> To
     let fn_name = quote!(#specta_fn_macro!(@name));
     let fn_arg_names = quote!(#specta_fn_macro!(@arg_names));
 
-    quote! {
+    Ok(quote! {
         specta::function::get_datatype_internal(
             #function as #fn_signature,
             #fn_name,
             #type_map,
             #fn_arg_names
         )
-    }
+    })
 }

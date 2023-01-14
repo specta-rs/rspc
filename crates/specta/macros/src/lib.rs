@@ -15,7 +15,7 @@ mod r#type;
 
 #[proc_macro_derive(Type, attributes(specta, serde, doc))]
 pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    r#type::derive(input, "specta".into())
+    r#type::derive(input, "specta".into()).unwrap_or_else(|err| err.into_compile_error().into())
 }
 
 /// This macro is exposed from rspc as a wrapper around [Type] with a correct import path.
@@ -24,11 +24,12 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 #[proc_macro_derive(RSPCType, attributes(specta, serde, doc))]
 pub fn derive_rspc_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     r#type::derive(input, "rspc::internal::specta".into())
+        .unwrap_or_else(|err| err.into_compile_error().into())
 }
 
 #[proc_macro_derive(DataTypeFrom, attributes(specta))]
 pub fn derive_data_type_from(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    data_type_from::derive(input)
+    data_type_from::derive(input).unwrap_or_else(|err| err.into_compile_error().into())
 }
 
 #[proc_macro_attribute]
@@ -36,10 +37,12 @@ pub fn specta(
     _: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    specta::attribute(item)
+    specta::attribute(item).unwrap_or_else(|err| err.into_compile_error().into())
 }
 
 #[proc_macro]
 pub fn fn_datatype(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    fn_datatype::proc_macro(parse_macro_input!(input as fn_datatype::FnDatatypeInput)).into()
+    fn_datatype::proc_macro(parse_macro_input!(input as fn_datatype::FnDatatypeInput))
+        .unwrap_or_else(|err| err.into_compile_error().into())
+        .into()
 }

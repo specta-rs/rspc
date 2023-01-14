@@ -1,16 +1,20 @@
 // inspired by https://github.com/tauri-apps/tauri/blob/2901145c497299f033ba7120af5f2e7ead16c75a/core/tauri-macros/src/command/handler.rs
 
+use proc_macro2::Span;
 use quote::quote;
 use syn::{parse_macro_input, FnArg, ItemFn, Visibility};
 
 use crate::utils::format_fn_wrapper;
 
-pub fn attribute(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn attribute(item: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenStream> {
     if !cfg!(feature = "function") {
-        panic!("Please enable the 'function' feature on the Specta crate to work with Functions.");
+        return Err(syn::Error::new(
+            Span::call_site(),
+            "Please enable the 'function' feature on the Specta crate to work with Functions.",
+        ));
     }
 
-    let function = parse_macro_input!(item as ItemFn);
+    let function = parse_macro_input::parse::<ItemFn>(item)?;
     let wrapper = format_fn_wrapper(&function.sig.ident);
 
     let visibility = &function.vis;
@@ -28,7 +32,7 @@ pub fn attribute(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let arg_signatures = function.sig.inputs.iter().map(|_| quote!(_));
 
-    quote! {
+    Ok(quote! {
         #function
 
         #maybe_macro_export
@@ -43,5 +47,5 @@ pub fn attribute(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
         #[allow(unused_imports)]
         #visibility use #wrapper;
     }
-    .into()
+    .into())
 }

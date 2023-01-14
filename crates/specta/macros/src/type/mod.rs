@@ -21,18 +21,15 @@ mod r#struct;
 pub fn derive(
     input: proc_macro::TokenStream,
     default_crate_name: String,
-) -> proc_macro::TokenStream {
-    let derive_input = parse_macro_input!(input);
-
+) -> syn::Result<proc_macro::TokenStream> {
     let DeriveInput {
         ident,
         generics,
         data,
         attrs,
         ..
-    } = &derive_input;
-
-    let container_attrs = ContainerAttr::from_attrs(attrs).unwrap();
+    } = &parse_macro_input::parse::<DeriveInput>(input)?;
+    let container_attrs = ContainerAttr::from_attrs(attrs)?;
 
     let ident = container_attrs
         .remote
@@ -63,25 +60,24 @@ pub fn derive(
     let (inlines, category, can_flatten) = match data {
         Data::Struct(data) => parse_struct(
             &name_str,
-            (&container_attrs, StructAttr::from_attrs(attrs).unwrap()),
+            (&container_attrs, StructAttr::from_attrs(attrs)?),
             generics,
             &crate_ref,
             data,
         ),
-        Data::Enum(data) => {
-            let enum_attrs = EnumAttr::from_attrs(attrs).unwrap();
-
-            parse_enum(
-                &name_str,
-                &enum_attrs,
-                &container_attrs,
-                generics,
-                &crate_ref,
-                data,
-            )
-        }
-        _ => panic!("Type 'Union' is not supported by specta!"),
-    };
+        Data::Enum(data) => parse_enum(
+            &name_str,
+            &EnumAttr::from_attrs(attrs)?,
+            &container_attrs,
+            generics,
+            &crate_ref,
+            data,
+        ),
+        Data::Union(data) => Err(syn::Error::new_spanned(
+            data.union_token,
+            "specta: Union types are not supported by Specta yet!",
+        )),
+    }?;
 
     let definition_generics = generics.type_params().map(|param| {
         let ident = &param.ident;
@@ -127,7 +123,7 @@ pub fn derive(
         }
     });
 
-    quote! {
+    Ok(quote! {
         #type_impl_heading {
             const NAME: &'static str = #name_str;
             const COMMENTS: &'static [&'static str] = #comments;
@@ -148,5 +144,5 @@ pub fn derive(
         #export
 
         #flatten_impl
-    }.into()
+    }.into())
 }

@@ -1,8 +1,8 @@
 use syn::{Attribute, Result};
 
-use crate::utils::*;
+use crate::utils::{filter_attrs, AttributeParser, Inflection};
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone)]
 pub struct ContainerAttr {
     pub rename_all: Option<Inflection>,
     pub rename: Option<String>,
@@ -13,57 +13,33 @@ pub struct ContainerAttr {
     pub doc: Vec<String>,
 }
 
-#[cfg(feature = "serde")]
-#[derive(Default)]
-pub struct SerdeContainerAttr(ContainerAttr);
+impl_parse! {
+    ContainerAttr(attr, out) {
+        "rename_all" => out.rename_all = out.rename_all.take().or(Some(attr.pass_inflection()?)),
+        "rename" => out.rename = out.rename.take().or(Some(attr.pass_string()?)),
+        "tag" => out.tag = out.tag.take().or(Some(attr.pass_string()?)),
+        "crate" => {
+            if attr.tag().as_str() == "specta" {
+                out.crate_name = out.crate_name.take().or(Some(attr.pass_string()?));
+            }
+        },
+        "inline" => out.inline = true,
+        "remote" => out.remote = out.remote.take().or(Some(attr.pass_string()?)),
+        "doc" => {
+            if attr.tag().as_str() == "doc" {
+                out.doc.push(attr.pass_string()?);
+            }
+        }
+    }
+}
 
 impl ContainerAttr {
     pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut result = Self::default();
-        parse_attrs(attrs)?.for_each(|a| result.merge(a));
-        result.doc = crate::utils::parse_doc_attrs(attrs);
+        Self::try_from_attrs(filter_attrs("specta", attrs), &mut result)?;
         #[cfg(feature = "serde")]
-        crate::utils::parse_serde_attrs::<SerdeContainerAttr>(attrs)
-            .for_each(|a| result.merge(a.0));
+        Self::try_from_attrs(filter_attrs("serde", attrs), &mut result)?;
+        Self::try_from_attrs(filter_attrs("doc", attrs), &mut result)?;
         Ok(result)
-    }
-
-    fn merge(
-        &mut self,
-        ContainerAttr {
-            rename,
-            rename_all,
-            tag,
-            crate_name,
-            inline,
-            remote,
-            doc: _,
-        }: ContainerAttr,
-    ) {
-        self.rename = self.rename.take().or(rename);
-        self.rename_all = self.rename_all.take().or(rename_all);
-        self.tag = self.tag.take().or(tag);
-        self.crate_name = self.crate_name.take().or(crate_name);
-        self.inline = self.inline || inline;
-        self.remote = self.remote.take().or(remote);
-    }
-}
-
-impl_parse! {
-    ContainerAttr(input, out) {
-        "rename" => out.rename = Some(parse_assign_str(input)?),
-        "rename_all" => out.rename_all = Some(parse_assign_inflection(input)?),
-        "crate" => out.crate_name = Some(parse_assign_str(input)?),
-        "inline" => out.inline = true,
-        "remote" => out.remote = Some(parse_assign_str(input)?),
-    }
-}
-
-#[cfg(feature = "serde")]
-impl_parse! {
-    SerdeContainerAttr(input, out) {
-        "rename" => out.0.rename = Some(parse_assign_str(input)?),
-        "rename_all" => out.0.rename_all = Some(parse_assign_inflection(input)?),
-        "tag" => out.0.tag = Some(parse_assign_str(input)?),
     }
 }

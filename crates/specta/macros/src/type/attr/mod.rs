@@ -1,7 +1,7 @@
 pub use container::*;
 pub use field::*;
 pub use r#enum::*;
-pub use r#struct::*; // Doesn't currently export anything
+pub use r#struct::*;
 pub use variant::*;
 
 mod container;

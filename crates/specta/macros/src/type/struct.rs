@@ -11,7 +11,7 @@ pub fn parse_struct(
     generics: &Generics,
     crate_ref: &TokenStream,
     data: &DataStruct,
-) -> (TokenStream, TokenStream, bool) {
+) -> syn::Result<(TokenStream, TokenStream, bool)> {
     let generic_idents = generics
         .params
         .iter()
@@ -42,13 +42,20 @@ pub fn parse_struct(
 
     let definition = match &data.fields {
         Fields::Named(_) => {
-            let fields = data.fields.iter().filter_map(|field| {
-                let field_attrs = FieldAttr::from_attrs(&field.attrs).unwrap();
+            let fields = data.fields.iter().map(|field| {
+                let field_attrs = FieldAttr::from_attrs(&field.attrs)?;
+                Ok((field, field_attrs))
+            })
+            .collect::<syn::Result<Vec<_>>>()?
+            .iter()
+            .filter_map(|(field, field_attrs)| {
 
                 if field_attrs.skip {
                     return None;
                 }
 
+                Some((field, field_attrs))
+            }).map(|(field, field_attrs)| {
                 let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
 
                 let ty = construct_datatype(
@@ -57,11 +64,11 @@ pub fn parse_struct(
                     &generic_idents,
                     crate_ref,
                     field_attrs.inline,
-                );
+                )?;
 
                 let field_ident_str = unraw_raw_ident(field.ident.as_ref().unwrap());
 
-                let field_name = match (field_attrs.rename, container_attrs.rename_all) {
+                let field_name = match (field_attrs.rename.clone(), container_attrs.rename_all) {
                     (Some(name), _) => name,
                     (_, Some(inflection)) => inflection.apply(&field_ident_str),
                     (_, _) => field_ident_str,
@@ -102,7 +109,7 @@ pub fn parse_struct(
                     }
                 };
 
-                Some(quote!(#crate_ref::ObjectField {
+                Ok(quote!(#crate_ref::ObjectField {
                     name: #field_name.to_string(),
                     optional: #optional,
                     flatten: #flatten,
@@ -110,7 +117,7 @@ pub fn parse_struct(
                         #ty
                     }
                 }))
-            });
+            }).collect::<syn::Result<Vec<TokenStream>>>()?;
 
             let tag = container_attrs
                 .tag
@@ -131,29 +138,40 @@ pub fn parse_struct(
                 let ty = &data.fields.iter().next().unwrap().ty;
                 quote!(#ty)
             } else {
-                let fields = data.fields.iter().filter_map(|field| {
-                    let field_attrs = FieldAttr::from_attrs(&field.attrs).unwrap();
+                let fields = data
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        let attrs = FieldAttr::from_attrs(&field.attrs)?;
+                        Ok((field, attrs))
+                    })
+                    .collect::<syn::Result<Vec<_>>>()?
+                    .iter()
+                    .filter_map(|(field, field_attrs)| {
+                        if field_attrs.skip {
+                            return None;
+                        }
 
-                    if field_attrs.skip {
-                        return None;
-                    }
+                        Some((field, field_attrs))
+                    })
+                    .map(|(field, field_attrs)| {
+                        let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
 
-                    let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
+                        let generic_vars = construct_datatype(
+                            format_ident!("gen"),
+                            field_ty,
+                            &generic_idents,
+                            crate_ref,
+                            field_attrs.inline,
+                        )?;
 
-                    let generic_vars = construct_datatype(
-                        format_ident!("gen"),
-                        field_ty,
-                        &generic_idents,
-                        crate_ref,
-                        field_attrs.inline,
-                    );
+                        Ok(quote! {{
+                            #generic_vars
 
-                    Some(quote! {{
-                        #generic_vars
-
-                        gen
-                    }})
-                });
+                            gen
+                        }})
+                    })
+                    .collect::<syn::Result<Vec<TokenStream>>>()?;
 
                 quote!(#crate_ref::TupleType {
                     name: #struct_name.to_string(),
@@ -189,5 +207,5 @@ pub fn parse_struct(
         }
     };
 
-    (definition, category, true)
+    Ok((definition, category, true))
 }
