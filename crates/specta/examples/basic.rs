@@ -11,6 +11,6 @@ fn main() {
 
     assert_eq!(
         ts::export::<MyCustomType<()>>(),
-        Ok("export interface MyCustomType<A> { my_field: string, generic: A }".to_string())
+        Ok("export type MyCustomType<A> = { my_field: string, generic: A }".to_string())
     );
 }

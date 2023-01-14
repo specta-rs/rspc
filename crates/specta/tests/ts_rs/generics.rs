@@ -152,7 +152,7 @@ fn inline() {
 //     }
 //     assert_eq!(
 //         ts_export::<A::<()>>().unwrap(),
-//         "export interface A<T = string> { t: T, }"
+//         "export type A<T = string> = { t: T, }"
 //     );
 
 //     #[derive(Type)]
@@ -161,7 +161,7 @@ fn inline() {
 //     }
 //     assert_eq!(
 //         ts_export::<B::<()>>().unwrap(),
-//         "export interface B<U = A<number> | null> { u: U, }"
+//         "export type B<U = A<number> | null>  = { u: U, }"
 //     );
 
 //     #[derive(Type)]
@@ -177,7 +177,7 @@ fn inline() {
 // }
 // assert_eq!(
 //     ts_export::<Y>().unwrap(),
-//     "interface Y { a1: A, a2: A<number> }"
+//     "type Y = { a1: A, a2: A<number> }"
 // )
 // }
 
@@ -192,7 +192,7 @@ fn inline() {
 //     }
 //     assert_eq!(
 //         ts_export::<A::<i32>>().unwrap(),
-//         "export interface A<T = number> { t: T, }"
+//         "export type A<T = number> = { t: T, }"
 //     );
 
 //     #[derive(Type)]
@@ -221,6 +221,6 @@ fn inline() {
 
 //     assert_eq!(
 //         ts_export::<D::<&str, 41>>().unwrap(),
-//         "export interface D<T> { t: Array<T>, }"
+//         "export type D<T> = { t: Array<T>, }"
 //     )
 // }
