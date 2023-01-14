@@ -4,7 +4,7 @@ use crate::*;
 #[derive(Default)]
 pub enum BigIntExportBehavior {
     /// Export BigInt as a Typescript `string`
-    /// WARNING: Specta takes no responsibility that the Rust number is encoded as a string. Make sure you instruct serde (https://github.com/serde-rs/json/issues/329#issuecomment-305608405) or your other serializer of this.
+    /// WARNING: Specta takes no responsibility that the Rust number is encoded as a string. Make sure you instruct serde <https://github.com/serde-rs/json/issues/329#issuecomment-305608405> or your other serializer of this.
     String,
     /// Export BigInt as a Typescript `number`.
     /// WARNING: `JSON.parse` in JS will truncate your number resulting in data loss so ensure your deserializer supports bigint types.

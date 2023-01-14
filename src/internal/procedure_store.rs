@@ -19,11 +19,6 @@ pub struct ProcedureDataType {
     pub input: DataType,
     #[specta(type = serde_json::Value)]
     pub result: DataType,
-    /// TODO: Remove these
-    #[specta(skip)]
-    pub inline_input: DataType,
-    #[specta(skip)]
-    pub inline_result: DataType,
 }
 
 // TODO: Make private
