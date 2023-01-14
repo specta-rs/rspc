@@ -166,12 +166,14 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, St
         DataType::Nullable(def) => format!("{} | null", datatype(conf, def)?),
         DataType::Record(def) => {
             format!(
-                "Record<{}, {}>",
+                // We use this isn't of `Record<K, V>` to avoid issues with circular references.
+                "{{ [key: {}]: {} }}",
                 datatype(conf, &def.0)?,
                 datatype(conf, &def.1)?
             )
         }
-        DataType::List(def) => format!("Array<{}>", datatype(conf, def)?),
+         // We use `T[]` instead of `Array<T>` to avoid issues with circular references.
+        DataType::List(def) => format!("{}[]", datatype(conf, def)?),
         DataType::Tuple(TupleType { fields, .. }) => match &fields[..] {
             [] => "null".to_string(),
             [ty] => datatype(conf, ty)?,
