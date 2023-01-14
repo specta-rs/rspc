@@ -80,6 +80,30 @@ pub fn parse_repr_attrs<'a, A: TryFrom<&'a Attribute, Error = Error> + 'a>(
         .flat_map(|attr| A::try_from(attr).ok())
 }
 
+pub struct DocAttrs(Option<String>);
+
+impl Parse for DocAttrs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        input.parse::<Token![=]>()?;
+        match input.parse::<Lit>()? {
+            Lit::Str(string) => Ok(DocAttrs(Some(string.value()))),
+            _ => unreachable!("specta: doc attribute should always be a literal string!"),
+        }
+    }
+}
+
+pub fn parse_doc_attrs(attrs: &[Attribute]) -> Vec<String> {
+    attrs
+        .iter()
+        .filter_map(|a| {
+            a.path
+                .is_ident("doc")
+                .then(|| syn::parse::<DocAttrs>(a.tokens.clone().into()).unwrap().0)
+                .flatten()
+        })
+        .collect::<Vec<_>>()
+}
+
 pub fn unraw_raw_ident(ident: &Ident) -> String {
     let ident = ident.to_string();
     if ident.starts_with("r#") {

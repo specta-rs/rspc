@@ -88,7 +88,8 @@ pub enum ExportError {
     IOErr(#[from] std::io::Error),
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
 #[allow(dead_code)]
 pub struct Error {
     pub(crate) code: ErrorCode,

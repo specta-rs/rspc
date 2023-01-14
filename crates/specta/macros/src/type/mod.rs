@@ -47,6 +47,10 @@ pub fn derive(
         .parse()
         .unwrap();
     let crate_ref = quote!(#crate_name);
+    let comments = {
+        let comments = &container_attrs.doc;
+        quote!(&[#(#comments),*])
+    };
 
     let name_str = unraw_raw_ident(&format_ident!(
         "{}",
@@ -126,6 +130,7 @@ pub fn derive(
     quote! {
         #type_impl_heading {
             const NAME: &'static str = #name_str;
+            const COMMENTS: &'static [&'static str] = #comments;
 
             fn inline(opts: #crate_ref::DefOpts, generics: &[#crate_ref::DataType]) -> #crate_ref::DataType {
                 #inlines

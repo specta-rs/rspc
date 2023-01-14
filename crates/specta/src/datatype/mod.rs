@@ -7,7 +7,7 @@ pub use object::*;
 pub use r#enum::*;
 
 /// A map of type definitions
-pub type TypeDefs = BTreeMap<&'static str, DataType>;
+pub type TypeDefs = BTreeMap<&'static str, DataTypeWithComments>;
 
 /// arguments for [Type::inline](crate::Type::inline), [Type::reference](crate::Type::reference) and [Type::definition](crate::Type::definition).
 pub struct DefOpts<'a> {
@@ -15,6 +15,14 @@ pub struct DefOpts<'a> {
     pub parent_inline: bool,
     /// a map of types which have been visited. This prevents stack overflows when a type references itself and also allows the caller to get a list of all types in the "schema".
     pub type_map: &'a mut TypeDefs,
+}
+
+/// a wrapper around data type that can store the type erased data type and the doc comments on the type
+#[derive(Debug, Clone, PartialEq)]
+#[allow(missing_docs)]
+pub struct DataTypeWithComments {
+    pub comments: &'static [&'static str],
+    pub inner: DataType,
 }
 
 /// this is used internally to represent the types.

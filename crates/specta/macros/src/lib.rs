@@ -13,7 +13,7 @@ mod fn_datatype;
 mod specta;
 mod r#type;
 
-#[proc_macro_derive(Type, attributes(specta, serde))]
+#[proc_macro_derive(Type, attributes(specta, serde, doc))]
 pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     r#type::derive(input, "specta".into())
 }
@@ -21,7 +21,7 @@ pub fn derive_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// This macro is exposed from rspc as a wrapper around [Type] with a correct import path.
 /// This is exposed from here so rspc doesn't need a macro package for 4 lines of code.
 #[doc(hidden)]
-#[proc_macro_derive(RSPCType, attributes(specta, serde))]
+#[proc_macro_derive(RSPCType, attributes(specta, serde, doc))]
 pub fn derive_rspc_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     r#type::derive(input, "rspc::internal::specta".into())
 }

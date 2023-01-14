@@ -11,7 +11,7 @@ use futures::Stream;
 use serde_json::Value;
 use specta::{
     ts::{self, ExportConfiguration},
-    DataTypeFrom, TypeDefs,
+    DataTypeFrom, DataTypeWithComments, TypeDefs,
 };
 
 use crate::{
@@ -37,6 +37,7 @@ where
 
 // TODO: Move this out of this file
 // TODO: Rename??
+// TODO: Is similar to `ProcedureKind` and could possible be merged
 #[derive(Debug, Copy, Clone)]
 pub enum ExecKind {
     Query,
@@ -143,12 +144,22 @@ where
             bigint: ts::BigIntExportBehavior::FailWithReason(
                 "rspc does not support exporting bigint types (i64, u64, i128, u128) because they are lossily decoded by `JSON.parse` on the frontend. Tracking issue: https://github.com/oscartbeaumont/rspc/issues/93",
             ),
+            ..Default::default()
         };
 
         writeln!(
             file,
             "{}",
-            ts::export_datatype(&config, &Procedures::new(self).into()).unwrap()
+            ts::export_datatype(
+                &config,
+                // TODO: I wish this could be an `into` impl but because of `<T as Type>` we can't. We can't assume `derive(DataTypeFrom)` implies `derive(Type)` (to get comments).
+                // Having an the conversion just implicitly set comments to empty seems like a bit of a footgun.
+                &DataTypeWithComments {
+                    comments: &[],
+                    inner: Procedures::new(self).into()
+                }
+            )
+            .unwrap()
         )?;
 
         for export in self
@@ -163,8 +174,13 @@ where
     }
 }
 
+/// This type represents the Typescript bindings which are generated from the router by Rust.
+///
+/// @internal
 #[derive(DataTypeFrom)]
-struct Procedures {
+#[cfg_attr(test, derive(specta::Type))]
+#[cfg_attr(test, specta(rename = "ProceduresDef"))]
+pub(crate) struct Procedures {
     pub queries: Vec<ProcedureDataType>,
     pub mutations: Vec<ProcedureDataType>,
     pub subscriptions: Vec<ProcedureDataType>,

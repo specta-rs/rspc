@@ -21,11 +21,41 @@ pub enum BigIntExportBehavior {
     FailWithReason(&'static str),
 }
 
+/// Allows you to configure how Specta's Typescript exporter will deal with Rust doc comments.
+#[derive(Default)]
+pub enum CommentStyle {
+    /// Export them in a JSDoc style
+    #[default]
+    JsDoc,
+    /// Do not export them
+    Disabled,
+}
+
+/// TODO
+impl CommentStyle {
+    /// TODO
+    pub fn render(&self, comments: &'static [&'static str]) -> String {
+        match self {
+            Self::JsDoc => {
+                let mut result = "/**\n".to_owned();
+                for comment in comments {
+                    result.push_str(&format!(" * {}\n", comment));
+                }
+                result.push_str(" */\n");
+                result
+            }
+            Self::Disabled => "".to_owned()
+        }
+    }
+}
+
 /// allows you to control the behavior of the Typescript exporter
 #[derive(Default)]
 pub struct ExportConfiguration {
     /// control the bigint exporting behavior
     pub bigint: BigIntExportBehavior,
+    /// control the style of exported comments
+    pub comment_style: CommentStyle,
 }
 
 /// Convert a type which implements [`Type`](crate::Type) to a TypeScript string with an export.
@@ -57,10 +87,12 @@ pub fn inline<T: Type>(conf: &ExportConfiguration) -> Result<String, String> {
 
 /// Convert a DataType to a TypeScript string with an export.
 /// Eg. `export type Foo = { demo: string; };`
-pub fn export_datatype(conf: &ExportConfiguration, def: &DataType) -> Result<String, String> {
-    let inline_ts = datatype(conf, def)?;
+/// 
+// TODO: Accept `DataTypeWithComments` or `DataType`. This is hard because we take it by reference
+pub fn export_datatype(conf: &ExportConfiguration, def: &DataTypeWithComments) -> Result<String, String> {
+    let inline_ts = datatype(conf, &def.inner)?;
 
-    let declaration = match &def {
+    let declaration = match &def.inner {
         // Named struct
         DataType::Object(ObjectType {
             name,
@@ -111,7 +143,8 @@ pub fn export_datatype(conf: &ExportConfiguration, def: &DataType) -> Result<Str
         _ => return Err(format!("Type cannot be exported: {:?}", def)), // TODO: Can this be enforced at a type system level
     };
 
-    Ok(format!("export {declaration}"))
+let comments = conf.comment_style.render(def.comments);
+    Ok(format!("{comments}export {declaration}"))
 }
 
 /// Convert a DataType to a TypeScript string

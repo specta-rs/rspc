@@ -32,6 +32,9 @@ pub trait Type {
     /// The name of the type
     const NAME: &'static str;
 
+    /// Rust documentation comments on the type
+    const COMMENTS: &'static [&'static str] = &[];
+
     /// Returns the inline definition of a type with generics substituted for those provided.
     /// This function defines the base structure of every type, and is used in both
     /// [`definition`](crate::Type::definition) and [`reference`](crate::Type::definition)
@@ -52,14 +55,17 @@ pub trait Type {
     /// as the value for the `generics` arg.
     ///
     /// Implemented internally
-    fn definition(opts: DefOpts) -> DataType {
-        Self::inline(
-            opts,
-            &Self::definition_generics()
-                .into_iter()
-                .map(Into::into)
-                .collect::<Vec<_>>(),
-        )
+    fn definition(opts: DefOpts) -> DataTypeWithComments {
+        DataTypeWithComments {
+            comments: Self::COMMENTS,
+            inner: Self::inline(
+                opts,
+                &Self::definition_generics()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect::<Vec<_>>(),
+            ),
+        }
     }
 
     /// Defines which category this type falls into, determining how references to it are created.
@@ -92,7 +98,13 @@ pub trait Type {
                 reference,
             } => {
                 if !opts.type_map.contains_key(Self::NAME) {
-                    opts.type_map.insert(Self::NAME, placeholder);
+                    opts.type_map.insert(
+                        Self::NAME,
+                        DataTypeWithComments {
+                            comments: Self::COMMENTS,
+                            inner: placeholder,
+                        },
+                    );
 
                     let definition = Self::definition(DefOpts {
                         parent_inline: false,

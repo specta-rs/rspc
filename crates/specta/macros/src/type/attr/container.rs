@@ -10,6 +10,7 @@ pub struct ContainerAttr {
     pub crate_name: Option<String>,
     pub inline: bool,
     pub remote: Option<String>,
+    pub doc: Vec<String>,
 }
 
 #[cfg(feature = "serde")]
@@ -20,6 +21,7 @@ impl ContainerAttr {
     pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let mut result = Self::default();
         parse_attrs(attrs)?.for_each(|a| result.merge(a));
+        result.doc = crate::utils::parse_doc_attrs(attrs);
         #[cfg(feature = "serde")]
         crate::utils::parse_serde_attrs::<SerdeContainerAttr>(attrs)
             .for_each(|a| result.merge(a.0));
@@ -35,6 +37,7 @@ impl ContainerAttr {
             crate_name,
             inline,
             remote,
+            doc: _,
         }: ContainerAttr,
     ) {
         self.rename = self.rename.take().or(rename);
