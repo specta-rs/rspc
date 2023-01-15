@@ -1,4 +1,4 @@
-use super::{attr::*, generics::construct_datatype};
+use super::{attr::*, generics::construct_datatype, r#struct::decode_field_attrs};
 use crate::utils::*;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -76,10 +76,28 @@ pub fn parse_enum(
         .variants
         .iter()
         .map(|v| {
-            let attrs = VariantAttr::from_attrs(&v.attrs).expect("Failed to parse enum attributes");
+            // We pass all the attributes at the start and when decoding them pop them off the list.
+            // This means at the end we can check for any that weren't consumed and throw an error.
+            let mut attrs = pass_attrs(&v.attrs)?;
+            let variant_attrs = VariantAttr::from_attrs(&mut attrs)?;
 
-            (v, attrs)
+            for attr in attrs
+                .into_iter()
+                .filter(|attr| attr.root_ident() == "specta")
+            {
+                return Err(syn::Error::new(
+                    attr.key_span(),
+                    format!(
+                        "specta: Found unsupported variant attribute '{}'",
+                        attr.tag()
+                    ),
+                ));
+            }
+
+            Ok((v, variant_attrs))
         })
+        .collect::<syn::Result<Vec<_>>>()?
+        .into_iter()
         .filter(|(_, attrs)| !attrs.skip)
         .map(|(variant, attrs)| {
             let variant_ident_str = unraw_raw_ident(&variant.ident);
@@ -130,7 +148,7 @@ pub fn parse_enum(
                         .named
                         .iter()
                         .map(|field| {
-                            let field_attrs = FieldAttr::from_attrs(&field.attrs)?;
+                            let (field, field_attrs) = decode_field_attrs(field)?;
 
                             let field_ty = field_attrs.r#type.as_ref().unwrap_or(&field.ty);
 

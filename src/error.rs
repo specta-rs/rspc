@@ -95,6 +95,7 @@ pub struct Error {
     pub(crate) code: ErrorCode,
     pub(crate) message: String,
     #[serde(skip)]
+    #[cfg_attr(test, specta(type = Option<serde_json::Value>))]
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 

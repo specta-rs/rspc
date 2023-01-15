@@ -1,6 +1,6 @@
-use syn::{Attribute, Result};
+use syn::Result;
 
-use crate::utils::{filter_attrs, AttributeParser};
+use crate::utils::MetaAttr;
 
 #[derive(Default)]
 pub struct StructAttr {
@@ -14,12 +14,12 @@ impl_parse! {
 }
 
 impl StructAttr {
-    pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
+    pub fn from_attrs(attrs: &mut Vec<MetaAttr>) -> Result<Self> {
         let mut result = Self::default();
-        Self::try_from_attrs(filter_attrs("specta", attrs), &mut result)?;
+        Self::try_from_attrs("specta", attrs, &mut result)?;
         #[cfg(feature = "serde")]
-        Self::try_from_attrs(filter_attrs("serde", attrs), &mut result)?;
-        Self::try_from_attrs(filter_attrs("repr", attrs), &mut result)?; // To handle `#[repr(transparent)]`
+        Self::try_from_attrs("serde", attrs, &mut result)?;
+        Self::try_from_attrs("repr", attrs, &mut result)?; // To handle `#[repr(transparent)]`
         Ok(result)
     }
 }

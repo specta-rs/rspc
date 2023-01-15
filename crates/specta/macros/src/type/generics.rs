@@ -1,8 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
-    parse_quote, ConstParam, Error, GenericArgument, GenericParam, Generics, Ident, LifetimeDef,
-    PathArguments, Type, TypeArray, TypeParam, TypePtr, TypeReference, TypeSlice, WhereClause,
+    parse_quote, spanned::Spanned, ConstParam, Error, GenericArgument, GenericParam, Generics,
+    Ident, LifetimeDef, PathArguments, Type, TypeArray, TypeParam, TypePtr, TypeReference,
+    TypeSlice, WhereClause,
 };
 
 pub fn generics_with_ident_and_bounds_only(generics: &Generics) -> Option<TokenStream> {
@@ -146,14 +147,20 @@ pub fn construct_datatype(
             return construct_datatype(var_ident, elem, generic_idents, crate_ref, inline)
         }
         Type::Path(p) => &p.path,
+        Type::TraitObject(_) => {
+            return Err(syn::Error::new(
+                ty.span(),
+                "specta: trait objects are not currently supported.",
+            ));
+        }
         _ => {
             return Err(syn::Error::new(
-                Span::call_site(),
+                ty.span(),
                 format!(
-                    "Cannot get path from type {}",
+                    "specta: Cannot get path from type `{}`",
                     ty.to_token_stream().to_string()
                 ),
-            ))
+            ));
         }
     };
 

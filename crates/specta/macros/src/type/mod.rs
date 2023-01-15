@@ -7,7 +7,7 @@ use syn::{parse_macro_input, Data, DeriveInput};
 
 use generics::impl_heading;
 
-use crate::utils::unraw_raw_ident;
+use crate::utils::{pass_attrs, unraw_raw_ident};
 
 use self::generics::{
     add_type_to_where_clause, generics_with_ident_and_bounds_only, generics_with_ident_only,
@@ -29,7 +29,11 @@ pub fn derive(
         attrs,
         ..
     } = &parse_macro_input::parse::<DeriveInput>(input)?;
-    let container_attrs = ContainerAttr::from_attrs(attrs)?;
+
+    // We pass all the attributes at the start and when decoding them pop them off the list.
+    // This means at the end we can check for any that weren't consumed and throw an error.
+    let mut attrs = pass_attrs(attrs)?;
+    let container_attrs = ContainerAttr::from_attrs(&mut attrs)?;
 
     let ident = container_attrs
         .remote
@@ -60,14 +64,14 @@ pub fn derive(
     let (inlines, category, can_flatten) = match data {
         Data::Struct(data) => parse_struct(
             &name_str,
-            (&container_attrs, StructAttr::from_attrs(attrs)?),
+            (&container_attrs, StructAttr::from_attrs(&mut attrs)?),
             generics,
             &crate_ref,
             data,
         ),
         Data::Enum(data) => parse_enum(
             &name_str,
-            &EnumAttr::from_attrs(attrs)?,
+            &EnumAttr::from_attrs(&mut attrs)?,
             &container_attrs,
             generics,
             &crate_ref,
@@ -78,6 +82,19 @@ pub fn derive(
             "specta: Union types are not supported by Specta yet!",
         )),
     }?;
+
+    for attr in attrs
+        .into_iter()
+        .filter(|attr| attr.root_ident() == "specta")
+    {
+        return Err(syn::Error::new(
+            attr.key_span(),
+            format!(
+                "specta: Found unsupported container attribute '{}'",
+                attr.tag()
+            ),
+        ));
+    }
 
     let definition_generics = generics.type_params().map(|param| {
         let ident = &param.ident;

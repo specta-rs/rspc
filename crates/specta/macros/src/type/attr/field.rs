@@ -1,6 +1,6 @@
-use syn::{Attribute, Result, Type};
+use syn::{Result, Type, TypePath};
 
-use crate::utils::{filter_attrs, AttributeParser};
+use crate::utils::MetaAttr;
 
 #[derive(Default)]
 pub struct FieldAttr {
@@ -15,10 +15,10 @@ pub struct FieldAttr {
 impl_parse! {
     FieldAttr(attr, out) {
         "rename" => out.rename = out.rename.take().or(Some(attr.pass_string()?)),
-        // TODO
-        //     input.parse::<Token![=]>()?;
-        //     out.r#type = Some(Type::parse(input)?);
-        "type" => out.r#type = out.r#type.take().or(Some(attr.pass_type()?)),
+        "type" => out.r#type = out.r#type.take().or(Some(Type::Path(TypePath {
+            qself: None,
+            path: attr.pass_type()?,
+        }))),
         "inline" => out.inline = true,
         "skip" => out.skip = true,
         "skip_serializing" => out.skip = true,
@@ -30,11 +30,11 @@ impl_parse! {
 }
 
 impl FieldAttr {
-    pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
+    pub fn from_attrs(attrs: &mut Vec<MetaAttr>) -> Result<Self> {
         let mut result = Self::default();
-        Self::try_from_attrs(filter_attrs("specta", attrs), &mut result)?;
+        Self::try_from_attrs("specta", attrs, &mut result)?;
         #[cfg(feature = "serde")]
-        Self::try_from_attrs(filter_attrs("serde", attrs), &mut result)?;
+        Self::try_from_attrs("serde", attrs, &mut result)?;
         Ok(result)
     }
 }

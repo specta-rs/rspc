@@ -5,12 +5,15 @@ use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 use attr::*;
 
+use crate::utils::pass_attrs;
+
 pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenStream> {
     let DeriveInput {
         ident, data, attrs, ..
     } = &parse_macro_input::parse::<DeriveInput>(input)?;
 
-    let container_attrs = ContainerAttr::from_attrs(attrs)?;
+    let mut attrs = pass_attrs(&attrs)?;
+    let container_attrs = ContainerAttr::from_attrs(&mut attrs)?;
     let crate_name = format_ident!(
         "{}",
         container_attrs
@@ -25,8 +28,10 @@ pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenSt
                     .fields
                     .iter()
                     .map(|field| {
-                        let attrs = FieldAttr::from_attrs(&field.attrs)?;
-                        Ok((field, attrs))
+                        let mut attrs = pass_attrs(&field.attrs)?;
+                        let field_attrs = FieldAttr::from_attrs(&mut attrs)?;
+
+                        Ok((field, field_attrs))
                     })
                     .collect::<syn::Result<Vec<_>>>()?;
                 let fields = fields.iter().filter_map(|(field, attrs)| {

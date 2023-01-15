@@ -1,7 +1,7 @@
 use proc_macro2::Span;
-use syn::{Attribute, Error, Result};
+use syn::{Error, Result};
 
-use crate::utils::{filter_attrs, AttributeParser};
+use crate::utils::MetaAttr;
 
 #[derive(Copy, Clone)]
 pub enum Tagged<'a> {
@@ -27,12 +27,11 @@ impl_parse! {
 }
 
 impl EnumAttr {
-    pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
+    pub fn from_attrs(attrs: &mut Vec<MetaAttr>) -> Result<Self> {
         let mut result = Self::default();
-
-        Self::try_from_attrs(filter_attrs("specta", attrs), &mut result)?;
+        Self::try_from_attrs("specta", attrs, &mut result)?;
         #[cfg(feature = "serde")]
-        Self::try_from_attrs(filter_attrs("serde", attrs), &mut result)?;
+        Self::try_from_attrs("serde", attrs, &mut result)?;
         Ok(result)
     }
 

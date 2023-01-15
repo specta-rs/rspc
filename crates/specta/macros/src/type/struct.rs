@@ -1,9 +1,28 @@
-use crate::utils::unraw_raw_ident;
+use crate::utils::{pass_attrs, unraw_raw_ident};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{DataStruct, Fields, GenericParam, Generics};
+use syn::{DataStruct, Field, Fields, GenericParam, Generics};
 
 use super::{attr::*, generics::construct_datatype};
+
+pub fn decode_field_attrs(field: &Field) -> syn::Result<(&Field, FieldAttr)> {
+    // We pass all the attributes at the start and when decoding them pop them off the list.
+    // This means at the end we can check for any that weren't consumed and throw an error.
+    let mut attrs = pass_attrs(&field.attrs)?;
+    let field_attrs = FieldAttr::from_attrs(&mut attrs)?;
+
+    for attr in attrs
+        .into_iter()
+        .filter(|attr| attr.root_ident() == "specta")
+    {
+        return Err(syn::Error::new(
+            attr.key_span(),
+            format!("specta: Found unsupported field attribute '{}'", attr.tag()),
+        ));
+    }
+
+    Ok((field, field_attrs))
+}
 
 pub fn parse_struct(
     struct_name: &str,
@@ -42,10 +61,7 @@ pub fn parse_struct(
 
     let definition = match &data.fields {
         Fields::Named(_) => {
-            let fields = data.fields.iter().map(|field| {
-                let field_attrs = FieldAttr::from_attrs(&field.attrs)?;
-                Ok((field, field_attrs))
-            })
+            let fields = data.fields.iter().map(decode_field_attrs)
             .collect::<syn::Result<Vec<_>>>()?
             .iter()
             .filter_map(|(field, field_attrs)| {
@@ -141,10 +157,7 @@ pub fn parse_struct(
                 let fields = data
                     .fields
                     .iter()
-                    .map(|field| {
-                        let attrs = FieldAttr::from_attrs(&field.attrs)?;
-                        Ok((field, attrs))
-                    })
+                    .map(decode_field_attrs)
                     .collect::<syn::Result<Vec<_>>>()?
                     .iter()
                     .filter_map(|(field, field_attrs)| {
