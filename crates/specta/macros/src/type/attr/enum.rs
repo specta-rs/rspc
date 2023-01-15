@@ -3,6 +3,8 @@ use syn::{Error, Result};
 
 use crate::utils::MetaAttr;
 
+use super::ContainerAttr;
+
 #[derive(Copy, Clone)]
 pub enum Tagged<'a> {
     Externally,
@@ -20,15 +22,16 @@ pub struct EnumAttr {
 
 impl_parse! {
     EnumAttr(attr, out) {
-        "tag" => out.tag = out.tag.take().or(Some(attr.pass_string()?)),
+        // "tag" was already passed in the container so we don't need to do anything here
         "content" => out.content = out.content.take().or(Some(attr.pass_string()?)),
         "untagged" => out.untagged = true,
     }
 }
 
 impl EnumAttr {
-    pub fn from_attrs(attrs: &mut Vec<MetaAttr>) -> Result<Self> {
+    pub fn from_attrs(container_attrs: &ContainerAttr, attrs: &mut Vec<MetaAttr>) -> Result<Self> {
         let mut result = Self::default();
+        result.tag = container_attrs.tag.clone();
         Self::try_from_attrs("specta", attrs, &mut result)?;
         #[cfg(feature = "serde")]
         Self::try_from_attrs("serde", attrs, &mut result)?;

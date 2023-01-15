@@ -71,7 +71,7 @@ pub fn derive(
         ),
         Data::Enum(data) => parse_enum(
             &name_str,
-            &EnumAttr::from_attrs(&mut attrs)?,
+            &EnumAttr::from_attrs(&container_attrs, &mut attrs)?,
             &container_attrs,
             generics,
             &crate_ref,
