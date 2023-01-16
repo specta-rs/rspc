@@ -2,6 +2,8 @@
   "compilerOptions": {
     "baseUrl": "./packages",
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "strictNullChecks": true,
     "paths": {
       "@rspc/client": ["../client/src"],
       "@rspc/react": ["../react/src"],
