@@ -7,14 +7,14 @@ use httpz::{
 use serde_json::Value;
 use std::{
     collections::HashMap,
-    mem,
+    future, mem,
     sync::{Arc, Mutex},
 };
 use tokio::sync::mpsc;
 
 use crate::{
     internal::{
-        jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
+        jsonrpc::{self, handle_json_rpc, sender_fn, RequestId, Sender},
         ProcedureKind,
     },
     Router,
@@ -293,8 +293,6 @@ where
         input
     );
 
-    let mut resp = Sender::Response(None);
-
     let cookie_jar = Arc::new(Mutex::new(cookies));
     let ctx = ctx_fn.exec(&mut req, Some(CookieJar::new(cookie_jar.clone())));
 
@@ -314,6 +312,7 @@ where
         }
     };
 
+    let mut response = None as Option<jsonrpc::Response>;
     handle_json_rpc(
         ctx,
         jsonrpc::Request {
@@ -343,8 +342,13 @@ where
             },
         },
         router,
-        &mut resp,
-        &mut SubscriptionMap::None,
+        sender_fn({
+            let response = &mut response;
+            |resp| {
+                *response = Some(resp);
+                future::ready(())
+            }
+        }),
     )
     .await;
 
@@ -362,27 +366,31 @@ where
         }
     };
 
-    match resp {
-        Sender::Response(Some(resp)) => Ok((
-            match serde_json::to_vec(&resp) {
-                Ok(v) => Response::builder()
-                    .status(StatusCode::OK)
-                    .header("Content-Type", "application/json")
-                    .body(v)?,
-                Err(_err) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Error serializing response: {}", _err);
+    debug_assert!(response.is_some()); // This would indicate a bug in rspc's jsonrpc_exec code
+    let resp = match response {
+        Some(resp) => match serde_json::to_vec(&resp) {
+            Ok(v) => Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .body(v)?,
+            Err(_err) => {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Error serializing response: {}", _err);
 
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .header("Content-Type", "application/json")
-                        .body(b"[]".to_vec())?
-                }
-            },
-            cookies,
-        )),
-        _ => unreachable!(),
-    }
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "application/json")
+                    .body(b"[]".to_vec())?
+            }
+        },
+        // This case is unreachable but an error is here just incase.
+        None => Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .header("Content-Type", "application/json")
+            .body(b"[]".to_vec())?,
+    };
+
+    Ok((resp, cookies))
 }
 
 pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
@@ -409,10 +417,11 @@ where
 
     let cookies = req.cookies();
     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |mut req, mut socket| async move {
-        let mut subscriptions = HashMap::new();
+        // let mut subscriptions = HashMap::new();
         let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
 
         loop {
+            // TODO: Move code out of tokio select so it formats correctly
             tokio::select! {
                 biased; // Note: Order is important here
                 msg = rx.recv() => {
@@ -454,16 +463,17 @@ where
                                     for request in reqs {
                                         let ctx = ctx_fn.exec(&mut req, None);
 
-                                            handle_json_rpc(match ctx {
-                                                Ok(v) => v,
-                                                Err(_err) => {
-                                                    #[cfg(feature = "tracing")]
-                                                    tracing::error!("Error executing context function: {}", _err);
+                                        // TODO
+                                            // handle_json_rpc(match ctx {
+                                            //     Ok(v) => v,
+                                            //     Err(_err) => {
+                                            //         #[cfg(feature = "tracing")]
+                                            //         tracing::error!("Error executing context function: {}", _err);
 
-                                                    continue;
-                                                }
-                                            }, request, &router, &mut Sender::Channel(&mut tx),
-                                            &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                            //         continue;
+                                            //     }
+                                            // }, request, &router, &mut Sender::Channel(&mut tx),
+                                            // &mut SubscriptionMap::Ref(&mut subscriptions)).await;
                                     }
                                 },
                                 Err(_err) => {

@@ -164,8 +164,11 @@ where
 #[cfg_attr(test, derive(specta::Type))]
 #[cfg_attr(test, specta(rename = "ProceduresDef"))]
 pub(crate) struct Procedures {
+    #[specta(type = ProcedureDataType)] // This is because of Typescript discriminated unions
     pub queries: Vec<ProcedureDataType>,
+    #[specta(type = ProcedureDataType)] // This is because of Typescript discriminated unions
     pub mutations: Vec<ProcedureDataType>,
+    #[specta(type = ProcedureDataType)] // This is because of Typescript discriminated unions
     pub subscriptions: Vec<ProcedureDataType>,
 }
 
