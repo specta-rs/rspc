@@ -28,6 +28,8 @@ import {
   HookOptions,
 } from "@rspc/client";
 
+export * from "./new_stuff";
+
 export interface BaseOptions<TProcedures extends ProceduresDef> {
   rspc?: {
     client?: _Client<TProcedures>;

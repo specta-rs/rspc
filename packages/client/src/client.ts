@@ -84,7 +84,7 @@ export interface ClientArgs {
    * TODO
    * @link https://rspc.dev/todo
    **/
-  links: TRPCLink<any>[];
+  links?: TRPCLink<any>[];
   /**
    * TODO
    * @link https://rspc.dev/todo
