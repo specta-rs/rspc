@@ -27,12 +27,13 @@ import {
   ClientArgs,
   HookOptions,
 } from "@rspc/client";
+import { Client } from "@rspc/client/src/newClient";
 
 export * from "./new_stuff";
 
-export interface BaseOptions<TProcedures extends ProceduresDef> {
+export interface BaseOptions<TClient extends Client<any, any>> {
   rspc?: {
-    client?: _Client<TProcedures>;
+    client?: TClient;
     abortOnUnmount?: boolean;
   };
 }

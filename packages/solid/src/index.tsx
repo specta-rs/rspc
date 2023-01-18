@@ -5,7 +5,7 @@ import {
   createEffect,
 } from "solid-js";
 import {
-  Client,
+  Client as _Clietn,
   inferInfiniteQueries,
   inferInfiniteQueryResult,
   inferMutationInput,
@@ -21,6 +21,7 @@ import {
   createVanillaClient as _createVanillaClient,
   ClientArgs,
 } from "@rspc/client";
+import { Client } from "@rspc/client/src/newClient";
 import {
   QueryClient,
   CreateQueryOptions,
@@ -36,9 +37,11 @@ import {
   hashQueryKey,
 } from "@tanstack/solid-query";
 
-export interface BaseOptions<TProcedures extends ProceduresDef> {
+export * from "./newStuff";
+
+export interface BaseOptions<TClient extends Client<any, any>> {
   rspc?: {
-    client?: Client<TProcedures>;
+    client?: TClient;
   };
 }
 

@@ -17,7 +17,7 @@ import { createChain } from "./links/internals/createChain";
 import { inferProcedures, ProcedureDef, ProceduresDef } from "./typescript";
 
 // UTILITIES
-//
+
 type Queries<Procs extends ProceduresDef> = Procs["queries"];
 type Query<
   Procs extends ProceduresDef,
@@ -48,15 +48,17 @@ function getTransformer(opts: ClientArgs<any>): DataTransformer {
   return opts.transformer;
 }
 
-type GetProcedure<
+export type GetProcedure<
   P extends ProcedureDef,
   K extends P["key"] & string
 > = Extract<P, { key: K }>;
 
 type TupleCond<T, Cond> = T extends Cond ? [] : [T];
 
+export type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
+
 // I think TS will only map over a union type if you use a conditional - @brendonovich
-type ProcedureKeyTuple<P extends ProcedureDef> = P extends ProcedureDef
+export type ProcedureKeyTuple<P extends ProcedureDef> = P extends ProcedureDef
   ? [key: P["key"], ...input: TupleCond<P["input"], null>]
   : never;
 
@@ -73,52 +75,71 @@ type ApplyFilter<
 
 // CLIENT
 
-interface ClientArgs<TProcs extends ProceduresDef> extends TRPCClientArgs {
+export interface ClientArgs<TProcs extends ProceduresDef>
+  extends TRPCClientArgs {
   filter?: FilterFn<TProcs>;
 }
 
-class Client<TProcs extends ProceduresDef, TArgs extends ClientArgs<TProcs>> {
-  requestId = 0;
-  links?: OperationLink<any>[];
-  runtime: TRPCClientRuntime;
+function clientFactory<
+  TProcs extends ProceduresDef,
+  TArgs extends ClientArgs<TProcs>
+>(args: TArgs) {
+  type FilteredProcs = ApplyFilter<TProcs, TArgs>;
 
-  constructor(args: TArgs) {
-    this.runtime = {
-      transformer: getTransformer(args),
-      onError: args.onError,
-    };
+  type Queries = FilteredProcs["queries"];
+  type Query<K extends Queries["key"]> = GetProcedure<Queries, K>;
+  type Mutations = FilteredProcs["mutations"];
+  type Mutation<K extends Mutations["key"]> = GetProcedure<Mutations, K>;
+  type Subscriptions = FilteredProcs["subscriptions"];
+  type Subscription<K extends Subscriptions["key"]> = GetProcedure<
+    Subscriptions,
+    K
+  >;
 
-    if (args.links) this.$setLinks(args.links);
+  const runtime = {
+    transformer: getTransformer(args),
+    onError: args.onError,
+  };
+
+  let links: OperationLink<any>[];
+  let requestId = 0;
+
+  function setLinks(newLink: TRPCLink<any>[]) {
+    links = newLink.map((link) => link(runtime));
   }
 
-  private $request<TProc extends ProcedureDef>({
-    type,
-    keyAndInput,
-    context = {},
-  }: {
+  if (args.links) setLinks(args.links);
+
+  function $request<TProc extends ProcedureDef>(requestArgs: {
     type: Operation["type"];
-    keyAndInput: ProcedureKeyTuple<TProc>;
+    procedureKey: ProcedureKeyTuple<TProc>;
     context?: OperationContext;
   }) {
+    const { procedureKey } = args.filter
+      ? args.filter({
+          procedureKey: requestArgs.procedureKey,
+        })
+      : { procedureKey: requestArgs.procedureKey };
+
     return createChain<inferProcedures<any>, TProc["input"], TProc["result"]>({
-      links: this.links as OperationLink<any, any, any>[],
+      links: links as OperationLink<any, any, any>[],
       op: {
-        id: ++this.requestId,
-        type,
-        path: keyAndInput[0],
-        input: keyAndInput[1],
-        context,
+        id: ++requestId,
+        type: requestArgs.type,
+        path: procedureKey[0],
+        input: procedureKey[1],
+        context: requestArgs.context ?? {},
       },
     }).pipe(share());
   }
 
-  private requestAsPromise<TProc extends ProcedureDef>(opts: {
+  function requestAsPromise<TProc extends ProcedureDef>(opts: {
     type: Operation["type"];
-    keyAndInput: ProcedureKeyTuple<TProc>;
+    procedureKey: ProcedureKeyTuple<TProc>;
     context?: OperationContext;
     signal?: AbortSignal;
   }) {
-    const req$ = this.$request(opts);
+    const req$ = $request(opts);
     type TValue = inferObservableValue<typeof req$>;
     const { promise, abort } = observableToPromise<TValue>(req$);
 
@@ -135,79 +156,92 @@ class Client<TProcs extends ProceduresDef, TArgs extends ClientArgs<TProcs>> {
     });
   }
 
-  query<K extends Queries<ApplyFilter<TProcs, TArgs>>["key"] & string>(
-    keyAndInput: ProcedureKeyTuple<Query<ApplyFilter<TProcs, TArgs>, K>>,
-    opts?: TRPCRequestOptions
-  ) {
-    return this.requestAsPromise({
-      type: "query",
-      keyAndInput,
-      context: opts?.context,
-      signal: opts?.signal,
-    });
-  }
+  return {
+    query<K extends Queries["key"] & string>(
+      keyAndInput: ProcedureKeyTuple<Query<K>>,
+      opts?: TRPCRequestOptions
+    ) {
+      return requestAsPromise({
+        type: "query",
+        procedureKey: keyAndInput,
+        context: opts?.context,
+        signal: opts?.signal,
+      });
+    },
 
-  mutation<K extends Mutations<ApplyFilter<TProcs, TArgs>>["key"] & string>(
-    keyAndInput: ProcedureKeyTuple<Mutation<ApplyFilter<TProcs, TArgs>, K>>,
-    opts?: TRPCRequestOptions
-  ) {
-    return this.requestAsPromise({
-      type: "mutation",
-      keyAndInput,
-      context: opts?.context,
-      signal: opts?.signal,
-    });
-  }
+    mutation<K extends Mutations["key"] & string>(
+      keyAndInput: ProcedureKeyTuple<Mutation<K>>,
+      opts?: TRPCRequestOptions
+    ) {
+      return requestAsPromise({
+        type: "mutation",
+        procedureKey: keyAndInput,
+        context: opts?.context,
+        signal: opts?.signal,
+      });
+    },
 
-  subscription<
-    K extends Subscriptions<ApplyFilter<TProcs, TArgs>>["key"] & string
-  >(
-    keyAndInput: ProcedureKeyTuple<Subscription<ApplyFilter<TProcs, TArgs>, K>>,
-    opts: TRPCRequestOptions &
-      Partial<
-        TRPCSubscriptionObserver<
-          Subscription<ApplyFilter<TProcs, TArgs>, K>["result"],
-          RSPCError
-        >
-      >
-  ) {
-    const observable$ = this.$request({
-      type: "subscription",
-      keyAndInput,
-      context: opts?.context,
-    });
-    return observable$.subscribe({
-      next(envelope) {
-        if (envelope.result.type === "started") {
-          opts.onStarted?.();
-        } else if (envelope.result.type === "stopped") {
-          opts.onStopped?.();
-        } else {
-          opts.onData?.(envelope.result.data);
-        }
-      },
-      error(err) {
-        opts.onError?.(err);
-      },
-      complete() {
-        opts.onComplete?.();
-      },
-    });
-  }
+    subscription<K extends Subscriptions["key"] & string>(
+      keyAndInput: ProcedureKeyTuple<Subscription<K>>,
+      opts: TRPCRequestOptions &
+        Partial<TRPCSubscriptionObserver<Subscription<K>["result"], RSPCError>>
+    ) {
+      const observable$ = $request({
+        type: "subscription",
+        procedureKey: keyAndInput,
+        context: opts?.context,
+      });
+      return observable$.subscribe({
+        next(envelope) {
+          if (envelope.result.type === "started") {
+            opts.onStarted?.();
+          } else if (envelope.result.type === "stopped") {
+            opts.onStopped?.();
+          } else {
+            opts.onData?.(envelope.result.data);
+          }
+        },
+        error(err) {
+          opts.onError?.(err);
+        },
+        complete() {
+          opts.onComplete?.();
+        },
+      });
+    },
 
-  $setLinks(links: TRPCLink<any>[]) {
-    this.links = links.map((link) => link(this.runtime));
-  }
+    setLinks,
+
+    /*
+     * @internal
+     * */
+    __procs: null as unknown as TProcs,
+    __args: null as unknown as TArgs,
+  };
 }
 
-export function rspcRoot<TProcs extends ProceduresDef>() {
+export type Client<
+  TProcs extends ProceduresDef,
+  TArgs extends ClientArgs<TProcs>
+> = Omit<ReturnType<typeof clientFactory<TProcs, TArgs>>, "setLinks">;
+
+export type ClientFilteredProcs<C extends Client<any, any>> = ApplyFilter<
+  C["__procs"],
+  C["__args"]
+>;
+
+export function createRspcVanilla<TProcs extends ProceduresDef>() {
   return {
-    createClient<TArgs extends ClientArgs<TProcs>>(
-      args: TArgs
-    ): TArgs extends { links: any }
-      ? Omit<Client<TProcs, TArgs>, "$setLinks">
-      : Client<TProcs, TArgs> {
-      return new Client<TProcs, TArgs>(args) as any;
+    createClient<TArgs extends ClientArgs<TProcs>>(args: TArgs) {
+      type Client = ReturnType<typeof clientFactory<TProcs, TArgs>>;
+
+      return clientFactory<TProcs, TArgs>(args) as unknown as Expand<
+        TArgs extends {
+          links: any;
+        }
+          ? Omit<Client, "setLinks">
+          : Client
+      >;
     },
   };
 }
@@ -282,9 +316,11 @@ type Procedures = {
   subscriptions: never;
 };
 
-const rspc = rspcRoot<Procedures>();
+const rspc = createRspcVanilla<Procedures>();
 
-const regularClient = rspc.createClient({});
+const regularClient = rspc.createClient({
+  links: [],
+});
 const libraryClient = rspc.createClient({
   filter: (d) => libraryProceduresFilter(d),
 });
@@ -302,6 +338,4 @@ const libraryClient = rspc.createClient({
 // })
 
 // // same configuraton as vanilla api
-// const apiHooks = createReactHooks(rspc);
-// const libraryApiHooks = createReactHooks(rspc, {
-// 		t
+// const apiHooks = createR
