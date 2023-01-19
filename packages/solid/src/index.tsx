@@ -1,3 +1,4 @@
+import { Unsubscribable } from "@rspc/client";
 import {
   RSPCError,
   Client,
@@ -12,7 +13,6 @@ import {
   createMutation,
   CreateMutationOptions,
   QueryClientProvider,
-  hashQueryKey,
 } from "@tanstack/solid-query";
 import {
   JSX,
@@ -20,6 +20,8 @@ import {
   useContext as _useContext,
   createEffect,
   Accessor,
+  onCleanup,
+  splitProps,
 } from "solid-js";
 
 export interface BaseOptions<TClient extends Client<any, any>> {
@@ -35,32 +37,27 @@ export interface SubscriptionOptions<TOutput> {
   onError?: (err: RSPCError) => void;
 }
 
-interface Context<TClient extends Client<any, any>> {
+interface ContextType<TClient extends Client<any, any>> {
   queryClient: QueryClient;
   client: TClient;
 }
 
 export function createRspcSolid<TClient extends Client<any, any>>() {
-  const context = createContext<Context<TClient> | null>(null);
+  const Context = createContext<ContextType<TClient> | null>(null);
 
-  const Provider = ({
-    children,
-    client,
-    queryClient,
-  }: Context<TClient> & {
-    children?: JSX.Element;
-  }) => {
+  const Provider = (
+    props: ContextType<TClient> & {
+      children?: JSX.Element;
+    }
+  ) => {
+    const [ctx, others] = splitProps(props, ["client", "queryClient"]);
+    console.log("PROVIDER!!!");
     return (
-      <context.Provider
-        value={{
-          client,
-          queryClient,
-        }}
-      >
-        <QueryClientProvider client={queryClient}>
-          {children}
+      <Context.Provider value={ctx}>
+        <QueryClientProvider client={ctx.queryClient}>
+          {others.children}
         </QueryClientProvider>
-      </context.Provider>
+      </Context.Provider>
     );
   };
 
@@ -82,7 +79,7 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
     Provider,
     createHooks() {
       function useContext() {
-        const ctx = _useContext(context);
+        const ctx = _useContext(Context);
         if (!ctx)
           throw new Error(
             "The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree."
@@ -109,7 +106,7 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
 
           return createQuery(
             keyAndInput,
-            async () => client.query(keyAndInput()),
+            () => client.query(keyAndInput()),
             rawOpts as any
           );
         },
@@ -142,20 +139,20 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
           opts: SubscriptionOptions<Subscription<K>["result"]> & TBaseOptions
         ) {
           const enabled = () => opts?.enabled ?? true;
-          const queryKey = () => hashQueryKey(keyAndInput());
           let client = opts.rspc?.client ?? useContext().client;
 
-          return createEffect(() => {
+          let isStopped = false;
+          let subscription: Unsubscribable | undefined;
+
+          createEffect((prev?: Unsubscribable) => {
+            isStopped = true;
+            prev?.unsubscribe();
+
             if (!enabled()) {
-              return;
+              return (subscription = undefined);
             }
 
-            // Force effect to refresh when key changes
-            queryKey();
-
-            let isStopped = false;
-
-            const subscription = client.subscription(keyAndInput(), {
+            return (subscription = client.subscription(keyAndInput(), {
               onStarted: () => {
                 if (!isStopped) {
                   opts.onStarted?.();
@@ -171,12 +168,12 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
                   opts.onError?.(err);
                 }
               },
-            });
+            }));
+          });
 
-            return () => {
-              isStopped = true;
-              subscription.unsubscribe();
-            };
+          onCleanup(() => {
+            isStopped = true;
+            subscription?.unsubscribe();
           });
         },
       };

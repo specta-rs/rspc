@@ -1,10 +1,4 @@
-import {
-  createRspcRoot,
-  createWSClient,
-  httpLink,
-  loggerLink,
-  wsLink,
-} from "@rspc/client";
+import { createRspcRoot, createWSClient, httpLink, wsLink } from "@rspc/client";
 import { createRspcReact } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
@@ -30,7 +24,6 @@ const fetchClient = root.createClient({
 });
 export const fetchQueryClient = new QueryClient();
 
-export const wsQueryClient = new QueryClient();
 const wsClient = root.createClient({
   // onError(opts) {
   //   console.error("B", opts);
@@ -44,6 +37,7 @@ const wsClient = root.createClient({
     }),
   ],
 });
+export const wsQueryClient = new QueryClient();
 
 export const rspcReact = createRspcReact<typeof fetchClient>();
 const rspc = rspcReact.createHooks();
@@ -112,18 +106,11 @@ export default function App() {
         }}
       >
         <h1>React</h1>
-        <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
-          <rspcReact.Provider
-            client={fetchClient}
-            queryClient={fetchQueryClient}
-          >
-            <Example name="Fetch Transport" />
-          </rspcReact.Provider>
-        </QueryClientProvider>
+        <rspcReact.Provider client={fetchClient} queryClient={fetchQueryClient}>
+          <Example name="Fetch Transport" />
+        </rspcReact.Provider>
         <rspcReact.Provider client={wsClient} queryClient={wsQueryClient}>
-          <QueryClientProvider client={wsQueryClient}>
-            <Example name="Websocket Transport" />
-          </QueryClientProvider>
+          <Example name="Websocket Transport" />
         </rspcReact.Provider>
       </div>
     </React.StrictMode>

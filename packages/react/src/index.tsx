@@ -9,8 +9,8 @@ import {
   QueryClient,
   QueryClientProvider,
   UseQueryOptions,
-  useQuery as _useQuery,
-  useMutation as _useMutation,
+  useQuery,
+  useMutation,
   UseMutationOptions,
   hashQueryKey,
 } from "@tanstack/react-query";
@@ -96,7 +96,7 @@ export function createRspcReact<TClient extends Client<any, any>>() {
           const { rspc, ...rawOpts } = opts ?? {};
           let client = rspc?.client! || useContext().client;
 
-          return _useQuery(
+          return useQuery(
             keyAndInput,
             () => client.query(keyAndInput),
             rawOpts
@@ -121,7 +121,7 @@ export function createRspcReact<TClient extends Client<any, any>>() {
             ? undefined
             : Mutation<K>["input"];
 
-          return _useMutation(async (input: Input) => {
+          return useMutation(async (input: Input) => {
             const actualKey = Array.isArray(key) ? key[0] : key;
             return client.mutation([actualKey, input] as any);
           }, rawOpts);

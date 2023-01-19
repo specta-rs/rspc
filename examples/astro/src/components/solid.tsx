@@ -43,16 +43,13 @@ export const wsQueryClient = new QueryClient();
 export const rspcSolid = createRspcSolid<typeof fetchClient>();
 const rspc = rspcSolid.createHooks();
 
-function Example({ name }: { name: string }) {
+function Example(props: { name: string }) {
   const [rerenderProp, setRendererProp] = createSignal(Date.now().toString());
-  const { data: version } = rspc.createQuery(() => ["version"]);
-  const { data: transformMe } = rspc.createQuery(() => ["basic.transformMe"]);
-  const { data: echo } = rspc.createQuery(() => [
-    "basic.echo",
-    "Hello From Frontend!",
-  ]);
+  const version = rspc.createQuery(() => ["version"]);
+  const transformMe = rspc.createQuery(() => ["basic.transformMe"]);
+  const echo = rspc.createQuery(() => ["basic.echo", "Hello From Frontend!"]);
   const { mutate, isLoading } = rspc.createMutation("basic.sendMsg");
-  const { error } = rspc.createQuery(() => ["basic.error"], {
+  const error = rspc.createQuery(() => ["basic.error"], {
     retry: false,
     onSuccess(v) {
       console.log("WHY", v);
@@ -68,13 +65,13 @@ function Example({ name }: { name: string }) {
         border: "black 1px solid",
       }}
     >
-      <h1>{name}</h1>
-      <p>Using rspc version: {version}</p>
-      <p>Echo response: {echo}</p>
+      <h1>{props.name}</h1>
+      <p>Using rspc version: {version.data}</p>
+      <p>Echo response: {echo.data}</p>
       <p>
-        Error returned: {error?.code} {error?.message}
+        Error returned: {error.error?.code} {error.error?.message}
       </p>
-      <p>Transformed Query: {transformMe}</p>
+      <p>Transformed Query: {transformMe.data}</p>
       <ExampleSubscription rerenderProp={rerenderProp()} />
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
@@ -101,19 +98,17 @@ function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
   );
 }
 
+console.log(rspcSolid.Provider);
+
 export default function App() {
   return (
     <div style="background-color: rgba(255, 105, 97, .5);">
-      <h1>React</h1>
-      <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
-        <rspcSolid.Provider client={fetchClient} queryClient={fetchQueryClient}>
-          <Example name="Fetch Transport" />
-        </rspcSolid.Provider>
-      </QueryClientProvider>
+      <h1>Solid</h1>
+      <rspcSolid.Provider client={fetchClient} queryClient={fetchQueryClient}>
+        <Example name="Fetch Transport" />
+      </rspcSolid.Provider>
       <rspcSolid.Provider client={wsClient} queryClient={wsQueryClient}>
-        <QueryClientProvider client={wsQueryClient}>
-          <Example name="Websocket Transport" />
-        </QueryClientProvider>
+        <Example name="Websocket Transport" />
       </rspcSolid.Provider>
     </div>
   );
