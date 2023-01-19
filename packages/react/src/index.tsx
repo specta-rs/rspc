@@ -81,20 +81,20 @@ export function createRspcReact<TClient extends Client<any, any>>() {
 
       return {
         useQuery<K extends Queries["key"]>(
-          keyAndInput: ProcedureKeyTuple<Query<K>>,
+          keyAndInput: ProcedureKeyTuple<K, Query<K>>,
           opts?: Omit<
             UseQueryOptions<
               Query<K>["result"],
               RSPCError,
               Query<K>["result"],
-              ProcedureKeyTuple<Query<K>>
+              ProcedureKeyTuple<K, Query<K>>
             >,
             "queryKey" | "queryFn"
           > &
             TBaseOptions
         ) {
           const { rspc, ...rawOpts } = opts ?? {};
-          let client = rspc?.client || useContext().client;
+          let client = rspc?.client! || useContext().client;
 
           return _useQuery(
             keyAndInput,
@@ -127,7 +127,7 @@ export function createRspcReact<TClient extends Client<any, any>>() {
           }, rawOpts);
         },
         useSubscription<K extends Subscriptions["key"] & string>(
-          keyAndInput: ProcedureKeyTuple<Subscription<K>>,
+          keyAndInput: ProcedureKeyTuple<K, Subscription<K>>,
           opts: SubscriptionOptions<Subscription<K>["result"]> & TBaseOptions
         ) {
           const enabled = opts?.enabled ?? true;

@@ -91,14 +91,14 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
       }
 
       return {
-        createQuery<K extends Queries["key"] & string>(
-          keyAndInput: Accessor<ProcedureKeyTuple<Query<K>>>,
+        createQuery<K extends Queries["key"]>(
+          keyAndInput: Accessor<ProcedureKeyTuple<K, Query<K>>>,
           opts?: Omit<
             CreateQueryOptions<
               Query<K>["result"],
               RSPCError,
               Query<K>["result"],
-              Accessor<ProcedureKeyTuple<Query<K>>>
+              Accessor<ProcedureKeyTuple<K, Query<K>>>
             >,
             "queryKey" | "queryFn"
           > &
@@ -138,7 +138,7 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
           }, rawOpts);
         },
         createSubscription<K extends Subscriptions["key"] & string>(
-          keyAndInput: Accessor<ProcedureKeyTuple<Subscription<K>>>,
+          keyAndInput: Accessor<ProcedureKeyTuple<K, Subscription<K>>>,
           opts: SubscriptionOptions<Subscription<K>["result"]> & TBaseOptions
         ) {
           const enabled = () => opts?.enabled ?? true;

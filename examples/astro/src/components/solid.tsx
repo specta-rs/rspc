@@ -1,15 +1,14 @@
 /** @jsxImportSource solid-js */
-import { createWSClient, httpLink, wsLink } from "@rspc/client";
-import { createSolidQueryHooks } from "@rspc/solid";
+import { createRspcRoot, createWSClient, httpLink, wsLink } from "@rspc/client";
+import { createRspcSolid } from "@rspc/solid";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { createSignal } from "solid-js";
 
 import type { Procedures } from "../../../bindings";
 
-export const rspc = createSolidQueryHooks<Procedures>();
+const root = createRspcRoot<Procedures>();
 
-export const fetchQueryClient = new QueryClient();
-const fetchClient = rspc.createClient({
+const fetchClient = root.createClient({
   // onError(opts) {
   //   console.error("A", opts);
   // },
@@ -24,24 +23,25 @@ const fetchClient = rspc.createClient({
     // }),
   ],
 });
+export const fetchQueryClient = new QueryClient();
 
-// TODO: Remove this abstraction or keep it?
-const wsClient2 = createWSClient({
-  url: "ws://localhost:4000/rspc/ws",
-});
-
-export const wsQueryClient = new QueryClient();
-const wsClient = rspc.createClient({
+const wsClient = root.createClient({
   // onError(opts) {
   //   console.error("B", opts);
   // },
   links: [
     // loggerLink(),
     wsLink({
-      client: wsClient2,
+      client: createWSClient({
+        url: "ws://localhost:4000/rspc/ws",
+      }),
     }),
   ],
 });
+export const wsQueryClient = new QueryClient();
+
+export const rspcSolid = createRspcSolid<typeof fetchClient>();
+const rspc = rspcSolid.createHooks();
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = createSignal(Date.now().toString());
@@ -106,15 +106,15 @@ export default function App() {
     <div style="background-color: rgba(255, 105, 97, .5);">
       <h1>React</h1>
       <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
-        <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
+        <rspcSolid.Provider client={fetchClient} queryClient={fetchQueryClient}>
           <Example name="Fetch Transport" />
-        </rspc.Provider>
+        </rspcSolid.Provider>
       </QueryClientProvider>
-      <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
+      <rspcSolid.Provider client={wsClient} queryClient={wsQueryClient}>
         <QueryClientProvider client={wsQueryClient}>
           <Example name="Websocket Transport" />
         </QueryClientProvider>
-      </rspc.Provider>
+      </rspcSolid.Provider>
     </div>
   );
 }

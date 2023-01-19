@@ -1,10 +1,10 @@
 import { observable } from "../..";
-import { ProcedureDef } from "@rspc/client";
+import { ProceduresDef } from "@rspc/client";
 import { Operation, OperationLink, OperationResultObservable } from "../types";
 
 /** @internal */
 export function createChain<
-  TProcedures extends ProcedureDef,
+  TProcedures extends ProceduresDef,
   TInput = unknown,
   TOutput = unknown
 >(opts: {

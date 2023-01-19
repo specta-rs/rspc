@@ -1,9 +1,9 @@
 import { ProcedureDef, ProceduresDef } from "../bindings";
 
-export type GetProcedure<
-  P extends ProcedureDef,
-  K extends P["key"] & string
-> = Extract<P, { key: K }>;
+export type GetProcedure<P extends ProcedureDef, K extends P["key"]> = Extract<
+  P,
+  { key: K }
+>;
 
 export type Queries<Procs extends ProceduresDef> = Procs["queries"];
 export type Query<
@@ -25,6 +25,9 @@ export type Subscription<
 export type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
 export type TupleCond<T, Cond> = T extends Cond ? [] : [T];
 // I think TS will only map over a union type if you use a conditional - @brendonovich
-export type ProcedureKeyTuple<P extends ProcedureDef> = P extends ProcedureDef
-  ? [key: P["key"], ...input: TupleCond<P["input"], null>]
+export type ProcedureKeyTuple<
+  K extends string,
+  P extends ProcedureDef
+> = P extends ProcedureDef
+  ? [key: K, ...input: TupleCond<P["input"], null>]
   : never;

@@ -87,12 +87,12 @@ function clientFactory<
 
   function $request<TProc extends ProcedureDef>(requestArgs: {
     type: Operation["type"];
-    procedureKey: ProcedureKeyTuple<TProc>;
+    procedureKey: ProcedureKeyTuple<TProc["key"], TProc>;
     context?: OperationContext;
   }) {
     const { procedureKey } = args.filter
       ? args.filter({
-          procedureKey: requestArgs.procedureKey,
+          procedureKey: requestArgs.procedureKey as any,
         })
       : { procedureKey: requestArgs.procedureKey };
 
@@ -110,7 +110,7 @@ function clientFactory<
 
   function requestAsPromise<TProc extends ProcedureDef>(opts: {
     type: Operation["type"];
-    procedureKey: ProcedureKeyTuple<TProc>;
+    procedureKey: ProcedureKeyTuple<TProc["key"], TProc>;
     context?: OperationContext;
     signal?: AbortSignal;
   }) {
@@ -132,20 +132,21 @@ function clientFactory<
   }
 
   return {
-    query<K extends Queries["key"] & string>(
-      keyAndInput: ProcedureKeyTuple<Query<K>>,
+    query<K extends Queries["key"]>(
+      keyAndInput: ProcedureKeyTuple<K, Query<K>>,
       opts?: TRPCRequestOptions
     ) {
-      return requestAsPromise({
+      const [key, input] = keyAndInput;
+      return requestAsPromise<Query<K>>({
         type: "query",
-        procedureKey: keyAndInput,
+        procedureKey: [key, input ?? null] as any,
         context: opts?.context,
         signal: opts?.signal,
       });
     },
 
     mutation<K extends Mutations["key"] & string>(
-      keyAndInput: ProcedureKeyTuple<Mutation<K>>,
+      keyAndInput: ProcedureKeyTuple<K, Mutation<K>>,
       opts?: TRPCRequestOptions
     ) {
       return requestAsPromise({
@@ -157,7 +158,7 @@ function clientFactory<
     },
 
     subscription<K extends Subscriptions["key"] & string>(
-      keyAndInput: ProcedureKeyTuple<Subscription<K>>,
+      keyAndInput: ProcedureKeyTuple<K, Subscription<K>>,
       opts: TRPCRequestOptions &
         Partial<SubscriptionObserver<Subscription<K>["result"], RSPCError>>
     ) {

@@ -2,7 +2,7 @@ import { Observer, UnsubscribeFn, observable } from "../internals/observable";
 import { RSPCError } from "../error";
 import { transformResult } from "./internals/transformResult";
 import { Operation, TRPCLink } from "./types";
-import { ProceduresDef } from "../typescript";
+import { ProceduresDef } from "../bindings";
 
 // TODO
 type TRPCClientIncomingMessage = any;

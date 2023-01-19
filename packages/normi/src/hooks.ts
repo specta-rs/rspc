@@ -1,5 +1,4 @@
-import { Hooks, ProcedureDef } from "@rspc/client";
-import { HookCreateFunction } from "@rspc/client";
+import { ProcedureDef } from "@rspc/client";
 import { ProceduresDef } from "@rspc/client";
 import { NormiOptions } from ".";
 import { OmitRecursively } from "./utils";

@@ -1,20 +1,19 @@
 import {
-  createClient,
+  createRspcRoot,
   createWSClient,
   httpLink,
   loggerLink,
   wsLink,
 } from "@rspc/client";
-import { createReactHooks } from "@rspc/react";
+import { createRspcReact } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
 import type { Procedures } from "../../../bindings";
 
-export const rspc = createReactHooks<Procedures>();
+const root = createRspcRoot<Procedures>();
 
-export const fetchQueryClient = new QueryClient();
-const fetchClient = rspc.createClient({
+const fetchClient = root.createClient({
   // onError(opts) {
   //   console.error("A", opts);
   // },
@@ -29,24 +28,25 @@ const fetchClient = rspc.createClient({
     // }),
   ],
 });
-
-// TODO: Remove this abstraction or keep it?
-const wsClient2 = createWSClient({
-  url: "ws://localhost:4000/rspc/ws",
-});
+export const fetchQueryClient = new QueryClient();
 
 export const wsQueryClient = new QueryClient();
-const wsClient = rspc.createClient({
+const wsClient = root.createClient({
   // onError(opts) {
   //   console.error("B", opts);
   // },
   links: [
     // loggerLink(),
     wsLink({
-      client: wsClient2,
+      client: createWSClient({
+        url: "ws://localhost:4000/rspc/ws",
+      }),
     }),
   ],
 });
+
+export const rspcReact = createRspcReact<typeof fetchClient>();
+const rspc = rspcReact.createHooks();
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
@@ -113,15 +113,18 @@ export default function App() {
       >
         <h1>React</h1>
         <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
-          <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
+          <rspcReact.Provider
+            client={fetchClient}
+            queryClient={fetchQueryClient}
+          >
             <Example name="Fetch Transport" />
-          </rspc.Provider>
+          </rspcReact.Provider>
         </QueryClientProvider>
-        <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
+        <rspcReact.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />
           </QueryClientProvider>
-        </rspc.Provider>
+        </rspcReact.Provider>
       </div>
     </React.StrictMode>
   );
