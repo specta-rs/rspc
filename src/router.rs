@@ -181,8 +181,11 @@ where
 #[cfg_attr(test, derive(specta::Type))]
 #[cfg_attr(test, specta(rename = "ProceduresDef"))]
 pub(crate) struct Procedures {
+    #[specta(type = ProcedureDataType)]
     pub queries: Vec<ProcedureDataType>,
+    #[specta(type = ProcedureDataType)]
     pub mutations: Vec<ProcedureDataType>,
+    #[specta(type = ProcedureDataType)]
     pub subscriptions: Vec<ProcedureDataType>,
 }
 
