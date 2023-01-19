@@ -1,4 +1,4 @@
-import { Unsubscribable } from "@rspc/client";
+import { createRspcRoot, Unsubscribable } from "@rspc/client";
 import {
   RSPCError,
   Client,
@@ -94,8 +94,9 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
             CreateQueryOptions<
               Query<K>["result"],
               RSPCError,
-              Query<K>["result"],
-              Accessor<ProcedureKeyTuple<K, Query<K>>>
+              Query<K>["result"]
+              // opts needs to be typed, and this prevents it
+              // Accessor<ProcedureKeyTuple<K, Query<K>>>
             >,
             "queryKey" | "queryFn"
           > &
@@ -105,12 +106,12 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
           let client = rspc?.client ?? useContext().client;
 
           return createQuery(
-            keyAndInput,
+            keyAndInput as any,
             () => client.query(keyAndInput()),
-            rawOpts as any
+            rawOpts
           );
         },
-        createMutation<K extends Mutations["key"] & string, TContext = unknown>(
+        createMutation<K extends Mutations["key"], TContext = unknown>(
           key: K | [K],
           opts?: CreateMutationOptions<
             Mutation<K>["result"],
@@ -134,25 +135,21 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
             return client.mutation([actualKey, input] as any);
           }, rawOpts);
         },
-        createSubscription<K extends Subscriptions["key"] & string>(
+        createSubscription<K extends Subscriptions["key"]>(
           keyAndInput: Accessor<ProcedureKeyTuple<K, Subscription<K>>>,
           opts: SubscriptionOptions<Subscription<K>["result"]> & TBaseOptions
         ) {
           const enabled = () => opts?.enabled ?? true;
           let client = opts.rspc?.client ?? useContext().client;
 
-          let isStopped = false;
-          let subscription: Unsubscribable | undefined;
-
-          createEffect((prev?: Unsubscribable) => {
-            isStopped = true;
-            prev?.unsubscribe();
-
+          createEffect(() => {
             if (!enabled()) {
-              return (subscription = undefined);
+              return;
             }
 
-            return (subscription = client.subscription(keyAndInput(), {
+            let isStopped = false;
+
+            const subscription = client.subscription(keyAndInput(), {
               onStarted: () => {
                 if (!isStopped) {
                   opts.onStarted?.();
@@ -168,12 +165,12 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
                   opts.onError?.(err);
                 }
               },
-            }));
-          });
+            });
 
-          onCleanup(() => {
-            isStopped = true;
-            subscription?.unsubscribe();
+            onCleanup(() => {
+              isStopped = true;
+              subscription?.unsubscribe();
+            });
           });
         },
       };

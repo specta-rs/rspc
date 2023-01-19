@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
 import { createRspcRoot, createWSClient, httpLink, wsLink } from "@rspc/client";
 import { createRspcSolid } from "@rspc/solid";
-import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
+import { QueryClient } from "@tanstack/solid-query";
 import { createSignal } from "solid-js";
 
 import type { Procedures } from "../../../bindings";
@@ -48,7 +48,7 @@ function Example(props: { name: string }) {
   const version = rspc.createQuery(() => ["version"]);
   const transformMe = rspc.createQuery(() => ["basic.transformMe"]);
   const echo = rspc.createQuery(() => ["basic.echo", "Hello From Frontend!"]);
-  const { mutate, isLoading } = rspc.createMutation("basic.sendMsg");
+  const sendMsg = rspc.createMutation("basic.sendMsg");
   const error = rspc.createQuery(() => ["basic.error"], {
     retry: false,
     onSuccess(v) {
@@ -76,29 +76,31 @@ function Example(props: { name: string }) {
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
       </button>
-      <button onClick={() => mutate("Hello!")} disabled={isLoading}>
+      <button
+        onClick={() => sendMsg.mutate("Hello!")}
+        disabled={sendMsg.isLoading}
+      >
         Send Msg!
       </button>
     </div>
   );
 }
 
-function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
+function ExampleSubscription(props: { rerenderProp: string }) {
   const [i, setI] = createSignal(0);
   rspc.createSubscription(() => ["subscriptions.pings"], {
     onData(msg) {
+      console.log("SUBSCRIPTION: ", msg);
       setI((i) => i + 1);
     },
   });
 
   return (
     <p>
-      Pings received: {i} {rerenderProp}
+      Pings received: {i} {props.rerenderProp}
     </p>
   );
 }
-
-console.log(rspcSolid.Provider);
 
 export default function App() {
   return (

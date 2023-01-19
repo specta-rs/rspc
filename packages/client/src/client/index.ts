@@ -145,7 +145,7 @@ function clientFactory<
       });
     },
 
-    mutation<K extends Mutations["key"] & string>(
+    mutation<K extends Mutations["key"]>(
       keyAndInput: ProcedureKeyTuple<K, Mutation<K>>,
       opts?: TRPCRequestOptions
     ) {
@@ -157,7 +157,7 @@ function clientFactory<
       });
     },
 
-    subscription<K extends Subscriptions["key"] & string>(
+    subscription<K extends Subscriptions["key"]>(
       keyAndInput: ProcedureKeyTuple<K, Subscription<K>>,
       opts: TRPCRequestOptions &
         Partial<SubscriptionObserver<Subscription<K>["result"], RSPCError>>

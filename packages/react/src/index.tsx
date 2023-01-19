@@ -134,7 +134,7 @@ export function createRspcReact<TClient extends Client<any, any>>() {
           const queryKey = hashQueryKey(keyAndInput);
           let client = opts.rspc?.client || useContext().client;
 
-          return React.useEffect(() => {
+          React.useEffect(() => {
             if (!enabled) {
               return;
             }
