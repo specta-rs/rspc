@@ -1,4 +1,3 @@
-import { createRspcRoot, Unsubscribable } from "@rspc/client";
 import {
   RSPCError,
   Client,
@@ -169,7 +168,7 @@ export function createRspcSolid<TClient extends Client<any, any>>() {
 
             onCleanup(() => {
               isStopped = true;
-              subscription?.unsubscribe();
+              subscription.unsubscribe();
             });
           });
         },
