@@ -1,19 +1,10 @@
 {
-	"extends": "../tsconfig.json",
-	"compilerOptions": {
-		"esModuleInterop": true,
-		"moduleResolution": "node",
-		"jsx": "preserve",
-		"jsxImportSource": "solid-js",
-		"lib": [
-			"esnext",
-			"dom"
-		]
-	},
-	"include": [
-		"src/**/*"
-	],
-	"exclude": [
-		"dist/**/*"
-	]
+  "extends": "@rspc/config/tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "lib": ["esnext", "dom"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist/**/*"]
 }

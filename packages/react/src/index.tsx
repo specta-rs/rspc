@@ -6,13 +6,15 @@ import {
   ProcedureKeyTuple,
 } from "@rspc/client";
 import {
-  QueryClient,
   QueryClientProvider,
-  UseQueryOptions,
   useQuery,
   useMutation,
-  UseMutationOptions,
   hashQueryKey,
+} from "@tanstack/react-query";
+import type {
+  QueryClient,
+  UseQueryOptions,
+  UseMutationOptions,
 } from "@tanstack/react-query";
 import * as React from "react";
 

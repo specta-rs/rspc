@@ -1,4 +1,4 @@
-import { Client, ClientArgs } from ".";
+// import { Client, ClientArgs } from ".";
 
 // TODO: This should come from Rust via Specta
 export type OperationType =

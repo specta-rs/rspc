@@ -1,10 +1,16 @@
-import { ProcedureDef, ProceduresDef } from "./bindings";
-import { FilterData, Mutations, Queries, Subscriptions } from ".";
+import { ProcedureDef, ProceduresDef } from "@rspc/client/src/bindings";
+import {
+  FilterData,
+  Mutations,
+  Queries,
+  Subscriptions,
+} from "@rspc/client/src";
 
 interface LibraryArgs<T> {
   library_id: string;
   arg: T;
 }
+
 type StripLibraryArgsFromInput<T extends ProcedureDef> = T extends any
   ? T["input"] extends LibraryArgs<infer E>
     ? {
