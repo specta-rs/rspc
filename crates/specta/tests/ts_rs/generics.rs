@@ -5,7 +5,8 @@ use std::{
     rc::Rc,
 };
 
-use specta::{ts::export, Type};
+use crate::assert_ts_export;
+use specta::Type;
 
 #[derive(Type)]
 struct Generic<T: Type> {
@@ -34,23 +35,23 @@ struct Container {
 
 #[test]
 fn test() {
-    assert_eq!(
-        export::<Generic<()>>().unwrap(),
+    assert_ts_export!(
+        Generic<()>,
         "export type Generic<T> = { value: T, values: Array<T> }"
     );
 
-    assert_eq!(
-        export::<GenericAutoBound::<()>>().unwrap(),
+    assert_ts_export!(
+        GenericAutoBound<()>,
         "export type GenericAutoBound<T> = { value: T, values: Array<T> }"
     );
 
-    assert_eq!(
-        export::<GenericAutoBound2::<()>>().unwrap(),
+    assert_ts_export!(
+        GenericAutoBound2<()>,
         "export type GenericAutoBound2<T> = { value: T, values: Array<T> }"
     );
 
-    assert_eq!(
-        export::<Container>().unwrap(),
+    assert_ts_export!(
+        Container,
         "export type Container = { foo: Generic<number>, bar: Array<Generic<number>>, baz: Record<string, Generic<string>> }"
     );
 }
@@ -69,8 +70,8 @@ fn generic_enum() {
         Z(Vec<Vec<i32>>),
     }
 
-    assert_eq!(
-        export::<Generic::<(), (), ()>>().unwrap(),
+    assert_ts_export!(
+        Generic::<(), (), ()>,
         r#"export type Generic<A, B, C> = { A: A } | { B: [B, B, B] } | { C: Array<C> } | { D: Array<Array<Array<A>>> } | { E: { a: A, b: B, c: C } } | { X: Array<number> } | { Y: number } | { Z: Array<Array<number>> }"#
     )
 }
@@ -80,10 +81,7 @@ fn generic_newtype() {
     #[derive(Type)]
     struct NewType<T>(Vec<Vec<T>>);
 
-    assert_eq!(
-        export::<NewType::<()>>().unwrap(),
-        r#"export type NewType<T> = Array<Array<T>>"#
-    );
+    assert_ts_export!(NewType::<()>, r#"export type NewType<T> = Array<Array<T>>"#);
 }
 
 #[test]
@@ -91,8 +89,8 @@ fn generic_tuple() {
     #[derive(Type)]
     struct Tuple<T>(T, Vec<T>, Vec<Vec<T>>);
 
-    assert_eq!(
-        export::<Tuple::<()>>().unwrap(),
+    assert_ts_export!(
+        Tuple::<()>,
         r#"export type Tuple<T> = [T, Array<T>, Array<Array<T>>]"#
     );
 }
@@ -111,8 +109,8 @@ fn generic_struct() {
         h: Vec<[(T, T); 3]>,
     }
 
-    assert_eq!(
-        export::<Struct::<()>>().unwrap(),
+    assert_ts_export!(
+        Struct::<()>,
         "export type Struct<T> = { a: T, b: [T, T], c: [T, [T, T]], d: Array<T>, e: Array<[T, T]>, f: Array<T>, g: Array<Array<T>>, h: Array<Array<[T, T]>> }"
     )
 }
@@ -134,12 +132,9 @@ fn inline() {
         t: Generic<String>,
     }
 
-    assert_eq!(
-        export::<Generic::<()>>().unwrap(),
-        "export type Generic<T> = { t: T }"
-    );
-    assert_eq!(
-        export::<Container>().unwrap(),
+    assert_ts_export!(Generic::<()>, "export type Generic<T> = { t: T }");
+    assert_ts_export!(
+        Container,
         "export type Container = ({ t: string }) & { g: Generic<string>, gi: { t: string } }"
     );
 }
@@ -150,8 +145,8 @@ fn inline() {
 //     struct A<T = String> {
 //         t: T,
 //     }
-//     assert_eq!(
-//         ts_export::<A::<()>>().unwrap(),
+//     assert_ts_export!(
+//         ts_A::<()>,
 //         "export type A<T = string> = { t: T, }"
 //     );
 
@@ -159,8 +154,8 @@ fn inline() {
 //     struct B<U = Option<A<i32>>> {
 //         u: U,
 //     }
-//     assert_eq!(
-//         ts_export::<B::<()>>().unwrap(),
+//     assert_ts_export!(
+//         ts_B::<()>,
 //         "export type B<U = A<number> | null>  = { u: U, }"
 //     );
 
@@ -175,8 +170,8 @@ fn inline() {
 // #[ts(inline)]
 // xi2: X<i32>
 // }
-// assert_eq!(
-//     ts_export::<Y>().unwrap(),
+// assert_ts_export!(
+//     ts_Y,
 //     "type Y = { a1: A, a2: A<number> }"
 // )
 // }
@@ -190,15 +185,15 @@ fn inline() {
 //     struct A<T: ToString = i32> {
 //         t: T,
 //     }
-//     assert_eq!(
-//         ts_export::<A::<i32>>().unwrap(),
+//     assert_ts_export!(
+//         ts_A::<i32>,
 //         "export type A<T = number> = { t: T, }"
 //     );
 
 //     #[derive(Type)]
 //     struct B<T: ToString + Debug + Clone + 'static>(T);
-//     assert_eq!(
-//         ts_export::<B::<&'static str>>().unwrap(),
+//     assert_ts_export!(
+//         ts_B::<&'static str>,
 //         "export type B<T> = T;"
 //     );
 
@@ -209,8 +204,8 @@ fn inline() {
 //         C,
 //         D(T, K),
 //     }
-//     assert_eq!(
-//         ts_export::<C::<&'static str, i32>>().unwrap(),
+//     assert_ts_export!(
+//         ts_C::<&'static str, i32>,
 //         "export type C<T, K = number> = { A: { t: T, } } | { B: T } | \"C\" | { D: [T, K] };"
 //     );
 
@@ -219,8 +214,8 @@ fn inline() {
 //         t: [T; N],
 //     }
 
-//     assert_eq!(
-//         ts_export::<D::<&str, 41>>().unwrap(),
+//     assert_ts_export!(
+//         ts_D::<&str, 41>,
 //         "export type D<T> = { t: Array<T>, }"
 //     )
 // }

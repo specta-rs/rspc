@@ -1,18 +1,31 @@
 mod fail;
 mod swift;
+mod ts;
 mod ts_rs;
-mod typescript;
 
-// TODO: Move them somewhere else
+use serde::*;
+use specta::*;
+pub(crate) use ts::*;
+
 #[derive(Deserialize, Serialize, Type)]
-#[serde(tag = "method", content = "params", rename_all = "camelCase")]
 pub struct SpectaTypeOverride {
     #[specta(type = String)] // Ident
-    path: (),
+    string_ident: (),
     #[specta(type = u32)] // Ident
-    path: (),
+    u32_ident: (),
     #[specta(type = ::std::string::String)] // Path
-    input: (),
+    path: (),
+}
+
+#[test]
+fn type_override() {
+    let datatype = SpectaTypeOverride::inline(
+        DefOpts {
+            parent_inline: false,
+            type_map: &mut Default::default(),
+        },
+        &[],
+    );
 }
 
 // TODO: Compile Error

@@ -4,13 +4,15 @@ use crate::*;
 #[derive(Default)]
 pub enum BigIntExportBehavior {
     /// Export BigInt as a Typescript `string`
-    /// WARNING: Specta takes no responsibility that the Rust number is encoded as a string. Make sure you instruct serde <https://github.com/serde-rs/json/issues/329#issuecomment-305608405> or your other serializer of this.
+    /// WARNING: Specta takes no responsibility that the Rust number is encoded as a string.
+    /// Make sure you instruct serde <https://github.com/serde-rs/json/issues/329#issuecomment-305608405> or your other serializer of this.
     String,
     /// Export BigInt as a Typescript `number`.
     /// WARNING: `JSON.parse` in JS will truncate your number resulting in data loss so ensure your deserializer supports bigint types.
     Number,
     /// Export BigInt as a Typescript `BigInt`.
-    /// WARNING: Specta takes no responsibility that the Rust number is decoded into this type on the frontend. Ensure you deserializer is able to do this.
+    /// WARNING: Specta takes no responsibility that the Rust number is decoded into this type on the frontend.
+    /// Ensure you deserializer is able to do this.
     BigInt,
     /// Abort the export with an error
     /// This is the default behavior because without integration from your serializer and deserializer we can't guarantee data loss won't occur.
@@ -147,7 +149,8 @@ pub fn export_datatype(conf: &ExportConfiguration, def: &DataTypeWithComments) -
         _ => return Err(format!("Type cannot be exported: {:?}", def)), // TODO: Can this be enforced at a type system level
     };
 
-let comments = conf.comment_style.render(def.comments);
+    let comments = conf.comment_style.render(def.comments);
+
     Ok(format!("{comments}export {declaration}"))
 }
 
