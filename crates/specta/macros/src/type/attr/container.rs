@@ -19,7 +19,7 @@ impl_parse! {
         "rename" => out.rename = out.rename.take().or(Some(attr.pass_string()?)),
         "tag" => out.tag = out.tag.take().or(Some(attr.pass_string()?)),
         "crate" => {
-            if attr.tag().as_str() == "specta" {
+            if attr.root_ident() == "specta" {
                 out.crate_name = out.crate_name.take().or(Some(attr.pass_string()?));
             }
         },
