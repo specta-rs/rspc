@@ -7,7 +7,7 @@ pub use object::*;
 pub use r#enum::*;
 
 /// A map of type definitions
-pub type TypeDefs = BTreeMap<&'static str, DataTypeWithComments>;
+pub type TypeDefs = BTreeMap<&'static str, DataTypeExt>;
 
 /// arguments for [Type::inline](crate::Type::inline), [Type::reference](crate::Type::reference) and [Type::definition](crate::Type::definition).
 pub struct DefOpts<'a> {
@@ -20,7 +20,8 @@ pub struct DefOpts<'a> {
 /// a wrapper around data type that can store the type erased data type and the doc comments on the type
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
-pub struct DataTypeWithComments {
+pub struct DataTypeExt {
+    pub name: &'static str,
     pub comments: &'static [&'static str],
     pub inner: DataType,
 }

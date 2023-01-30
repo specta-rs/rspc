@@ -55,8 +55,9 @@ pub trait Type {
     /// as the value for the `generics` arg.
     ///
     /// Implemented internally
-    fn definition(opts: DefOpts) -> DataTypeWithComments {
-        DataTypeWithComments {
+    fn definition(opts: DefOpts) -> DataTypeExt {
+        DataTypeExt {
+            name: Self::NAME,
             comments: Self::COMMENTS,
             inner: Self::inline(
                 opts,
@@ -100,7 +101,8 @@ pub trait Type {
                 if !opts.type_map.contains_key(Self::NAME) {
                     opts.type_map.insert(
                         Self::NAME,
-                        DataTypeWithComments {
+                        DataTypeExt {
+                            name: Self::NAME,
                             comments: Self::COMMENTS,
                             inner: placeholder,
                         },
