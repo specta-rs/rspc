@@ -149,12 +149,8 @@ where
 
         writeln!(file, "{}", Procedures::new(self).big_cringe_export(&config))?;
 
-        for export in self
-            .typ_store
-            .values()
-            .filter_map(|v| ts::export_datatype(&config, v).ok())
-        {
-            writeln!(file, "\n{}", export)?;
+        for ty in self.typ_store.values() {
+            writeln!(file, "\n{}", ts::export_datatype(&config, ty)?)?;
         }
 
         Ok(())
@@ -245,7 +241,6 @@ fn generate_procedures_ts(
                     .expect("Failed to generate Typescript bindings");
 
                 let key = &operation.key;
-
                 format!(
                     r#"
         {{ key: "{key}", input: {input}, result: {result_ts} }}"#
