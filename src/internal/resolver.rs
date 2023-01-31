@@ -49,14 +49,14 @@ where
     fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType {
         ProcedureDataType {
             key: key.to_string(),
-            input: <TArg as Type>::inline(
+            input: <TArg as Type>::reference(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
                 },
                 &[],
             ),
-            result: <TResult::Data as Type>::inline(
+            result: <TResult::Data as Type>::reference(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
@@ -95,14 +95,14 @@ where
     fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType {
         ProcedureDataType {
             key: key.to_string(),
-            input: <TArg as Type>::inline(
+            input: <TArg as Type>::reference(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
                 },
                 &[],
             ),
-            result: <TResult as Type>::inline(
+            result: <TResult as Type>::reference(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,

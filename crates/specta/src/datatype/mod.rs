@@ -206,3 +206,9 @@ impl From<String> for DataType {
         LiteralType::String(t).into()
     }
 }
+
+impl From<DataTypeExt> for DataType {
+    fn from(value: DataTypeExt) -> Self {
+        value.inner
+    }
+}

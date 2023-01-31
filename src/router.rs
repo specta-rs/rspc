@@ -10,8 +10,8 @@ use std::{
 use futures::Stream;
 use serde_json::Value;
 use specta::{
-    ts::{self, ExportConfiguration},
-    DataTypeExt, DataTypeFrom, TypeDefs,
+    ts::{self, datatype, ExportConfiguration},
+    DataType, DataTypeFrom, TypeDefs,
 };
 
 use crate::{
@@ -147,21 +147,7 @@ where
             ..Default::default()
         };
 
-        writeln!(
-            file,
-            "{}",
-            ts::export_datatype(
-                &config,
-                // TODO: I wish this could be an `into` impl but because of `<T as Type>` we can't. We can't assume `derive(DataTypeFrom)` implies `derive(Type)` (to get comments).
-                // Having an the conversion just implicitly set comments to empty seems like a bit of a footgun.
-                &DataTypeExt {
-                    name: "Procedures",
-                    comments: &[],
-                    inner: Procedures::new(self).into()
-                }
-            )
-            .unwrap()
-        )?;
+        writeln!(file, "{}", Procedures::new(self).big_cringe_export(&config))?;
 
         for export in self
             .typ_store
@@ -195,6 +181,34 @@ impl Procedures {
             subscriptions: store_to_datatypes(&router.subscriptions.store),
         }
     }
+
+    // TODO: Using the `ToDataType` system causing the formatting of the resulting bindings to be disgusting. This is a really difficult problem to solve because I want the container and children to be formatting differently.
+    // TODO: Work on making Specta support custom formatting configs or something like that and then move back to this system.
+    pub fn big_cringe_export(&self, config: &ExportConfiguration) -> String {
+        // TODO: This is the old code!
+        // ts::export_datatype(
+        //         &config,
+        //         // TODO: I wish this could be an `into` impl but because of `<T as Type>` we can't. We can't assume `derive(DataTypeFrom)` implies `derive(Type)` (to get comments).
+        //         // Having an the conversion just implicitly set comments to empty seems like a bit of a footgun.
+        //         &DataTypeExt {
+        //             name: "Procedures",
+        //             comments: &[],
+        //             inner: Procedures::new(self).into()
+        //         }
+        //     )
+        //     .unwrap()
+
+        let queries_ts = generate_procedures_ts(config, &self.queries);
+        let mutations_ts = generate_procedures_ts(config, &self.mutations);
+        let subscriptions_ts = generate_procedures_ts(config, &self.subscriptions);
+        format!(
+            r#"export type Procedures = {{
+    queries: {queries_ts},
+    mutations: {mutations_ts},
+    subscriptions: {subscriptions_ts}
+}};"#
+        )
+    }
 }
 
 fn store_to_datatypes<Ctx>(
@@ -204,4 +218,40 @@ fn store_to_datatypes<Ctx>(
         .values()
         .map(|p| p.ty.clone())
         .collect::<Vec<_>>()
+}
+
+// TODO: Move this out into a Specta API
+fn generate_procedures_ts(
+    config: &ExportConfiguration,
+    procedures: &Vec<ProcedureDataType>,
+) -> String {
+    // TODO: WTF does this have results is the `ToDataType` alternative doesn't return a result. Is it magic or does it just do the big bad and panic internally?
+
+    match procedures.len() {
+        0 => "never".to_string(),
+        _ => procedures
+            .iter()
+            .map(|operation| {
+                let input = match &operation.input {
+                    DataType::Tuple(def)
+                        // This condition is met with an empty enum or `()`.
+                        if def.fields.is_empty() =>
+                    {
+                        "never".into()
+                    }
+                    ty => datatype(&config, &ty).expect("Failed to generate Typescript bindings"),
+                };
+                let result_ts = datatype(&Default::default(), &operation.result)
+                    .expect("Failed to generate Typescript bindings");
+
+                let key = &operation.key;
+
+                format!(
+                    r#"
+        {{ key: "{key}", input: {input}, result: {result_ts} }}"#
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" | "),
+    }
 }
