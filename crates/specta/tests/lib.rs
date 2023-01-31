@@ -32,6 +32,8 @@ pub enum Demo3 {
     Demo2 { demo: field_ty_macro!() },
 }
 
+// TODO: Unit test multiple different types with the same name. Show throw runtime error.
+
 // TODO: Compile Error
 // #[derive(Deserialize, Serialize, Type)]
 // #[serde(rename_all = "camelCase123")]

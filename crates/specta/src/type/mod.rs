@@ -98,16 +98,23 @@ pub trait Type {
                 placeholder,
                 reference,
             } => {
-                if !opts.type_map.contains_key(Self::NAME) {
-                    opts.type_map.insert(
-                        Self::NAME,
-                        DataTypeExt {
-                            name: Self::NAME,
-                            comments: Self::COMMENTS,
-                            inner: placeholder,
-                        },
-                    );
+                opts.type_map.entry(Self::NAME).or_insert(DataTypeExt {
+                    name: Self::NAME,
+                    comments: Self::COMMENTS,
+                    inner: placeholder,
+                });
 
+                let definition = Self::definition(DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map,
+                });
+
+                if let Some(x) = opts.type_map.get(Self::NAME) {
+                    if *x != definition {
+                        // TODO: Return runtime error + include the line numbers of both type declarations within the error message
+                        panic!("Specta: you have tried to export two types both called '{}'! You could give both types a unique name or put `#[specta(inline)]` on the type to cause it to be exported without a name.", x.name);
+                    }
+                } else {
                     let definition = Self::definition(DefOpts {
                         parent_inline: false,
                         type_map: opts.type_map,
