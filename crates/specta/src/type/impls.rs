@@ -1,8 +1,5 @@
 use crate::*;
 
-impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
-impl<K: Type, V: Type> Flatten for std::collections::BTreeMap<K, V> {}
-
 impl_primitives!(
     i8 i16 i32 i64 i128 isize
     u8 u16 u32 u64 u128 usize
@@ -18,6 +15,8 @@ impl_containers!(Box Rc Arc Cell RefCell Mutex RwLock);
 
 impl<'a> Type for &'a str {
     const NAME: &'static str = String::NAME;
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         String::inline(defs, generics)
@@ -26,6 +25,8 @@ impl<'a> Type for &'a str {
 
 impl<'a, T: Type + 'static> Type for &'a T {
     const NAME: &'static str = T::NAME;
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         T::inline(defs, generics)
@@ -34,6 +35,8 @@ impl<'a, T: Type + 'static> Type for &'a T {
 
 impl<T: Type> Type for [T] {
     const NAME: &'static str = T::NAME;
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         T::inline(defs, generics)
@@ -42,6 +45,8 @@ impl<T: Type> Type for [T] {
 
 impl<'a, T: ?Sized + ToOwned + Type + 'static> Type for std::borrow::Cow<'a, T> {
     const NAME: &'static str = T::NAME;
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
         T::inline(defs, generics)
@@ -124,6 +129,8 @@ impl_for_list!(
 
 impl<'a, T: Type> Type for &'a [T] {
     const NAME: &'static str = "&[T]";
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
         <Vec<T>>::inline(opts, generics)
@@ -136,6 +143,8 @@ impl<'a, T: Type> Type for &'a [T] {
 
 impl<const N: usize, T: Type> Type for [T; N] {
     const NAME: &'static str = "&[T; N]";
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
         <Vec<T>>::inline(opts, generics)
@@ -148,6 +157,8 @@ impl<const N: usize, T: Type> Type for [T; N] {
 
 impl<T: Type> Type for Option<T> {
     const NAME: &'static str = "Option";
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
         DataType::Nullable(Box::new(generics.get(0).cloned().unwrap_or_else(|| {
@@ -178,19 +189,27 @@ impl<T: Type> Type for Option<T> {
 
 impl_for_map!(HashMap<K, V> as "HashMap");
 impl_for_map!(BTreeMap<K, V> as "BTreeMap");
+impl<K: Type, V: Type> Flatten for std::collections::HashMap<K, V> {}
+impl<K: Type, V: Type> Flatten for std::collections::BTreeMap<K, V> {}
 
 #[cfg(feature = "indexmap")]
 impl_for_list!(indexmap::IndexSet<T> as "IndexSet");
 
 #[cfg(feature = "indexmap")]
 impl_for_map!(indexmap::IndexMap<K, V> as "IndexMap");
+#[cfg(feature = "indexmap")]
+impl<K: Type, V: Type> Flatten for indexmap::IndexMap<K, V> {}
 
 #[cfg(feature = "serde")]
 impl_for_map!(serde_json::Map<K, V> as "Map");
+#[cfg(feature = "serde")]
+impl<K: Type, V: Type> Flatten for serde_json::Map<K, V> {}
 
 #[cfg(feature = "serde")]
 impl Type for serde_json::Value {
     const NAME: &'static str = "Value";
+    const SID: TypeSid = sid!();
+    const IMPL_LOCATION: ImplLocation = impl_location!();
 
     fn inline(_: DefOpts, _: &[DataType]) -> DataType {
         DataType::Any
@@ -220,6 +239,8 @@ mod chrono_impls {
 
     impl<T: TimeZone> Type for DateTime<T> {
         const NAME: &'static str = "DateTime";
+        const SID: TypeSid = sid!();
+        const IMPL_LOCATION: ImplLocation = impl_location!();
 
         fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
             String::inline(opts, generics)
@@ -229,6 +250,8 @@ mod chrono_impls {
     #[allow(deprecated)]
     impl<T: TimeZone> Type for Date<T> {
         const NAME: &'static str = "DateTime";
+        const SID: TypeSid = sid!();
+        const IMPL_LOCATION: ImplLocation = impl_location!();
 
         fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
             String::inline(opts, generics)

@@ -1,3 +1,5 @@
+use proc_macro2::TokenStream;
+use quote::ToTokens;
 use syn::Result;
 
 use crate::utils::{Inflection, MetaAttr};
@@ -5,7 +7,7 @@ use crate::utils::{Inflection, MetaAttr};
 #[derive(Default, Clone)]
 pub struct ContainerAttr {
     pub rename_all: Option<Inflection>,
-    pub rename: Option<String>,
+    pub rename: Option<TokenStream>,
     pub tag: Option<String>,
     pub crate_name: Option<String>,
     pub inline: bool,
@@ -16,7 +18,21 @@ pub struct ContainerAttr {
 impl_parse! {
     ContainerAttr(attr, out) {
         "rename_all" => out.rename_all = out.rename_all.take().or(Some(attr.pass_inflection()?)),
-        "rename" => out.rename = out.rename.take().or(Some(attr.pass_string()?)),
+        "rename" => {
+            let attr = attr.pass_string()?;
+            out.rename = out.rename.take().or_else(|| Some({
+                let name = crate::r#type::unraw_raw_ident(&quote::format_ident!("{}", attr));
+                quote::quote!( #name )
+            }))
+        },
+        "rename_to_value" => {
+            let attr = attr.pass_path()?;
+            out.rename = out.rename.take().or_else(|| Some({
+                // let expr: proc_macro2::TokenStream = attr.parse().unwrap();
+                let expr = attr.to_token_stream();
+                quote::quote!( #expr )
+            }))
+        },
         "tag" => out.tag = out.tag.take().or(Some(attr.pass_string()?)),
         "crate" => {
             if attr.root_ident() == "specta" {

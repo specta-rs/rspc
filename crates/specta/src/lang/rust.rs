@@ -8,11 +8,11 @@ pub fn export<T: Type>() -> Result<String, String> {
     }))
 }
 
-fn datatype(t: &DataType) -> Result<String, String> {
+fn datatype(t: &DataTypeExt) -> Result<String, String> {
     // TODO: This system does lossy type conversions. That is something I want to fix in the future but for now this works. Eg. `HashSet<T>` will be exported as `Vec<T>`
     // TODO: Serde serialize + deserialize on types
 
-    Ok(match t {
+    Ok(match t.inner {
         DataType::Any => "serde_json::Value".to_owned(),
         DataType::Primitive(ty) => ty.to_rust_str().to_owned(),
         DataType::Literal(_) => todo!(),

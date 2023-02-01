@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../", features = ["axum", "openapi"] }
+rspc = { path = "../", features = ["axum"] }
 async-stream = "0.3.3"
 axum = "0.6.2"
 chrono = { version = "0.4.23", features = ["serde"] }

@@ -185,7 +185,7 @@ pub fn construct_datatype(
                             type_map: opts.type_map
                         },
                         &[#crate_ref::GenericType(
-                            stringify!(#type_ident).to_string()
+                            stringify!(#type_ident)
                         ).into()]
                     )
                 );

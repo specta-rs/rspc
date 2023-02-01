@@ -17,7 +17,7 @@ impl_parse! {
         "rename" => out.rename = out.rename.take().or(Some(attr.pass_string()?)),
         "type" => out.r#type = out.r#type.take().or(Some(Type::Path(TypePath {
             qself: None,
-            path: attr.pass_type()?,
+            path: attr.pass_path()?,
         }))),
         "inline" => out.inline = true,
         "skip" => out.skip = true,

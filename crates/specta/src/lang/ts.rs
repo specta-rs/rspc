@@ -71,7 +71,7 @@ pub enum TsExportError {
     WithCtx {
         // TODO: Handle this better. Make `ty_name` non optional
         ty_name: Option<&'static str>,
-        field_name: Option<String>,
+        field_name: Option<&'static str>,
         err: Box<TsExportError>,
     },
     #[error("Your Specta configuration forbids exporting BigInt types (i64, u64, i128, u128) because we don't know if your se/deserializer supports it. You can change this behavior by editing your `ExportConfiguration`")]
@@ -82,6 +82,10 @@ pub enum TsExportError {
     AnonymousEnum,
     #[error("Type cannot be exported: {0:?}")]
     CannotExport(DataTypeExt),
+    #[error("Cannot export type due to an internal error. This likely is a bug in Specta itself and not your code: {0}")]
+    InternalError(&'static str),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
     #[error("{0}")]
     Other(String),
 }
@@ -260,7 +264,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                             .map(|v| format!("{key}: {v}"))
                             .map_err(|err| TsExportError::WithCtx {
                                 ty_name: None,
-                                field_name: Some(field.name.clone()),
+                                field_name: Some(field.name),
                                 err: Box::new(err),
                             })
                     })
@@ -293,7 +297,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                 datatype(conf, &DataType::Tuple(tuple.clone())).map_err(|err| {
                                     TsExportError::WithCtx {
                                         ty_name: None,
-                                        field_name: Some(variant.name().to_string()),
+                                        field_name: Some(variant.name()),
                                         err: Box::new(err),
                                     }
                                 })?;
@@ -319,7 +323,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                             let ts_values = datatype(conf, &v.data_type()).map_err(|err| {
                                 TsExportError::WithCtx {
                                     ty_name: None,
-                                    field_name: Some(variant.name().to_string()),
+                                    field_name: Some(variant.name()),
                                     err: Box::new(err),
                                 }
                             })?;
@@ -331,7 +335,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                             datatype(conf, &v.data_type()).map_err(|err| {
                                 TsExportError::WithCtx {
                                     ty_name: None,
-                                    field_name: Some(variant.name().to_string()),
+                                    field_name: Some(variant.name()),
                                     err: Box::new(err),
                                 }
                             })?
@@ -343,7 +347,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                             let ts_values = datatype(conf, &v.data_type()).map_err(|err| {
                                 TsExportError::WithCtx {
                                     ty_name: None,
-                                    field_name: Some(variant.name().to_string()),
+                                    field_name: Some(variant.name()),
                                     err: Box::new(err),
                                 }
                             })?;
@@ -352,7 +356,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                         }
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<Result<Vec<_>, TsExportError>>()?
                 .join(" | "),
         },
         DataType::Reference { name, generics, .. } => match &generics[..] {
@@ -368,6 +372,11 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
             }
         },
         DataType::Generic(GenericType(ident)) => ident.to_string(),
+        DataType::Placeholder => {
+            return Err(TsExportError::InternalError(
+                "Attempted to export a placeholder!",
+            ))
+        }
     })
 }
 

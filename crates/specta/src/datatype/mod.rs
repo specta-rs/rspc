@@ -6,6 +6,8 @@ mod object;
 pub use object::*;
 pub use r#enum::*;
 
+use crate::{ImplLocation, TypeSid};
+
 /// A map of type definitions
 pub type TypeDefs = BTreeMap<&'static str, DataTypeExt>;
 
@@ -18,11 +20,13 @@ pub struct DefOpts<'a> {
 }
 
 /// a wrapper around data type that can store the type erased data type and the doc comments on the type
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub struct DataTypeExt {
     pub name: &'static str,
     pub comments: &'static [&'static str],
+    pub sid: TypeSid,
+    pub impl_location: ImplLocation,
     pub inner: DataType,
 }
 
@@ -43,21 +47,22 @@ pub enum DataType {
     Enum(EnumType),
     // A reference type that has already been defined
     Reference {
-        name: String,
+        name: &'static str,
         generics: Vec<DataType>,
         type_id: TypeId,
     },
     Generic(GenericType),
+    Placeholder,
 }
 
 /// this is used internally to represent the types.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
-pub struct GenericType(pub String);
+pub struct GenericType(pub &'static str);
 
 /// this is used internally to represent the types.
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
 pub enum PrimitiveType {
     i8,
@@ -108,7 +113,7 @@ impl PrimitiveType {
 #[derive(Debug, Clone, PartialEq)]
 #[allow(missing_docs)]
 pub struct TupleType {
-    pub name: String,
+    pub name: &'static str,
     pub fields: Vec<DataType>,
     pub generics: Vec<&'static str>,
 }
@@ -170,12 +175,12 @@ impl From<TupleType> for DataType {
 impl<T: Into<DataType> + 'static> From<Vec<T>> for DataType {
     fn from(t: Vec<T>) -> Self {
         Self::Enum(EnumType {
-            name: "".to_string(),
+            name: "",
             variants: t
                 .into_iter()
                 .map(|t| -> EnumVariant {
                     EnumVariant::Unnamed(TupleType {
-                        name: "".to_string(),
+                        name: "",
                         fields: vec![t.into()],
                         generics: vec![],
                     })

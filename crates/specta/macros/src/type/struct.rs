@@ -25,7 +25,6 @@ pub fn decode_field_attrs(field: &Field) -> syn::Result<(&Field, FieldAttr)> {
 }
 
 pub fn parse_struct(
-    struct_name: &str,
     (container_attrs, struct_attrs): (&ContainerAttr, StructAttr),
     generics: &Generics,
     crate_ref: &TokenStream,
@@ -126,7 +125,7 @@ pub fn parse_struct(
                 };
 
                 Ok(quote!(#crate_ref::ObjectField {
-                    name: #field_name.to_string(),
+                    name: #field_name,
                     optional: #optional,
                     flatten: #flatten,
                     ty: {
@@ -138,11 +137,11 @@ pub fn parse_struct(
             let tag = container_attrs
                 .tag
                 .as_ref()
-                .map(|t| quote!(Some(#t.to_string())))
+                .map(|t| quote!(Some(#t)))
                 .unwrap_or(quote!(None));
 
             quote!(#crate_ref::ObjectType {
-                name: #struct_name.to_string(),
+                name: <Self as #crate_ref::Type>::NAME,
                 generics: vec![#(#definition_generics),*],
                 fields: vec![#(#fields),*],
                 tag: #tag,
@@ -187,7 +186,7 @@ pub fn parse_struct(
                     .collect::<syn::Result<Vec<TokenStream>>>()?;
 
                 quote!(#crate_ref::TupleType {
-                    name: #struct_name.to_string(),
+                    name: <Self as #crate_ref::Type>::NAME,
                     generics: vec![#(#definition_generics),*],
                     fields: vec![#(#fields),*]
                 }.into())
@@ -195,7 +194,7 @@ pub fn parse_struct(
         }
         Fields::Unit => {
             quote!(#crate_ref::TupleType {
-                name: #struct_name.to_string(),
+                name: <Self as #crate_ref::Type>::NAME,
                 generics: vec![#(#definition_generics),*],
                 fields: vec![],
             }.into())
@@ -205,18 +204,11 @@ pub fn parse_struct(
     let category = quote! {
         #crate_ref::TypeCategory::Reference {
             reference: #crate_ref::DataType::Reference {
-                name: #struct_name.to_string(),
+                name: <Self as #crate_ref::Type>::NAME,
                 generics: vec![#(#reference_generics),*],
                 type_id: std::any::TypeId::of::<Self>()
             },
-            // TODO: make accurate
-            placeholder: #crate_ref::ObjectType {
-                name: #struct_name.to_string(),
-                generics: vec![],
-                fields: vec![],
-                tag: None,
-                type_id: Some(std::any::TypeId::of::<Self>())
-            }.into()
+            placeholder: #crate_ref::DataType::Placeholder,
         }
     };
 

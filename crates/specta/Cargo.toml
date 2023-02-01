@@ -28,16 +28,16 @@ tauri = ["dep:tauri"]
 #! Language Exporter
 ## Support for [TypeScript](https://www.typescriptlang.org) language exporting
 typescript = []
-## Support for [Rust](https://www.rust-lang.org) language exporting
-rust = []
-## Support for [Swift](https://www.swift.org/) language exporting
-swift = []
-## Support for [Kotlin](https://kotlinlang.org/) language exporting
-kotlin = []
-## Support for [Go Lang](https://go.dev/) language exporting
-go = []
-## Support for [OpenAPI](https://www.openapis.org) language exporting
-openapi = ["dep:openapiv3"]
+# ## Support for [Rust](https://www.rust-lang.org) language exporting
+# rust = []
+# ## Support for [Swift](https://www.swift.org/) language exporting
+# swift = []
+# ## Support for [Kotlin](https://kotlinlang.org/) language exporting
+# kotlin = []
+# ## Support for [Go Lang](https://go.dev/) language exporting
+# go = []
+# ## Support for [OpenAPI](https://www.openapis.org) language exporting
+# openapi = ["dep:openapiv3"]
 
 #! External types
 ## [uuid](https://docs.rs/uuid) crate
