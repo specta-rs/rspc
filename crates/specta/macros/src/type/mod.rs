@@ -135,6 +135,7 @@ pub fn derive(
     });
 
     Ok(quote! {
+        #[automatically_derived]
         #type_impl_heading {
             const NAME: &'static str = #name;
             const COMMENTS: &'static [&'static str] = #comments;

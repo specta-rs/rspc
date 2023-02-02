@@ -81,6 +81,7 @@ pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenSt
     };
 
     Ok(quote! {
+        #[automatically_derived]
         impl From<#ident> for #crate_name::DataType {
             fn from(t: #ident) -> Self {
                 #body
