@@ -10,8 +10,8 @@ pub fn export<T: Type>() -> Result<String, String> {
     }))
 }
 
-fn datatype(t: &DataType) -> Result<String, String> {
-    Ok(match t {
+fn datatype(t: &DataTypeExt) -> Result<String, String> {
+    Ok(match t.inner {
         DataType::Primitive(p) => match p {
             PrimitiveType::String => "String",
             PrimitiveType::char => "Char",

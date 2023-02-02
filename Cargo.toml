@@ -17,7 +17,7 @@ warnings = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies"]
-openapi = ["dep:openapiv3", "dep:httpz", "dep:include_dir", "dep:mime_guess", "specta/openapi"]
+# openapi = ["dep:openapiv3", "dep:httpz", "dep:include_dir", "dep:mime_guess", "specta/openapi"]
 # playground = []
 
 # Webservers # Axum feature basically always enabled because we use the extractors regardless of webserver
@@ -52,10 +52,10 @@ serde_json = "1.0.91"
 thiserror = "1.0.38"
 futures = "0.3.25"
 tokio = { version = "1.24.1", features = ["sync", "rt", "macros"] } # TODO: Make tokio an optional dep to allow for other async runtimes to be supported
-tauri = { version = "1.2.3", optional = true }
+tauri = { version = "1.2.4", optional = true }
 tracing = { version = "0.1.37", optional = true }
 async-stream = "0.3.3" # TODO: Remove this dep
-openapiv3 = { version = "1.0.2", optional = true }
+# openapiv3 = { version = "1.0.2", optional = true }
 include_dir = { version = "0.7.3", optional = true, features = ["metadata"] }
 mime_guess = { version = "2.0.4", optional = true }
 worker = { version = "0.0.12", optional = true }

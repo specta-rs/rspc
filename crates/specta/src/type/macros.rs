@@ -2,6 +2,8 @@ macro_rules! impl_primitives {
     ($($i:ident)+) => {$(
         impl Type for $i {
             const NAME: &'static str = stringify!($i);
+            const SID: $crate::TypeSid = $crate::sid!();
+            const IMPL_LOCATION: $crate::ImplLocation = $crate::impl_location!();
 
             fn inline(_: DefOpts, _: &[DataType]) -> DataType {
                 DataType::Primitive(datatype::PrimitiveType::$i)
@@ -18,6 +20,8 @@ macro_rules! impl_tuple {
         #[allow(non_snake_case)]
         impl<$($i: Type + 'static),*> Type for ($($i),*) {
             const NAME: &'static str = stringify!(($($i::NAME),*));
+            const SID: $crate::TypeSid = $crate::sid!();
+            const IMPL_LOCATION: $crate::ImplLocation = $crate::impl_location!();
 
             fn inline(_opts: DefOpts, generics: &[DataType]) -> DataType {
                 let mut _generics = generics.iter();
@@ -30,7 +34,7 @@ macro_rules! impl_tuple {
                 ));)*
 
                 DataType::Tuple(datatype::TupleType {
-                    name: stringify!(($($i),*)).to_string(),
+                    name: <Self as Type>::NAME,
                     fields: vec![$($i),*],
                     generics: vec![]
                 })
@@ -48,6 +52,8 @@ macro_rules! impl_containers {
     ($($container:ident)+) => {$(
         impl<T: Type> Type for $container<T> {
             const NAME: &'static str = stringify!($container);
+            const SID: $crate::TypeSid = $crate::sid!();
+            const IMPL_LOCATION: $crate::ImplLocation = $crate::impl_location!();
 
             fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
                 generics.get(0).cloned().unwrap_or(T::inline(
@@ -76,6 +82,8 @@ macro_rules! impl_as {
     ($($ty:path as $tty:ident)+) => {$(
         impl Type for $ty {
             const NAME: &'static str = stringify!($ty);
+            const SID: $crate::TypeSid = $crate::sid!();
+            const IMPL_LOCATION: $crate::ImplLocation = $crate::impl_location!();
 
             fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
                 <$tty as Type>::inline(opts, generics)
@@ -92,6 +100,8 @@ macro_rules! impl_for_list {
     ($($ty:path as $name:expr)+) => {$(
         impl<T: Type> Type for $ty {
             const NAME: &'static str = $name;
+            const SID: $crate::TypeSid = $crate::sid!();
+            const IMPL_LOCATION: $crate::ImplLocation = $crate::impl_location!();
 
             fn inline(opts: DefOpts, generics: &[DataType]) -> DataType {
                 DataType::List(Box::new(generics.get(0).cloned().unwrap_or(T::inline(
@@ -120,6 +130,8 @@ macro_rules! impl_for_map {
     ($ty:path as $name:expr) => {
         impl<K: Type, V: Type> Type for $ty {
             const NAME: &'static str = $name;
+            const SID: $crate::TypeSid = $crate::sid!();
+            const IMPL_LOCATION: $crate::ImplLocation = $crate::impl_location!();
 
             fn inline(defs: DefOpts, generics: &[DataType]) -> DataType {
                 DataType::Record(Box::new((

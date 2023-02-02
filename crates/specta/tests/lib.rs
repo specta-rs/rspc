@@ -28,6 +28,25 @@ fn type_override() {
     );
 }
 
+macro_rules! field_ty_macro {
+    () => {
+        String
+    };
+}
+
+pub struct Demo(field_ty_macro!());
+
+pub struct Demo2 {
+    demo: field_ty_macro!(),
+}
+
+pub enum Demo3 {
+    Demo(field_ty_macro!()),
+    Demo2 { demo: field_ty_macro!() },
+}
+
+// TODO: Unit test multiple different types with the same name. Show throw runtime error.
+
 // TODO: Compile Error
 // #[derive(Deserialize, Serialize, Type)]
 // #[serde(rename_all = "camelCase123")]

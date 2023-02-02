@@ -6,7 +6,7 @@ use crate::datatype::{DataType, ObjectType, TupleType};
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub struct EnumType {
-    pub name: String,
+    pub name: &'static str,
     pub variants: Vec<EnumVariant>,
     pub generics: Vec<&'static str>,
     pub repr: EnumRepr,
@@ -43,8 +43,13 @@ impl PartialEq for EnumType {
 #[allow(missing_docs)]
 pub enum EnumRepr {
     External,
-    Internal { tag: String },
-    Adjacent { tag: String, content: String },
+    Internal {
+        tag: &'static str,
+    },
+    Adjacent {
+        tag: &'static str,
+        content: &'static str,
+    },
     Untagged,
 }
 
@@ -52,18 +57,18 @@ pub enum EnumRepr {
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub enum EnumVariant {
-    Unit(String),
+    Unit(&'static str),
     Unnamed(TupleType),
     Named(ObjectType),
 }
 
 impl EnumVariant {
     /// Get the name of the variant.
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &'static str {
         match self {
             Self::Unit(name) => name,
-            Self::Unnamed(tuple_type) => &tuple_type.name,
-            Self::Named(object_type) => &object_type.name,
+            Self::Unnamed(tuple_type) => tuple_type.name,
+            Self::Named(object_type) => object_type.name,
         }
     }
 
