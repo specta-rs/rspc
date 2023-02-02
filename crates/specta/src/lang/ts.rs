@@ -277,7 +277,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                 }
 
                 if !unflattened_fields.is_empty() {
-                    field_sections.push(format!("{{ {} }}", unflattened_fields.join(", ")));
+                    field_sections.push(format!("{{ {} }}", unflattened_fields.join("; ")));
                 }
 
                 field_sections.join(" & ")
@@ -304,7 +304,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                     }
                                 })?;
 
-                            format!("({{ {tag}:  \"{sanitised_name}\" }} & {typ})")
+                            format!("({{ {tag}: \"{sanitised_name}\" }} & {typ})")
                         }
                         (EnumRepr::Internal { tag }, EnumVariant::Named(obj)) => {
                             let mut fields = vec![format!("{tag}: \"{sanitised_name}\"")];
@@ -316,7 +316,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                     .collect::<Result<Vec<_>, _>>()?,
                             );
 
-                            format!("{{ {} }}", fields.join(", "))
+                            format!("{{ {} }}", fields.join("; "))
                         }
                         (EnumRepr::External, EnumVariant::Unit(_)) => {
                             format!("\"{sanitised_name}\"")
@@ -354,7 +354,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                 }
                             })?;
 
-                            format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
+                            format!("{{ {tag}: \"{sanitised_name}\"; {content}: {ts_values} }}")
                         }
                     })
                 })

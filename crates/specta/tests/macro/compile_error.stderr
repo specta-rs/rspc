@@ -1,0 +1,132 @@
+error: specta: found string literal containing an unsupported inflection
+ --> tests/macro/compile_error.rs:7:22
+  |
+7 | #[serde(rename_all = "camelCase123")]
+  |                      ^^^^^^^^^^^^^^
+
+error: specta: trait objects are not currently supported.
+  --> tests/macro/compile_error.rs:13:34
+   |
+13 |     pub(crate) cause: Option<Box<dyn std::error::Error + Send + Sync>>,
+   |                                  ^^^
+
+error[E0601]: `main` function not found in crate `$CRATE`
+  --> tests/macro/compile_error.rs:71:2
+   |
+71 | }
+   |  ^ consider adding a `main` function to `$DIR/tests/macro/compile_error.rs`
+
+error[E0277]: the trait bound `UnitExternal: specta::Flatten` is not satisfied
+  --> tests/macro/compile_error.rs:32:11
+   |
+32 |     unit: UnitExternal,
+   |           ^^^^^^^^^^^^ the trait `specta::Flatten` is not implemented for `UnitExternal`
+   |
+   = help: the following other types implement trait `specta::Flatten`:
+             BTreeMap<K, V>
+             FlattenExternal
+             FlattenInternal
+             FlattenUntagged
+             HashMap<K, V>
+             glam::f64::daffine2::DAffine2
+             glam::f64::dmat2::DMat2
+             glam::f64::dvec2::DVec2
+           and $N others
+note: required by a bound in `<FlattenExternal as Type>::inline::validate_flatten`
+  --> tests/macro/compile_error.rs:29:10
+   |
+29 | #[derive(Type)]
+   |          ^^^^ required by this bound in `<FlattenExternal as Type>::inline::validate_flatten`
+   = note: this error originates in the derive macro `Type` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `UnnamedMultiExternal: specta::Flatten` is not satisfied
+  --> tests/macro/compile_error.rs:34:20
+   |
+34 |     unnamed_multi: UnnamedMultiExternal,
+   |                    ^^^^^^^^^^^^^^^^^^^^ the trait `specta::Flatten` is not implemented for `UnnamedMultiExternal`
+   |
+   = help: the following other types implement trait `specta::Flatten`:
+             BTreeMap<K, V>
+             FlattenExternal
+             FlattenInternal
+             FlattenUntagged
+             HashMap<K, V>
+             glam::f64::daffine2::DAffine2
+             glam::f64::dmat2::DMat2
+             glam::f64::dvec2::DVec2
+           and $N others
+note: required by a bound in `<FlattenExternal as Type>::inline::validate_flatten`
+  --> tests/macro/compile_error.rs:29:10
+   |
+29 | #[derive(Type)]
+   |          ^^^^ required by this bound in `<FlattenExternal as Type>::inline::validate_flatten`
+   = note: this error originates in the derive macro `Type` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `UnnamedUntagged: specta::Flatten` is not satisfied
+  --> tests/macro/compile_error.rs:52:14
+   |
+52 |     unnamed: UnnamedUntagged,
+   |              ^^^^^^^^^^^^^^^ the trait `specta::Flatten` is not implemented for `UnnamedUntagged`
+   |
+   = help: the following other types implement trait `specta::Flatten`:
+             BTreeMap<K, V>
+             FlattenExternal
+             FlattenInternal
+             FlattenUntagged
+             HashMap<K, V>
+             glam::f64::daffine2::DAffine2
+             glam::f64::dmat2::DMat2
+             glam::f64::dvec2::DVec2
+           and $N others
+note: required by a bound in `<FlattenUntagged as Type>::inline::validate_flatten`
+  --> tests/macro/compile_error.rs:49:10
+   |
+49 | #[derive(Type)]
+   |          ^^^^ required by this bound in `<FlattenUntagged as Type>::inline::validate_flatten`
+   = note: this error originates in the derive macro `Type` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `UnnamedMultiUntagged: specta::Flatten` is not satisfied
+  --> tests/macro/compile_error.rs:54:20
+   |
+54 |     unnamed_multi: UnnamedMultiUntagged,
+   |                    ^^^^^^^^^^^^^^^^^^^^ the trait `specta::Flatten` is not implemented for `UnnamedMultiUntagged`
+   |
+   = help: the following other types implement trait `specta::Flatten`:
+             BTreeMap<K, V>
+             FlattenExternal
+             FlattenInternal
+             FlattenUntagged
+             HashMap<K, V>
+             glam::f64::daffine2::DAffine2
+             glam::f64::dmat2::DMat2
+             glam::f64::dvec2::DVec2
+           and $N others
+note: required by a bound in `<FlattenUntagged as Type>::inline::validate_flatten`
+  --> tests/macro/compile_error.rs:49:10
+   |
+49 | #[derive(Type)]
+   |          ^^^^ required by this bound in `<FlattenUntagged as Type>::inline::validate_flatten`
+   = note: this error originates in the derive macro `Type` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `UnnamedInternal: specta::Flatten` is not satisfied
+  --> tests/macro/compile_error.rs:70:14
+   |
+70 |     unnamed: UnnamedInternal,
+   |              ^^^^^^^^^^^^^^^ the trait `specta::Flatten` is not implemented for `UnnamedInternal`
+   |
+   = help: the following other types implement trait `specta::Flatten`:
+             BTreeMap<K, V>
+             FlattenExternal
+             FlattenInternal
+             FlattenUntagged
+             HashMap<K, V>
+             glam::f64::daffine2::DAffine2
+             glam::f64::dmat2::DMat2
+             glam::f64::dvec2::DVec2
+           and $N others
+note: required by a bound in `<FlattenInternal as Type>::inline::validate_flatten`
+  --> tests/macro/compile_error.rs:67:10
+   |
+67 | #[derive(Type)]
+   |          ^^^^ required by this bound in `<FlattenInternal as Type>::inline::validate_flatten`
+   = note: this error originates in the derive macro `Type` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -15,6 +15,7 @@ mod skip;
 mod struct_rename;
 mod struct_tag;
 mod tuple;
+mod type_override;
 mod union;
 mod union_rename;
 mod union_serde;

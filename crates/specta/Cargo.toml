@@ -10,6 +10,15 @@ repository = "https://github.com/oscartbeaumont/rspc/tree/main/crates/specta"
 documentation = "https://docs.rs/specta/latest/specta"
 keywords = ["async", "specta", "rspc", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
+autotests = false
+
+[package.metadata."docs.rs"]
+all-features = true
+
+[[test]]
+name = "integration_tests"
+path = "tests/lib.rs"
+harness = true
 
 [features]
 default = ["serde", "typescript"]
@@ -67,9 +76,6 @@ bytesize = ["dep:bytesize"]
 ## [glam](https://docs.rs/glam) crate
 glam = ["dep:glam"]
 
-[package.metadata.docs.rs]
-all-features = true
-
 [dependencies]
 specta-macros = { version = "0.0.6", path = "./macros" }
 serde = { version = "1.0.147", features = ["derive"] }
@@ -95,6 +101,7 @@ ctor = { version = "0.1.26", optional = true }
 once_cell = "1.16.0"
 indoc = "1.0.8"
 thiserror = "1.0.38"
+trybuild = "1.0.77"
 
 [dev-dependencies]
 serde = { version = "1.0.147", features = ["derive"] }

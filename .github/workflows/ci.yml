@@ -54,9 +54,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
       
-      # TODO: Can't have both 'axum' and 'workers' feature enabled.
-      # - name: Test Rust crate
-      #   run: cargo test --all-features
+      - name: Test Rust crate
+        run: cargo test --all --exclude create-rspc-app --all-features
       
       - uses: dorny/paths-filter@v2
         id: filter

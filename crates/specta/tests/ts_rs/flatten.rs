@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
-use crate::ts::assert_ts;
 use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
 struct A {
@@ -27,6 +28,6 @@ struct C {
 fn test() {
     assert_ts!(
         C,
-        "{ b: ({ a: number, b: number }) & { c: number }, d: number }"
+        "{ b: ({ a: number; b: number }) & { c: number }; d: number }"
     )
 }

@@ -115,12 +115,12 @@ mod tests {
         let s1 = selection!(user.clone(), { name, age });
         assert_eq!(s1.name, "Monty Beaumont".to_string());
         assert_eq!(s1.age, 7);
-        assert_eq!(ts_export_ref(&s1), "{ name: string, age: number }");
+        assert_eq!(ts_export_ref(&s1), "{ name: string; age: number }");
 
         let users = vec![user; 3];
         let s2 = selection!(users, [{ name, age }]);
         assert_eq!(s2[0].name, "Monty Beaumont".to_string());
         assert_eq!(s2[0].age, 7);
-        assert_eq!(ts_export_ref(&s2), "{ name: string, age: number }[]");
+        assert_eq!(ts_export_ref(&s2), "{ name: string; age: number }[]");
     }
 }

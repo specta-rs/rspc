@@ -1,4 +1,6 @@
-use specta::{ts::inline, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
 struct Optional {
@@ -10,9 +12,10 @@ struct Optional {
 
 #[test]
 fn test() {
+    // TODO: Make it sure this test is run in CI. Won't run without `--all-features`.
     #[cfg(not(feature = "serde"))]
-    assert_eq!(inline::<Optional>(), "{ a?: number, b: string | null }");
+    assert_ts!(Optional, "{ a?: number; b: string | null }");
 
     #[cfg(feature = "serde")]
-    assert_eq!(inline::<Optional>(), "{ a?: number, b?: string }");
+    assert_ts!(Optional, "{ a?: number; b?: string }");
 }

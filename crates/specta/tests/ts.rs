@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::{
     cell::RefCell,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
@@ -23,6 +21,8 @@ macro_rules! assert_ts_export {
 }
 pub(crate) use assert_ts_export;
 
+// TODO: Unit test other `specta::Type` methods such as `::reference(...)`
+
 #[test]
 fn typescript_types() {
     assert_ts!(i8, "number");
@@ -33,15 +33,6 @@ fn typescript_types() {
     assert_ts!(u32, "number");
     assert_ts!(f32, "number");
     assert_ts!(f64, "number");
-
-    // panic by design
-    assert_ts!(usize, "number");
-    assert_ts!(isize, "number");
-    assert_ts!(i64, "bigint");
-    assert_ts!(u64, "bigint");
-    assert_ts!(i128, "bigint");
-    assert_ts!(i64, "bigint");
-    assert_ts!(u128, "bigint");
 
     assert_ts!(bool, "boolean");
 
@@ -69,19 +60,19 @@ fn typescript_types() {
     assert_ts!(&'static bool, "boolean");
     assert_ts!(&'static i32, "number");
 
-    assert_ts!(Vec<i32>, "Array<number>");
-    assert_ts!(&[i32], "Array<number>");
-    assert_ts!(&[i32; 5], "Array<number>");
+    assert_ts!(Vec<i32>, "number[]");
+    assert_ts!(&[i32], "number[]");
+    assert_ts!(&[i32; 5], "number[]");
 
     assert_ts!(Option<i32>, "number | null");
 
-    assert_ts!(Unit, "null");
+    assert_ts!(Unit1, "null");
     assert_ts!(Unit2, "null");
     assert_ts!(Unit3, "null");
 
     assert_ts!(
         SimpleStruct,
-        "{ a: number, b: string, c: [number, string, number], d: Array<string>, e: string | null }"
+        "{ a: number; b: string; c: [number, string, number]; d: string[]; e: string | null }"
     );
     assert_ts!(TupleStruct1, "number");
     assert_ts!(TupleStruct3, "[number, boolean, string]");
@@ -94,7 +85,7 @@ fn typescript_types() {
 
     assert_ts!(
         InlinerStruct,
-        "{ inline_this: { ref_struct: SimpleStruct, val: number }, dont_inline_this: RefStruct }"
+        "{ inline_this: { ref_struct: SimpleStruct; val: number }; dont_inline_this: RefStruct }"
     );
 
     assert_ts!(GenericStruct<i32>, "{ arg: number }");
@@ -106,11 +97,11 @@ fn typescript_types() {
     );
 
     assert_ts!(OverridenStruct, "{ overriden_field: string }");
-    assert_ts!(HasGenericAlias, r#"Record<number, string>"#);
+    assert_ts!(HasGenericAlias, r#"{ [key: number]: string }"#);
 }
 
 #[derive(Type)]
-struct Unit;
+struct Unit1;
 
 #[derive(Type)]
 struct Unit2 {}

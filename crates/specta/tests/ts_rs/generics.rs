@@ -5,11 +5,11 @@ use std::{
     rc::Rc,
 };
 
-use crate::assert_ts_export;
+use crate::ts::assert_ts_export;
 use specta::Type;
 
 #[derive(Type)]
-struct Generic<T: Type> {
+struct Generic1<T: Type> {
     value: T,
     values: Vec<T>,
 }
@@ -27,39 +27,39 @@ struct GenericAutoBound2<T: PartialEq> {
 }
 
 #[derive(Type)]
-struct Container {
-    foo: Generic<u32>,
-    bar: Box<HashSet<Generic<u32>>>,
-    baz: Box<BTreeMap<String, Rc<Generic<String>>>>,
+struct Container1 {
+    foo: Generic1<u32>,
+    bar: Box<HashSet<Generic1<u32>>>,
+    baz: Box<BTreeMap<String, Rc<Generic1<String>>>>,
 }
 
 #[test]
 fn test() {
     assert_ts_export!(
-        Generic<()>,
-        "export type Generic<T> = { value: T, values: Array<T> }"
+        Generic1<()>,
+        "export type Generic1<T> = { value: T; values: T[] }"
     );
 
     assert_ts_export!(
         GenericAutoBound<()>,
-        "export type GenericAutoBound<T> = { value: T, values: Array<T> }"
+        "export type GenericAutoBound<T> = { value: T; values: T[] }"
     );
 
     assert_ts_export!(
         GenericAutoBound2<()>,
-        "export type GenericAutoBound2<T> = { value: T, values: Array<T> }"
+        "export type GenericAutoBound2<T> = { value: T; values: T[] }"
     );
 
     assert_ts_export!(
-        Container,
-        "export type Container = { foo: Generic<number>, bar: Array<Generic<number>>, baz: Record<string, Generic<string>> }"
+        Container1,
+        "export type Container1 = { foo: Generic1<number>; bar: Generic1<number>[]; baz: { [key: string]: Generic1<string> } }"
     );
 }
 
 #[test]
 fn generic_enum() {
     #[derive(Type)]
-    enum Generic<A, B, C> {
+    enum Generic2<A, B, C> {
         A(A),
         B(B, B, B),
         C(Vec<C>),
@@ -71,17 +71,17 @@ fn generic_enum() {
     }
 
     assert_ts_export!(
-        Generic::<(), (), ()>,
-        r#"export type Generic<A, B, C> = { A: A } | { B: [B, B, B] } | { C: Array<C> } | { D: Array<Array<Array<A>>> } | { E: { a: A, b: B, c: C } } | { X: Array<number> } | { Y: number } | { Z: Array<Array<number>> }"#
+        Generic2::<(), (), ()>,
+        r#"export type Generic2<A, B, C> = { A: A } | { B: [B, B, B] } | { C: C[] } | { D: A[][][] } | { E: { a: A; b: B; c: C } } | { X: number[] } | { Y: number } | { Z: number[][] }"#
     )
 }
 
 #[test]
 fn generic_newtype() {
     #[derive(Type)]
-    struct NewType<T>(Vec<Vec<T>>);
+    struct NewType1<T>(Vec<Vec<T>>);
 
-    assert_ts_export!(NewType::<()>, r#"export type NewType<T> = Array<Array<T>>"#);
+    assert_ts_export!(NewType1::<()>, r#"export type NewType1<T> = T[][]"#);
 }
 
 #[test]
@@ -89,16 +89,13 @@ fn generic_tuple() {
     #[derive(Type)]
     struct Tuple<T>(T, Vec<T>, Vec<Vec<T>>);
 
-    assert_ts_export!(
-        Tuple::<()>,
-        r#"export type Tuple<T> = [T, Array<T>, Array<Array<T>>]"#
-    );
+    assert_ts_export!(Tuple::<()>, r#"export type Tuple<T> = [T, T[], T[][]]"#);
 }
 
 #[test]
 fn generic_struct() {
     #[derive(Type)]
-    struct Struct<T> {
+    struct GenericStruct2<T> {
         a: T,
         b: (T, T),
         c: (T, (T, T)),
@@ -110,8 +107,8 @@ fn generic_struct() {
     }
 
     assert_ts_export!(
-        Struct::<()>,
-        "export type Struct<T> = { a: T, b: [T, T], c: [T, [T, T]], d: Array<T>, e: Array<[T, T]>, f: Array<T>, g: Array<Array<T>>, h: Array<Array<[T, T]>> }"
+        GenericStruct2::<()>,
+        "export type GenericStruct2<T> = { a: T; b: [T, T]; c: [T, [T, T]]; d: T[]; e: [T, T][]; f: T[]; g: T[][]; h: [T, T][][] }"
     )
 }
 
@@ -135,7 +132,7 @@ fn inline() {
     assert_ts_export!(Generic::<()>, "export type Generic<T> = { t: T }");
     assert_ts_export!(
         Container,
-        "export type Container = ({ t: string }) & { g: Generic<string>, gi: { t: string } }"
+        "export type Container = ({ t: string }) & { g: Generic<string>; gi: { t: string } }"
     );
 }
 

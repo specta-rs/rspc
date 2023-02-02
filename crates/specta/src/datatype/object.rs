@@ -19,7 +19,7 @@ pub struct ObjectType {
     pub name: &'static str,
     pub generics: Vec<&'static str>,
     pub fields: Vec<ObjectField>,
-    pub tag: Option<String>,
+    pub tag: Option<&'static str>,
     pub type_id: Option<TypeId>,
 }
 

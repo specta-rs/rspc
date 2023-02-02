@@ -1,17 +1,19 @@
-use specta::{ts::inline, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
-struct Unit;
+struct UnitA;
 
 #[derive(Type)]
-struct Unit2 {}
+struct UnitB {}
 
 #[derive(Type)]
-struct Unit3();
+struct UnitC();
 
 #[test]
 fn test() {
-    assert_eq!("null", inline::<Unit>());
-    assert_eq!("null", inline::<Unit2>());
-    assert_eq!("null", inline::<Unit3>());
+    assert_ts!(UnitA, "null");
+    assert_ts!(UnitB, "null");
+    assert_ts!(UnitC, "null");
 }
