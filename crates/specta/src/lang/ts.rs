@@ -6,13 +6,15 @@ use crate::*;
 #[derive(Default)]
 pub enum BigIntExportBehavior {
     /// Export BigInt as a Typescript `string`
-    /// WARNING: Specta takes no responsibility that the Rust number is encoded as a string. Make sure you instruct serde <https://github.com/serde-rs/json/issues/329#issuecomment-305608405> or your other serializer of this.
+    /// WARNING: Specta takes no responsibility that the Rust number is encoded as a string.
+    /// Make sure you instruct serde <https://github.com/serde-rs/json/issues/329#issuecomment-305608405> or your other serializer of this.
     String,
     /// Export BigInt as a Typescript `number`.
     /// WARNING: `JSON.parse` in JS will truncate your number resulting in data loss so ensure your deserializer supports bigint types.
     Number,
     /// Export BigInt as a Typescript `BigInt`.
-    /// WARNING: Specta takes no responsibility that the Rust number is decoded into this type on the frontend. Ensure you deserializer is able to do this.
+    /// WARNING: Specta takes no responsibility that the Rust number is decoded into this type on the frontend.
+    /// Ensure you deserializer is able to do this.
     BigInt,
     /// Abort the export with an error
     /// This is the default behavior because without integration from your serializer and deserializer we can't guarantee data loss won't occur.
@@ -275,7 +277,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                 }
 
                 if !unflattened_fields.is_empty() {
-                    field_sections.push(format!("{{ {} }}", unflattened_fields.join(", ")));
+                    field_sections.push(format!("{{ {} }}", unflattened_fields.join("; ")));
                 }
 
                 field_sections.join(" & ")
@@ -302,7 +304,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                     }
                                 })?;
 
-                            format!("({{ {tag}:  \"{sanitised_name}\" }} & {typ})")
+                            format!("({{ {tag}: \"{sanitised_name}\" }} & {typ})")
                         }
                         (EnumRepr::Internal { tag }, EnumVariant::Named(obj)) => {
                             let mut fields = vec![format!("{tag}: \"{sanitised_name}\"")];
@@ -314,7 +316,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                     .collect::<Result<Vec<_>, _>>()?,
                             );
 
-                            format!("{{ {} }}", fields.join(", "))
+                            format!("{{ {} }}", fields.join("; "))
                         }
                         (EnumRepr::External, EnumVariant::Unit(_)) => {
                             format!("\"{sanitised_name}\"")
@@ -352,7 +354,7 @@ pub fn datatype(conf: &ExportConfiguration, typ: &DataType) -> Result<String, Ts
                                 }
                             })?;
 
-                            format!("{{ {tag}: \"{sanitised_name}\", {content}: {ts_values} }}")
+                            format!("{{ {tag}: \"{sanitised_name}\"; {content}: {ts_values} }}")
                         }
                     })
                 })

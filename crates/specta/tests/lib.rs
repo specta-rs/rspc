@@ -1,61 +1,15 @@
-mod fail;
-mod swift;
+#![allow(unused_variables, dead_code)]
+
+mod bigints;
+mod datatype;
+mod duplicate_ty_name;
+mod macro_decls;
+pub mod ts;
 mod ts_rs;
-mod typescript;
+mod ty_override;
 
-// TODO: Move them somewhere else
-#[derive(Deserialize, Serialize, Type)]
-#[serde(tag = "method", content = "params", rename_all = "camelCase")]
-pub struct SpectaTypeOverride {
-    #[specta(type = String)] // Ident
-    path: (),
-    #[specta(type = u32)] // Ident
-    path: (),
-    #[specta(type = ::std::string::String)] // Path
-    input: (),
+#[test]
+fn test_compile_errors() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/macro/compile_error.rs");
 }
-
-macro_rules! field_ty_macro {
-    () => {
-        String
-    };
-}
-
-pub struct Demo(field_ty_macro!());
-
-pub struct Demo2 {
-    demo: field_ty_macro!(),
-}
-
-pub enum Demo3 {
-    Demo(field_ty_macro!()),
-    Demo2 { demo: field_ty_macro!() },
-}
-
-// TODO: Unit test multiple different types with the same name. Show throw runtime error.
-
-// TODO: Compile Error
-// #[derive(Deserialize, Serialize, Type)]
-// #[serde(rename_all = "camelCase123")]
-// pub enum Demo2 {}
-
-// TODO: Compile Error
-// #[derive(Debug, Clone, specta::Type)]
-// pub struct Error {
-//     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>,
-// }
-
-// #[derive(Debug, Clone, specta::Type)]
-// pub struct Error {
-//      #[specta(type = Option<serde_json::Value>)]
-//     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>,
-// }
-
-// #[derive(DataTypeFrom)]
-// #[cfg_attr(test, derive(specta::Type))] // This derive bit gets passed into the macro
-// #[cfg_attr(test, specta(rename = "ProceduresDef"))]
-// pub(crate) struct Procedures {
-//     pub queries: Vec<ProcedureDataType>,
-//     pub mutations: Vec<ProcedureDataType>,
-//     pub subscriptions: Vec<ProcedureDataType>,
-// }

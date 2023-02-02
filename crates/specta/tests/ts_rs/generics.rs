@@ -5,10 +5,11 @@ use std::{
     rc::Rc,
 };
 
-use specta::{ts::export, Type};
+use crate::ts::assert_ts_export;
+use specta::Type;
 
 #[derive(Type)]
-struct Generic<T: Type> {
+struct Generic1<T: Type> {
     value: T,
     values: Vec<T>,
 }
@@ -26,39 +27,39 @@ struct GenericAutoBound2<T: PartialEq> {
 }
 
 #[derive(Type)]
-struct Container {
-    foo: Generic<u32>,
-    bar: Box<HashSet<Generic<u32>>>,
-    baz: Box<BTreeMap<String, Rc<Generic<String>>>>,
+struct Container1 {
+    foo: Generic1<u32>,
+    bar: Box<HashSet<Generic1<u32>>>,
+    baz: Box<BTreeMap<String, Rc<Generic1<String>>>>,
 }
 
 #[test]
 fn test() {
-    assert_eq!(
-        export::<Generic<()>>().unwrap(),
-        "export type Generic<T> = { value: T, values: Array<T> }"
+    assert_ts_export!(
+        Generic1<()>,
+        "export type Generic1<T> = { value: T; values: T[] }"
     );
 
-    assert_eq!(
-        export::<GenericAutoBound::<()>>().unwrap(),
-        "export type GenericAutoBound<T> = { value: T, values: Array<T> }"
+    assert_ts_export!(
+        GenericAutoBound<()>,
+        "export type GenericAutoBound<T> = { value: T; values: T[] }"
     );
 
-    assert_eq!(
-        export::<GenericAutoBound2::<()>>().unwrap(),
-        "export type GenericAutoBound2<T> = { value: T, values: Array<T> }"
+    assert_ts_export!(
+        GenericAutoBound2<()>,
+        "export type GenericAutoBound2<T> = { value: T; values: T[] }"
     );
 
-    assert_eq!(
-        export::<Container>().unwrap(),
-        "export type Container = { foo: Generic<number>, bar: Array<Generic<number>>, baz: Record<string, Generic<string>> }"
+    assert_ts_export!(
+        Container1,
+        "export type Container1 = { foo: Generic1<number>; bar: Generic1<number>[]; baz: { [key: string]: Generic1<string> } }"
     );
 }
 
 #[test]
 fn generic_enum() {
     #[derive(Type)]
-    enum Generic<A, B, C> {
+    enum Generic2<A, B, C> {
         A(A),
         B(B, B, B),
         C(Vec<C>),
@@ -69,21 +70,18 @@ fn generic_enum() {
         Z(Vec<Vec<i32>>),
     }
 
-    assert_eq!(
-        export::<Generic::<(), (), ()>>().unwrap(),
-        r#"export type Generic<A, B, C> = { A: A } | { B: [B, B, B] } | { C: Array<C> } | { D: Array<Array<Array<A>>> } | { E: { a: A, b: B, c: C } } | { X: Array<number> } | { Y: number } | { Z: Array<Array<number>> }"#
+    assert_ts_export!(
+        Generic2::<(), (), ()>,
+        r#"export type Generic2<A, B, C> = { A: A } | { B: [B, B, B] } | { C: C[] } | { D: A[][][] } | { E: { a: A; b: B; c: C } } | { X: number[] } | { Y: number } | { Z: number[][] }"#
     )
 }
 
 #[test]
 fn generic_newtype() {
     #[derive(Type)]
-    struct NewType<T>(Vec<Vec<T>>);
+    struct NewType1<T>(Vec<Vec<T>>);
 
-    assert_eq!(
-        export::<NewType::<()>>().unwrap(),
-        r#"export type NewType<T> = Array<Array<T>>"#
-    );
+    assert_ts_export!(NewType1::<()>, r#"export type NewType1<T> = T[][]"#);
 }
 
 #[test]
@@ -91,16 +89,13 @@ fn generic_tuple() {
     #[derive(Type)]
     struct Tuple<T>(T, Vec<T>, Vec<Vec<T>>);
 
-    assert_eq!(
-        export::<Tuple::<()>>().unwrap(),
-        r#"export type Tuple<T> = [T, Array<T>, Array<Array<T>>]"#
-    );
+    assert_ts_export!(Tuple::<()>, r#"export type Tuple<T> = [T, T[], T[][]]"#);
 }
 
 #[test]
 fn generic_struct() {
     #[derive(Type)]
-    struct Struct<T> {
+    struct GenericStruct2<T> {
         a: T,
         b: (T, T),
         c: (T, (T, T)),
@@ -111,9 +106,9 @@ fn generic_struct() {
         h: Vec<[(T, T); 3]>,
     }
 
-    assert_eq!(
-        export::<Struct::<()>>().unwrap(),
-        "export type Struct<T> = { a: T, b: [T, T], c: [T, [T, T]], d: Array<T>, e: Array<[T, T]>, f: Array<T>, g: Array<Array<T>>, h: Array<Array<[T, T]>> }"
+    assert_ts_export!(
+        GenericStruct2::<()>,
+        "export type GenericStruct2<T> = { a: T; b: [T, T]; c: [T, [T, T]]; d: T[]; e: [T, T][]; f: T[]; g: T[][]; h: [T, T][][] }"
     )
 }
 
@@ -134,13 +129,10 @@ fn inline() {
         t: Generic<String>,
     }
 
-    assert_eq!(
-        export::<Generic::<()>>().unwrap(),
-        "export type Generic<T> = { t: T }"
-    );
-    assert_eq!(
-        export::<Container>().unwrap(),
-        "export type Container = ({ t: string }) & { g: Generic<string>, gi: { t: string } }"
+    assert_ts_export!(Generic::<()>, "export type Generic<T> = { t: T }");
+    assert_ts_export!(
+        Container,
+        "export type Container = ({ t: string }) & { g: Generic<string>; gi: { t: string } }"
     );
 }
 
@@ -150,8 +142,8 @@ fn inline() {
 //     struct A<T = String> {
 //         t: T,
 //     }
-//     assert_eq!(
-//         ts_export::<A::<()>>().unwrap(),
+//     assert_ts_export!(
+//         ts_A::<()>,
 //         "export type A<T = string> = { t: T, }"
 //     );
 
@@ -159,8 +151,8 @@ fn inline() {
 //     struct B<U = Option<A<i32>>> {
 //         u: U,
 //     }
-//     assert_eq!(
-//         ts_export::<B::<()>>().unwrap(),
+//     assert_ts_export!(
+//         ts_B::<()>,
 //         "export type B<U = A<number> | null>  = { u: U, }"
 //     );
 
@@ -175,8 +167,8 @@ fn inline() {
 // #[ts(inline)]
 // xi2: X<i32>
 // }
-// assert_eq!(
-//     ts_export::<Y>().unwrap(),
+// assert_ts_export!(
+//     ts_Y,
 //     "type Y = { a1: A, a2: A<number> }"
 // )
 // }
@@ -190,15 +182,15 @@ fn inline() {
 //     struct A<T: ToString = i32> {
 //         t: T,
 //     }
-//     assert_eq!(
-//         ts_export::<A::<i32>>().unwrap(),
+//     assert_ts_export!(
+//         ts_A::<i32>,
 //         "export type A<T = number> = { t: T, }"
 //     );
 
 //     #[derive(Type)]
 //     struct B<T: ToString + Debug + Clone + 'static>(T);
-//     assert_eq!(
-//         ts_export::<B::<&'static str>>().unwrap(),
+//     assert_ts_export!(
+//         ts_B::<&'static str>,
 //         "export type B<T> = T;"
 //     );
 
@@ -209,8 +201,8 @@ fn inline() {
 //         C,
 //         D(T, K),
 //     }
-//     assert_eq!(
-//         ts_export::<C::<&'static str, i32>>().unwrap(),
+//     assert_ts_export!(
+//         ts_C::<&'static str, i32>,
 //         "export type C<T, K = number> = { A: { t: T, } } | { B: T } | \"C\" | { D: [T, K] };"
 //     );
 
@@ -219,8 +211,8 @@ fn inline() {
 //         t: [T; N],
 //     }
 
-//     assert_eq!(
-//         ts_export::<D::<&str, 41>>().unwrap(),
+//     assert_ts_export!(
+//         ts_D::<&str, 41>,
 //         "export type D<T> = { t: Array<T>, }"
 //     )
 // }

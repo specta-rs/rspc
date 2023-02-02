@@ -1,4 +1,6 @@
-use specta::{ts::inline, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
 #[serde(tag = "type")]
@@ -10,14 +12,15 @@ struct TaggedType {
 #[test]
 #[cfg(feature = "serde")]
 fn test() {
-    assert_eq!(
-        inline::<TaggedType>(),
-        "{ a: number, b: number, type: \"TaggedType\" }"
-    )
+    assert_ts!(
+        TaggedType,
+        r#"{ a: number; b: number; type: "TaggedType" }"#
+    );
 }
 
+// TODO: Make it sure this test is run in CI. Won't run without `--all-features`.
 #[test]
 #[cfg(not(feature = "serde"))]
 fn test() {
-    assert_eq!(inline::<TaggedType>(), "{ a: number, b: number }")
+    assert_ts!(TaggedType, "{ a: number; b: number }");
 }

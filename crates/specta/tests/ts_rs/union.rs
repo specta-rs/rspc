@@ -1,10 +1,9 @@
-use specta::{
-    ts::{export, inline},
-    Type,
-};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
-enum SimpleEnum {
+enum SimpleEnum1 {
     #[specta(rename = "asdf")]
     A,
     B,
@@ -19,13 +18,10 @@ fn test_empty() {
     #[derive(Type)]
     enum Empty {}
 
-    assert_eq!(inline::<Empty>(), "never");
+    assert_ts!(Empty, "never");
 }
 
 #[test]
 fn test_simple_enum() {
-    assert_eq!(
-        export::<SimpleEnum>().unwrap(),
-        r#"export type SimpleEnum = "asdf" | "B" | { C: { enumField: null } }"#
-    )
+    assert_ts!(SimpleEnum1, r#""asdf" | "B" | { C: { enumField: null } }"#)
 }
