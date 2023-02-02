@@ -28,7 +28,6 @@ impl_parse! {
         "rename_to_value" => {
             let attr = attr.pass_path()?;
             out.rename = out.rename.take().or_else(|| Some({
-                // let expr: proc_macro2::TokenStream = attr.parse().unwrap();
                 let expr = attr.to_token_stream();
                 quote::quote!( #expr )
             }))

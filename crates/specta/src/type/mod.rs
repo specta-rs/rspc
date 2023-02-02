@@ -119,14 +119,17 @@ pub trait Type {
                     type_map: opts.type_map,
                 });
 
-                if let Some(ty) = opts.type_map.get(Self::NAME) {
-                    if ty.sid != definition.sid {
-                        // TODO: Return runtime error instead of panicking
-                        panic!("Specta: you have tried to export two types both called '{}' declared at '{}' and '{}'! You could give both types a unique name or put `#[specta(inline)]` on one/both of them to cause it to be exported without a name.", ty.name, ty.impl_location.as_str(), definition.impl_location.as_str());
-                    }
+                if let Some(ty) = opts.type_map.get(&Self::NAME) {
+                    // TODO: Properly detect duplicate name where SID don't match
+                    // println!("{:#?} {:?}", ty, definition);
 
                     if matches!(ty.inner, DataType::Placeholder) {
                         opts.type_map.insert(Self::NAME, definition);
+                    } else {
+                        if ty.sid != definition.sid {
+                            // TODO: Return runtime error instead of panicking
+                            panic!("Specta: you have tried to export two types both called '{}' declared at '{}' and '{}'! You could give both types a unique name or put `#[specta(inline)]` on one/both of them to cause it to be exported without a name.", ty.name, ty.impl_location.as_str(), definition.impl_location.as_str());
+                        }
                     }
                 } else {
                     opts.type_map.insert(Self::NAME, definition);
@@ -142,7 +145,7 @@ pub trait Type {
 pub trait Flatten: Type {}
 
 /// The Specta ID for the type. Holds for the given properties `T::SID == T::SID`, `T::SID != S::SID` and `Type<T>::SID == Type<S>::SID` (unlike std::any::TypeId)
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypeSid(u64);
 
 /// Compute an SID hash for a given type.

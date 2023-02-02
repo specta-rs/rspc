@@ -201,14 +201,21 @@ pub fn parse_struct(
         }
     };
 
-    let category = quote! {
-        #crate_ref::TypeCategory::Reference {
-            reference: #crate_ref::DataType::Reference {
-                name: <Self as #crate_ref::Type>::NAME,
-                generics: vec![#(#reference_generics),*],
-                type_id: std::any::TypeId::of::<Self>()
-            },
-            placeholder: #crate_ref::DataType::Placeholder,
+    let category = if container_attrs.inline {
+        quote!(#crate_ref::TypeCategory::Inline({
+            let generics = &[#(#reference_generics),*];
+            <Self as #crate_ref::Type>::inline(opts, generics)
+        }))
+    } else {
+        quote! {
+            #crate_ref::TypeCategory::Reference {
+                reference: #crate_ref::DataType::Reference {
+                    name: <Self as #crate_ref::Type>::NAME,
+                    generics: vec![#(#reference_generics),*],
+                    type_id: std::any::TypeId::of::<Self>()
+                },
+                placeholder: #crate_ref::DataType::Placeholder,
+            }
         }
     };
 
