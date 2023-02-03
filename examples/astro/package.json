@@ -23,6 +23,7 @@
   "devDependencies": {
     "@astrojs/react": "^1.2.2",
     "@astrojs/solid-js": "^1.2.3",
+    "@rspc/config": "workspace:^0.0.0",
     "@types/react": "^18.0.26"
   },
   "pnpm": {

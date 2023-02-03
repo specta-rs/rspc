@@ -24,17 +24,19 @@
   "scripts": {
     "dev": "rollup -c -w",
     "build": "rollup -c",
-    "prepare": "rollup -c"
+    "test": "vitest"
   },
   "dependencies": {
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
+    "@rspc/config": "workspace:^0.0.0",
     "@tanstack/solid-query": "^4.22.0",
     "rollup": "^3.10.0",
     "rollup-preset-solid": "^2.0.1",
     "solid-js": "^1.6.8",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.4",
+    "vitest": "^0.27.2"
   },
   "peerDependencies": {
     "@tanstack/solid-query": "^4.6.0",

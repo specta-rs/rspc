@@ -1,15 +1,14 @@
 /** @jsxImportSource solid-js */
-import { createWSClient, httpLink, wsLink } from "@rspc/client";
-import { createSolidQueryHooks } from "@rspc/solid";
-import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
+import { createRspcRoot, createWSClient, httpLink, wsLink } from "@rspc/client";
+import { createRspcSolid } from "@rspc/solid";
+import { QueryClient } from "@tanstack/solid-query";
 import { createSignal } from "solid-js";
 
 import type { Procedures } from "../../../bindings";
 
-export const rspc = createSolidQueryHooks<Procedures>();
+const root = createRspcRoot<Procedures>();
 
-export const fetchQueryClient = new QueryClient();
-const fetchClient = rspc.createClient({
+const fetchClient = root.createClient({
   // onError(opts) {
   //   console.error("A", opts);
   // },
@@ -24,35 +23,33 @@ const fetchClient = rspc.createClient({
     // }),
   ],
 });
+export const fetchQueryClient = new QueryClient();
 
-// TODO: Remove this abstraction or keep it?
-const wsClient2 = createWSClient({
-  url: "ws://localhost:4000/rspc/ws",
-});
-
-export const wsQueryClient = new QueryClient();
-const wsClient = rspc.createClient({
+const wsClient = root.createClient({
   // onError(opts) {
   //   console.error("B", opts);
   // },
   links: [
     // loggerLink(),
     wsLink({
-      client: wsClient2,
+      client: createWSClient({
+        url: "ws://localhost:4000/rspc/ws",
+      }),
     }),
   ],
 });
+export const wsQueryClient = new QueryClient();
 
-function Example({ name }: { name: string }) {
+export const rspcSolid = createRspcSolid<typeof fetchClient>();
+const rspc = rspcSolid.createHooks();
+
+function Example(props: { name: string }) {
   const [rerenderProp, setRendererProp] = createSignal(Date.now().toString());
-  const { data: version } = rspc.createQuery(() => ["version"]);
-  const { data: transformMe } = rspc.createQuery(() => ["basic.transformMe"]);
-  const { data: echo } = rspc.createQuery(() => [
-    "basic.echo",
-    "Hello From Frontend!",
-  ]);
-  const { mutate, isLoading } = rspc.createMutation("basic.sendMsg");
-  const { error } = rspc.createQuery(() => ["basic.error"], {
+  const version = rspc.createQuery(() => ["version"]);
+  const transformMe = rspc.createQuery(() => ["basic.transformMe"]);
+  const echo = rspc.createQuery(() => ["basic.echo", "Hello From Frontend!"]);
+  const sendMsg = rspc.createMutation("basic.sendMsg");
+  const error = rspc.createQuery(() => ["basic.error"], {
     retry: false,
     onSuccess(v) {
       console.log("WHY", v);
@@ -68,35 +65,39 @@ function Example({ name }: { name: string }) {
         border: "black 1px solid",
       }}
     >
-      <h1>{name}</h1>
-      <p>Using rspc version: {version}</p>
-      <p>Echo response: {echo}</p>
+      <h1>{props.name}</h1>
+      <p>Using rspc version: {version.data}</p>
+      <p>Echo response: {echo.data}</p>
       <p>
-        Error returned: {error?.code} {error?.message}
+        Error returned: {error.error?.code} {error.error?.message}
       </p>
-      <p>Transformed Query: {transformMe}</p>
+      <p>Transformed Query: {transformMe.data}</p>
       <ExampleSubscription rerenderProp={rerenderProp()} />
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
       </button>
-      <button onClick={() => mutate("Hello!")} disabled={isLoading}>
+      <button
+        onClick={() => sendMsg.mutate("Hello!")}
+        disabled={sendMsg.isLoading}
+      >
         Send Msg!
       </button>
     </div>
   );
 }
 
-function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
+function ExampleSubscription(props: { rerenderProp: string }) {
   const [i, setI] = createSignal(0);
   rspc.createSubscription(() => ["subscriptions.pings"], {
     onData(msg) {
+      console.log("SUBSCRIPTION: ", msg);
       setI((i) => i + 1);
     },
   });
 
   return (
     <p>
-      Pings received: {i} {rerenderProp}
+      Pings received: {i} {props.rerenderProp}
     </p>
   );
 }
@@ -104,17 +105,13 @@ function ExampleSubscription({ rerenderProp }: { rerenderProp: string }) {
 export default function App() {
   return (
     <div style="background-color: rgba(255, 105, 97, .5);">
-      <h1>React</h1>
-      <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
-        <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
-          <Example name="Fetch Transport" />
-        </rspc.Provider>
-      </QueryClientProvider>
-      <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
-        <QueryClientProvider client={wsQueryClient}>
-          <Example name="Websocket Transport" />
-        </QueryClientProvider>
-      </rspc.Provider>
+      <h1>Solid</h1>
+      <rspcSolid.Provider client={fetchClient} queryClient={fetchQueryClient}>
+        <Example name="Fetch Transport" />
+      </rspcSolid.Provider>
+      <rspcSolid.Provider client={wsClient} queryClient={wsQueryClient}>
+        <Example name="Websocket Transport" />
+      </rspcSolid.Provider>
     </div>
   );
 }

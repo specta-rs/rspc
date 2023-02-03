@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "strict": true,
+    // "noUnusedLocals": true,  // TODO: enable this
+    // "noUnusedParameters": true, // TODO: enable this
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "strictNullChecks": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "baseUrl": "../",
+    "paths": {
+      "@rspc/client": ["./client/src"],
+      "@rspc/react": ["./react/src"],
+      "@rspc/tauri": ["./tauri/src"]
+    }
+  },
+  "include": ["./getRollupConfig.ts"]
+}
