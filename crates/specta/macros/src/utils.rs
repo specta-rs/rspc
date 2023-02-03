@@ -65,7 +65,7 @@ impl MetaAttr {
         }
     }
 
-    pub fn pass_type(&self) -> Result<Path> {
+    pub fn pass_path(&self) -> Result<Path> {
         match &self.value {
             MetaFieldInner::Path(path) => Ok(path.clone()),
             _ => Err(syn::Error::new(

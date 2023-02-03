@@ -1,7 +1,11 @@
+#![allow(deprecated)]
+
 use chrono::{
     Date, DateTime, Duration, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Utc,
 };
-use specta::{ts, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[test]
 fn chrono() {
@@ -19,8 +23,8 @@ fn chrono() {
         duration: Duration,
     }
 
-    assert_eq!(
-        ts::inline::<Chrono>(),
-        "{ date: [string, string, string, string], time: string, date_time: [string, string, string, string], duration: string }"
+    assert_ts!(
+        Chrono,
+        "{ date: [string, string, string, string]; time: string; date_time: [string, string, string, string]; duration: string }"
     )
 }

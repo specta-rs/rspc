@@ -1,5 +1,8 @@
-use specta::{ts::export, Type};
+use specta::Type;
 
+use crate::ts::assert_ts;
+
+#[allow(non_camel_case_types)]
 #[derive(Type)]
 struct r#enum {
     r#type: i32,
@@ -11,8 +14,8 @@ struct r#enum {
 
 #[test]
 fn raw_idents() {
-    assert_eq!(
-        export::<r#enum>().unwrap(),
-        "export type enum = { type: number, use: number, struct: number, let: number, enum: number }"
-    )
+    assert_ts!(
+        r#enum,
+        "{ type: number; use: number; struct: number; let: number; enum: number }"
+    );
 }

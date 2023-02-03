@@ -43,7 +43,7 @@ pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenSt
 
                     Some(quote! {
                         #crate_name::ObjectField {
-                            name: stringify!(#ident).to_string(),
+                            name: stringify!(#ident),
                             ty: t.#ident.into(),
                             optional: false,
                             flatten: false
@@ -53,7 +53,7 @@ pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenSt
 
                 quote! {
                     #crate_name::ObjectType {
-                        name: stringify!(#ident).to_string(),
+                        name: stringify!(#ident),
                         generics: vec![],
                         fields: vec![#(#fields),*],
                         tag: None,
@@ -69,7 +69,7 @@ pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenSt
 
                 quote! {
                     #crate_name::TupleType {
-                        name: stringify!(#ident).to_string(),
+                        name: stringify!(#ident),
                         generics: vec![],
                         fields: vec![#(#fields),*]
                     }.into()
@@ -81,6 +81,7 @@ pub fn derive(input: proc_macro::TokenStream) -> syn::Result<proc_macro::TokenSt
     };
 
     Ok(quote! {
+        #[automatically_derived]
         impl From<#ident> for #crate_name::DataType {
             fn from(t: #ident) -> Self {
                 #body

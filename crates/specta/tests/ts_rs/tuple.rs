@@ -1,12 +1,11 @@
-use specta::{
-    ts::{export, inline},
-    Type,
-};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[test]
 fn test_tuple() {
     type Tuple = (String, i32, (i32, i32));
-    assert_eq!("[string, number, [number, number]]", inline::<Tuple>());
+    assert_ts!(Tuple, "[string, number, [number, number]]");
 }
 
 #[test]
@@ -14,15 +13,12 @@ fn test_newtype() {
     #[derive(Type)]
     struct NewType(String);
 
-    assert_eq!("export type NewType = string", export::<NewType>().unwrap());
+    assert_ts!(NewType, "string");
 }
 
 #[test]
 fn test_tuple_newtype() {
     #[derive(Type)]
     struct TupleNewType(String, i32, (i32, i32));
-    assert_eq!(
-        "export type TupleNewType = [string, number, [number, number]]",
-        export::<TupleNewType>().unwrap()
-    )
+    assert_ts!(TupleNewType, "[string, number, [number, number]]")
 }

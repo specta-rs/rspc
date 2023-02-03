@@ -2,79 +2,80 @@
 
 use std::borrow::Cow;
 
-use specta::{ts::inline, Type};
+use crate::ts::assert_ts;
+use specta::Type;
 
 #[test]
 fn newtype() {
     #[derive(Type)]
-    struct Newtype(Vec<Cow<'static, i32>>);
-    assert_eq!(inline::<Newtype>(), "Array<number>");
+    struct Newtype1(Vec<Cow<'static, i32>>);
+    assert_ts!(Newtype1, "number[]");
 }
 
 #[test]
 fn newtype_nested() {
     #[derive(Type)]
-    struct Newtype(Vec<Vec<i32>>);
-    assert_eq!(inline::<Newtype>(), "Array<Array<number>>");
+    struct Newtype2(Vec<Vec<i32>>);
+    assert_ts!(Newtype2, "number[][]");
 }
 
 #[test]
 fn alias() {
-    type Alias = Vec<String>;
-    assert_eq!(inline::<Alias>(), "Array<string>");
+    type Alias1 = Vec<String>;
+    assert_ts!(Alias1, "string[]");
 }
 
 #[test]
 fn alias_nested() {
-    type Alias = Vec<Vec<String>>;
-    assert_eq!(inline::<Alias>(), "Array<Array<string>>");
+    type Alias2 = Vec<Vec<String>>;
+    assert_ts!(Alias2, "string[][]");
 }
 
 #[test]
 fn named() {
     #[derive(Type)]
-    struct Struct {
+    struct Struct1 {
         a: Box<Vec<String>>,
         b: (Vec<String>, Vec<String>),
         c: [Vec<String>; 3],
     }
-    assert_eq!(
-        inline::<Struct>(),
-        "{ a: Array<string>, b: [Array<string>, Array<string>], c: Array<Array<string>> }"
+    assert_ts!(
+        Struct1,
+        "{ a: string[]; b: [string[], string[]]; c: string[][] }"
     );
 }
 
 #[test]
 fn named_nested() {
     #[derive(Type)]
-    struct Struct {
+    struct Struct2 {
         a: Vec<Vec<String>>,
         b: (Vec<Vec<String>>, Vec<Vec<String>>),
         c: [Vec<Vec<String>>; 3],
     }
-    assert_eq!(inline::<Struct>(), "{ a: Array<Array<string>>, b: [Array<Array<string>>, Array<Array<string>>], c: Array<Array<Array<string>>> }");
+    assert_ts!(
+        Struct2,
+        "{ a: string[][]; b: [string[][], string[][]]; c: string[][][] }"
+    );
 }
 
 #[test]
 fn tuple() {
     #[derive(Type)]
-    struct Tuple(Vec<i32>, (Vec<i32>, Vec<i32>), [Vec<i32>; 3]);
-    assert_eq!(
-        inline::<Tuple>(),
-        "[Array<number>, [Array<number>, Array<number>], Array<Array<number>>]"
-    );
+    struct Tuple1(Vec<i32>, (Vec<i32>, Vec<i32>), [Vec<i32>; 3]);
+    assert_ts!(Tuple1, "[number[], [number[], number[]], number[][]]");
 }
 
 #[test]
 fn tuple_nested() {
     #[derive(Type)]
-    struct Tuple(
+    struct Tuple2(
         Vec<Vec<i32>>,
         (Vec<Vec<i32>>, Vec<Vec<i32>>),
         [Vec<Vec<i32>>; 3],
     );
-    assert_eq!(
-        inline::<Tuple>(),
-        "[Array<Array<number>>, [Array<Array<number>>, Array<Array<number>>], Array<Array<Array<number>>>]"
+    assert_ts!(
+        Tuple2,
+        "[number[][], [number[][], number[][]], number[][][]]"
     );
 }

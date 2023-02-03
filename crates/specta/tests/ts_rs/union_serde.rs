@@ -1,8 +1,10 @@
-use specta::{ts::inline, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
 #[serde(tag = "kind", content = "d")]
-enum SimpleEnum {
+enum SimpleEnumA {
     A,
     B,
 }
@@ -12,9 +14,9 @@ enum SimpleEnum {
 enum ComplexEnum {
     A,
     B { foo: String, bar: f64 },
-    W(SimpleEnum),
-    F { nested: SimpleEnum },
-    T(i32, SimpleEnum),
+    W(SimpleEnumA),
+    F { nested: SimpleEnumA },
+    T(i32, SimpleEnumA),
 }
 
 #[derive(Type)]
@@ -28,10 +30,10 @@ enum Untagged {
 #[cfg(feature = "serde")]
 #[test]
 fn test_serde_enum() {
-    assert_eq!(inline::<SimpleEnum>(), r#"{ kind: "A" } | { kind: "B" }"#);
-    assert_eq!(
-        inline::<ComplexEnum>(),
-        r#"{ kind: "A" } | { kind: "B", data: { foo: string, bar: number } } | { kind: "W", data: SimpleEnum } | { kind: "F", data: { nested: SimpleEnum } } | { kind: "T", data: [number, SimpleEnum] }"#
+    assert_ts!(SimpleEnumA, r#"{ kind: "A" } | { kind: "B" }"#);
+    assert_ts!(
+        ComplexEnum,
+        r#"{ kind: "A" } | { kind: "B"; data: { foo: string; bar: number } } | { kind: "W"; data: SimpleEnumA } | { kind: "F"; data: { nested: SimpleEnumA } } | { kind: "T"; data: [number, SimpleEnumA] }"#
     );
-    assert_eq!(inline::<Untagged>(), r#"string | number | null"#);
+    assert_ts!(Untagged, r#"string | number | null"#);
 }

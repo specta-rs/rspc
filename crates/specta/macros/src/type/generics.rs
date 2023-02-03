@@ -153,7 +153,15 @@ pub fn construct_datatype(
                 "specta: trait objects are not currently supported.",
             ));
         }
-        _ => {
+        Type::Macro(m) => {
+            return Ok(quote! {
+                let #var_ident = <#m as #crate_ref::Type>::#method(#crate_ref::DefOpts {
+                    parent_inline: false,
+                    type_map: opts.type_map
+                }, &[]);
+            });
+        }
+        ty => {
             return Err(syn::Error::new(
                 ty.span(),
                 format!(
@@ -177,7 +185,7 @@ pub fn construct_datatype(
                             type_map: opts.type_map
                         },
                         &[#crate_ref::GenericType(
-                            stringify!(#type_ident).to_string()
+                            stringify!(#type_ident)
                         ).into()]
                     )
                 );

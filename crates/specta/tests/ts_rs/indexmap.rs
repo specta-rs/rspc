@@ -1,7 +1,9 @@
 #![cfg(feature = "indexmap")]
 
 use indexmap::{IndexMap, IndexSet};
-use specta::{ts, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[test]
 fn indexmap() {
@@ -12,8 +14,5 @@ fn indexmap() {
         set: IndexSet<String>,
     }
 
-    assert_eq!(
-        ts::inline::<Indexes>(),
-        "{ map: Record<string, string>, set: Array<string> }"
-    )
+    assert_ts!(Indexes, "{ map: { [key: string]: string }; set: string[] }");
 }

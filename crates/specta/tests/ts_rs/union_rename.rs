@@ -1,4 +1,6 @@
-use specta::{ts::export, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[derive(Type)]
 #[specta(rename_all = "lowercase")]
@@ -10,10 +12,7 @@ enum RenamedEnum {
     C,
 }
 
-// #[test]
+#[test]
 fn test_simple_enum() {
-    assert_eq!(
-        export::<RenamedEnum>().unwrap(),
-        r#"export type SimpleEnum = "ASDF" | "b" | "c""#
-    )
+    assert_ts!(RenamedEnum, r#""ASDF" | "b" | "c""#)
 }

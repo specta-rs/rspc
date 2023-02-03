@@ -6,7 +6,7 @@ use crate::DataType;
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub struct ObjectField {
-    pub name: String,
+    pub name: &'static str,
     pub ty: DataType,
     pub optional: bool,
     pub flatten: bool,
@@ -16,10 +16,10 @@ pub struct ObjectField {
 #[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub struct ObjectType {
-    pub name: String,
+    pub name: &'static str,
     pub generics: Vec<&'static str>,
     pub fields: Vec<ObjectField>,
-    pub tag: Option<String>,
+    pub tag: Option<&'static str>,
     pub type_id: Option<TypeId>,
 }
 

@@ -2,7 +2,9 @@
 
 use std::time::Instant;
 
-use specta::{ts, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 struct Unsupported<T>(T);
 struct Unsupported2;
@@ -20,10 +22,10 @@ fn simple() {
         z: Option<Unsupported2>,
     }
 
-    assert_eq!(
-        ts::inline::<Override>(),
-        "{ a: number, x: string, y: string, z: string | null }"
-    )
+    assert_ts!(
+        Override,
+        "{ a: number; x: string; y: string; z: string | null }"
+    );
 }
 
 #[test]
@@ -33,6 +35,6 @@ fn newtype() {
     #[derive(Type)]
     struct New2(#[specta(type = Option<String>)] Unsupported<Unsupported2>);
 
-    assert_eq!(ts::inline::<New1>(), r#"string"#);
-    assert_eq!(ts::inline::<New2>(), r#"string | null"#);
+    assert_ts!(New1, r#"string"#);
+    assert_ts!(New2, r#"string | null"#);
 }

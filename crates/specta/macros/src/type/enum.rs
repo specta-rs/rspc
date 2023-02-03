@@ -5,7 +5,6 @@ use quote::{format_ident, quote};
 use syn::{DataEnum, Fields, GenericParam, Generics};
 
 pub fn parse_enum(
-    enum_name_str: &str,
     enum_attrs: &EnumAttr,
     container_attrs: &ContainerAttr,
     generics: &Generics,
@@ -60,12 +59,11 @@ pub fn parse_enum(
                 .iter()
                 .any(|v| matches!(&v.fields, Fields::Unit | Fields::Named(_))),
         ),
-        Tagged::Adjacently { tag, content } => (
-            quote!(Adjacent { tag: #tag.to_string(), content: #content.to_string() }),
-            true,
-        ),
+        Tagged::Adjacently { tag, content } => {
+            (quote!(Adjacent { tag: #tag, content: #content }), true)
+        }
         Tagged::Internally { tag } => (
-            quote!(Internal { tag: #tag.to_string() }),
+            quote!(Internal { tag: #tag }),
             data.variants
                 .iter()
                 .any(|v| matches!(&v.fields, Fields::Unit | Fields::Named(_))),
@@ -112,7 +110,7 @@ pub fn parse_enum(
 
             Ok(match &variant.fields {
                 Fields::Unit => {
-                    quote!(#crate_ref::EnumVariant::Unit(#variant_name_str.to_string()))
+                    quote!(#crate_ref::EnumVariant::Unit(#variant_name_str))
                 }
                 Fields::Unnamed(fields) => {
                     let fields = fields
@@ -138,7 +136,7 @@ pub fn parse_enum(
                         .collect::<syn::Result<Vec<TokenStream>>>()?;
 
                     quote!(#crate_ref::EnumVariant::Unnamed(#crate_ref::TupleType {
-                        name: #variant_name_str.to_string(),
+                        name: #variant_name_str,
                         fields: vec![#(#fields),*],
                         generics: vec![]
                     }))
@@ -169,7 +167,7 @@ pub fn parse_enum(
                             };
 
                             Ok(quote!(#crate_ref::ObjectField {
-                                name: #field_name.to_string(),
+                                name: #field_name,
                                 optional: false,
                                 flatten: false,
                                 ty: {
@@ -182,7 +180,7 @@ pub fn parse_enum(
                         .collect::<syn::Result<Vec<TokenStream>>>()?;
 
                     quote!(#crate_ref::EnumVariant::Named(#crate_ref::ObjectType {
-                        name: #variant_name_str.to_string(),
+                        name: #variant_name_str,
                         fields: vec![#(#fields),*],
                         generics: vec![],
                         tag: None,
@@ -195,7 +193,7 @@ pub fn parse_enum(
 
     Ok((
         quote!(#crate_ref::EnumType {
-            name: #enum_name_str.to_string(),
+            name: <Self as #crate_ref::Type>::NAME,
             generics: vec![#(#definition_generics),*],
             variants: vec![#(#variants),*],
             repr: #crate_ref::EnumRepr::#repr_tokens,
@@ -204,18 +202,11 @@ pub fn parse_enum(
         quote! {
             #crate_ref::TypeCategory::Reference {
                 reference: #crate_ref::DataType::Reference {
-                    name: #enum_name_str.to_string(),
+                    name: <Self as #crate_ref::Type>::NAME,
                     generics: vec![#(#reference_generics),*],
                     type_id: std::any::TypeId::of::<Self>()
                 },
-                // TODO: make accurate
-                placeholder: #crate_ref::ObjectType {
-                    name: #enum_name_str.to_string(),
-                    generics: vec![],
-                    fields: vec![],
-                    tag: None,
-                    type_id: Some(std::any::TypeId::of::<Self>())
-                }.into()
+                placeholder: #crate_ref::DataType::Placeholder,
             }
         },
         can_flatten,

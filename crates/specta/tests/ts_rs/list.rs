@@ -1,4 +1,6 @@
-use specta::{ts, Type};
+use specta::Type;
+
+use crate::ts::assert_ts;
 
 #[test]
 fn list() {
@@ -8,8 +10,5 @@ fn list() {
         data: Option<Vec<u32>>,
     }
 
-    assert_eq!(
-        ts::export::<List>().unwrap(),
-        "export type List = { data: Array<number> | null }"
-    );
+    assert_ts!(List, "{ data: number[] | null }");
 }
