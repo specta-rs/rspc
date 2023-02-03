@@ -46,6 +46,7 @@ export function buildConfig(input: string): RollupOptions[] {
         swc(
           defineRollupSwcOption({
             tsconfig: false,
+            sourceMaps: true,
             jsc: {
               target: "es2020",
               transform: {

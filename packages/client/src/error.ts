@@ -1,51 +1,5 @@
 // @ts-no-check: TODO: Bruh
 
-// export class RSPCError extends Error {
-//   public code: number;
-//   public message: string;
-
-//   constructor(code: number, message: string) {
-//     super(message);
-
-//     this.code = code;
-//     this.message = message;
-//     this.name = "RSPCError";
-
-//     Object.setPrototypeOf(this, new.target.prototype);
-//   }
-
-//   public static from(
-//     message: string,
-//     opts?: {
-//       result?: any; // Maybe<inferErrorShape<TRouterOrProcedure>>;
-//       cause?: Error;
-//       meta?: Record<string, unknown>;
-//     }
-//   ): RSPCError {
-//     // if (!(cause instanceof Error)) {
-//     //   return new TRPCClientError<TRouterOrProcedure>(
-//     //     cause.error.message ?? "",
-//     //     {
-//     //       ...opts,
-//     //       cause: undefined,
-//     //       result: cause as any,
-//     //     }
-//     //   );
-//     // }
-//     // if (cause.name === "TRPCClientError") {
-//     //   return cause as TRPCClientError<any>;
-//     // }
-
-//     // return new TRPCClientError<TRouterOrProcedure>(cause.message, {
-//     //   ...opts,
-//     //   cause,
-//     //   result: null,
-//     // });
-
-//     return new RSPCError(500, "bruh");
-//   }
-// }
-
 export function getMessageFromUnkownError(
   err: unknown,
   fallback: string
@@ -96,42 +50,7 @@ export function getCauseFromUnknown(cause: unknown) {
 
   return undefined;
 }
-
-// export class RSPCError extends Error {
-//   public readonly cause?;
-//   public readonly code;
-
-//   constructor(opts: {
-//     message?: string;
-//     // TODO: Use enum for code which is generated from Rust.
-//     code: number;
-//     cause?: unknown;
-//   }) {
-//     const code = opts.code;
-//     const message = opts.message ?? getMessageFromUnkownError(opts.cause, code);
-//     const cause: Error | undefined =
-//       opts !== undefined ? getErrorFromUnknown(opts.cause) : undefined;
-
-//     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-//     // @ts-ignore https://github.com/tc39/proposal-error-cause
-//     super(message, { cause });
-
-//     this.code = code;
-//     this.cause = cause;
-//     this.name = "TRPCError";
-
-//     Object.setPrototypeOf(this, new.target.prototype);
-//   }
-// }
-
-// export interface TRPCClientErrorBase<TShape extends DefaultErrorShape> {
-//   readonly message: string;
-//   readonly shape: Maybe<TShape>;
-//   readonly data: Maybe<TShape['data']>;
-// }
-
 export class RSPCError extends Error {
-  // implements TRPCClientErrorBase<inferErrorShape<TRouterOrProcedure>>
   public readonly cause;
   public readonly shape: any; // TODO: Maybe<inferErrorShape<TRouterOrProcedure>>;
   public readonly data: any; // TODO; Maybe<inferErrorShape<TRouterOrProcedure>["data"]>;

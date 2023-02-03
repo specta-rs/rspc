@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",
+    "config": "pnpm --filter @rspc/config -- ",
     "examples": "pnpm --filter @rspc/examples-* -- ",
     "playground": "pnpm --filter @rspc/playground -- ",
     "normi": "pnpm --filter @rspc/normi -- ",

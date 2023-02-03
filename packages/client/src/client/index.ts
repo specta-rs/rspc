@@ -4,11 +4,11 @@ import {
   Operation,
   share,
   inferObservableValue,
-  observableToPromise,
   RSPCError,
   TRPCLink,
   OnErrorFunction,
 } from "..";
+import { observableToPromise } from "../internals/observable/internals/observableToPromise";
 import { createChain } from "../links/internals/createChain";
 import { ProcedureDef, ProceduresDef } from "../bindings";
 import { Expand, GetProcedure, ProcedureKeyTuple } from "./utils";

@@ -20,7 +20,7 @@
   "scripts": {
     "build": "rollup --config rollup.config.ts --configPlugin swc3",
     "dev": "pnpm build --watch",
-    "test": "vitest ./demo.test.ts"
+    "test": "vitest ./demo.test.ts ./incubator"
   },
   "devDependencies": {
     "@rspc/config": "workspace:*",
