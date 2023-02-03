@@ -13,6 +13,7 @@
     "dist"
   ],
   "exports": {
+    "./package.json": "./package.json",
     ".": {
       "solid": "./dist/source/index.jsx",
       "import": "./dist/esm/index.js",

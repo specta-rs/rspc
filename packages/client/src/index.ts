@@ -6,6 +6,7 @@ export * from "./client";
 export * from "./client2";
 export * from "./bindings";
 export * from "./fetchLink";
+export * from "./interop";
 
 // TODO: Break out following
 

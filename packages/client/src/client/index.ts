@@ -195,12 +195,12 @@ function clientFactory<
   };
 }
 
-export type Client<
+export type NewClient<
   TProcs extends ProceduresDef,
   TArgs extends ClientArgs<TProcs>
 > = Omit<ReturnType<typeof clientFactory<TProcs, TArgs>>, "setLinks">;
 
-export type ClientFilteredProcs<C extends Client<any, any>> = ApplyFilter<
+export type ClientFilteredProcs<C extends NewClient<any, any>> = ApplyFilter<
   C["__procs"],
   C["__args"]
 >;

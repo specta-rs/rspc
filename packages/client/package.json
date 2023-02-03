@@ -8,6 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
@@ -20,7 +21,7 @@
   "scripts": {
     "build": "rollup --config rollup.config.ts --configPlugin swc3",
     "dev": "pnpm build --watch",
-    "test": "vitest ./demo.test.ts ./incubator"
+    "test": "vitest ./demo.test.ts ./typescript.test.ts ./incubator ./interop"
   },
   "devDependencies": {
     "@rspc/config": "workspace:*",
