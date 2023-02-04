@@ -1,7 +1,7 @@
 import { observable } from "../internals/observable/index";
 import { ProceduresDef } from "..";
 import { createChain } from "./internals/createChain";
-import { Operation, TRPCLink } from "./types";
+import { LegacyOperation, TRPCLink } from "./types";
 
 function asArray<TType>(value: TType | TType[]) {
   return Array.isArray(value) ? value : [value];
@@ -9,7 +9,7 @@ function asArray<TType>(value: TType | TType[]) {
 export function splitLink<
   TProcedures extends ProceduresDef = ProceduresDef
 >(opts: {
-  condition: (op: Operation) => boolean;
+  condition: (op: LegacyOperation) => boolean;
   /**
    * The link to execute next if the test function returns `true`.
    */

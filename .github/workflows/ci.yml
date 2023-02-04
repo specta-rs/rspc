@@ -48,8 +48,8 @@ jobs:
       - name: Build Rust crate
         run: cargo build --all-features
       
-      - name: Generate test bindings for typecheck
-        run: cargo test -p example tests::test_rspc_router -- --exact # TODO: Move this into a the first unit test
+      # - name: Generate test bindings for typecheck
+      #   run: cargo test -p example tests::test_rspc_router -- --exact # TODO: Move this into a the first unit test
       
       - name: Typecheck
         run: pnpm typecheck

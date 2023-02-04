@@ -9,6 +9,7 @@ import {
   inferMutationResult,
   inferQueryResult,
 } from "..";
+export * from "./error";
 export * from "./typescript";
 
 export class FetchTransport {

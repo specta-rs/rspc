@@ -1,6 +1,6 @@
 import { observable, tap } from "../internals/observable";
 import { ProceduresDef, RSPCError } from "..";
-import { Operation, OperationResultEnvelope, TRPCLink } from "./types";
+import { LegacyOperation, OperationResultEnvelope, TRPCLink } from "./types";
 
 type ConsoleEsque = {
   log: (...args: any[]) => void;
@@ -8,7 +8,7 @@ type ConsoleEsque = {
 };
 
 type EnableFnOptions<TProcedures extends ProceduresDef> =
-  | (Operation & {
+  | (LegacyOperation & {
       direction: "up";
     })
   | {
@@ -19,7 +19,7 @@ type EnabledFn<TProcedures extends ProceduresDef> = (
   opts: EnableFnOptions<TProcedures>
 ) => boolean;
 
-type LoggerLinkFnOptions<TProcedures extends ProceduresDef> = Operation &
+type LoggerLinkFnOptions<TProcedures extends ProceduresDef> = LegacyOperation &
   (
     | {
         /**

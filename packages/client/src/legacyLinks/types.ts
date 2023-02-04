@@ -4,8 +4,9 @@
 // import { Observable, Observer } from '@trpc/server/observable';
 // import { TRPCResultMessage, TRPCSuccessResponse } from '@trpc/server/rpc';
 
-import { RSPCError } from "../error";
+import { RSPCError } from "../interop/error";
 import { Observable, Observer } from "../internals/observable";
+import { OperationContext } from "..";
 
 type AnyRouter = any;
 type DataTransformer = any;
@@ -28,11 +29,7 @@ export type PromiseAndCancel<TValue> = {
 /**
  * @internal
  */
-export type OperationContext = Record<string, unknown>;
-/**
- * @internal
- */
-export type Operation<TInput = unknown> = {
+export type LegacyOperation<TInput = unknown> = {
   id: number;
   type: "query" | "mutation" | "subscription";
   input: TInput;
@@ -43,7 +40,7 @@ export type Operation<TInput = unknown> = {
 /**
  * @internal
  */
-export type HTTPHeaders = Record<string, string | string[] | undefined>;
+// export type HTTPHeaders = Record<string, string | string[] | undefined>;
 
 /**
  * The default `fetch` implementation has an overloaded signature. By convention this library
@@ -102,8 +99,10 @@ export type OperationLink<
   TInput = unknown,
   TOutput = unknown
 > = (opts: {
-  op: Operation<TInput>;
-  next: (op: Operation<TInput>) => OperationResultObservable<TRouter, TOutput>;
+  op: LegacyOperation<TInput>;
+  next: (
+    op: LegacyOperation<TInput>
+  ) => OperationResultObservable<TRouter, TOutput>;
 }) => OperationResultObservable<TRouter, TOutput>;
 
 /**

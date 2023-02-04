@@ -1,4 +1,4 @@
-import { CancelFn, PromiseAndCancel } from "../links/types";
+import { CancelFn, PromiseAndCancel } from "../legacyLinks/types";
 
 type BatchItem<TKey, TValue> = {
   aborted: boolean;

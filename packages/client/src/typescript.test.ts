@@ -1,8 +1,6 @@
 import { describe, it } from "vitest";
 import { inferProcedureInput, inferProcedureResult, inferQueryInput } from ".";
-
-export function assertTypeEquality<T extends never>() {}
-type Equals<A, B> = Exclude<A, B> | Exclude<B, A>;
+import { assertTy } from "./utils.test";
 
 export type Procedures = {
   queries:
@@ -39,88 +37,63 @@ export type Test = "Unit" | { Unnamed: string };
 
 describe("Typescript", () => {
   it("query inference helpers", async () => {
-    assertTypeEquality<
-      Equals<never, inferProcedureInput<Procedures, "queries", "noArgQuery">>
-    >();
-    assertTypeEquality<
-      Equals<string, inferProcedureResult<Procedures, "queries", "noArgQuery">>
+    assertTy<inferProcedureInput<Procedures, "queries", "noArgQuery">, never>();
+    assertTy<
+      inferProcedureResult<Procedures, "queries", "noArgQuery">,
+      string
     >();
 
-    assertTypeEquality<
-      Equals<
-        number,
-        inferProcedureInput<Procedures, "queries", "singleArgQuery">
-      >
+    assertTy<
+      inferProcedureInput<Procedures, "queries", "singleArgQuery">,
+      number
     >();
-    assertTypeEquality<
-      Equals<
-        number,
-        inferProcedureResult<Procedures, "queries", "singleArgQuery">
-      >
+    assertTy<
+      inferProcedureResult<Procedures, "queries", "singleArgQuery">,
+      number
     >();
   });
 
   it("mutation inference helpers", async () => {
-    assertTypeEquality<
-      Equals<
-        never,
-        inferProcedureInput<Procedures, "mutations", "noArgMutation">
-      >
+    assertTy<
+      inferProcedureInput<Procedures, "mutations", "noArgMutation">,
+      never
     >();
-    assertTypeEquality<
-      Equals<
-        string,
-        inferProcedureResult<Procedures, "mutations", "noArgMutation">
-      >
+    assertTy<
+      inferProcedureResult<Procedures, "mutations", "noArgMutation">,
+      string
     >();
 
-    assertTypeEquality<
-      Equals<
-        number,
-        inferProcedureInput<Procedures, "mutations", "singleArgMutation">
-      >
+    assertTy<
+      inferProcedureInput<Procedures, "mutations", "singleArgMutation">,
+      number
     >();
-    assertTypeEquality<
-      Equals<
-        number,
-        inferProcedureResult<Procedures, "mutations", "singleArgMutation">
-      >
+    assertTy<
+      inferProcedureResult<Procedures, "mutations", "singleArgMutation">,
+      number
     >();
   });
 
   it("subscription inference helpers", async () => {
-    assertTypeEquality<
-      Equals<
-        never,
-        inferProcedureInput<Procedures, "subscriptions", "noArgSubscription">
-      >
+    assertTy<
+      inferProcedureInput<Procedures, "subscriptions", "noArgSubscription">,
+      never
     >();
-    assertTypeEquality<
-      Equals<
-        string,
-        inferProcedureResult<Procedures, "subscriptions", "noArgSubscription">
-      >
+    assertTy<
+      inferProcedureResult<Procedures, "subscriptions", "noArgSubscription">,
+      string
     >();
 
-    assertTypeEquality<
-      Equals<
-        boolean,
-        inferProcedureInput<
-          Procedures,
-          "subscriptions",
-          "singleArgSubscription"
-        >
-      >
+    assertTy<
+      inferProcedureInput<Procedures, "subscriptions", "singleArgSubscription">,
+      boolean
     >();
-    assertTypeEquality<
-      Equals<
-        boolean,
-        inferProcedureResult<
-          Procedures,
-          "subscriptions",
-          "singleArgSubscription"
-        >
-      >
+    assertTy<
+      inferProcedureResult<
+        Procedures,
+        "subscriptions",
+        "singleArgSubscription"
+      >,
+      boolean
     >();
   });
 });

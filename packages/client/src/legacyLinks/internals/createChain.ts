@@ -1,6 +1,10 @@
 import { observable } from "../..";
 import { ProceduresDef } from "@rspc/client";
-import { Operation, OperationLink, OperationResultObservable } from "../types";
+import {
+  LegacyOperation,
+  OperationLink,
+  OperationResultObservable,
+} from "../types";
 
 /** @internal */
 export function createChain<
@@ -9,7 +13,7 @@ export function createChain<
   TOutput = unknown
 >(opts: {
   links: OperationLink<TProcedures, TInput, TOutput>[];
-  op: Operation<TInput>;
+  op: LegacyOperation<TInput>;
 }): OperationResultObservable<TProcedures, TOutput> {
   return observable((observer) => {
     function execute(index = 0, op = opts.op) {

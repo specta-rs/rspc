@@ -1,56 +1,34 @@
 import { describe, it } from "vitest";
-import { ProceduresDef, MiddlewareOperation, MiddlewareResp } from ".";
+import { HasAnyLinkFlags, HasLinkFlags } from "./link";
+import { assertTy } from "./utils.test";
 
-/**
- * TODO
- */
-export function customLink() {
-  return <T extends ProceduresDef>(
-    op: MiddlewareOperation<T>
-  ): MiddlewareResp<T, "subscriptionsUnsupported" | "terminatedLink"> => {
-    const { path, input, type, context } = op; // TODO: Handle if a `batch` link was first cause there might be multiple.
-    if (type === "subscription") {
-      // We attempt to detect and prevent this error in the type system but it's not always possible to detect it.
-      throw new Error("Subscriptions should use wsLink");
-    }
+describe("Links", () => {
+  it("HasLinkFlags & HasAnyLinkFlags", async () => {
+    assertTy<HasLinkFlags<{ terminatedLink: true }, "terminatedLink">, true>();
+    assertTy<
+      HasLinkFlags<{ built: true }, "terminatedLink" | "built">,
+      false
+    >();
+    assertTy<
+      HasLinkFlags<
+        { terminatedLink: true; built: true },
+        "terminatedLink" | "built"
+      >,
+      true
+    >();
+    assertTy<HasLinkFlags<{}, "terminatedLink" | "built">, false>();
 
-    return (next) => {
-      const x = new Promise((resolve, reject) => {
-        setTimeout(() => {
-          resolve("hello");
-        }, 1000);
-      });
-
-      return next(x);
-    };
-
-    return {
-      subscribe(observer) {
-        const url = internal_fetchLinkGetUrl(opts.url, op);
-        const options = {}; // TODO
-        const resp = globalFetch(url, options).then(async (resp) => {
-          // TODO: Handle status code and errors
-
-          try {
-            const data = await resp.json();
-            observer.next(data);
-          } catch (err) {
-            // observer.error(err); // TODO
-            throw err; // TODO: Remove
-          }
-        });
-
-        return () => {
-          console.log("CLEANUP");
-          // TODO: Abort controller
-        };
-      },
-    };
-  };
-}
-
-describe("custom links", () => {
-  it("todo", async () => {
-    // TODO: Test crating custom links
+    assertTy<
+      HasAnyLinkFlags<{ terminatedLink: true }, "terminatedLink">,
+      true
+    >();
+    assertTy<
+      HasAnyLinkFlags<
+        { terminatedLink: true; built: true },
+        "terminatedLink" | "built"
+      >,
+      true
+    >();
+    assertTy<HasAnyLinkFlags<{}, "terminatedLink" | "built">, false>();
   });
 });

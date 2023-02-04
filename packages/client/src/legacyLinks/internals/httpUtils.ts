@@ -1,5 +1,6 @@
 import { getAbortController, getFetch } from "../../internals/fetchHelpers";
-import { HTTPHeaders, PromiseAndCancel, TRPCClientRuntime } from "../types";
+import { PromiseAndCancel, TRPCClientRuntime } from "../types";
+import { HTTPHeaders } from "../../";
 
 type ProcedureType = any; // TODO
 type TRPCResponse = any; // TODO

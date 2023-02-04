@@ -1,7 +1,6 @@
 import { describe, it } from "vitest";
 import { createClient, FetchTransport } from "../";
-
-function expectType<ExpectedType>(_value: ExpectedType) {}
+import { assertTy } from "../utils.test";
 
 type Procedures = {
   queries:
@@ -24,17 +23,17 @@ const fetchClient = createClient<Procedures>({
 
 describe("interop API", () => {
   it("client queries", async () => {
-    expectType<number>(await fetchClient.query(["a", "hello"]));
-    expectType<string>(await fetchClient.query(["b", true]));
-    expectType<boolean>(await fetchClient.query(["c"]));
+    assertTy<number>(await fetchClient.query(["a", "hello"]));
+    assertTy<string>(await fetchClient.query(["b", true]));
+    assertTy<boolean>(await fetchClient.query(["c"]));
     // @ts-expect-error
     await fetchClient.query(["not a key"]);
   });
 
   it("client mutations", async () => {
-    expectType<string>(await fetchClient.mutation(["d", 42]));
-    expectType<boolean>(await fetchClient.mutation(["e", "hello"]));
-    expectType<number>(await fetchClient.mutation(["f"]));
+    assertTy<string>(await fetchClient.mutation(["d", 42]));
+    assertTy<boolean>(await fetchClient.mutation(["e", "hello"]));
+    assertTy<number>(await fetchClient.mutation(["f"]));
     // @ts-expect-error
     await fetchClient.mutation(["not a key"]);
   });
@@ -54,4 +53,6 @@ describe("interop API", () => {
       onData: (data: any) => {},
     });
   });
+
+  // TODO: NoOpTransport and WebsocketTransport both working
 });
