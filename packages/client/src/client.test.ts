@@ -2,10 +2,11 @@ import { describe, it } from "vitest";
 import { initRspc, noOpLink, ProceduresDef, LinkFlag, Link } from ".";
 import { assertTy, HasProperty } from "./utils.test";
 
-export function mapTypesLink<
-  T extends ProceduresDef,
-  TFlag extends LinkFlag
->(): Link<T, Omit<T, "a">, TFlag> {
+export function mapTypesLink<T extends ProceduresDef>(): Link<
+  T,
+  Omit<T, "a">,
+  {}
+> {
   return undefined as any; // We only care about the types for this
 }
 
@@ -63,7 +64,7 @@ describe("Client", () => {
     c4.use(noOpLink({ supportsSubscriptions: false }));
     c4.use(noOpLink({ supportsSubscriptions: true }));
 
-    // c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
+    c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
 
     // Using build method without enabling subscriptions
     const c5 = initRspc<Procedures>().build({ supportsSubscriptions: false });
@@ -76,7 +77,7 @@ describe("Client", () => {
     c5.use(noOpLink({ supportsSubscriptions: true }));
     c5.use(noOpLink({ supportsSubscriptions: false }));
 
-    // c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
+    c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
 
     // TODO: Test `mapTypesLink` works on all the clients above
   });

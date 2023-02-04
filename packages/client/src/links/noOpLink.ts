@@ -1,17 +1,18 @@
-import { LinkFlag, Link, ProceduresDef } from "..";
+import { Link, ProceduresDef, LinkFlags } from "..";
 
 export function noOpLink<
   T extends ProceduresDef,
-  TFlag extends LinkFlag,
   TSupportSubscriptions extends boolean = true
->(opts?: {
+>(_?: {
   supportsSubscriptions: TSupportSubscriptions;
 }): Link<
   T,
   T,
-  TSupportSubscriptions extends false
-    ? "terminatedLink" | "subscriptionsUnsupported"
-    : "terminatedLink"
+  {
+    terminatedLink: true;
+  } & (TSupportSubscriptions extends false
+    ? { subscriptionsUnsupported: true }
+    : {})
 > {
   return undefined as any; // TODO: Working websocket link
 }

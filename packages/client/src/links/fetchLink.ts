@@ -25,9 +25,16 @@ export interface FetchLinkOptions {
   //   credentials: "omit" | "same-origin" | "include";
 }
 
-export function fetchLink<T extends ProceduresDef, TFlag extends LinkFlag>(
+export function fetchLink<T extends ProceduresDef>(
   opts: FetchLinkOptions
-): Link<T, T, "terminatedLink" | "subscriptionsUnsupported"> {
+): Link<
+  T,
+  T,
+  {
+    terminatedLink: true;
+    subscriptionsUnsupported: true;
+  }
+> {
   const fetch = opts.fetch || globalThis.fetch;
 
   return (op) => {

@@ -40,6 +40,7 @@ export type LinkFlags = { [K in LinkFlag]?: true };
  *
  * @internal
  */
+// TODO: Maybe remove this now that we are using an object
 export type JoinLinkFlags<
   TFlag extends LinkFlags,
   TNewFlag extends LinkFlag

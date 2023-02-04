@@ -2,7 +2,6 @@ import {
   HasAnyLinkFlags,
   HasLinkFlags,
   JoinLinkFlags,
-  LinkFlag,
   LinkFlags,
   Operation,
   ProceduresDef,
@@ -22,9 +21,9 @@ export interface LinkOperation<T extends ProceduresDef> extends Operation {
  *
  * @internal
  */
-export type Link<T extends ProceduresDef, TT, TFlag extends LinkFlag> = (
+export type Link<T extends ProceduresDef, TT, TFlags extends LinkFlags> = (
   p: LinkOperation<T>
-) => LinkResponse<TT, TFlag>;
+) => LinkResponse<TT, TFlags>;
 
 /**
  * TODO
@@ -32,7 +31,7 @@ export type Link<T extends ProceduresDef, TT, TFlag extends LinkFlag> = (
  *
  * @internal
  */
-export type LinkResponse<T, TFlag extends LinkFlag> = any; // TODO: Not `any`
+export type LinkResponse<T, TFlags extends LinkFlags> = any; // TODO: Not `any`
 
 /**
  * TODO
@@ -58,42 +57,28 @@ type And<T, U> = T extends true ? (U extends true ? true : false) : false;
 type Or<T, U> = T extends true ? true : U extends true ? true : false;
 type Not<T> = T extends true ? false : true;
 
-// type LinkArg<
-//   T extends ProceduresDef,
-//   TT extends ProceduresDef,
-//   TFlags extends LinkFlags,
-//   TNewFlag extends LinkFlag
-// > = And<
-//   HasLinkFlags<TFlags, "built">,
-//   Not<HasLinkFlags<TFlags, "subscriptionsUnsupported">>
-// > extends true
-//   ? "subscriptionsUnsupported" extends TNewFlag
-//     ? "You must provide a link which supports subscriptions!"
-//     : Link<T, TT, TNewFlag>
-//   : Link<T, TT, TNewFlag>;
-
 type LinkArg<
   T extends ProceduresDef,
   TT extends ProceduresDef,
   TFlags extends LinkFlags,
-  TNewFlag extends LinkFlag
+  TNewFlags extends LinkFlags = {}
 > = And<
   HasLinkFlags<TFlags, "built">,
   Not<HasLinkFlags<TFlags, "subscriptionsUnsupported">>
 > extends true
-  ? "subscriptionsUnsupported" extends TNewFlag
+  ? HasLinkFlags<TNewFlags, "subscriptionsUnsupported"> extends true
     ? "You must provide a link which supports subscriptions!"
-    : Link<T, TT, TNewFlag>
-  : Link<T, TT, TNewFlag>;
+    : Link<T, TT, TNewFlags>
+  : Link<T, TT, TNewFlags>;
 
 type UseFn<T extends ProceduresDef, TFlags extends LinkFlags> = HasAnyLinkFlags<
   TFlags,
   "terminatedLink"
 > extends false
   ? {
-      use<TT extends ProceduresDef, TNewFlag extends LinkFlag>(
-        link: LinkArg<T, TT, TFlags, TNewFlag>
-      ): Rspc<TT, JoinLinkFlags<TFlags, TNewFlag>>;
+      use<TT extends ProceduresDef, TNewFlags extends LinkFlags = {}>(
+        link: LinkArg<T, TT, TFlags, TNewFlags>
+      ): Rspc<TT, TFlags & TNewFlags>;
     }
   : {};
 
@@ -153,7 +138,7 @@ function initRspcInner<
     ): Rspc<TT, JoinLinkFlags<TFlag, TNewFlag>> {
       return initRspcInner<TT, JoinLinkFlags<TFlag, TNewFlag>>();
     },
-    // @ts-expect-error: TODO: Fix this. It's because of the discriminated union.
+    // // @ts-expect-error: TODO: Fix this. It's because of the discriminated union.
     query<K extends T extends { key: string } ? T["key"] : never>(key: K) {
       // TODO
     },
