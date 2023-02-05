@@ -1,3 +1,5 @@
+import { Observable, ProceduresDef } from ".";
+
 /**
  * A map of data that can be used by links to store metadata about the current operation.
  * This allows links to communicate with each other.
@@ -69,3 +71,34 @@ export type HasAnyLinkFlags<
 }[TFlag] extends false
   ? false
   : true;
+
+/**
+ * The argument to a link. Contains information about the current operation and a function to call the next link.
+ *
+ * @internal
+ */
+export interface LinkOperation {
+  op: Operation;
+  next(op: LinkOperation): void; // TODO: return type
+}
+
+/**
+ * TODO
+ *
+ * @internal
+ */
+export type Link<
+  T extends ProceduresDef,
+  TT extends ProceduresDef = T,
+  TFlags extends LinkFlags = {}
+> = (p: LinkOperation) => LinkResponse<TT, TFlags>;
+
+/**
+ * TODO
+ *
+ * @internal
+ */
+export type LinkResponse<
+  T extends ProceduresDef,
+  TFlags extends LinkFlags
+> = Observable<any, any>; // TODO: Replace any's???

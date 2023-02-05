@@ -56,8 +56,6 @@ describe("Client", () => {
     assertTy<HasProperty<typeof c3, "mutate">, true>();
     assertTy<HasProperty<typeof c3, "subscribe">, true>();
 
-    c3.todo; // TODO
-
     // Using build method enabling subscriptions
     const c4 = initRspc<Procedures>().unstable_build({
       supportsSubscriptions: true,

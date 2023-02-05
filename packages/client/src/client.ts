@@ -2,50 +2,16 @@ import {
   HasAnyLinkFlags,
   HasLinkFlags,
   inferProcedureResult,
-  inferQueryResult,
   JoinLinkFlags,
+  Link,
   LinkFlags,
-  Observable,
+  LinkOperation,
   observable,
   observableToPromise,
-  Operation,
   ProceduresDef,
   SubscriptionOptions,
   _inferProcedureHandlerInput,
 } from ".";
-
-/**
- * TODO
- *
- * @internal
- */
-// TODO: Probs remove generic from this cause it's not really needed?
-export interface LinkOperation<T extends ProceduresDef> {
-  op: Operation;
-  next(op: LinkOperation<T>): void; // TODO: return type
-}
-
-/**
- * TODO
- *
- * @internal
- */
-export type Link<
-  T extends ProceduresDef,
-  TT extends ProceduresDef = T,
-  TFlags extends LinkFlags = {}
-> = (p: LinkOperation<T>) => LinkResponse<TT, TFlags>;
-
-/**
- * TODO
- * TODO: Should this be marked as internal because it will be required to make a custom link.
- *
- * @internal
- */
-export type LinkResponse<
-  T extends ProceduresDef,
-  TFlags extends LinkFlags
-> = Observable<any, any>; // TODO: Replace any's???
 
 /**
  * TODO
@@ -270,7 +236,7 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
   } satisfies Rspc<T, {} /* TODO: Should be default? */> as any;
 }
 
-const exec = (opts: InitRspcInnerArgs, initialOp: LinkOperation<any>) =>
+const exec = (opts: InitRspcInnerArgs, initialOp: LinkOperation) =>
   observable((observer) => {
     function execute(index = 0, op = initialOp) {
       const next = opts.links[index];
