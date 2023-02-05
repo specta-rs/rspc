@@ -2,7 +2,10 @@
 /** @jsxImportSource solid-js */
 
 import { fetchLink, initRspc } from "@rspc/client";
+import { DEMO } from "@rspc/client/full";
 import { Procedures } from "../../../bindings";
+
+console.log(DEMO);
 
 const rspc = initRspc<Procedures>().use(
   fetchLink({

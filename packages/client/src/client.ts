@@ -232,6 +232,10 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
       throw new Error(
         "TODO: Subscriptions are not yet supported on the alpha client!"
       );
+
+      return () => {
+        // TODO: Remove subscription
+      };
     },
   } satisfies Rspc<T, {} /* TODO: Should be default? */> as any;
 }

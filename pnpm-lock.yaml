@@ -119,6 +119,7 @@ importers:
       rollup-plugin-analyzer: ^4.0.0
       rollup-plugin-delete: ^2.0.0
       rollup-plugin-dts: ^5.1.1
+      rollup-plugin-multi-input: ^1.3.3
       rollup-plugin-node-externals: ^5.1.0
       rollup-plugin-swc3: ^0.8.0
       rollup-plugin-typescript2: ^0.34.1
@@ -130,6 +131,7 @@ importers:
       rollup-plugin-analyzer: 4.0.0
       rollup-plugin-delete: 2.0.0
       rollup-plugin-dts: 5.1.1_eymahajmafh3u7vrzmo7ylp2pa
+      rollup-plugin-multi-input: 1.3.3
       rollup-plugin-node-externals: 5.1.0_rollup@3.10.0
       rollup-plugin-swc3: 0.8.0_zlsyfn7h5mqntbbpmgh5b3ythu
       rollup-plugin-typescript2: 0.34.1_eymahajmafh3u7vrzmo7ylp2pa
@@ -3026,6 +3028,11 @@ packages:
       browserslist: 4.21.4
     dev: true
 
+  /core-js/3.27.2:
+    resolution: {integrity: sha512-9ashVQskuh5AZEZ1JdQWp1GqSoC1e1G87MzRqg2gIfVAQ7Qn9K+uFj8EcniUFA4P2NLZfV+TOlX1SzoKfo+s7w==}
+    requiresBuild: true
+    dev: false
+
   /cross-spawn/7.0.3:
     resolution: {integrity: sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==}
     engines: {node: '>= 8'}
@@ -4223,6 +4230,10 @@ packages:
   /lodash.merge/4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
     dev: true
+
+  /lodash/4.17.21:
+    resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
+    dev: false
 
   /log-symbols/5.1.0:
     resolution: {integrity: sha512-l0x2DvrW294C9uDCoQe1VSU4gf529FkSZ6leBl4TiqZH/e+0R7hSfHQBNut2mNygDgHwvYHfFLn6Oxb3VWj2rA==}
@@ -5524,6 +5535,14 @@ packages:
       typescript: 4.9.4
     optionalDependencies:
       '@babel/code-frame': 7.18.6
+    dev: false
+
+  /rollup-plugin-multi-input/1.3.3:
+    resolution: {integrity: sha512-4I9gz68SNkJgxvgNnjOrb2lH3yYSXlb8AscwpqF3nxRjbxipmZal8of4FIoqK0fVS+PazmrDrDPuhfb7epkpkg==}
+    dependencies:
+      core-js: 3.27.2
+      fast-glob: 3.2.12
+      lodash: 4.17.21
     dev: false
 
   /rollup-plugin-node-externals/5.1.0_rollup@3.10.0:

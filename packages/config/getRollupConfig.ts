@@ -5,6 +5,8 @@ import typescript from "rollup-plugin-typescript2";
 import dtsRaw from "rollup-plugin-dts";
 import { visualizer } from "rollup-plugin-visualizer";
 import externals from "rollup-plugin-node-externals";
+// @ts-expect-error no typedefs exist for this plugin
+import multiInput from "rollup-plugin-multi-input";
 
 const dts = (
   typeof dtsRaw !== "function" ? (dtsRaw as any).default : dtsRaw
@@ -12,7 +14,7 @@ const dts = (
 
 const isWatchMode = process.argv.includes("--watch");
 
-export function buildConfig(input: string): RollupOptions[] {
+export function buildConfig(input: string | string[]): RollupOptions[] {
   return [
     {
       input,
@@ -58,17 +60,22 @@ export function buildConfig(input: string): RollupOptions[] {
             },
           })
         ),
-        visualizer(),
+        visualizer({
+          gzipSize: true,
+          brotliSize: true,
+          // TODO: Support for viewing the bundle size of `@rspc/client/full`
+        }),
       ],
     },
     {
       input,
-      output: [{ dir: `./dist`, format: "es", entryFileNames: "[name].d.ts" }],
+      output: { dir: `./dist`, format: "es", entryFileNames: "[name].d.ts" },
       plugins: [
         !isWatchMode &&
           del({
             targets: "./dist/*.d.ts",
           }),
+        multiInput.default({ relative: "src/" }),
         dts({
           tsconfig: "tsconfig.json",
           compilerOptions: {
