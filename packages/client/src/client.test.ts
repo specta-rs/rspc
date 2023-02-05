@@ -1,11 +1,15 @@
 import { describe, it } from "vitest";
+import { T } from "vitest/dist/types-d97c72c7";
 import { initRspc, noOpLink, ProceduresDef, LinkFlag, Link } from ".";
 import { assertTy, HasProperty } from "./utils.test";
 
 export function mapTypesLink<T extends ProceduresDef>(): Link<
   T,
-  Omit<T, "a">,
-  {}
+  {
+    queries: Omit<T["queries"], "a">;
+    mutations: Omit<T["mutations"], "c">;
+    subscriptions: Omit<T["subscriptions"], "e">;
+  }
 > {
   return undefined as any; // We only care about the types for this
 }
@@ -52,8 +56,12 @@ describe("Client", () => {
     assertTy<HasProperty<typeof c3, "mutate">, true>();
     assertTy<HasProperty<typeof c3, "subscribe">, true>();
 
+    c3.todo; // TODO
+
     // Using build method enabling subscriptions
-    const c4 = initRspc<Procedures>().build({ supportsSubscriptions: true });
+    const c4 = initRspc<Procedures>().unstable_build({
+      supportsSubscriptions: true,
+    });
     assertTy<HasProperty<typeof c4, "use">, true>();
     assertTy<HasProperty<typeof c4, "build">, false>();
     assertTy<HasProperty<typeof c4, "query">, true>();
@@ -61,13 +69,17 @@ describe("Client", () => {
     assertTy<HasProperty<typeof c4, "subscribe">, true>();
 
     // @ts-expect-error: We can't use a link which doesn't support subscriptions because we enabled them it in `.build()` call
-    c4.use(noOpLink({ supportsSubscriptions: false }));
+    c4.use(noOpLink({ supportsSubscriptions: false })); // TODO: Assert error on this so we can be sure it's not something else
     c4.use(noOpLink({ supportsSubscriptions: true }));
 
-    c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
+    // // @ts-expect-error: Once built you can't apply a link which modifies the types
+    // const y = c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
+    // y.todo; // TODO
 
     // Using build method without enabling subscriptions
-    const c5 = initRspc<Procedures>().build({ supportsSubscriptions: false });
+    const c5 = initRspc<Procedures>().unstable_build({
+      supportsSubscriptions: false,
+    });
     assertTy<HasProperty<typeof c5, "use">, true>();
     assertTy<HasProperty<typeof c5, "build">, false>();
     assertTy<HasProperty<typeof c5, "query">, true>();
@@ -77,7 +89,8 @@ describe("Client", () => {
     c5.use(noOpLink({ supportsSubscriptions: true }));
     c5.use(noOpLink({ supportsSubscriptions: false }));
 
-    c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
+    // // // @ts-expect-error: Once built you can't apply a link which modifies the types
+    // c4.use(mapTypesLink()); // TODO: Type error because it changes the types once "built" flag exists
 
     // TODO: Test `mapTypesLink` works on all the clients above
   });

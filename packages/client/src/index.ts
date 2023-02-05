@@ -8,5 +8,5 @@ export * from "./links/wsLink";
 export * from "./links/noOpLink";
 
 // TODO: Export these for `@rspc/client/alpha` with zero stability guarantees
-// export * from "./internals/observable";
+export * from "./internals/observable";
 // export * from "./legacyLinks";

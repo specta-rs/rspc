@@ -45,8 +45,9 @@ export function resolveHTTPLinkOptions(
   };
 }
 
+// TODO: This shouldn't be exported but it is for now
 // https://github.com/trpc/trpc/pull/669
-function arrayToDict(array: unknown[]) {
+export function arrayToDict(array: unknown[]) {
   const dict: Record<number, unknown> = {};
   for (let index = 0; index < array.length; index++) {
     const element = array[index];
@@ -71,11 +72,12 @@ type GetInputOptions = {
   runtime: TRPCClientRuntime;
 } & ({ inputs: unknown[] } | { input: unknown });
 
-function getInput(opts: GetInputOptions) {
+// TODO: Shouldn't be exported
+export function getInput(opts: { inputs: unknown[] } | { input: unknown }) {
   return "input" in opts
-    ? opts.runtime.transformer.serialize(opts.input)
+    ? opts.input // opts.runtime.transformer.serialize(opts.input)
     : arrayToDict(
-        opts.inputs.map((_input) => opts.runtime.transformer.serialize(_input))
+        opts.inputs // .map((_input) => opts.runtime.transformer.serialize(_input))
       );
 }
 

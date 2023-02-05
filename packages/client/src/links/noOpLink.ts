@@ -1,4 +1,4 @@
-import { Link, ProceduresDef, LinkFlags } from "..";
+import { Link, ProceduresDef } from "..";
 
 export function noOpLink<
   T extends ProceduresDef,
@@ -14,5 +14,5 @@ export function noOpLink<
     ? { subscriptionsUnsupported: true }
     : {})
 > {
-  return undefined as any; // TODO: Working websocket link
+  return undefined as any; // TODO: Working link
 }
