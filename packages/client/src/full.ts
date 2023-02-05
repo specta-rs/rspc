@@ -1,1 +1,1 @@
-export const DEMO = "123";
+export * from "./full/index";

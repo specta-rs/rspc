@@ -2,7 +2,6 @@
 
 import {
   RSPCError,
-  OperationType,
   ProceduresDef,
   inferProcedure,
   inferSubscriptionResult,

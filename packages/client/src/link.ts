@@ -1,4 +1,4 @@
-import { Observable, ProceduresDef } from ".";
+import { NewObservable, ProceduresDef } from ".";
 
 /**
  * A map of data that can be used by links to store metadata about the current operation.
@@ -101,4 +101,4 @@ export type Link<
 export type LinkResponse<
   T extends ProceduresDef,
   TFlags extends LinkFlags
-> = Observable<any, any>; // TODO: Replace any's???
+> = NewObservable;

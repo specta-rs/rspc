@@ -5,9 +5,7 @@ import {
   JoinLinkFlags,
   Link,
   LinkFlags,
-  LinkOperation,
-  observable,
-  observableToPromise,
+  Operation,
   ProceduresDef,
   SubscriptionOptions,
   _inferProcedureHandlerInput,
@@ -153,7 +151,10 @@ export type Rspc<
   TFlags extends LinkFlags = {}
 > = UseFn<T, TFlags> & OperationFns<T, TFlags> & BuildFn<T, TFlags>;
 
-type InitRspcInnerArgs = InitRspcOpts & {
+/**
+ * @internal
+ */
+export type InitRspcInnerArgs = InitRspcOpts & {
   links: Link<any, any, any>[];
 };
 
@@ -177,24 +178,12 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
         ...input: _inferProcedureHandlerInput<T, "queries", K>
       ]
     ): Promise<inferProcedureResult<T, "queries", K>> {
-      const observable = exec(opts, {
-        op: {
-          type: "query",
-          path: keyAndInput[0] as any,
-          input: keyAndInput[1] as any,
-          context: {},
-        },
-        next() {
-          throw new Error("TODO: Probally unreachable"); // TODO: Deal with this
-        },
+      return exec(opts, {
+        type: "query",
+        path: keyAndInput[0] as any,
+        input: keyAndInput[1] as any,
+        context: {},
       });
-
-      const { promise, abort } = observableToPromise(observable);
-      // TODO: Expose `abort` function to user if they want it -> Maybe an arg, idk how tRPC do it?
-
-      // TODO: Should we expose `v.context`???
-      // @ts-expect-error // TODO: Fix type error at some point
-      return promise.then((v) => v.result.data);
     },
     mutate<K extends T["mutations"]["key"] & string>(
       keyAndInput: [
@@ -202,24 +191,12 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
         ...input: _inferProcedureHandlerInput<T, "queries", K>
       ]
     ): Promise<inferProcedureResult<T, "mutations", K>> {
-      const observable = exec(opts, {
-        op: {
-          type: "mutation",
-          path: keyAndInput[0] as any,
-          input: keyAndInput[1] as any,
-          context: {},
-        },
-        next() {
-          throw new Error("TODO: Probally unreachable"); // TODO: Deal with this
-        },
+      return exec(opts, {
+        type: "mutation",
+        path: keyAndInput[0] as any,
+        input: keyAndInput[1] as any,
+        context: {},
       });
-
-      const { promise, abort } = observableToPromise(observable);
-      // TODO: Expose `abort` function to user if they want it -> Maybe an arg, idk how tRPC do it?
-
-      // TODO: Should we expose `v.context`???
-      // @ts-expect-error // TODO: Fix type error at some point
-      return promise.then((v) => v.result.data);
     },
     subscribe<
       K extends T["subscriptions"]["key"] & string,
@@ -240,29 +217,18 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
   } satisfies Rspc<T, {} /* TODO: Should be default? */> as any;
 }
 
-const exec = (opts: InitRspcInnerArgs, initialOp: LinkOperation) =>
-  observable((observer) => {
-    function execute(index = 0, op = initialOp) {
-      const next = opts.links[index];
-      if (!next) {
-        throw new Error(
-          "No more links to execute - did you forget to add a terminating link?"
-        );
-      }
-
-      const subscription = next({
-        op: op.op,
-        next(nextOp) {
-          const nextObserver = execute(index + 1, nextOp);
-
-          return nextObserver;
-        },
-      });
-      return subscription;
-    }
-
-    const obs$ = execute();
-    return obs$.subscribe(observer);
+function exec(opts: InitRspcInnerArgs, op: Operation): Promise<any> {
+  // TODO: Handle executing with multiple links in the observable lite system.
+  // TODO: Move this exec login into the `fakeObservable` function
+  const resp = opts.links[0]!({
+    op,
+    next() {
+      throw new Error("TODO: Probally unreachable"); // TODO: Deal with this
+    },
   });
+
+  // TODO: Expose `.abort` to the end user like tRPC does
+  return resp.exec().promise.then((v) => v.result.data);
+}
 
 // TODO: export function getQueryKey() {}

@@ -1,8 +1,11 @@
-// TODO: Remove this once `fetchLinkLite` is stable
-
-import { Link, OperationType, ProceduresDef, RSPCError } from "..";
-import { observable } from "../full";
-import { fullObservable } from "../full";
+import {
+  fakeObservable,
+  Link,
+  OperationType,
+  ProceduresDef,
+  PromiseAndCancel,
+  RSPCError,
+} from "..";
 
 // TODO: This shouldn't be exported but it is for now
 // https://github.com/trpc/trpc/pull/669
@@ -32,19 +35,6 @@ export interface HTTPResult {
     response: Response;
   };
 }
-
-/**
- * @internal
- */
-export type CancelFn = () => void;
-
-/**
- * @internal
- */
-export type PromiseAndCancel<TValue> = {
-  promise: Promise<TValue>;
-  cancel: CancelFn;
-};
 
 function getWindow() {
   if (typeof window !== "undefined") {
@@ -118,58 +108,30 @@ export function fetchLink<T extends ProceduresDef>(
   };
 
   return (op) => {
-    // TODO
-    return fullObservable(
-      observable((observer) => {
-        const { path, input, type, context } = op.op;
-        const { promise, cancel } = httpRequest({
-          ...opts,
-          fetch,
-          type,
-          path,
-          input,
-        });
-        promise
-          .then((res) => {
-            const transformed = transformResult(res.json);
-            if (!transformed.ok) {
-              const error = RSPCError.from(transformed.error, {
-                meta: res.meta,
-              });
-              // TODO
-              // runtime.onError?.({
-              //   error,
-              //   path,
-              //   input,
-              //   ctx: context,
-              //   type: type,
-              // });
-              observer.error(error);
-              return;
-            }
-            observer.next({
-              context: res.meta,
-              result: transformed.result,
-            });
-            observer.complete();
-          })
-          .catch((cause) => {
-            const error = RSPCError.from(cause);
-            // TODO
-            // runtime.onError?.({
-            //   error,
-            //   path,
-            //   input,
-            //   ctx: context,
-            //   type: type,
-            // });
-            observer.error(error);
+    return fakeObservable(() => {
+      const { path, input, type, context } = op.op;
+      const { promise, cancel } = httpRequest({
+        ...opts,
+        fetch,
+        type,
+        path,
+        input,
+      });
+
+      const p = promise.then((res) => {
+        const transformed = transformResult(res.json);
+        if (!transformed.ok) {
+          const error = RSPCError.from(transformed.error, {
+            meta: res.meta,
           });
-        return () => {
-          cancel();
-        };
-      })
-    );
+          throw error;
+        }
+
+        return transformed;
+      });
+
+      return { promise: p, cancel };
+    });
   };
 }
 
