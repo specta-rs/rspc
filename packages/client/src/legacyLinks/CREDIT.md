@@ -1,1 +1,0 @@
-Most of the code in the folder is from [trpc/trpc](https://github.com/trpc/trpc). A huge thanks to it's original authors!
