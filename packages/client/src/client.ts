@@ -179,6 +179,7 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
       ]
     ): Promise<inferProcedureResult<T, "queries", K>> {
       return exec(opts, {
+        id: 0,
         type: "query",
         path: keyAndInput[0] as any,
         input: keyAndInput[1] as any,
@@ -192,6 +193,7 @@ function initRspcInner<T extends ProceduresDef, TFlag extends LinkFlags = {}>(
       ]
     ): Promise<inferProcedureResult<T, "mutations", K>> {
       return exec(opts, {
+        id: 0,
         type: "mutation",
         path: keyAndInput[0] as any,
         input: keyAndInput[1] as any,

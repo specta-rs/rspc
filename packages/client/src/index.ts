@@ -5,4 +5,5 @@ export * from "./client";
 export * from "./link";
 export * from "./links/fetchLink";
 export * from "./links/noOpLink";
+export * from "./links/loggerLink";
 export * from "./fakeObservable";
