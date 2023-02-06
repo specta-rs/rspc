@@ -5,9 +5,6 @@ export * from "./wsLink";
 
 export * from "../internals/observable";
 
-// TODO: Remove at some point as it's just for testing until the websocket link is built
-export * from "../links/fetchLink";
-
 // TODO: Move this somewhere else
 // TODO: Remove `any`
 export function fullObservable(ob$: Observable<any, any>): FullObservable {
