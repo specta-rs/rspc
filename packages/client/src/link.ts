@@ -14,7 +14,9 @@ export type OperationContext = Record<string, unknown>;
  * @internal
  */
 export interface Operation {
-  // id: number; // TODO: Optional on being a subscription?
+  // TODO: Optional on being a subscription?
+  id: number;
+
   type: "query" | "mutation" | "subscription";
   input: unknown;
   path: string;

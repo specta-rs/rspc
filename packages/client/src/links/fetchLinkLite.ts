@@ -235,7 +235,12 @@ function httpRequest(
   };
 }
 
-function transformResult(
+/**
+ *
+ * @internal
+ */
+// TODO: remove this from the public API or put into `@rspc/client/internal` export
+export function transformResult(
   response: any // TODO: Type // TRPCResponseMessage<TOutput> | TRPCResponse<TOutput>
 ) {
   if (response.result.type === "error") {

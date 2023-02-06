@@ -15,6 +15,12 @@ pub enum RequestId {
     String(String),
 }
 
+impl RequestId {
+    fn null() -> Self {
+        Self::Null
+    }
+}
+
 /// TODO
 ///
 /// @internal
@@ -22,6 +28,7 @@ pub enum RequestId {
 #[cfg_attr(test, derive(specta::Type))]
 pub struct Request {
     pub jsonrpc: Option<String>, // This is required in the JsonRPC spec but I make it optional.
+    #[serde(default = "RequestId::null")] // TODO: Optional also not part of spec but copying tRPC
     pub id: RequestId,
     #[serde(flatten)]
     pub inner: RequestInner,
