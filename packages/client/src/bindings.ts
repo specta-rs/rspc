@@ -7,21 +7,21 @@
  * 
  *  @internal
  */
-export type ProcedureDef = { key: string, input: any, result: any }
+export type ProcedureDef = { key: string; input: any; result: any }
 
 /**
  *  This type represents the Typescript bindings which are generated from the router by Rust.
  * 
  *  @internal
  */
-export type ProceduresDef = { queries: ProcedureDef, mutations: ProcedureDef, subscriptions: ProcedureDef }
+export type ProceduresDef = { queries: ProcedureDef; mutations: ProcedureDef; subscriptions: ProcedureDef }
 
 /**
  *  TODO
  * 
  *  @internal
  */
-export type Request = ({ method: "query", params: { path: string, input: any | null } } | { method: "mutation", params: { path: string, input: any | null } } | { method: "subscription", params: { path: string, input: any | null } } | { method: "subscriptionStop" }) & { jsonrpc: string | null, id: RequestId }
+export type Request = ({ method: "query"; params: { path: string; input: any | null } } | { method: "mutation"; params: { path: string; input: any | null } } | { method: "subscription"; params: { path: string; input: any | null } } | { method: "subscriptionStop" }) & { jsonrpc: string | null; id: RequestId }
 
 /**
  *  TODO
@@ -35,4 +35,4 @@ export type RequestId = null | number | string
  * 
  *  @internal
  */
-export type RequestInner = { method: "query", params: { path: string, input: any | null } } | { method: "mutation", params: { path: string, input: any | null } } | { method: "subscription", params: { path: string, input: any | null } } | { method: "subscriptionStop" }
+export type RequestInner = { method: "query"; params: { path: string; input: any | null } } | { method: "mutation"; params: { path: string; input: any | null } } | { method: "subscription"; params: { path: string; input: any | null } } | { method: "subscriptionStop" }
