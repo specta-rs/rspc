@@ -164,7 +164,7 @@ where
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Query,
-            TUnbuiltResolver::typedef(&mut self.typ_store, key),
+            TUnbuiltResolver::typedef(&mut self.typ_store, key).unwrap(), // TODO: Unwrap is bad
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;
@@ -211,7 +211,7 @@ where
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Mutation,
-            TUnbuiltResolver::typedef(&mut self.typ_store, key),
+            TUnbuiltResolver::typedef(&mut self.typ_store, key).unwrap(), // TODO: Unwrap is bad
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;
@@ -254,7 +254,7 @@ where
         let built_procedure = builder(UnbuiltProcedureBuilder::new(
             key,
             ProcedureKind::Subscription,
-            TResolver::typedef(&mut self.typ_store, key),
+            TResolver::typedef(&mut self.typ_store, key).unwrap(), // TODO: Unwrap is bad
             self.data.clone(),
         ));
         let resolver = built_procedure.resolver;

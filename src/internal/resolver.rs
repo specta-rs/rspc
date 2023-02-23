@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use futures::{Stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::{DefOpts, Type, TypeDefs};
+use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{ProcedureDataType, RequestResult, StreamFuture, TypedRequestFuture},
@@ -21,7 +21,7 @@ pub trait RequestResolver<TCtx, TMarker, TResultMarker>: Send + Sync + 'static {
         input: Self::Arg,
     ) -> Result<TypedRequestFuture<<Self::Result as RequestResult<TResultMarker>>::Data>, ExecError>;
 
-    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType;
+    fn typedef(defs: &mut TypeDefs, key: &str) -> Result<ProcedureDataType, TsExportError>;
 }
 
 pub struct DoubleArgMarker<TArg, TResultMarker>(
@@ -46,8 +46,8 @@ where
         self(ctx, input).into_request_future()
     }
 
-    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType {
-        ProcedureDataType {
+    fn typedef(defs: &mut TypeDefs, key: &str) -> Result<ProcedureDataType, TsExportError> {
+        Ok(ProcedureDataType {
             key: key.to_string(),
             input: <TArg as Type>::reference(
                 DefOpts {
@@ -55,22 +55,22 @@ where
                     type_map: defs,
                 },
                 &[],
-            ),
+            )?,
             result: <TResult::Data as Type>::reference(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
                 },
                 &[],
-            ),
-        }
+            )?,
+        })
     }
 }
 
 pub trait StreamResolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<StreamFuture, ExecError>;
 
-    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType;
+    fn typedef(defs: &mut TypeDefs, key: &str) -> Result<ProcedureDataType, TsExportError>;
 }
 
 pub struct DoubleArgStreamMarker<TArg, TResult, TStream>(
@@ -92,8 +92,8 @@ where
         })))
     }
 
-    fn typedef(defs: &mut TypeDefs, key: &str) -> ProcedureDataType {
-        ProcedureDataType {
+    fn typedef(defs: &mut TypeDefs, key: &str) -> Result<ProcedureDataType, TsExportError> {
+        Ok(ProcedureDataType {
             key: key.to_string(),
             input: <TArg as Type>::reference(
                 DefOpts {
@@ -101,14 +101,14 @@ where
                     type_map: defs,
                 },
                 &[],
-            ),
+            )?,
             result: <TResult as Type>::reference(
                 DefOpts {
                     parent_inline: true,
                     type_map: defs,
                 },
                 &[],
-            ),
-        }
+            )?,
+        })
     }
 }

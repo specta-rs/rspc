@@ -26,6 +26,8 @@ mod tests {
 
     macro_rules! collect_datatypes {
         ($( $i:path ),* $(,)? ) => {{
+            use specta::DataType;
+
             let mut tys = TypeDefs::default();
 
             $({
@@ -33,7 +35,14 @@ mod tests {
                     parent_inline: true,
                     type_map: &mut tys,
                 });
-                tys.insert(<$i>::NAME, def);
+
+                if let Ok(def) = def {
+                    if let DataType::Named(n) = def {
+                        if let Some(sid) = n.sid {
+                            tys.insert(sid, Some(n));
+                        }
+                    }
+                }
             })*
             tys
         }};
@@ -58,10 +67,14 @@ mod tests {
             super::jsonrpc::Request,
         };
 
-        for (_, ty) in &tys {
+        for (_, ty) in tys.into_iter().filter_map(|(sid, v)| v.map(|v| (sid, v))) {
             file.write_all(b"\n\n").unwrap();
-            file.write_all(export_datatype(&Default::default(), ty).unwrap().as_bytes())
-                .unwrap();
+            file.write_all(
+                export_datatype(&Default::default(), &ty)
+                    .unwrap()
+                    .as_bytes(),
+            )
+            .unwrap();
         }
     }
 }

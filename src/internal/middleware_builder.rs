@@ -248,6 +248,11 @@ where
     }
 }
 
+enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
+    Fut(T),
+    Value(Result<Value, ExecError>),
+}
+
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut>
     MiddlewareLike<TLayerCtx>
     for MiddlewareWithResponseHandler<
@@ -304,19 +309,21 @@ where
                     LayerReturn::Request(v) => {
                         RequestFuture::Ready(f(handler_state, v).await.map_err(Into::into)).into()
                     }
-                    LayerReturn::Stream(s) => StreamFuture::into(Box::pin(async_stream::stream! {
-                        let mut s = s;
-                        while let Some(v) = s.next().await {
+                    LayerReturn::Stream(s) => StreamFuture::into(Box::pin(s.then(move |v| {
+                        let v = match v {
+                            Ok(v) => FutOrValue::Fut(f(handler_state.clone(), v)),
+                            e => FutOrValue::Value(e),
+                        };
+
+                        async move {
                             match v {
-                                Ok(v) => {
-                                    yield f(handler_state.clone(), v)
-                                        .await
-                                        .map_err(ExecError::ErrResolverError);
+                                FutOrValue::Fut(fut) => {
+                                    fut.await.map_err(ExecError::ErrResolverError)
                                 }
-                                e => yield e
+                                FutOrValue::Value(v) => v,
                             }
                         }
-                    })),
+                    }))),
                 },
             )
         }))

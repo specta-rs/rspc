@@ -10,6 +10,13 @@
 export type ProcedureDef = { key: string; input: any; result: any }
 
 /**
+ *  TODO
+ * 
+ *  @internal
+ */
+export type RequestId = null | number | string
+
+/**
  *  This type represents the Typescript bindings which are generated from the router by Rust.
  * 
  *  @internal
@@ -22,13 +29,6 @@ export type ProceduresDef = { queries: ProcedureDef; mutations: ProcedureDef; su
  *  @internal
  */
 export type Request = ({ method: "query"; params: { path: string; input: any | null } } | { method: "mutation"; params: { path: string; input: any | null } } | { method: "subscription"; params: { path: string; input: any | null } } | { method: "subscriptionStop" }) & { jsonrpc: string | null; id: RequestId }
-
-/**
- *  TODO
- * 
- *  @internal
- */
-export type RequestId = null | number | string
 
 /**
  *  TODO

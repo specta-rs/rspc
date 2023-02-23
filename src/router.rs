@@ -147,7 +147,7 @@ where
         );
         writeln!(file, "{}", Procedures::new(self).big_cringe_export(&config))?;
 
-        for ty in self.typ_store.values() {
+        for ty in self.typ_store.values().filter_map(|v| v.as_ref()) {
             writeln!(file, "\n{}", ts::export_datatype(&config, ty)?)?;
         }
 
