@@ -124,6 +124,7 @@ where
         &self.subscriptions.store
     }
 
+    #[allow(clippy::unwrap_used)] // TODO
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
         let export_path = PathBuf::from(export_path.as_ref());
         if let Some(export_dir) = export_path.parent() {
@@ -186,8 +187,10 @@ fn generate_procedures_ts<Ctx>(
                     {
                         "never".into()
                     }
+                    #[allow(clippy::unwrap_used)] // TODO
                     ty => datatype(config, ty).unwrap(),
                 };
+                #[allow(clippy::unwrap_used)] // TODO
                 let result_ts = datatype(config, &operation.ty.result_ty).unwrap();
 
                 // TODO: Specta API

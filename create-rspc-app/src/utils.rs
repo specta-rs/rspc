@@ -16,7 +16,7 @@ pub fn replace_in_file(path: &Path, from: &str, to: &str) -> io::Result<()> {
 
     {
         let mut dst = File::create(path)?;
-        dst.write(data.as_bytes())?;
+        let _ = dst.write(data.as_bytes())?;
     }
 
     Ok(())

@@ -39,6 +39,7 @@ impl CookieJar {
     /// Returns a reference to the `Cookie` inside this jar with the name
     /// `name`. If no such cookie exists, returns `None`.
     pub fn get(&self, name: &str) -> Option<Cookie<'static>> {
+        #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().get(name).cloned() // TODO: `cloned` is cringe avoid it by removing `Mutex`?
     }
 
@@ -53,12 +54,14 @@ impl CookieJar {
     /// For accurate `delta` computations, this method should not be called
     /// after calling `remove`.
     pub fn add_original(&self, cookie: Cookie<'static>) {
+        #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().add_original(cookie)
     }
 
     /// Adds `cookie` to this jar. If a cookie with the same name already
     /// exists, it is replaced with `cookie`.
     pub fn add(&self, cookie: Cookie<'static>) {
+        #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().add(cookie);
     }
 
@@ -75,6 +78,7 @@ impl CookieJar {
     /// Removing a new cookie does not result in a _removal_ cookie unless
     /// there's an original cookie with the same name:
     pub fn remove(&self, cookie: Cookie<'static>) {
+        #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().remove(cookie)
     }
 
@@ -82,7 +86,8 @@ impl CookieJar {
     /// `remove` in that no delta cookie is created under any condition. Neither
     /// the `delta` nor `iter` methods will return a cookie that is removed
     /// using this method.
-    pub fn force_remove<'a>(&self, cookie: &Cookie<'a>) {
+    pub fn force_remove(&self, cookie: &Cookie<'_>) {
+        #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().force_remove(cookie)
     }
 
@@ -91,6 +96,7 @@ impl CookieJar {
     /// changes from [`CookieJar::add()`] and [`CookieJar::remove()`]
     /// operations.
     pub fn reset_delta(&self) {
+        #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().reset_delta()
     }
 
@@ -389,6 +395,7 @@ where
 
     let cookies = {
         match Arc::try_unwrap(cookie_jar) {
+            #[allow(clippy::unwrap_used)] // TODO
             Ok(cookies) => cookies.into_inner().unwrap(),
             Err(cookie_jar) => {
                 #[cfg(all(feature = "tracing", feature = "warning", debug_assertions))]
@@ -396,6 +403,7 @@ where
                 #[cfg(all(not(feature = "tracing"), feature = "warning", debug_assertions))]
                 println("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
 
+                #[allow(clippy::unwrap_used)] // TODO
                 cookie_jar.lock().unwrap().clone()
             }
         }

@@ -18,7 +18,7 @@ impl Framework {
     pub fn render(&self, path: &Path, project_name: &str) -> io::Result<()> {
         match self {
             Self::Axum => {
-                create_dir(&path).unwrap();
+                create_dir(path).unwrap();
                 AXUM_BASE_TEMPLATE.extract(path)?;
                 replace_in_file(path.join("Cargo.toml").as_path(), "{{name}}", project_name)?;
 

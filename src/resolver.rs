@@ -83,6 +83,7 @@ where
         self(ctx, input).into_layer_result()
     }
 
+    #[allow(clippy::unwrap_used)] // TODO
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
         ProcedureDataType {
             arg_ty: <TArg as Type>::reference(
@@ -129,6 +130,7 @@ where
         }))))
     }
 
+    #[allow(clippy::unwrap_used)] // TODO
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
         ProcedureDataType {
             arg_ty: <TArg as Type>::reference(
