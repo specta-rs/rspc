@@ -1,9 +1,0 @@
-[package]
-name = "{{name}}"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-tokio = { version = "1.21.1", features = ["rt-multi-thread", "macros", "signal"] }
-axum = "0.5.16"
-rspc = { git = "https://github.com/oscartbeaumont/rspc", branch = "0.0.6", features = ["axum"] }
