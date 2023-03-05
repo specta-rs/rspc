@@ -13,6 +13,13 @@ const fetchClient = createClient<Procedures>({
   transport: new FetchTransport("http://localhost:4000/rspc"),
 });
 
+// Custom fetch parameters
+// const fetchClient = createClient<Procedures>({
+//   transport: new FetchTransport("http://localhost:4000/rspc", (input, init) =>
+//     fetch(input, { ...init, credentials: "include" }) // Include Cookies for cross-origin requests
+//   ),
+// });
+
 export const wsQueryClient = new QueryClient();
 const wsClient = createClient<Procedures>({
   transport: new WebsocketTransport("ws://localhost:4000/rspc/ws"),

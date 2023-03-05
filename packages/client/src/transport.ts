@@ -13,9 +13,11 @@ export interface Transport {
 export class FetchTransport implements Transport {
   private url: string;
   clientSubscriptionCallback?: (id: string, key: string, value: any) => void;
+  private fetch: typeof globalThis.fetch;
 
-  constructor(url: string) {
+  constructor(url: string, fetch?: typeof globalThis.fetch) {
     this.url = url;
+    this.fetch = fetch || globalThis.fetch.bind(globalThis);
   }
 
   async doRequest(
@@ -44,7 +46,7 @@ export class FetchTransport implements Transport {
       headers.set("Content-Type", "application/json");
     }
     const paramsStr = params.toString();
-    const resp = await fetch(
+    const resp = await this.fetch(
       `${this.url}/${key}${paramsStr.length > 0 ? `?${paramsStr}` : ""}`,
       {
         method,
