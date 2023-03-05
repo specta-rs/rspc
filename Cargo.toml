@@ -17,7 +17,6 @@ tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
-# playground = []
 
 # Webservers
 axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
@@ -40,6 +39,9 @@ ipnetwork = ["specta/ipnetwork"]
 mac_address = ["specta/mac_address"]
 bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
+uhlc = ["specta/uhlc"]
+bytesize = ["specta/bytesize"]
+glam = ["specta/glam"]
 
 [dependencies]
 specta = { version = "1.0.0", features = ["serde", "typescript"] }
@@ -51,6 +53,7 @@ futures = "0.3.26"
 tokio = { version = "1.26.0", features = ["sync", "rt", "macros"] }
 tauri = { version = "1.2.4", optional = true }
 tracing = { version = "0.1.37", optional = true }
+worker = { version = "0.0.12", optional = true }
 
 [dev-dependencies]
 async-stream = "0.3.4"

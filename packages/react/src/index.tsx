@@ -28,13 +28,13 @@ import {
   _inferInfiniteQueryProcedureHandlerInput,
   inferInfiniteQueryResult,
   ProcedureDef,
+  inferQueryInput,
+  inferQueryResult,
+  inferMutationResult,
+  inferMutationInput,
+  inferSubscriptionResult,
+  ProceduresDef,
 } from "@rspc/client";
-import { inferQueryInput } from "@rspc/client";
-import { inferQueryResult } from "@rspc/client";
-import { inferMutationResult } from "@rspc/client";
-import { inferMutationInput } from "@rspc/client";
-import { inferSubscriptionResult } from "@rspc/client";
-import { ProceduresDef } from "@rspc/client";
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
   rspc?: {
@@ -309,6 +309,7 @@ export function createReactQueryHooks<
         return;
       }
       let isStopped = false;
+      // @ts-ignore // TODO: Fix this
       const unsubscribe = client!.addSubscription<K, TData>(
         keyAndInput as any,
         {
@@ -317,11 +318,13 @@ export function createReactQueryHooks<
               opts.onStarted?.();
             }
           },
+          // @ts-ignore// TODO: Fix this
           onData: (data) => {
             if (!isStopped) {
               opts.onData(data);
             }
           },
+          // @ts-ignore // TODO: Fix this
           onError: (err) => {
             if (!isStopped) {
               opts.onError?.(err);

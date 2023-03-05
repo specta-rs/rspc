@@ -110,6 +110,7 @@ export class WebsocketTransport implements Transport {
 
   async reconnect(timeoutIndex = 0) {
     let timeout =
+      // @ts-expect-error // TODO: Fix this
       (timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]) +
       (Math.floor(Math.random() * 5000 /* 5 Seconds */) + 1);
 

@@ -1,22 +1,25 @@
 {
-  "name": "rspc",
+  "name": "@rspc/workspace",
   "version": "0.0.0",
-  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
+  "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-*  --filter=!rspc-vscode exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
+    "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm dev",
+    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
+    "test": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/config --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm test",
     "typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",
+    "config": "pnpm --filter @rspc/config -- ",
     "examples": "pnpm --filter @rspc/examples-* -- ",
     "playground": "pnpm --filter @rspc/playground -- ",
     "react": "pnpm --filter @rspc/react -- ",
     "solid": "pnpm --filter @rspc/solid -- ",
-    "tauri": "pnpm --filter @rspc/tauri -- "
+    "tauri": "pnpm --filter @rspc/tauri -- ",
+    "set-package-versions": "node .github/scripts/setPackageVersions.js"
   },
   "engines": {
     "pnpm": ">=7.0.0",
