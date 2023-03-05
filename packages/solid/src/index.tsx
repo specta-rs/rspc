@@ -87,11 +87,11 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       client = useContext().client;
     }
 
-    return __createQuery(
-      keyAndInput,
-      async () => client!.query(keyAndInput()),
-      rawOpts as any
-    );
+    return __createQuery({
+      queryKey: keyAndInput,
+      queryFn: async () => client!.query(keyAndInput()),
+      ...(rawOpts as any),
+    });
   }
 
   function createInfiniteQuery<
@@ -122,13 +122,13 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       client = useContext().client;
     }
 
-    return __createInfiniteQuery(
-      keyAndInput,
-      async () => {
+    return __createInfiniteQuery({
+      queryKey: keyAndInput,
+      queryFn: async () => {
         throw new Error("TODO"); // TODO: Finish this
       },
-      rawOpts as any
-    );
+      ...(rawOpts as any),
+    });
   }
 
   function createMutation<
@@ -159,10 +159,13 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       client = useContext().client;
     }
 
-    return __createMutation(async (input) => {
-      const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation([actualKey, input] as any);
-    }, rawOpts as any);
+    return __createMutation({
+      mutationFn: async (input) => {
+        const actualKey = Array.isArray(key) ? key[0] : key;
+        return client!.mutation([actualKey, input] as any);
+      },
+      ...(rawOpts as any),
+    });
   }
 
   function createSubscription<
