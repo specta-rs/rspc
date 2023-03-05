@@ -15,16 +15,19 @@ categories = ["web-programming", "asynchronous"]
 default = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
-httpz = ["dep:httpz", "httpz/tokio-ws"]
+httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
 # playground = []
 
 # Webservers
-axum = ["httpz/axum"]
+axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
 # actix-web = ["httpz/actix-web"]
 # poem = ["httpz/poem"]
 # rocket = ["httpz/rocket"]
 # warp = ["httpz/warp"]
+# TODO: Following ones are exposed but not officially supported
+lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
+workers = ["httpz", "httpz/workers", "httpz/ws"]
 
 # Specta
 uuid = ["specta/uuid"]
@@ -39,25 +42,23 @@ bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
 
 [dependencies]
-specta = { version = "0.0.4", path = "./specta", features = ["serde"] }
-httpz = { version = "0.0.3", optional = true }
-serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.85"
-thiserror = "1.0.36"
-futures = "0.3.24"
-tokio = { version = "1.21.1", features = ["sync", "rt", "macros"] }
-tauri = { version = "1.1.1", optional = true }
-tracing = { version = "0.1.36", optional = true }
-async-stream = "0.3.3"
+specta = { version = "1.0.0", features = ["serde", "typescript"] }
+# httpz = { git = "https://github.com/oscartbeaumont/httpz.git", rev = "a5020adecb15b55d84a8330b4680eba82fa6b820", optional = true } # TODO: Move back to crates.io release
+httpz = { path = "../httpz-main", optional = true } # TODO: Move back to crates.io release
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.93"
+thiserror = "1.0.38"
+futures = "0.3.26"
+tokio = { version = "1.26.0", features = ["sync", "rt", "macros"] }
+tauri = { version = "1.2.4", optional = true }
+tracing = { version = "0.1.37", optional = true }
 
 [dev-dependencies]
-async-stream = "0.3.3"
+async-stream = "0.3.4"
 
 [workspace]
 members = [
     "./create-rspc-app",
     "./examples",
     "./examples/axum",
-    "./specta",
-    "./specta/macros"
 ]

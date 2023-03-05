@@ -250,6 +250,11 @@ where
     }
 }
 
+enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
+    Fut(T),
+    Value(Result<Value, ExecError>),
+}
+
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut>
     MiddlewareLike<TLayerCtx>
     for MiddlewareWithResponseHandler<
@@ -307,33 +312,21 @@ where
                             ValueOrStreamOrFutureStream::Value(f(handler.state, v).await?)
                         }
                         ValueOrStream::Stream(s) => {
-                            ValueOrStreamOrFutureStream::Stream(Box::pin(
-                                // This follow code is expanded from the `async_stream::stream!` macro shown below. Using the macro causes borrow errors.
-                                {
-                                    let (mut __yield_tx, __yield_rx) =
-                                        ::async_stream::yielder::pair();
-                                    ::async_stream::AsyncStream::new(__yield_rx, async move {
-                                        let mut s = s;
-                                        let ctx = handler.state;
-                                        while let Some(v) = s.next().await {
-                                            match v {
-                                                Ok(v) => {
-                                                    __yield_tx
-                                                        .send(
-                                                            f(ctx.clone(), v).await.map_err(
-                                                                ExecError::ErrResolverError,
-                                                            ),
-                                                        )
-                                                        .await;
-                                                }
-                                                Err(err) => {
-                                                    __yield_tx.send(Err(err)).await;
-                                                }
-                                            }
+                            ValueOrStreamOrFutureStream::Stream(Box::pin(s.then(move |v| {
+                                let v = match v {
+                                    Ok(v) => FutOrValue::Fut(f(handler.state.clone(), v)),
+                                    e => FutOrValue::Value(e),
+                                };
+
+                                async move {
+                                    match v {
+                                        FutOrValue::Fut(fut) => {
+                                            fut.await.map_err(ExecError::ErrResolverError)
                                         }
-                                    })
-                                },
-                            ))
+                                        FutOrValue::Value(v) => v,
+                                    }
+                                }
+                            })))
                         }
                     },
                 )

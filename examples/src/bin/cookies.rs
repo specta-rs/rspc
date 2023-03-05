@@ -2,8 +2,8 @@
 //! An official API will likely exist in the future but this works well for now.
 use std::{ops::Add, path::PathBuf};
 
-use axum::{extract::Path, routing::get};
-use rspc::Config;
+use axum::routing::get;
+use rspc::{integrations::httpz::Request, Config};
 use time::OffsetDateTime;
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
@@ -38,13 +38,18 @@ async fn main() {
             .arced(); // This function is a shortcut to wrap the router in an `Arc`.
 
     let app = axum::Router::new()
+        .with_state(())
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
-        .route(
-            "/rspc/:id",
+        .nest(
+            "/rspc",
             router
-                .endpoint(|path: Path<String>, cookies: Cookies| {
-                    println!("Client requested operation '{}'", *path);
+                .endpoint(|mut req: Request| {
+                    // TODO: This API is going to be replaced with a httpz cookie manager in the next release to deal with Axum's recent changes.
+                    let cookies = req
+                        .deprecated_extract::<Cookies, ()>()
+                        .expect("The Axum state doesn't match the router. Ensure you added `with_state(T)` where `T` matches the second generic!")
+                        .unwrap();
                     Ctx { cookies }
                 })
                 .axum(),

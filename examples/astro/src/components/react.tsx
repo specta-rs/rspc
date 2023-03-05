@@ -3,6 +3,7 @@ import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
+// Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import type { Procedures } from "../../../bindings";
 
 export const rspc = createReactQueryHooks<Procedures>();

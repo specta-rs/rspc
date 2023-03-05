@@ -3,43 +3,16 @@ macro_rules! selection {
     ( $s:expr, { $($n:ident),+ } ) => {{
         #[allow(non_camel_case_types)]
         mod selection {
-            #[derive(serde::Serialize)]
-            pub struct Selection<$($n,)*> {
-                $(pub $n: $n,)*
+            // Due to macro expansion order `$crate` can't go in the Specta attribute but when hardcoding `rspc` macro hygiene get's angry.
+            // This hack is to avoid both issues.
+            mod _rspc {
+                pub use $crate::*;
             }
 
-            impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
-                const NAME: &'static str = "Selection";
-
-                fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
-                        name: "Selection".to_string(),
-                        tag: None,
-                        generics: vec![],
-                        fields: vec![$(
-                            $crate::internal::specta::ObjectField {
-                                name: stringify!($n).to_string(),
-                                ty: <$n as $crate::internal::specta::Type>::reference(
-                                    $crate::internal::specta::DefOpts {
-                                        parent_inline: false,
-                                        type_map: opts.type_map,
-                                    },
-                                    &[]
-                                ),
-                                optional: false,
-                            }
-                        ),*],
-                        type_id: Some(std::any::TypeId::of::<Self>()),
-                    })
-                }
-
-                fn reference(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    Self::inline(opts, _generics)
-                }
-
-                fn definition(_: $crate::internal::specta::DefOpts) -> $crate::internal::specta::DataType {
-                    unreachable!()
-                }
+            #[derive(serde::Serialize, _rspc::Type)]
+            #[specta(inline, crate = "_rspc::internal::specta")]
+            pub struct Selection<$($n,)*> {
+                $(pub $n: $n),*
             }
         }
         use selection::Selection;
@@ -49,43 +22,16 @@ macro_rules! selection {
     ( $s:expr, [{ $($n:ident),+ }] ) => {{
         #[allow(non_camel_case_types)]
         mod selection {
-            #[derive(serde::Serialize)]
-            pub struct Selection<$($n,)*> {
-                $(pub $n: $n,)*
+            // Due to macro expansion order `$crate` can't go in the Specta attribute but when hardcoding `rspc` macro hygiene get's angry.
+            // This hack is to avoid both issues.
+            mod _rspc {
+                pub use $crate::*;
             }
 
-            impl<$($n: $crate::internal::specta::Type + 'static,)*> $crate::internal::specta::Type for Selection<$($n,)*> {
-                const NAME: &'static str = "Selection";
-
-                fn inline(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    $crate::internal::specta::DataType::Object($crate::internal::specta::ObjectType {
-                        name: "Selection".to_string(),
-                        tag: None,
-                        generics: vec![],
-                        fields: vec![$(
-                            $crate::internal::specta::ObjectField {
-                                name: stringify!($n).to_string(),
-                                ty: <$n as $crate::internal::specta::Type>::reference(
-                                    $crate::internal::specta::DefOpts {
-                                        parent_inline: false,
-                                        type_map: opts.type_map,
-                                    },
-                                    &[]
-                                ),
-                                optional: false,
-                            }
-                        ),*],
-                        type_id: Some(std::any::TypeId::of::<Self>())
-                    })
-                }
-
-                fn reference(opts: $crate::internal::specta::DefOpts, _generics: &[$crate::internal::specta::DataType]) -> $crate::internal::specta::DataType {
-                    Self::inline(opts, _generics)
-                }
-
-                fn definition(_: $crate::internal::specta::DefOpts) -> $crate::internal::specta::DataType {
-                    unreachable!()
-                }
+            #[derive(serde::Serialize, _rspc::Type)]
+            #[specta(inline, crate = "_rspc::internal::specta")]
+            pub struct Selection<$($n,)*> {
+                $(pub $n: $n,)*
             }
         }
         use selection::Selection;
@@ -96,7 +42,11 @@ macro_rules! selection {
 
 #[cfg(test)]
 mod tests {
-    use specta::ts_inline_ref;
+    use specta::{ts::inline, Type};
+
+    fn ts_export_ref<T: Type>(_t: &T) -> String {
+        inline::<T>(&Default::default()).unwrap()
+    }
 
     #[derive(Clone)]
     #[allow(dead_code)]
@@ -121,12 +71,12 @@ mod tests {
         let s1 = selection!(user.clone(), { name, age });
         assert_eq!(s1.name, "Monty Beaumont".to_string());
         assert_eq!(s1.age, 7);
-        assert_eq!(ts_inline_ref(&s1), "{ name: string, age: number }");
+        assert_eq!(ts_export_ref(&s1), "{ name: string; age: number }");
 
         let users = vec![user; 3];
         let s2 = selection!(users, [{ name, age }]);
         assert_eq!(s2[0].name, "Monty Beaumont".to_string());
         assert_eq!(s2[0].age, 7);
-        // assert_eq!(ts_inline_ref(&s2), "Array<{ name: string, age: number }>");
+        assert_eq!(ts_export_ref(&s2), "{ name: string; age: number }[]");
     }
 }

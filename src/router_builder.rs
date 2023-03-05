@@ -205,6 +205,65 @@ where
     }
 
     pub fn merge<TNewLayerCtx, TIncomingMiddleware>(
+        mut self,
+        prefix: &'static str,
+        router: RouterBuilder<TLayerCtx, TMeta, TIncomingMiddleware>,
+    ) -> Self
+    where
+        TNewLayerCtx: 'static,
+        TIncomingMiddleware:
+            MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
+    {
+        #[allow(clippy::panic)]
+        if prefix.is_empty() || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
+            panic!(
+                "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
+                prefix
+            );
+        }
+
+        // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
+
+        for (key, query) in router.queries.store {
+            // query.ty.key = format!("{}{}", prefix, key);
+            self.queries.append(
+                format!("{}{}", prefix, key),
+                self.middleware.build(query.exec),
+                query.ty,
+            );
+        }
+
+        for (key, mutation) in router.mutations.store {
+            // mutation.ty.key = format!("{}{}", prefix, key);
+            self.mutations.append(
+                format!("{}{}", prefix, key),
+                self.middleware.build(mutation.exec),
+                mutation.ty,
+            );
+        }
+
+        for (key, subscription) in router.subscriptions.store {
+            // subscription.ty.key = format!("{}{}", prefix, key);
+            self.subscriptions.append(
+                format!("{}{}", prefix, key),
+                self.middleware.build(subscription.exec),
+                subscription.ty,
+            );
+        }
+
+        for (name, typ) in router.typ_store {
+            self.typ_store.insert(name, typ);
+        }
+
+        self
+    }
+
+    /// `legacy_merge` maintains the `merge` functionality prior to release 0.1.3
+    /// It will flow the `TMiddleware` and `TCtx` out of the child router to the parent router.
+    /// This was a confusing behavior and is generally not useful so it has been deprecated.
+    ///
+    /// This function will be remove in a future release. If you are using it open a GitHub issue to discuss your use case and longer term solutions for it.
+    pub fn legacy_merge<TNewLayerCtx, TIncomingMiddleware>(
         self,
         prefix: &'static str,
         router: RouterBuilder<TLayerCtx, TMeta, TIncomingMiddleware>,

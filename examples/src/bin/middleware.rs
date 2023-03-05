@@ -106,8 +106,8 @@ async fn main() {
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
-        .route(
-            "/rspc/:id",
+        .nest(
+            "/rspc",
             router
                 .endpoint(|| UnauthenticatedContext {
                     session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.

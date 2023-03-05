@@ -3,6 +3,8 @@
 import { createClient, FetchTransport } from "@rspc/client";
 import { createSolidQueryHooks } from "@rspc/solid";
 import { QueryClient } from "@tanstack/solid-query";
+
+// Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import { Procedures } from "../../../bindings";
 
 const fetchQueryClient = new QueryClient();

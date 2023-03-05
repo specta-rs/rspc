@@ -7,8 +7,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* exec pnpm build",
+    "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-*  --filter=!rspc-vscode exec pnpm dev",
+    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
     "typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
     "docs": "pnpm --filter @rspc/docs -- ",
     "client": "pnpm --filter @rspc/client -- ",

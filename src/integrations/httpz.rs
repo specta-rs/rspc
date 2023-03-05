@@ -1,12 +1,16 @@
-use futures::{Future, SinkExt, StreamExt};
+use futures::{SinkExt, StreamExt};
 use httpz::{
-    axum::axum::extract::{FromRequest, RequestParts},
-    http::{Method, Response, StatusCode},
+    axum::axum::extract::FromRequestParts,
+    http::{self, Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
-    ConcreteRequest, Endpoint, EndpointResult, GenericEndpoint, HttpEndpoint, QueryParms,
+    Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
 };
 use serde_json::Value;
-use std::{collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{
+    collections::HashMap,
+    mem,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -14,342 +18,277 @@ use crate::{
         jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
         ProcedureKind,
     },
-    ExecError, Router,
+    Router,
 };
 
-pub use httpz::cookie::CookieJar;
+pub use super::httpz_extractors::*;
+pub use httpz::cookie::Cookie;
 
-// TODO: This request extractor system needs a huge refactor!!!!
-// TODO: Can we avoid needing to box the extractors????
-// TODO: Support for up to 16 extractors
-// TODO: Debug bounds on `::Rejection` should only happen in the `tracing` feature is enabled
-// TODO: Allow async context functions
+/// TODO
+///
+// TODO: Can `Rc<RefCell<T>>` be used so I don't need to await a borrow and use Tokio specific API's???
+// TODO: The `Mutex` will block. This isn't great, work to remove it. The Tokio `Mutex` makes everything annoyingly async so I don't use it.
+#[derive(Debug, Clone)]
+pub struct CookieJar(Arc<Mutex<httpz::cookie::CookieJar>>);
 
-pub enum TCtxFuncResult<'a, TCtx> {
-    Value(Result<TCtx, ExecError>),
-    Future(Pin<Box<dyn Future<Output = Result<TCtx, ExecError>> + Send + 'a>>),
-}
-
-pub trait TCtxFunc<TCtx, TMarker>: Clone + Send + Sync + 'static
-where
-    TCtx: Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx>;
-}
-
-pub struct NoArgMarker(PhantomData<()>);
-impl<TCtx, TFunc> TCtxFunc<TCtx, NoArgMarker> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce() -> TCtx + Clone + Send + Sync + 'static,
-{
-    fn exec<'a>(&self, _request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        TCtxFuncResult::Value(Ok(self.clone()()))
+impl CookieJar {
+    pub(super) fn new(cookies: Arc<Mutex<httpz::cookie::CookieJar>>) -> Self {
+        Self(cookies)
     }
+
+    /// Returns a reference to the `Cookie` inside this jar with the name
+    /// `name`. If no such cookie exists, returns `None`.
+    pub fn get(&self, name: &str) -> Option<Cookie<'static>> {
+        self.0.lock().unwrap().get(name).cloned() // TODO: `cloned` is cringe avoid it by removing `Mutex`?
+    }
+
+    /// Adds an "original" `cookie` to this jar. If an original cookie with the
+    /// same name already exists, it is replaced with `cookie`. Cookies added
+    /// with `add` take precedence and are not replaced by this method.
+    ///
+    /// Adding an original cookie does not affect the [delta](#method.delta)
+    /// computation. This method is intended to be used to seed the cookie jar
+    /// with cookies received from a client's HTTP message.
+    ///
+    /// For accurate `delta` computations, this method should not be called
+    /// after calling `remove`.
+    pub fn add_original(&self, cookie: Cookie<'static>) {
+        self.0.lock().unwrap().add_original(cookie)
+    }
+
+    /// Adds `cookie` to this jar. If a cookie with the same name already
+    /// exists, it is replaced with `cookie`.
+    pub fn add(&self, cookie: Cookie<'static>) {
+        self.0.lock().unwrap().add(cookie);
+    }
+
+    /// Removes `cookie` from this jar. If an _original_ cookie with the same
+    /// name as `cookie` is present in the jar, a _removal_ cookie will be
+    /// present in the `delta` computation. To properly generate the removal
+    /// cookie, `cookie` must contain the same `path` and `domain` as the cookie
+    /// that was initially set.
+    ///
+    /// A "removal" cookie is a cookie that has the same name as the original
+    /// cookie but has an empty value, a max-age of 0, and an expiration date
+    /// far in the past. See also [`Cookie::make_removal()`].
+    ///
+    /// Removing a new cookie does not result in a _removal_ cookie unless
+    /// there's an original cookie with the same name:
+    pub fn remove(&self, cookie: Cookie<'static>) {
+        self.0.lock().unwrap().remove(cookie)
+    }
+
+    /// Removes `cookie` from this jar completely. This method differs from
+    /// `remove` in that no delta cookie is created under any condition. Neither
+    /// the `delta` nor `iter` methods will return a cookie that is removed
+    /// using this method.
+    pub fn force_remove<'a>(&self, cookie: &Cookie<'a>) {
+        self.0.lock().unwrap().force_remove(cookie)
+    }
+
+    /// Removes all delta cookies, i.e. all cookies not added via
+    /// [`CookieJar::add_original()`], from this `CookieJar`. This undoes any
+    /// changes from [`CookieJar::add()`] and [`CookieJar::remove()`]
+    /// operations.
+    pub fn reset_delta(&self) {
+        self.0.lock().unwrap().reset_delta()
+    }
+
+    // /// Returns an iterator over cookies that represent the changes to this jar
+    // /// over time. These cookies can be rendered directly as `Set-Cookie` header
+    // /// values to affect the changes made to this jar on the client.
+    // pub fn delta(&self) -> Delta {
+    //     self.0.lock().unwrap().delta()
+    // }
+
+    // /// Returns an iterator over all of the cookies present in this jar.
+    // pub fn iter(&self) -> Iter {
+    //     self.0.lock().unwrap().iter()
+    // }
+
+    // /// Returns a read-only `PrivateJar` with `self` as its parent jar using the
+    // /// key `key` to verify/decrypt cookies retrieved from the child jar. Any
+    // /// retrievals from the child jar will be made from the parent jar.
+    // #[cfg(feature = "private")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "private")))]
+    // pub fn private<'a>(&'a self, key: &Key) -> PrivateJar<&'a Self> {
+    //     PrivateJar::new(self, key)
+    // }
+
+    // /// Returns a read/write `PrivateJar` with `self` as its parent jar using
+    // /// the key `key` to sign/encrypt and verify/decrypt cookies added/retrieved
+    // /// from the child jar.
+    // ///
+    // /// Any modifications to the child jar will be reflected on the parent jar,
+    // /// and any retrievals from the child jar will be made from the parent jar.
+    // #[cfg(feature = "private")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "private")))]
+    // pub fn private_mut<'a>(&'a mut self, key: &Key) -> PrivateJar<&'a mut Self> {
+    //     PrivateJar::new(self, key)
+    // }
+
+    // /// Returns a read-only `SignedJar` with `self` as its parent jar using the
+    // /// key `key` to verify cookies retrieved from the child jar. Any retrievals
+    // /// from the child jar will be made from the parent jar.
+    // #[cfg(feature = "signed")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "signed")))]
+    // pub fn signed<'a>(&'a self, key: &Key) -> SignedJar<&'a Self> {
+    //     SignedJar::new(self, key)
+    // }
+
+    // /// Returns a read/write `SignedJar` with `self` as its parent jar using the
+    // /// key `key` to sign/verify cookies added/retrieved from the child jar.
+    // ///
+    // /// Any modifications to the child jar will be reflected on the parent jar,
+    // /// and any retrievals from the child jar will be made from the parent jar.
+    // #[cfg(feature = "signed")]
+    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "signed")))]
+    // pub fn signed_mut<'a>(&'a mut self, key: &Key) -> SignedJar<&'a mut Self> {
+    //     SignedJar::new(self, key)
+    // }
 }
 
-pub struct OneArgAxumRequestMarker<T1>(PhantomData<T1>);
-impl<T1, TCtx, TFunc> TCtxFunc<TCtx, OneArgAxumRequestMarker<T1>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
+/// TODO
+///
+/// This wraps [httpz::Request] removing any methods that are not safe with rspc such as `body`, `into_parts` and replacing the cookie handling API.
+///
+#[derive(Debug)]
+pub struct Request(httpz::Request, Option<CookieJar>);
 
-                ExecError::AxumExtractorError
-            })?;
+impl Request {
+    pub(crate) fn new(req: httpz::Request, cookies: Option<CookieJar>) -> Self {
+        Self(req, cookies)
+    }
 
-            Ok(this(t1))
+    /// Get the uri of the request.
+    pub fn uri(&self) -> &httpz::http::Uri {
+        self.0.uri()
+    }
+
+    /// Get the version of the request.
+    pub fn version(&self) -> httpz::http::Version {
+        self.0.version()
+    }
+
+    /// Get the method of the request.
+    pub fn method(&self) -> &httpz::http::Method {
+        self.0.method()
+    }
+
+    /// Get the headers of the request.
+    pub fn headers(&self) -> &httpz::http::HeaderMap {
+        self.0.headers()
+    }
+
+    /// Get the headers of the request.
+    pub fn headers_mut(&mut self) -> &mut httpz::http::HeaderMap {
+        self.0.headers_mut()
+    }
+
+    /// TODO
+    pub fn cookies(&mut self) -> Option<CookieJar> {
+        // TODO: This take means a `None` response could be because it was already used or because it's a websocket. This is a confusing DX and needs fixing.
+
+        mem::replace(&mut self.1, None)
+    }
+
+    /// query_pairs returns an iterator of the query parameters.
+    pub fn query_pairs(&self) -> Option<httpz::form_urlencoded::Parse<'_>> {
+        self.0.query_pairs()
+    }
+
+    /// TODO
+    pub fn server(&self) -> httpz::Server {
+        self.0.server()
+    }
+
+    /// Get the extensions of the request.
+    pub fn extensions(&self) -> &http::Extensions {
+        self.0.extensions()
+    }
+
+    /// Get the extensions of the request.
+    pub fn extensions_mut(&mut self) -> &mut http::Extensions {
+        self.0.extensions_mut()
+    }
+
+    /// This methods allows using Axum extractors.
+    /// This was previously supported but in Axum 0.6 it's not typesafe anymore so we are going to remove this API.
+    // TODO: Remove this API once rspc's official cookie API is more stabilised.
+    #[cfg(feature = "axum")]
+    pub fn deprecated_extract<E, S>(&mut self) -> Option<Result<E, E::Rejection>>
+    where
+        E: FromRequestParts<S>,
+        S: Clone + Send + Sync + 'static,
+    {
+        let parts = self.0.parts_mut();
+
+        let state = parts
+            .extensions
+            .remove::<httpz::axum::axum::extract::State<S>>()?;
+
+        // This is bad but it's a temporary API so I don't care.
+        Some(futures::executor::block_on(async {
+            let resp = <E as FromRequestParts<S>>::from_request_parts(parts, &state.0).await;
+            parts.extensions.insert(state);
+            resp
         }))
     }
 }
 
-pub struct TwoArgAxumRequestMarker<T1, T2>(PhantomData<(T1, T2)>);
-impl<T1, T2, TCtx, TFunc> TCtxFunc<TCtx, TwoArgAxumRequestMarker<T1, T2>> for TFunc
+impl<TCtx> Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2))
-        }))
-    }
-}
-
-pub struct ThreeArgAxumRequestMarker<T1, T2, T3>(PhantomData<(T1, T2, T3)>);
-impl<T1, T2, T3, TCtx, TFunc> TCtxFunc<TCtx, ThreeArgAxumRequestMarker<T1, T2, T3>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2, T3) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-    <T3 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T3: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t3 = T3::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 3: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2, t3))
-        }))
-    }
-}
-
-pub struct FourArgAxumRequestMarker<T1, T2, T3, T4>(PhantomData<(T1, T2, T3, T4)>);
-impl<T1, T2, T3, T4, TCtx, TFunc> TCtxFunc<TCtx, FourArgAxumRequestMarker<T1, T2, T3, T4>> for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2, T3, T4) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-    <T3 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T3: FromRequest<Vec<u8>> + Send + 'static,
-    <T4 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T4: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t3 = T3::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 3: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t4 = T4::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 4: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2, t3, t4))
-        }))
-    }
-}
-
-pub struct FiveArgAxumRequestMarker<T1, T2, T3, T4, T5>(PhantomData<(T1, T2, T3, T4, T5)>);
-impl<T1, T2, T3, T4, T5, TCtx, TFunc> TCtxFunc<TCtx, FiveArgAxumRequestMarker<T1, T2, T3, T4, T5>>
-    for TFunc
-where
-    TCtx: Send + Sync + 'static,
-    TFunc: FnOnce(T1, T2, T3, T4, T5) -> TCtx + Clone + Send + Sync + 'static,
-    <T1 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T1: FromRequest<Vec<u8>> + Send + 'static,
-    <T2 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T2: FromRequest<Vec<u8>> + Send + 'static,
-    <T3 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T3: FromRequest<Vec<u8>> + Send + 'static,
-    <T4 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T4: FromRequest<Vec<u8>> + Send + 'static,
-    <T5 as FromRequest<Vec<u8>>>::Rejection: std::fmt::Debug,
-    T5: FromRequest<Vec<u8>> + Send + 'static,
-{
-    fn exec<'a>(&self, request: &'a mut RequestParts<Vec<u8>>) -> TCtxFuncResult<'a, TCtx> {
-        let this = self.clone();
-        TCtxFuncResult::Future(Box::pin(async move {
-            let t1 = T1::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t2 = T2::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 2: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t3 = T3::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 3: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t4 = T4::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 4: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            let t5 = T5::from_request(request).await.map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("error executing axum extractor 5: {:?}", _err);
-
-                ExecError::AxumExtractorError
-            })?;
-
-            Ok(this(t1, t2, t3, t4, t5))
-        }))
-    }
-}
-
-struct Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>
-where
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    router: Arc<Router<TCtx, TMeta>>,
-    ctx_fn: TCtxFn,
-    phantom: PhantomData<TCtxFnMarker>,
-}
-
-// Rust's #[derive(Clone)] would require `Clone` on all the generics even though that isn't strictly required.
-impl<TCtxFn, TCtx, TMeta, TCtxFnMarker> Clone for Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>
-where
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    fn clone(&self) -> Self {
-        Self {
-            router: self.router.clone(),
-            ctx_fn: self.ctx_fn.clone(),
-            phantom: PhantomData,
-        }
-    }
-}
-
-async fn handler<'a, TCtxFn, TCtx, TMeta, TCtxFnMarker>(
-    Ctx { router, ctx_fn, .. }: Ctx<TCtxFn, TCtx, TMeta, TCtxFnMarker>,
-    req: ConcreteRequest,
-    cookies: CookieJar,
-) -> EndpointResult
-where
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/rspc/ws") => handle_websocket(ctx_fn, req, cookies, router),
-        (&Method::GET, _) => handle_http(ctx_fn, ProcedureKind::Query, req, cookies, &router).await,
-        (&Method::POST, _) => {
-            handle_http(ctx_fn, ProcedureKind::Mutation, req, cookies, &router).await
-        }
-        _ => unreachable!(),
-    }
-}
-
-impl<TCtx, TMeta> Router<TCtx, TMeta>
-where
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
 {
     pub fn endpoint<TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
         self: Arc<Self>,
         ctx_fn: TCtxFn,
     ) -> Endpoint<impl HttpEndpoint> {
         GenericEndpoint::new(
-            Ctx {
-                router: self,
-                ctx_fn,
-                phantom: PhantomData,
-            },
+            "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
             [Method::GET, Method::POST],
-            handler,
+            move |req: httpz::Request| {
+                // TODO: It would be nice if these clones weren't per request.
+                // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
+                let router = self.clone();
+                let ctx_fn = ctx_fn.clone();
+
+                async move {
+                    match (req.method(), &req.uri().path()[1..]) {
+                        (&Method::GET, "ws") => {
+                            handle_websocket(ctx_fn, req, router).into_response()
+                        }
+                        (&Method::GET, _) => {
+                            handle_http(ctx_fn, ProcedureKind::Query, req, &router)
+                                .await
+                                .into_response()
+                        }
+                        (&Method::POST, _) => {
+                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
+                                .await
+                                .into_response()
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            },
         )
     }
 }
 
-pub async fn handle_http<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
+pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
-    req: ConcreteRequest,
-    cookies: CookieJar,
-    router: &Arc<Router<TCtx, TMeta>>,
-) -> EndpointResult
+    req: httpz::Request,
+    router: &Arc<Router<TCtx>>,
+) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
-    let uri = req.uri().clone();
-    let key = match uri.path().strip_prefix("/rspc/") {
-        Some(key) => key,
-        None => {
-            return Ok((
-                Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .header("Content-Type", "application/json")
-                    .body(b"[]".to_vec())?,
-                cookies,
-            )); // TODO: Include error information in response
-        }
-    };
-
+    let procedure_name = req.uri().path()[1..].to_string(); // Has to be allocated because `TCtxFn` takes ownership of `req`
     let input = match *req.method() {
         Method::GET => req
-            .uri()
             .query_pairs()
             .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
             .map(|v| serde_json::from_str(&v))
@@ -359,6 +298,7 @@ where
             .unwrap_or(Ok(None)),
         _ => unreachable!(),
     };
+    let cookies = req.cookies();
 
     let input = match input {
         Ok(input) => input,
@@ -367,7 +307,7 @@ where
             tracing::error!(
                 "Error passing parameters to operation '{}' with key '{:?}': {}",
                 kind.to_str(),
-                key,
+                procedure_name,
                 _err
             );
 
@@ -385,15 +325,16 @@ where
     tracing::debug!(
         "Executing operation '{}' with key '{}' with params {:?}",
         kind.to_str(),
-        key,
+        procedure_name,
         input
     );
 
     let mut resp = Sender::Response(None);
-    let ctx = match ctx_fn.exec(&mut RequestParts::new(req)) {
-        TCtxFuncResult::Value(v) => v,
-        TCtxFuncResult::Future(v) => v.await,
-    };
+
+    let cookie_jar = Arc::new(Mutex::new(cookies));
+    let old_cookies = req.cookies().clone();
+    let ctx = ctx_fn.exec(req, Some(CookieJar::new(cookie_jar.clone())));
+
     let ctx = match ctx {
         Ok(v) => v,
         Err(_err) => {
@@ -405,7 +346,8 @@ where
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
                     .header("Content-Type", "application/json")
                     .body(b"[]".to_vec())?,
-                cookies,
+                // TODO: Props just return `None` here so that we don't allocate or need a clone.
+                old_cookies, // If cookies were set in the context function they will be lost but it errored so thats probs fine.
             ));
         }
     };
@@ -417,11 +359,11 @@ where
             id: RequestId::Null,
             inner: match kind {
                 ProcedureKind::Query => jsonrpc::RequestInner::Query {
-                    path: key.to_string(),
+                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
                     input,
                 },
                 ProcedureKind::Mutation => jsonrpc::RequestInner::Mutation {
-                    path: key.to_string(),
+                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
                     input,
                 },
                 ProcedureKind::Subscription => {
@@ -433,7 +375,8 @@ where
                             .status(StatusCode::INTERNAL_SERVER_ERROR)
                             .header("Content-Type", "application/json")
                             .body(b"[]".to_vec())?,
-                        cookies,
+                        // TODO: Props just return `None` here so that we don't allocate or need a clone.
+                        old_cookies, // If cookies were set in the context function they will be lost but it errored so thats probs fine.
                     ));
                 }
             },
@@ -443,6 +386,20 @@ where
         &mut SubscriptionMap::None,
     )
     .await;
+
+    let cookies = {
+        match Arc::try_unwrap(cookie_jar) {
+            Ok(cookies) => cookies.into_inner().unwrap(),
+            Err(cookie_jar) => {
+                #[cfg(all(feature = "tracing", feature = "warning", debug_assertions))]
+                tracing::warn!("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
+                #[cfg(all(not(feature = "tracing"), feature = "warning", debug_assertions))]
+                println("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
+
+                cookie_jar.lock().unwrap().clone()
+            }
+        }
+    };
 
     match resp {
         Sender::Response(Some(resp)) => Ok((
@@ -467,24 +424,32 @@ where
     }
 }
 
-pub fn handle_websocket<TCtx, TMeta, TCtxFn, TCtxFnMarker>(
+pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
-    req: ConcreteRequest,
-    cookies: CookieJar,
-    router: Arc<Router<TCtx, TMeta>>,
-) -> EndpointResult
+    req: httpz::Request,
+    router: Arc<Router<TCtx>>,
+) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
     #[cfg(feature = "tracing")]
     tracing::debug!("Accepting websocket connection");
 
-    WebsocketUpgrade::from_req(req, cookies, move |req, mut socket| async move {
+    if !req.server().supports_websockets() {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Websocket are not supported on your webserver!");
+
+        // TODO: Make this error be picked up on the frontend and expose it with a logical name
+        return Ok(Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(vec![])?);
+    }
+
+    let cookies = req.cookies();
+    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
         let mut subscriptions = HashMap::new();
         let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
-        let mut req = RequestParts::new(req);
 
         loop {
             tokio::select! {
@@ -509,34 +474,52 @@ where
                     }
                 }
                 msg = socket.next() => {
-                    let request = match msg {
+                    match msg {
                         Some(Ok(msg) )=> {
                            let res = match msg {
-                                Message::Text(text) => {
-                                    serde_json::from_str::<jsonrpc::Request>(&text)
-                                }
-                                Message::Binary(binary) => {
-                                    serde_json::from_slice::<jsonrpc::Request>(&binary)
-                                }
+                                Message::Text(text) => serde_json::from_str::<Value>(&text),
+                                Message::Binary(binary) => serde_json::from_slice(&binary),
                                 Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
                                     continue;
                                 }
                                 Message::Frame(_) => unreachable!(),
                             };
 
-                            match res {
-                                Ok(v) => v,
+                            match res.and_then(|v| match v.is_array() {
+                                    true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
+                                    false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                                }) {
+                                Ok(reqs) => {
+                                    for request in reqs {
+                                        let ctx = ctx_fn.exec(req._internal_dangerously_clone(), None);
+
+                                            handle_json_rpc(match ctx {
+                                                Ok(v) => v,
+                                                Err(_err) => {
+                                                    #[cfg(feature = "tracing")]
+                                                    tracing::error!("Error executing context function: {}", _err);
+
+                                                    continue;
+                                                }
+                                            }, request, &router, &mut Sender::Channel(&mut tx),
+                                            &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                    }
+                                },
                                 Err(_err) => {
                                     #[cfg(feature = "tracing")]
                                     tracing::error!("Error parsing websocket message: {}", _err);
 
+                                    // TODO: Send report of error to frontend
+
                                     continue;
                                 }
-                            }
+                            };
                         }
                         Some(Err(_err)) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!("Error in websocket: {}", _err);
+
+                            // TODO: Send report of error to frontend
 
                             continue;
                         },
@@ -544,27 +527,13 @@ where
                             #[cfg(feature = "tracing")]
                             tracing::debug!("Shutting down websocket connection");
 
+                            // TODO: Send report of error to frontend
+
                             return;
                         },
-                    };
-
-                    let ctx = match ctx_fn.exec(&mut req) {
-                        TCtxFuncResult::Value(v) => v,
-                        TCtxFuncResult::Future(v) => v.await,
-                    };
-
-                    handle_json_rpc(match ctx {
-                        Ok(v) => v,
-                        Err(_err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Error executing context function: {}", _err);
-
-                            continue;
-                        }
-                    }, request, &router, &mut Sender::Channel(&mut tx),
-                    &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                    }
                 }
             }
         }
-    })
+    }).into_response()
 }

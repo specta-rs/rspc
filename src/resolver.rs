@@ -91,14 +91,16 @@ where
                     type_map: defs,
                 },
                 &[],
-            ),
+            )
+            .unwrap(), // TODO: Error handling the `unwrap`'s in this file
             result_ty: <TResult::Result as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
                 },
                 &[],
-            ),
+            )
+            .unwrap(),
         }
     }
 }
@@ -135,14 +137,16 @@ where
                     type_map: defs,
                 },
                 &[],
-            ),
+            )
+            .unwrap(),
             result_ty: <TResult as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
                 },
                 &[],
-            ),
+            )
+            .unwrap(),
         }
     }
 }

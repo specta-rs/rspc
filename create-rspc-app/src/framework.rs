@@ -1,7 +1,7 @@
 use std::{fs::create_dir, io, path::Path};
 
 use crate::utils::replace_in_file;
-use create_tauri_app::{package_manager::PackageManager, template::Template};
+use create_tauri_app::internal::{package_manager::PackageManager, template::Template};
 use include_dir::{include_dir, Dir};
 use strum::{Display, EnumIter, EnumString};
 
