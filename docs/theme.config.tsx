@@ -1,20 +1,19 @@
 import Image from "next/image";
-import { DocsThemeConfig } from "nextra-theme-docs";
+import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
 import logoIcon from "./public/logo.png";
 import { useRouter } from "next/router";
 
 const config: DocsThemeConfig = {
   docsRepositoryBase: "https://github.com/oscartbeaumont/rspc/tree/main/docs",
   useNextSeoProps() {
-    const router = useRouter();
+    const { asPath } = useRouter();
 
     const description =
       "The best way to build typesafe APIs between Rust and Typescript.";
 
     return {
       titleTemplate: "%s – rspc",
-      description:
-        "The best way to build typesafe APIs between Rust and Typescript.",
+      description,
       keywords: [],
       additionalMetaTags: [
         {
@@ -22,28 +21,17 @@ const config: DocsThemeConfig = {
           content: "Oscar Beaumont",
         },
       ],
-      canonical: "https://rspc.dev" + router.asPath,
+      canonical: "https://rspc.dev" + asPath,
       openGraph: {
-        // TODO: Use Vercel OG generator
-        // images: [
-        //   {
-        //     url: "https://www.example.ie/og-image-01.jpg",
-        //     width: 800,
-        //     height: 600,
-        //     alt: "Og Image Alt",
-        //     type: "image/jpeg",
-        //   },
-        //   {
-        //     url: "https://www.example.ie/og-image-02.jpg",
-        //     width: 900,
-        //     height: 800,
-        //     alt: "Og Image Alt Second",
-        //     type: "image/jpeg",
-        //   },
-        //   { url: "https://www.example.ie/og-image-03.jpg" },
-        //   { url: "https://www.example.ie/og-image-04.jpg" },
-        // ],
-        // siteName: "SiteName",
+        images: [
+          {
+            url: "https://rspc.dev/api/og",
+            width: 1200,
+            height: 600,
+            alt: "Og Image Alt",
+            type: "image/jpeg",
+          },
+        ],
       },
       twitter: {
         handle: "@oscartbeaumont",
