@@ -4,6 +4,7 @@
     "strict": true,
     // "noUnusedLocals": true,  // TODO: enable this
     // "noUnusedParameters": true, // TODO: enable this
+    // "forceConsistentCasingInFileNames": true, // TODO: enable this
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
