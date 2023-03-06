@@ -96,7 +96,7 @@ export class Client<TProcedures extends ProceduresDef> {
   >(
     keyAndInput: [
       K,
-      _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+      ..._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
     ],
     opts: SubscriptionOptions<TData>
   ): () => void {

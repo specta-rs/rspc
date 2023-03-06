@@ -6,7 +6,9 @@ use rspc::{integrations::httpz::Request, Config};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
-struct Ctx {}
+struct Ctx {
+    x_demo_header: Option<String>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -16,8 +18,23 @@ async fn main() {
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
             ))
             .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+            .query("X-Demo-Header", |t| {
+                t(|ctx, _: ()| {
+                    ctx.x_demo_header
+                        .clone()
+                        .unwrap_or_else(|| "No header".to_string())
+                })
+            })
             .query("echo", |t| t(|_, v: String| v))
             .query("error", |t| {
+                t(|_, _: ()| {
+                    Err(rspc::Error::new(
+                        rspc::ErrorCode::InternalServerError,
+                        "Something went wrong".into(),
+                    )) as Result<String, rspc::Error>
+                })
+            })
+            .mutation("error", |t| {
                 t(|_, _: ()| {
                     Err(rspc::Error::new(
                         rspc::ErrorCode::InternalServerError,
@@ -71,7 +88,12 @@ async fn main() {
                 .clone()
                 .endpoint(|req: Request| {
                     println!("Client requested operation '{}'", req.uri().path());
-                    Ctx {}
+                    Ctx {
+                        x_demo_header: req
+                            .headers()
+                            .get("X-Demo-Header")
+                            .map(|v| v.to_str().unwrap().to_string()),
+                    }
                 })
                 .axum(),
         )
