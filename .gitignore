@@ -22,6 +22,10 @@ node_modules
 *.tsbuildinfo
 /packages/*/dist
 
+# Next.js/Vercel
+.next
+.vercel
+
 # Compiled vscode extension
 *.vsix
 
