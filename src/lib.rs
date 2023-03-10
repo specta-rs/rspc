@@ -10,6 +10,7 @@
     // missing_docs
 )]
 
+pub mod alpha;
 mod config;
 mod error;
 mod middleware;

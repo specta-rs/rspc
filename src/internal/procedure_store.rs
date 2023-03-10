@@ -23,10 +23,10 @@ pub struct ProcedureStore<TCtx> {
 }
 
 impl<TCtx> ProcedureStore<TCtx> {
-    pub fn new(name: &'static str) -> Self {
+    pub const fn new(name: &'static str) -> Self {
         Self {
             name,
-            store: Default::default(),
+            store: BTreeMap::new(),
         }
     }
 

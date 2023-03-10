@@ -1,15 +1,23 @@
 use std::path::PathBuf;
 
 /// TODO
-#[derive(Default)]
 pub struct Config {
     pub(crate) export_bindings_on_build: Option<PathBuf>,
     pub(crate) bindings_header: Option<&'static str>,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Config {
-    pub fn new() -> Self {
-        Default::default()
+    pub const fn new() -> Self {
+        Self {
+            export_bindings_on_build: None,
+            bindings_header: None,
+        }
     }
 
     /// will export the bindings of the generated router to a folder every time the router is built.

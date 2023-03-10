@@ -117,6 +117,15 @@ where
     TCtx: 'static,
 {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<TCtx> BaseMiddleware<TCtx>
+where
+    TCtx: 'static,
+{
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 }
