@@ -132,16 +132,10 @@ npm install @rspc/tauri # If your using the Tauri transport
 
 Then change your imports as follows. From:
 
-```ts
-import { createReactQueryHooks } from "@rspc/client";
+```diff copy filename="index.ts"
+- import { createReactQueryHooks } from "@rspc/client";
++ import { createReactQueryHooks } from "@rspc/react";
 import { TauriTransport } from "@rspc/client";
-```
-
-To:
-
-```ts
-import { createReactQueryHooks } from "@rspc/react";
-import { TauriTransport } from "@rspc/tauri";
 ```
 
 There is no Rust release for these changes. I am going to look into following SemVer in a future release, this is just a quick patch as multiple people have reported this being an issue with [Next.js](https://nextjs.org) SSR.

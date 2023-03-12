@@ -1,4 +1,11 @@
+import { Callout } from "nextra-theme-docs";
+
 # Middleware
+
+<Callout>
+  These API's are still undergoing stabilisation. Feel free to use them but they
+  will likely change in the future updates!
+</Callout>
 
 rspc allows adding middleware to your router which can intercept the request and response for procedures defined after it on the router. Middleware can also modify the context type which is passed to future procedures which is super powerful.
 
@@ -8,7 +15,7 @@ The middleware APIs are still fairly new. Better documentation will come in the 
 
 Middleware are allowed to modify the context. This includes being able to change it's type. All operations below the middleware in the router will receive the new context type.
 
-```rust
+```rs copy filename="src/main.rs"
 use rspc::Router;
 
 fn main() {
@@ -33,7 +40,7 @@ Feature coming soon. Tracking in issue [#21](https://github.com/oscartbeaumont/r
 
 ### Logger middleware
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new()
     // Logger middleware
     .middleware(|mw| {
@@ -53,7 +60,7 @@ let router = <Router>::new()
 
 ### Authentication middleware
 
-```rust
+```rs copy filename="src/main.rs"
 pub struct UnauthenticatedContext {
     pub session_id: Option<String>,
 }
@@ -89,7 +96,7 @@ let router = Router::<UnauthenticatedContext>::new()
 
 ### Reject all middleware
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new()
     // Reject all middleware
     .middleware(|mw| {

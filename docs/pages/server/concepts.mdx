@@ -4,8 +4,7 @@
 
 rspc allows for capturing variables in the closure of a procedure. This is generally fround upon as it put a requirement on that value when creating the router which could limit your ability to unit test the router. More of the logic behind this is explained in request context section below. This is a general rule and you will likely find exceptions.
 
-```rust
-
+```rs copy filename="src/main.rs"
 // NOT-RECOMMEND - Capturing variables
 // You should avoid providing having arguments to your mount function
 pub(crate) fn mount(db: DatabaseConn) -> Router {
@@ -35,7 +34,7 @@ Using request context is important because it means you can construct the router
 
 A request context is created on every request and can hold any data the user wants. The request context also abstracts the underlying transport layer such as HTTP, Websocket or Tauri so that the router can be agonistic to which one is being used.
 
-```rust
+```rs copy filename="src/main.rs"
 struct MyCtx {
     db: Arc<Database>,
     some_value: &'static str

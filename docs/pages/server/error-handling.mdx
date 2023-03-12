@@ -6,7 +6,7 @@ The fact that Rust as a language currently requires the error type to be concret
 
 ### An example using the `rspc::Error` type
 
-```rust
+```rs copy filename="src/main.rs"
 use rspc::{Error, Router};
 
 let router = <Router>::new()
@@ -44,7 +44,7 @@ let router = <Router>::new()
 
 ### Custom error type
 
-```rust
+```rs copy filename="src/main.rs"
 pub enum MyCustomError {
     ServerDidABad,
 }

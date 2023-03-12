@@ -11,7 +11,7 @@ This error means the type which you returned from your procedure is not valid. T
 
 To fix this error ensure the custom types which you return from your procedure have the derive macros as shown below or that the type is a [Rust primitive type](https://doc.rust-lang.org/book/ch03-02-data-types.html).
 
-```rust
+```rs copy filename="src/main.rs"
 use rspc::Type;
 use serde::Serialize; // This requires the 'derive' feature to be enabled.
 
@@ -29,7 +29,7 @@ type AnotherName = MyStruct;
 
 If you are unable to determine what is causing your type to be invalid you can use the following utility functions to get a better warning from the Rust compiler. Ensure you don't keep this utility function in production code.
 
-```rust
+```rs copy filename="src/main.rs"
 pub struct Demo {}
 
 rspc::test_result_type::<Demo>();
@@ -42,7 +42,7 @@ This error means that the type which you specified as your argument type is inva
 
 This can be done using the `Deserialize` derive macro provided by [serde](https://serde.rs/derive.html):
 
-```rust
+```rs copy filename="src/main.rs"
 use serde::Deserialize; // This requires the 'derive' feature to be enabled.
 
 #[derive(Deserialize)]
@@ -63,7 +63,7 @@ This error means that the type which you specified as your argument type is inva
 
 This can be done using the `Type` derive macro:
 
-```rust
+```rs copy filename="src/main.rs"
 use rspc::Type;
 
 #[derive(Type)]
@@ -79,7 +79,7 @@ enum MyStruct {
 
 This is probably caused by you incorrectly hardcoding the type for the request context (first argument) of the procedure closure.
 
-```rust
+```rs copy filename="src/main.rs"
 // INVALID CODE
 Router::<()>::new() // Here we set the context to `()` but we set the closures argument type to `i32`.
     .query("debug", |t| t(|ctx: i32, _: ()| {}))

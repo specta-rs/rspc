@@ -8,9 +8,9 @@ rspc has a built-in integration with [Axum](https://github.com/tokio-rs/axum) so
 
 ### Enable feature
 
-For the integration to work you must enable the `axum` feature of rspc. Ensure the rspc line in your `Cargo.toml` file looks like the following:
+For the integration to work you must enable the `axum` feature of rspc.
 
-```toml
+```toml /"axum"/ copy filename="Cargo.toml"
 [dependencies]
 rspc = { version = "0.0.0", features = ["axum"] } # Ensure you put the latest version!
 ```
@@ -19,7 +19,7 @@ Read more about Rust features [here](https://doc.rust-lang.org/cargo/reference/f
 
 ### Usage
 
-```rust
+```rs copy filename="src/main.rs"
 let router = rspc::Router::<()>::new()
     .query("version", |_, _: ()| "1.0.0")
     .build()
@@ -39,7 +39,7 @@ let app = axum::Router::new()
 
 You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extractors" target="_blank">Axum extractors</a> to get data from the request such as cookies and put them on the request context. The `axum_handler` function takes a closure that can take up to 16 valid Axum extractors as arguments and then returns the [request context](/server/request-context) (of type `TCtx`).
 
-```rust
+```rs copy filename="src/main.rs"
 let router = rspc::Router::<String>::new()
     .query("currentPath", |ctx, _: ()| ctx)
     .build()
@@ -54,7 +54,7 @@ let app = axum::Router::new()
 
 ### Usage on frontend
 
-```typescript
+```ts copy filename="index.ts"
 import { FetchTransport, WebsocketTransport, createClient } from "@rspc/client";
 import type { Procedures } from "./ts/bindings"; // These were the bindings exported from your Rust code!
 

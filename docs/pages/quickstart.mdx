@@ -32,7 +32,7 @@ This command will not exist if your running a Rust version earlier than `1.62.0`
 
 Go into `src/main.rs` and add the following code:
 
-```rust
+```rs copy filename="src/main.rs"
 use rspc::Router;
 
 #[tokio::main]
@@ -53,7 +53,7 @@ Now that you have a router your probably wondering how you access it from your f
 
 Your rspc router is validated on the startup of your application and may panic if anything is incorrect. To ensure you catch any issues with your router before releasing a production version of your application you can use a unit test.
 
-```rust
+```rs copy filename="src/main.rs"
 use rspc::Router;
 
 fn router() -> Router {

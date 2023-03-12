@@ -10,7 +10,7 @@ rspc has a built-in integration with [Tauri](https://tauri.app/) so that you can
 
 For the integration to work you must enable the `tauri` feature of rspc. Ensure the rspc line in your `Cargo.toml` file looks like the following:
 
-```toml
+```toml /"tauri"/ copy filename="Cargo.toml"
 [dependencies]
 rspc = { version = "0.0.0", features = ["tauri"] } # Ensure you put the latest version!
 ```
@@ -21,7 +21,7 @@ Read more about Rust features [here](https://doc.rust-lang.org/cargo/reference/f
 
 Then expose your router using the Tauri plugin.
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new().build();
 
 tauri::Builder::default()
@@ -30,7 +30,7 @@ tauri::Builder::default()
 
 ### Usage on frontend
 
-```typescript
+```ts copy filename="index.ts"
 import { createClient } from "@rspc/client";
 import { TauriTransport } from "@rspc/tauri";
 import type { Procedures } from "./ts/bindings"; // These were the bindings exported from your Rust code!

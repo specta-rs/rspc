@@ -8,7 +8,7 @@ The type of the [request context](/server/concepts#request-context). This is usu
 
 For example:
 
-```rust
+```rs copy filename="src/main.rs"
 pub struct MyCtx {
     // The database connection. Prisma Client Rust shown here.
     db: Arc<PrismaClient>,
@@ -27,7 +27,7 @@ pub struct MyCtx {
 
 Constructing an rspc router with a specific context type is done as following.
 
-```rust
+```rs copy filename="src/main.rs"
 // Create a router with the default `TCtx` of `()`
 let router = <Router>::new();
 
@@ -37,7 +37,7 @@ let router = Router::<MyCtx>::new();
 
 `TCtx` is super powerful in rspc because [middleware](/server/middleware) are able to change it for procedures following them in the chain. A great example of this in action is an authentication middleware like shown below.
 
-```rust
+```rs copy filename="src/main.rs"
 pub struct AuthenticatedCtx {
     db: Arc<PrismaClient>, // Your database connection
     user: User, // Your user model in Rust.
@@ -85,7 +85,7 @@ This argument holds the instance of the last middleware builder which you mounte
 
 Procedures represent a function you define in Rust which can be called from the frontend. You can define them on your routing like the following example.
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new()
     // Define a query taking no arguments and returning "1.0.0"
     .query("version", |t| t(|ctx, input: ()| "1.0.0"))
@@ -124,7 +124,7 @@ When building an API server, you will often want to split up your endpoints into
 
 `router.merge(prefix: &'static str, router: Router)`
 
-```rust
+```rs copy filename="src/main.rs"
 // This could be defined in another file or even another crate
 let users_router = <Router>::new()
         .query("list", |t| t(|ctx, input: ()| vec![] as Vec<()>));
@@ -144,7 +144,7 @@ let router = <Router>::new()
 
 When combining multiple operations, you must ensure you chain the method calls or shadow the router variable. This is required due to the way the generics work on the Router.
 
-```rust
+```rs copy filename="src/main.rs"
 // Chaining method calls
 let router = <Router>::new()
     .query("version", |t| t(|ctx, input: ()| todo!()))
@@ -164,7 +164,7 @@ let router = router.build();
 
 There are two methods to export the Typescript bindings. You can either use the `export_ts_bindings` configuration option or call the `export_ts` function directly on the build router.
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new()
     .config(
         Config::new()
@@ -180,7 +180,7 @@ router.export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts")
 
 You can also use the `set_ts_bindings_header` option on the `Config` if you want to add a custom header to the top of the generated file. This is useful to disable [ESLint](https://eslint.org), [Prettier](https://prettier.io) or other similar tools from processing the generated file.
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new()
     .config(
         Config::new()

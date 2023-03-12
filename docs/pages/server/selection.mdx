@@ -6,7 +6,7 @@ It is very common when building an API to fetch some data from the database but 
 
 For example say you have a `User` struct like the following:
 
-```rust
+```rs copy filename="src/main.rs"
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -18,7 +18,7 @@ pub struct User {
 
 If your database returns a `User` struct you are unable to return it directly from your procedure as that would leak the value in the `password` field. Traditionally you would have to create a second struct without the `password` field, however this isn't optimal as it adds unnecessary boilerplate to your project. Instead you can use the `selection!` macro like below to select only certain fields from the struct.
 
-```rust
+```rs copy filename="src/main.rs"
 let router = <Router>::new()
     .query("me", |t| {
         t(|_, _: ()| {

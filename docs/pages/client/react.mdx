@@ -8,14 +8,14 @@ rspc can be used on the frontend with [React](https://reactjs.org) via the power
 
 To get started first install the required packages.
 
-```bash
+```bash copy
 npm i @rspc/client # The core client
 pnpm i @rspc/react # The React integration
 ```
 
 Then you can do the following:
 
-```ts
+```tsx copy filename="index.ts"
 import { QueryClient } from "@tanstack/react-query";
 import { FetchTransport, createClient } from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";

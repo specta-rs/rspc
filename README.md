@@ -38,7 +38,7 @@
 
 You define a `rspc` router and attach procedures to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
 
-```rust
+```rs
 let router = <rspc::Router>::new()
     .query("version", |t| {
         t(|ctx, input: ()| "0.0.1")

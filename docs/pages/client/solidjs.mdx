@@ -8,14 +8,14 @@ rspc can be used on the frontend with [SolidJS](https://www.solidjs.com/) via [T
 
 To get started first install the required packages.
 
-```bash
+```bash copy
 npm i @rspc/client # The core client
 pnpm i @rspc/solid # The SolidJS integration
 ```
 
 Then you can do the following:
 
-```ts
+```tsx copy filename="index.ts"
 import { QueryClient } from "@tanstack/solid-query";
 import { FetchTransport, createClient } from "@rspc/client";
 import { createSolidQueryHooks } from "@rspc/solid";
