@@ -10,11 +10,10 @@
     // missing_docs
 )]
 
-pub mod alpha;
+// pub mod alpha;
 mod config;
 mod error;
 mod middleware;
-mod resolver;
 mod resolver_result;
 mod router;
 mod router_builder;
@@ -23,7 +22,6 @@ mod selection;
 pub use config::*;
 pub use error::*;
 pub use middleware::*;
-pub use resolver::*;
 pub use resolver_result::*;
 pub use router::*;
 pub use router_builder::*;

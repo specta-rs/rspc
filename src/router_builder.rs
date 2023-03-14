@@ -1,16 +1,15 @@
 use std::marker::PhantomData;
 
-use futures::Stream;
-use serde::{de::DeserializeOwned, Serialize};
-use specta::{Type, TypeDefs};
+use serde::de::DeserializeOwned;
+use specta::{DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
+        MiddlewareMerger, ProcedureDataType, ProcedureStore, ResolverLayer,
+        UnbuiltProcedureBuilder,
     },
-    Config, DoubleArgStreamMarker, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer,
-    Resolver, Router, StreamResolver,
+    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
 };
 
 pub struct RouterBuilder<
@@ -129,14 +128,15 @@ where
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
+                    resolver(
                         ctx,
                         serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
+                    .into_layer_result()
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            typedef::<TArg, TResult::Result>(&mut self.typ_store),
         );
         self
     }
@@ -158,48 +158,43 @@ where
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
+                    resolver(
                         ctx,
                         serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
+                    .into_layer_result()
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            typedef::<TArg, TResult::Result>(&mut self.typ_store),
         );
         self
     }
 
-    pub fn subscription<TResolver, TArg, TStream, TResult, TResultMarker>(
+    pub fn subscription<F, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
+        builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
     ) -> Self
     where
+        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type,
-        TStream: Stream<Item = TResult> + Send + 'static,
-        TResult: Serialize + Type,
-        TResolver: Fn(TLayerCtx, TArg) -> TStream
-            + StreamResolver<TLayerCtx, DoubleArgStreamMarker<TArg, TResultMarker, TStream>>
-            + Send
-            + Sync
-            + 'static,
+        TResult: StreamRequestLayer<TResultMarker>,
     {
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.subscriptions.append(
             key.into(),
             self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver.exec(
+                    resolver(
                         ctx,
                         serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
+                    .into_layer_result()
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            typedef::<TArg, TResult::Result>(&mut self.typ_store),
         );
         self
     }
@@ -365,5 +360,27 @@ where
         }
 
         router
+    }
+}
+
+#[allow(clippy::unwrap_used)] // TODO
+fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeDefs) -> ProcedureDataType {
+    ProcedureDataType {
+        arg_ty: <TArg as Type>::reference(
+            DefOpts {
+                parent_inline: false,
+                type_map: defs,
+            },
+            &[],
+        )
+        .unwrap(), // TODO: Error handling the `unwrap`'s in this file
+        result_ty: <TResult as Type>::reference(
+            DefOpts {
+                parent_inline: false,
+                type_map: defs,
+            },
+            &[],
+        )
+        .unwrap(),
     }
 }
