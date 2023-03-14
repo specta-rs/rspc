@@ -11,7 +11,7 @@ use std::{
 use futures::Stream;
 use serde_json::Value;
 use specta::{
-    ts::{self, datatype, export_datatype, ExportConfiguration},
+    ts::{self, datatype, ExportConfiguration, TsExportError},
     DataType, TypeDefs,
 };
 
@@ -157,13 +157,56 @@ export type Procedures = {{
 }};"#
         )?;
 
-        for export in self
+        // We sort by name to detect duplicate types BUT also to ensure the output is deterministic. The SID can change between builds so is not suitable for this.
+        let types = self
             .typ_store
-            .values()
-            .filter_map(|v| v.as_ref())
-            .map(|v| export_datatype(&config, v).unwrap())
-        {
-            writeln!(file, "\n{}", export)?;
+            .clone()
+            .into_iter()
+            .filter(|(_, v)| match v {
+                Some(_) => true,
+                None => {
+                    unreachable!(
+                        "Placeholder type should never be returned from the Specta functions!"
+                    )
+                }
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        // This is a clone of `detect_duplicate_type_names` but using a `BTreeMap` for deterministic ordering
+        let mut map = BTreeMap::new();
+        for (sid, dt) in &types {
+            match dt {
+                Some(dt) => {
+                    if let Some((existing_sid, existing_impl_location)) =
+                        map.insert(dt.name, (sid, dt.impl_location))
+                    {
+                        if existing_sid != sid {
+                            return Err(ExportError::TsExportErr(
+                                TsExportError::DuplicateTypeName(
+                                    dt.name,
+                                    dt.impl_location,
+                                    existing_impl_location,
+                                ),
+                            ));
+                        }
+                    }
+                }
+                None => unreachable!(),
+            }
+        }
+
+        for (_, typ) in types {
+            writeln!(
+                file,
+                "\n{}",
+                ts::export_datatype(
+                    &config,
+                    &match typ {
+                        Some(v) => v,
+                        None => unreachable!(),
+                    },
+                )?
+            )?;
         }
 
         Ok(())

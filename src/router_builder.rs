@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, panic::Location, process};
 
 use serde::de::DeserializeOwned;
 use specta::{DefOpts, Type, TypeDefs};
@@ -13,7 +13,7 @@ use crate::{
 };
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
-pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
+pub(crate) fn is_invalid_procedure_name(s: &str) -> bool {
     // TODO: Prevent Typescript reserved keywords
     s.is_empty()
         || s == "ws"
@@ -21,11 +21,11 @@ pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
         || s.starts_with("rspc")
         || !s
             .chars()
-            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '_')
+            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '_' || c == '-')
 }
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
-pub(crate) fn is_valid_router_prefix(s: &str) -> (String, bool) {
+pub(crate) fn is_invalid_router_prefix(s: &str) -> (String, bool) {
     // TODO: Prevent Typescript reserved keywords
 
     let s = if s.ends_with('.') {
@@ -148,6 +148,7 @@ where
         }
     }
 
+    #[track_caller]
     pub fn query<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
@@ -161,11 +162,13 @@ where
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
         #[allow(clippy::panic)]
-        if !is_valid_procedure_name(key) {
-            panic!(
-                "rspc error: attempted to attach a query with the key '{}', however this name is not allowed.",
+        if is_invalid_procedure_name(key) {
+            eprintln!(
+                "{}: rspc error: attempted to attach a query with the key '{}', however this name is not allowed. ",
+                Location::caller(),
                 key
             );
+            process::exit(1);
         }
 
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
@@ -186,6 +189,7 @@ where
         self
     }
 
+    #[track_caller]
     pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
@@ -199,11 +203,13 @@ where
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
         #[allow(clippy::panic)]
-        if !is_valid_procedure_name(key) {
-            panic!(
-                "rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed.",
+        if is_invalid_procedure_name(key) {
+            eprintln!(
+                "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
+                Location::caller(),
                 key
             );
+            process::exit(1);
         }
 
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
@@ -224,6 +230,7 @@ where
         self
     }
 
+    #[track_caller]
     pub fn subscription<F, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
@@ -235,11 +242,13 @@ where
         TResult: StreamRequestLayer<TResultMarker>,
     {
         #[allow(clippy::panic)]
-        if !is_valid_procedure_name(key) {
-            panic!(
-                "rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed.",
+        if is_invalid_procedure_name(key) {
+            eprintln!(
+                "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
+                Location::caller(),
                 key
             );
+            process::exit(1);
         }
 
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
@@ -260,6 +269,7 @@ where
         self
     }
 
+    #[track_caller]
     pub fn merge<TNewLayerCtx, TIncomingMiddleware>(
         mut self,
         prefix: &'static str,
@@ -270,13 +280,15 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
-        let (prefix, prefix_valid) = is_valid_router_prefix(prefix);
+        let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
         #[allow(clippy::panic)]
-        if !prefix_valid {
-            panic!(
-                "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
+        if prefix_valid {
+            eprintln!(
+                "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
+                Location::caller(),
                 prefix
             );
+            process::exit(1);
         }
 
         // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
@@ -320,6 +332,7 @@ where
     /// This was a confusing behavior and is generally not useful so it has been deprecated.
     ///
     /// This function will be remove in a future release. If you are using it open a GitHub issue to discuss your use case and longer term solutions for it.
+    #[track_caller]
     pub fn legacy_merge<TNewLayerCtx, TIncomingMiddleware>(
         self,
         prefix: &'static str,
@@ -334,13 +347,15 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
-        let (prefix, prefix_valid) = is_valid_router_prefix(prefix);
+        let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
         #[allow(clippy::panic)]
-        if !prefix_valid {
-            panic!(
-                "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
+        if prefix_valid {
+            eprintln!(
+                "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
+                Location::caller(),
                 prefix
             );
+            process::exit(1);
         }
 
         let Self {
