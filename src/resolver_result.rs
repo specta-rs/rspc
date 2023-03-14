@@ -1,4 +1,4 @@
-use std::{future::Future, marker::PhantomData};
+use std::future::Future;
 
 use serde::Serialize;
 use specta::Type;
@@ -14,7 +14,7 @@ pub trait RequestLayer<TMarker> {
     fn into_layer_result(self) -> Result<LayerResult, ExecError>;
 }
 
-pub struct SerializeMarker(PhantomData<()>);
+pub enum SerializeMarker {}
 impl<T> RequestLayer<SerializeMarker> for T
 where
     T: Serialize + Type,
@@ -28,7 +28,7 @@ where
     }
 }
 
-pub struct ResultMarker(PhantomData<()>);
+pub enum ResultMarker {}
 impl<T> RequestLayer<ResultMarker> for Result<T, Error>
 where
     T: Serialize + Type,
@@ -43,13 +43,36 @@ where
     }
 }
 
-pub struct FutureMarker<TMarker>(PhantomData<TMarker>);
-impl<TFut, T, TMarker> RequestLayer<FutureMarker<TMarker>> for TFut
+pub enum FutureSerializeMarker {}
+impl<TFut, T> RequestLayer<FutureSerializeMarker> for TFut
 where
     TFut: Future<Output = T> + Send + 'static,
-    T: RequestLayer<TMarker> + Send,
+    T: Serialize + Type + Send + 'static,
 {
-    type Result = T::Result;
+    type Result = T;
+
+    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
+        Ok(LayerResult::Future(Box::pin(async move {
+            match self
+                .await
+                .into_layer_result()?
+                .into_value_or_stream()
+                .await?
+            {
+                ValueOrStream::Stream(_) => unreachable!(),
+                ValueOrStream::Value(v) => Ok(v),
+            }
+        })))
+    }
+}
+
+pub enum FutureResultMarker {}
+impl<TFut, T> RequestLayer<FutureResultMarker> for TFut
+where
+    TFut: Future<Output = Result<T, Error>> + Send + 'static,
+    T: Serialize + Type + Send + 'static,
+{
+    type Result = T;
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
         Ok(LayerResult::Future(Box::pin(async move {
