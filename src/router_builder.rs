@@ -12,6 +12,43 @@ use crate::{
     Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
 };
 
+// TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
+pub(crate) fn is_valid_procedure_name(s: &str) -> bool {
+    // TODO: Prevent Typescript reserved keywords
+    s.is_empty()
+        || s == "ws"
+        || s.starts_with("rpc")
+        || s.starts_with("rspc")
+        || !s
+            .chars()
+            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '_')
+}
+
+// TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
+pub(crate) fn is_valid_router_prefix(s: &str) -> (String, bool) {
+    // TODO: Prevent Typescript reserved keywords
+
+    let s = if s.ends_with('.') {
+        // TODO: Replace this with a hard error in a future release.
+        println!(
+            "rspc warning: attempted to merge a router using prefix '{s}' which is going to be unsupported in a future release. Please remove the trailing '.' to avoid a hard error in the future."
+        );
+        s.to_owned()
+    } else {
+        format!("{}.", s)
+    };
+
+    let is_valid = s.is_empty()
+        || s == "ws."
+        || s.starts_with("rpc.")
+        || s.starts_with("rspc.")
+        || !s
+            .chars()
+            .all(|c| c.is_alphabetic() || c.is_numeric() || c == '_');
+
+    (s, is_valid)
+}
+
 pub struct RouterBuilder<
     TCtx = (), // The is the context the current router was initialised with
     TMeta = (),
@@ -123,6 +160,14 @@ where
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
+        #[allow(clippy::panic)]
+        if !is_valid_procedure_name(key) {
+            panic!(
+                "rspc error: attempted to attach a query with the key '{}', however this name is not allowed.",
+                key
+            );
+        }
+
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.queries.append(
             key.into(),
@@ -153,6 +198,14 @@ where
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
+        #[allow(clippy::panic)]
+        if !is_valid_procedure_name(key) {
+            panic!(
+                "rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed.",
+                key
+            );
+        }
+
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.mutations.append(
             key.into(),
@@ -181,6 +234,14 @@ where
         TArg: DeserializeOwned + Type,
         TResult: StreamRequestLayer<TResultMarker>,
     {
+        #[allow(clippy::panic)]
+        if !is_valid_procedure_name(key) {
+            panic!(
+                "rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed.",
+                key
+            );
+        }
+
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.subscriptions.append(
             key.into(),
@@ -209,8 +270,9 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
+        let (prefix, prefix_valid) = is_valid_router_prefix(prefix);
         #[allow(clippy::panic)]
-        if prefix.is_empty() || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
+        if !prefix_valid {
             panic!(
                 "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
                 prefix
@@ -272,8 +334,9 @@ where
         TIncomingMiddleware:
             MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx> + Send + 'static,
     {
+        let (prefix, prefix_valid) = is_valid_router_prefix(prefix);
         #[allow(clippy::panic)]
-        if prefix.is_empty() || prefix.starts_with("rpc.") || prefix.starts_with("rspc.") {
+        if !prefix_valid {
             panic!(
                 "rspc error: attempted to merge a router with the prefix '{}', however this name is not allowed.",
                 prefix
