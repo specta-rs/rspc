@@ -196,3 +196,14 @@ impl ErrorCode {
         }
     }
 }
+
+#[cfg(feature = "anyhow")]
+impl Into<Error> for anyhow::Error {
+    fn into(self) -> Error {
+        Error {
+            code: ErrorCode::InternalServerError,
+            message: "internal server error".to_string(),
+            cause: None, // TODO: Make this work
+        }
+    }
+}
