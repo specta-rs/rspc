@@ -6,13 +6,6 @@ import styles from "../styles/Home.module.css";
 const UsingUseMutation: NextPage = () => {
   const { mutate, data, isLoading, error } = useMutation("sendMsg");
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ): Promise<void> => {
-    event.preventDefault();
-    mutate(event.currentTarget.message.value);
-  };
-
   return (
     <div className={styles.container}>
       <Head>
@@ -24,7 +17,12 @@ const UsingUseMutation: NextPage = () => {
           <code>useMutation</code>
         </h1>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            mutate(event.currentTarget.message.value);
+          }}
+        >
           <input
             type="text"
             name="message"

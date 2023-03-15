@@ -30,10 +30,6 @@ const Home: NextPage = () => (
           <h2>Using useMutation &rarr;</h2>
         </Link>
 
-        <Link href="/using-use-subscription" className={styles.card}>
-          <h2>Using useSubscription &rarr;</h2>
-        </Link>
-
         <Link href="/using-ssp" className={styles.card}>
           <h2>Using ServerSideProps &rarr;</h2>
         </Link>

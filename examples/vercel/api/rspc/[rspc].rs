@@ -12,7 +12,7 @@ async fn main() {
     let router =
         rspc::Router::<Ctx>::new()
             .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/bindings.ts"),
             ))
             .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
             .query("X-Demo-Header", |t| {

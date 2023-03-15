@@ -1,11 +1,10 @@
 {
-  "name": "@rspc/examples-nextjs",
+  "name": "@rspc/examples-vercel",
   "version": "0.0.0",
   "private": true,
   "scripts": {
     "vercel-build": "next build",
-    "dev": "next dev -p 3001",
-    "run": "concurrently -k -p \"[{name}]\" -n \"Next.js,Vercel CLI\" -c \"white.bold,cyan.bold\" \"next dev\" \"vercel dev\""
+    "start": "VERCEL_BUILDER_DEBUG=true vercel dev"
   },
   "dependencies": {
     "@rspc/client": "workspace:*",
