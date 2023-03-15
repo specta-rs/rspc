@@ -15,7 +15,7 @@ use std::{
 
 use crate::{
     internal::{
-        jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
+        jsonrpc::{self, handle_json_rpc, RequestId},
         ProcedureKind,
     },
     Router,
@@ -387,7 +387,7 @@ where
             },
         },
         router,
-        jsonrpc::fuck_you(&mut response),
+        &mut response,
     )
     .await;
 
@@ -457,8 +457,7 @@ where
     let cookies = req.cookies();
     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
         let mut subscriptions = HashMap::new();
-        let (tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
-        let mut sender = &mut SubscriptionSender { subscriptions: &mut subscriptions, tx };
+        let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
 
         loop {
             tokio::select! {
@@ -509,9 +508,8 @@ where
 
                                                 continue;
                                             }
-                                        }, request, &router, jsonrpc::fuck_you2(sender),
+                                        }, request, &router, (&mut tx, &mut subscriptions)
                                         ).await;
-                                        todo!();
                                     }
                                 },
                                 Err(_err) => {
