@@ -1,4 +1,5 @@
 use futures::{SinkExt, StreamExt};
+use futures_channel::mpsc;
 use httpz::{
     axum::axum::extract::FromRequestParts,
     http::{self, Method, Response, StatusCode},
@@ -11,11 +12,10 @@ use std::{
     mem,
     sync::{Arc, Mutex},
 };
-use tokio::sync::mpsc;
 
 use crate::{
     internal::{
-        jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
+        jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
         ProcedureKind,
     },
     Router,
@@ -335,8 +335,6 @@ where
         input
     );
 
-    let mut resp = Sender::Response(None);
-
     let cookie_jar = Arc::new(Mutex::new(cookies));
     let old_cookies = req.cookies().clone();
     let ctx = ctx_fn.exec(req, Some(CookieJar::new(cookie_jar.clone())));
@@ -358,6 +356,7 @@ where
         }
     };
 
+    let mut response = None as Option<jsonrpc::Response>;
     handle_json_rpc(
         ctx,
         jsonrpc::Request {
@@ -388,14 +387,12 @@ where
             },
         },
         router,
-        &mut resp,
-        &mut SubscriptionMap::None,
+        jsonrpc::fuck_you(&mut response),
     )
     .await;
 
     let cookies = {
         match Arc::try_unwrap(cookie_jar) {
-            #[allow(clippy::unwrap_used)] // TODO
             Ok(cookies) => cookies.into_inner().unwrap(),
             Err(cookie_jar) => {
                 #[cfg(all(feature = "tracing", feature = "warning", debug_assertions))]
@@ -403,33 +400,36 @@ where
                 #[cfg(all(not(feature = "tracing"), feature = "warning", debug_assertions))]
                 println("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
 
-                #[allow(clippy::unwrap_used)] // TODO
                 cookie_jar.lock().unwrap().clone()
             }
         }
     };
 
-    match resp {
-        Sender::Response(Some(resp)) => Ok((
-            match serde_json::to_vec(&resp) {
-                Ok(v) => Response::builder()
-                    .status(StatusCode::OK)
-                    .header("Content-Type", "application/json")
-                    .body(v)?,
-                Err(_err) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Error serializing response: {}", _err);
+    debug_assert!(response.is_some()); // This would indicate a bug in rspc's jsonrpc_exec code
+    let resp = match response {
+        Some(resp) => match serde_json::to_vec(&resp) {
+            Ok(v) => Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .body(v)?,
+            Err(_err) => {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Error serializing response: {}", _err);
 
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .header("Content-Type", "application/json")
-                        .body(b"[]".to_vec())?
-                }
-            },
-            cookies,
-        )),
-        _ => unreachable!(),
-    }
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "application/json")
+                    .body(b"[]".to_vec())?
+            }
+        },
+        // This case is unreachable but an error is here just incase.
+        None => Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .header("Content-Type", "application/json")
+            .body(b"[]".to_vec())?,
+    };
+
+    Ok((resp, cookies))
 }
 
 pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
@@ -457,12 +457,13 @@ where
     let cookies = req.cookies();
     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
         let mut subscriptions = HashMap::new();
-        let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
+        let (tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
+        let mut sender = &mut SubscriptionSender { subscriptions: &mut subscriptions, tx };
 
         loop {
             tokio::select! {
                 biased; // Note: Order is important here
-                msg = rx.recv() => {
+                msg = rx.next() => {
                     match socket.send(Message::Text(match serde_json::to_string(&msg) {
                         Ok(v) => v,
                         Err(_err) => {
@@ -500,17 +501,17 @@ where
                                 Ok(reqs) => {
                                     for request in reqs {
                                         let ctx = ctx_fn.exec(req._internal_dangerously_clone(), None);
+                                        handle_json_rpc(match ctx {
+                                            Ok(v) => v,
+                                            Err(_err) => {
+                                                #[cfg(feature = "tracing")]
+                                                tracing::error!("Error executing context function: {}", _err);
 
-                                            handle_json_rpc(match ctx {
-                                                Ok(v) => v,
-                                                Err(_err) => {
-                                                    #[cfg(feature = "tracing")]
-                                                    tracing::error!("Error executing context function: {}", _err);
-
-                                                    continue;
-                                                }
-                                            }, request, &router, &mut Sender::Channel(&mut tx),
-                                            &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                                continue;
+                                            }
+                                        }, request, &router, jsonrpc::fuck_you2(sender),
+                                        ).await;
+                                        todo!();
                                     }
                                 },
                                 Err(_err) => {
@@ -541,7 +542,8 @@ where
                         },
                     }
                 }
-            }
         }
-    }).into_response()
+        }
+    })
+    .into_response()
 }

@@ -23,7 +23,7 @@ where
         .setup(|app_handle| {
             let (tx, mut rx) = mpsc::unbounded_channel::<jsonrpc::Request>();
             let (mut resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
-            let mut subscriptions = HashMap::new();
+            let mut subscriptions = HashMap::new(); // TODO: Namespace by window_id & cleanup on window close
 
             tokio::spawn(async move {
                 while let Some(req) = rx.recv().await {
