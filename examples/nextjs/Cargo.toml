@@ -1,0 +1,15 @@
+[package]
+name = "rspc-vercel-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "time"] }
+serde_json = { version = "1.0.86", features = ["raw_value"] }
+rspc = { path = "../..", features = ["vercel"] }
+vercel_runtime = { version = "0.2.1" }
+async-stream = "0.3.4"
+
+[[bin]]
+name = "rspc"
+path = "api/rspc/[rspc].rs"

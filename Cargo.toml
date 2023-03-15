@@ -12,7 +12,7 @@ keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
 [features]
-default = []
+default = ["vercel"]
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies"]
@@ -28,6 +28,7 @@ axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
 # TODO: Following ones are exposed but not officially supported
 lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
 workers = ["httpz", "httpz/workers", "httpz/ws"]
+vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
 # Specta
 uuid = ["specta/uuid"]
@@ -68,4 +69,8 @@ members = [
     "./create-rspc-app",
     "./examples",
     "./examples/axum",
+    "./examples/nextjs",
 ]
+
+[patch.crates-io]
+httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "be67ead9320095bdecf90cae75fded2411509b0f" } # TODO: Move back to crates.io release

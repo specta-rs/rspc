@@ -12,7 +12,7 @@ export const getServerSideProps: GetServerSideProps<
   UsingServerSideProps
 > = async () => {
   try {
-    return { props: { data: await client.query(["version"]) } };
+    return { props: { data: await client.query(["version", null]) } };
   } catch (error) {
     return { props: { error: (error as Error)?.message } };
   }

@@ -4,7 +4,7 @@ import { client, queryClient, RSPCProvider } from "../src/rspc";
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <RSPCProvider client={client} queryClient={queryClient}>
+    <RSPCProvider client={client as any} queryClient={queryClient}>
       <Component {...pageProps} />
     </RSPCProvider>
   );
