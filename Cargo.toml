@@ -12,7 +12,7 @@ keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
 [features]
-default = ["vercel"]
+default = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies"]
