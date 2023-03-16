@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     future::{ready, Future, Ready},
     pin::Pin,
@@ -28,7 +29,7 @@ impl OwnedSender for UnreachableSender {
 }
 
 pub enum SubscriptionUpgrade<'a, S: Sender<'a>> {
-    Supported(S::OwnedSender, &'a mut S::SubscriptionMap),
+    Supported(S::OwnedSender, S::SubscriptionMap),
     Unsupported(S),
 }
 
@@ -58,14 +59,19 @@ impl<'a> Sender<'a> for &'a mut Option<jsonrpc::Response> {
     }
 }
 
-pub struct Demo<'a>(
+pub struct SubscriptionSender<'a, S>(
     pub &'a mut futures_channel::mpsc::Sender<jsonrpc::Response>,
-    pub &'a mut HashMap<RequestId, oneshot::Sender<()>>,
-);
+    pub S,
+)
+where
+    S: AsyncMap<RequestId, oneshot::Sender<()>> + Sync;
 
-impl<'a> Sender<'a> for Demo<'a> {
+impl<'a, S> Sender<'a> for SubscriptionSender<'a, S>
+where
+    S: AsyncMap<RequestId, oneshot::Sender<()>> + Sync + 'a,
+{
     type SendFut = OwnedMpscSenderSendFut<'a>;
-    type SubscriptionMap = HashMap<RequestId, oneshot::Sender<()>>;
+    type SubscriptionMap = S;
     type OwnedSender = OwnedMpscSender;
 
     fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
@@ -128,7 +134,7 @@ impl<'a> Future for OwnedMpscSenderSendFut<'a> {
 pub fn handle_json_rpc<'a, TCtx, TMeta>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    router: &'a Arc<Router<TCtx, TMeta>>,
+    router: Cow<'a, Arc<Router<TCtx, TMeta>>>,
     sender: impl Sender<'a> + 'a,
 ) -> impl Future<Output = ()> + Send + 'a
 where
@@ -259,7 +265,7 @@ where
                 }
             }
             RequestInner::Subscription { path, input } => match sender.subscription() {
-                SubscriptionUpgrade::Supported(mut sender, subscriptions) => {
+                SubscriptionUpgrade::Supported(mut sender, mut subscriptions) => {
                     match router
                         .subscriptions()
                         .get(&path)
@@ -376,7 +382,7 @@ where
             },
             RequestInner::SubscriptionStop { input } => {
                 match sender.subscription() {
-                    SubscriptionUpgrade::Supported(_sender, subscriptions) => {
+                    SubscriptionUpgrade::Supported(_sender, mut subscriptions) => {
                         subscriptions.remove(&input).await;
                     }
                     SubscriptionUpgrade::Unsupported(sender) => {

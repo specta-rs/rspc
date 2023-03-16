@@ -8,6 +8,7 @@ use httpz::{
 };
 use serde_json::Value;
 use std::{
+    borrow::Cow,
     collections::HashMap,
     mem,
     sync::{Arc, Mutex},
@@ -15,7 +16,7 @@ use std::{
 
 use crate::{
     internal::{
-        jsonrpc::{self, handle_json_rpc, Demo, RequestId},
+        jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
         ProcedureKind,
     },
     Router,
@@ -386,7 +387,7 @@ where
                 }
             },
         },
-        router,
+        Cow::Borrowed(router),
         &mut response,
     )
     .await;
@@ -508,7 +509,7 @@ where
 
                                                 continue;
                                             }
-                                        }, request, &router, Demo(&mut tx, &mut subscriptions)
+                                        }, request, Cow::Borrowed(&router), SubscriptionSender(&mut tx, &mut subscriptions)
                                         ).await;
                                     }
                                 },

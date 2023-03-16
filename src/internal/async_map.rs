@@ -54,6 +54,30 @@ where
     }
 }
 
+// If the lifetimes all explode this is without a doubt involved. It kinda has to exist for the Tauri plugin to work without a bit of duplicate code within the core.
+#[gat]
+impl<'this, K, V> AsyncMap<K, V> for &'this mut HashMap<K, V>
+where
+    K: Eq + Hash + Send,
+    V: Send,
+{
+    type ContainsKeyFut<'a> = Ready<bool> where K: 'a, V: 'a;
+    type InsertFut<'a> = Ready<Option<V>> where K: 'a, V: 'a;
+    type RemoveFut<'a> = Ready<Option<V>> where K: 'a, V: 'a;
+
+    fn contains_key<'a>(&'a self, k: &'a K) -> Self::ContainsKeyFut<'a> {
+        ready(HashMap::contains_key(self, k))
+    }
+
+    fn insert<'a>(&'a mut self, k: K, v: V) -> Self::InsertFut<'a> {
+        ready(HashMap::insert(self, k, v))
+    }
+
+    fn remove<'a>(&'a mut self, k: &'a K) -> Self::RemoveFut<'a> {
+        ready(HashMap::remove(self, k))
+    }
+}
+
 // TODO: Behind feature flag
 mod futures_locks_impl {
     use std::{
@@ -61,6 +85,7 @@ mod futures_locks_impl {
         future::Future,
         hash::Hash,
         pin::Pin,
+        sync::Arc,
         task::{Context, Poll},
     };
 
@@ -135,6 +160,32 @@ mod futures_locks_impl {
 
     #[gat]
     impl<K, V> AsyncMap<K, V> for futures_locks::Mutex<HashMap<K, V>>
+    where
+        K: Eq + Hash + Send + Sync + Unpin,
+        V: Send + Unpin,
+    {
+        type ContainsKeyFut<'a> = FuturesLocksContainsKeyFut<'a, K, V> where K: 'a, V: 'a;
+        type InsertFut<'a> = FuturesLocksInsertFut<K, V> where K: 'a, V: 'a;
+        type RemoveFut<'a> = FuturesLocksRemoveFut<'a, K, V> where K: 'a, V: 'a;
+
+        fn contains_key<'a>(&'a self, k: &'a K) -> Self::ContainsKeyFut<'a> {
+            FuturesLocksContainsKeyFut { k, f: self.lock() }
+        }
+
+        fn insert<'a>(&'a mut self, k: K, v: V) -> Self::InsertFut<'a> {
+            FuturesLocksInsertFut {
+                kv: Some((k, v)),
+                f: self.lock(),
+            }
+        }
+
+        fn remove<'a>(&'a mut self, k: &'a K) -> Self::RemoveFut<'a> {
+            FuturesLocksRemoveFut { k, f: self.lock() }
+        }
+    }
+
+    #[gat]
+    impl<K, V> AsyncMap<K, V> for Arc<futures_locks::Mutex<HashMap<K, V>>>
     where
         K: Eq + Hash + Send + Sync + Unpin,
         V: Send + Unpin,
