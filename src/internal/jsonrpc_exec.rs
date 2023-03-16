@@ -1,182 +1,375 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    future::{ready, Future, Ready},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use futures::StreamExt;
 use serde_json::Value;
-use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
+use tokio::sync::oneshot;
 
 use crate::{internal::jsonrpc, ExecError, Router};
 
 use super::{
     jsonrpc::{RequestId, RequestInner, ResponseInner},
-    ProcedureKind, RequestContext, ValueOrStream,
+    AsyncMap, ProcedureKind, RequestContext, ValueOrStream,
 };
 
-// TODO: Deduplicate this function with the httpz integration
+pub enum UnreachableSender {}
+impl OwnedSender for UnreachableSender {
+    type SendFut<'a> = Ready<()>;
 
-pub enum SubscriptionMap<'a> {
-    Ref(&'a mut HashMap<RequestId, oneshot::Sender<()>>),
-    Mutex(&'a Mutex<HashMap<RequestId, oneshot::Sender<()>>>),
-    None,
-}
-
-impl<'a> SubscriptionMap<'a> {
-    pub async fn has_subscription(&self, id: &RequestId) -> bool {
-        match self {
-            SubscriptionMap::Ref(map) => map.contains_key(id),
-            SubscriptionMap::Mutex(map) => {
-                let map = map.lock().await;
-                map.contains_key(id)
-            }
-            SubscriptionMap::None => unreachable!(),
-        }
-    }
-
-    pub async fn insert(&mut self, id: RequestId, tx: oneshot::Sender<()>) {
-        match self {
-            SubscriptionMap::Ref(map) => {
-                map.insert(id, tx);
-            }
-            SubscriptionMap::Mutex(map) => {
-                let mut map = map.lock().await;
-                map.insert(id, tx);
-            }
-            SubscriptionMap::None => unreachable!(),
-        }
-    }
-
-    pub async fn remove(&mut self, id: &RequestId) {
-        match self {
-            SubscriptionMap::Ref(map) => {
-                map.remove(id);
-            }
-            SubscriptionMap::Mutex(map) => {
-                let mut map = map.lock().await;
-                map.remove(id);
-            }
-            SubscriptionMap::None => unreachable!(),
-        }
-    }
-}
-pub enum Sender<'a> {
-    Channel(&'a mut mpsc::Sender<jsonrpc::Response>),
-    ResponseChannel(&'a mut mpsc::UnboundedSender<jsonrpc::Response>),
-    Broadcast(&'a broadcast::Sender<jsonrpc::Response>),
-    Response(Option<jsonrpc::Response>),
-}
-
-pub enum Sender2 {
-    Channel(mpsc::Sender<jsonrpc::Response>),
-    ResponseChannel(mpsc::UnboundedSender<jsonrpc::Response>),
-    Broadcast(broadcast::Sender<jsonrpc::Response>),
-}
-
-impl Sender2 {
-    pub async fn send(
-        &mut self,
-        resp: jsonrpc::Response,
-    ) -> Result<(), mpsc::error::SendError<jsonrpc::Response>> {
-        match self {
-            Self::Channel(tx) => tx.send(resp).await?,
-            Self::ResponseChannel(tx) => tx.send(resp)?,
-            Self::Broadcast(tx) => {
-                let _ = tx.send(resp).map_err(|_err| {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Failed to send response: {}", _err);
-                });
-            }
-        }
-
-        Ok(())
+    fn send<'a>(&'a mut self, _: jsonrpc::Response) -> Self::SendFut<'a> {
+        // Fun fact: Cause this method takes `self` and `enum {}` can never be constructed, this function is impossible to run.
+        unreachable!()
     }
 }
 
-impl<'a> Sender<'a> {
-    pub async fn send(
-        &mut self,
-        resp: jsonrpc::Response,
-    ) -> Result<(), mpsc::error::SendError<jsonrpc::Response>> {
-        match self {
-            Self::Channel(tx) => tx.send(resp).await?,
-            Self::ResponseChannel(tx) => tx.send(resp)?,
-            Self::Broadcast(tx) => {
-                let _ = tx.send(resp).map_err(|_err| {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Failed to send response: {}", _err);
-                });
-            }
-            Self::Response(r) => {
-                *r = Some(resp);
-            }
-        }
+pub enum SubscriptionUpgrade<'a, S: Sender<'a>> {
+    Supported(S::OwnedSender, S::SubscriptionMap),
+    Unsupported(S),
+}
 
-        Ok(())
+// TODO: Removing `Sync`?
+pub trait Sender<'a>: Sized + Send + Sync {
+    type SendFut: Future<Output = ()> + Send + Sync;
+    type SubscriptionMap: AsyncMap<RequestId, oneshot::Sender<()>> + Sync + 'a;
+    type OwnedSender: OwnedSender;
+
+    fn subscription(self) -> SubscriptionUpgrade<'a, Self>;
+
+    fn send(self, resp: jsonrpc::Response) -> Self::SendFut;
+}
+
+impl<'a> Sender<'a> for &'a mut Option<jsonrpc::Response> {
+    type SendFut = Ready<()>;
+    type SubscriptionMap = HashMap<RequestId, oneshot::Sender<()>>; // Unused
+    type OwnedSender = UnreachableSender; // Unused
+
+    fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
+        SubscriptionUpgrade::Unsupported(self)
     }
 
-    pub fn sender2(&mut self) -> Sender2 {
-        match self {
-            Self::Channel(tx) => Sender2::Channel(tx.clone()),
-            Self::ResponseChannel(tx) => Sender2::ResponseChannel(tx.clone()),
-            Self::Broadcast(tx) => Sender2::Broadcast(tx.clone()),
-            Self::Response(_) => unreachable!(),
+    fn send(self, resp: jsonrpc::Response) -> Self::SendFut {
+        *self = Some(resp);
+        ready(())
+    }
+}
+
+pub struct SubscriptionSender<'a, S>(
+    pub &'a mut futures_channel::mpsc::Sender<jsonrpc::Response>,
+    pub S,
+)
+where
+    S: AsyncMap<RequestId, oneshot::Sender<()>> + Sync;
+
+impl<'a, S> Sender<'a> for SubscriptionSender<'a, S>
+where
+    S: AsyncMap<RequestId, oneshot::Sender<()>> + Sync + 'a,
+{
+    type SendFut = OwnedMpscSenderSendFut<'a>;
+    type SubscriptionMap = S;
+    type OwnedSender = OwnedMpscSender;
+
+    fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
+        SubscriptionUpgrade::Supported(OwnedMpscSender(self.0.clone()), self.1)
+    }
+
+    fn send(self, resp: jsonrpc::Response) -> Self::SendFut {
+        OwnedMpscSenderSendFut(self.0, Some(resp))
+    }
+}
+
+pub trait OwnedSender: Send + Sync + 'static {
+    type SendFut<'a>: Future<Output = ()> + Send + 'a;
+
+    fn send<'a>(&'a mut self, resp: jsonrpc::Response) -> Self::SendFut<'a>;
+}
+
+pub struct OwnedMpscSender(futures_channel::mpsc::Sender<jsonrpc::Response>);
+
+impl OwnedSender for OwnedMpscSender {
+    type SendFut<'a> = OwnedMpscSenderSendFut<'a>;
+
+    fn send<'a>(&'a mut self, resp: jsonrpc::Response) -> Self::SendFut<'a> {
+        OwnedMpscSenderSendFut(&mut self.0, Some(resp))
+    }
+}
+
+pub struct OwnedMpscSenderSendFut<'a>(
+    &'a mut futures_channel::mpsc::Sender<jsonrpc::Response>,
+    Option<jsonrpc::Response>,
+);
+
+impl<'a> Future for OwnedMpscSenderSendFut<'a> {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        match this.0.poll_ready(cx) {
+            Poll::Ready(Ok(_)) => {
+                this.0
+                    .try_send(this.1.take().expect("Future polled after completion"))
+                    .map_err(|_err| {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Failed to send response: {}", _err);
+                    })
+                    .ok();
+                Poll::Ready(())
+            }
+            Poll::Ready(Err(_err)) => {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Failed to reserve capacity to send response: {}", _err);
+                Poll::Ready(())
+            }
+            Poll::Pending => Poll::Pending,
         }
     }
 }
 
-pub async fn handle_json_rpc<TCtx, TMeta>(
+// This is very intentionally not an `async fn`. It allows the `Send` bound to throw the error here instead of a cryptic `httpz` one.
+pub fn handle_json_rpc<'a, TCtx, TMeta>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    router: &Arc<Router<TCtx, TMeta>>,
-    sender: &mut Sender<'_>,
-    subscriptions: &mut SubscriptionMap<'_>,
-) where
-    TCtx: 'static,
+    router: Cow<'a, Arc<Router<TCtx, TMeta>>>,
+    sender: impl Sender<'a> + 'a,
+) -> impl Future<Output = ()> + Send + 'a
+where
+    TCtx: Send + 'static,
+    TMeta: Send + Sync + 'a,
 {
-    if req.jsonrpc.is_some() && req.jsonrpc.as_deref() != Some("2.0") {
-        let _ = sender
-            .send(jsonrpc::Response {
-                jsonrpc: "2.0",
-                id: req.id.clone(),
-                result: ResponseInner::Error(ExecError::InvalidJsonRpcVersion.into()),
-            })
-            .await
-            .map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Failed to send response: {}", _err);
-            });
-    }
-
-    let (path, input, procedures, sub_id) = match req.inner {
-        RequestInner::Query { path, input } => (path, input, router.queries(), None),
-        RequestInner::Mutation { path, input } => (path, input, router.mutations(), None),
-        RequestInner::Subscription { path, input } => {
-            (path, input.1, router.subscriptions(), Some(input.0))
-        }
-        RequestInner::SubscriptionStop { input } => {
-            subscriptions.remove(&input).await;
+    async move {
+        if req.jsonrpc.is_some() && req.jsonrpc.as_deref() != Some("2.0") {
+            sender
+                .send(jsonrpc::Response {
+                    jsonrpc: "2.0",
+                    id: req.id.clone(),
+                    result: ResponseInner::Error(ExecError::InvalidJsonRpcVersion.into()),
+                })
+                .await;
             return;
         }
-    };
 
-    let result = match procedures
-        .get(&path)
-        .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
-        .and_then(|v| {
-            v.exec.call(
-                ctx,
-                input.unwrap_or(Value::Null),
-                RequestContext {
-                    kind: ProcedureKind::Query,
-                    path,
-                },
-            )
-        }) {
-        Ok(op) => match op.into_value_or_stream().await {
-            Ok(ValueOrStream::Value(v)) => ResponseInner::Response(v),
-            Ok(ValueOrStream::Stream(mut stream)) => {
-                if matches!(sender, Sender::Response(_))
-                    || matches!(subscriptions, SubscriptionMap::None)
-                {
-                    let _ = sender
+        match req.inner {
+            RequestInner::Query { path, input } => {
+                match router
+                    .queries()
+                    .get(&path)
+                    .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
+                    .and_then(|v| {
+                        v.exec.call(
+                            ctx,
+                            input.unwrap_or(Value::Null),
+                            RequestContext {
+                                kind: ProcedureKind::Query,
+                                path,
+                            },
+                        )
+                    }) {
+                    Ok(op) => match op.into_value_or_stream().await {
+                        Ok(ValueOrStream::Value(v)) => {
+                            sender
+                                .send(jsonrpc::Response {
+                                    jsonrpc: "2.0",
+                                    id: req.id,
+                                    result: ResponseInner::Response(v),
+                                })
+                                .await
+                        }
+                        Ok(ValueOrStream::Stream(_)) => {
+                            unreachable!();
+                        }
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error executing operation: {:?}", err);
+
+                            sender
+                                .send(jsonrpc::Response {
+                                    jsonrpc: "2.0",
+                                    id: req.id,
+                                    result: ResponseInner::Error(err.into()),
+                                })
+                                .await;
+                        }
+                    },
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error executing operation: {:?}", err);
+
+                        sender
+                            .send(jsonrpc::Response {
+                                jsonrpc: "2.0",
+                                id: req.id,
+                                result: ResponseInner::Error(err.into()),
+                            })
+                            .await;
+                    }
+                }
+            }
+            RequestInner::Mutation { path, input } => {
+                match router
+                    .mutations()
+                    .get(&path)
+                    .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
+                    .and_then(|v| {
+                        v.exec.call(
+                            ctx,
+                            input.unwrap_or(Value::Null),
+                            RequestContext {
+                                kind: ProcedureKind::Query,
+                                path,
+                            },
+                        )
+                    }) {
+                    Ok(op) => match op.into_value_or_stream().await {
+                        Ok(ValueOrStream::Value(v)) => {
+                            sender
+                                .send(jsonrpc::Response {
+                                    jsonrpc: "2.0",
+                                    id: req.id,
+                                    result: ResponseInner::Response(v),
+                                })
+                                .await
+                        }
+                        Ok(ValueOrStream::Stream(_)) => {
+                            unreachable!();
+                        }
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error executing operation: {:?}", err);
+
+                            sender
+                                .send(jsonrpc::Response {
+                                    jsonrpc: "2.0",
+                                    id: req.id,
+                                    result: ResponseInner::Error(err.into()),
+                                })
+                                .await;
+                        }
+                    },
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error executing operation: {:?}", err);
+
+                        sender
+                            .send(jsonrpc::Response {
+                                jsonrpc: "2.0",
+                                id: req.id,
+                                result: ResponseInner::Error(err.into()),
+                            })
+                            .await;
+                    }
+                }
+            }
+            RequestInner::Subscription { path, input } => match sender.subscription() {
+                SubscriptionUpgrade::Supported(mut sender, mut subscriptions) => {
+                    match router
+                        .subscriptions()
+                        .get(&path)
+                        .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
+                        .and_then(|v| {
+                            v.exec.call(
+                                ctx,
+                                input.1.unwrap_or(Value::Null),
+                                RequestContext {
+                                    kind: ProcedureKind::Query,
+                                    path,
+                                },
+                            )
+                        }) {
+                        Ok(op) => match op.into_value_or_stream().await {
+                            Ok(ValueOrStream::Value(_v)) => {
+                                unreachable!();
+                            }
+                            Ok(ValueOrStream::Stream(mut stream)) => {
+                                if matches!(input.0, RequestId::Null) {
+                                    sender
+                                        .send(jsonrpc::Response {
+                                            jsonrpc: "2.0",
+                                            id: req.id.clone(),
+                                            result: ResponseInner::Error(
+                                                ExecError::ErrSubscriptionWithNullId.into(),
+                                            ),
+                                        })
+                                        .await;
+                                } else if subscriptions.contains_key(&input.0).await {
+                                    sender
+                                        .send(jsonrpc::Response {
+                                            jsonrpc: "2.0",
+                                            id: req.id.clone(),
+                                            result: ResponseInner::Error(
+                                                ExecError::ErrSubscriptionDuplicateId.into(),
+                                            ),
+                                        })
+                                        .await;
+                                }
+
+                                let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+                                subscriptions.insert(input.0.clone(), shutdown_tx).await;
+                                tokio::spawn(async move {
+                                    loop {
+                                        tokio::select! {
+                                            biased; // Note: Order matters
+                                            _ = &mut shutdown_rx => {
+                                                #[cfg(feature = "tracing")]
+                                                tracing::debug!("Removing subscription with id '{:?}'", input.0);
+                                                break;
+                                            }
+                                            v = stream.next() => {
+                                                match v {
+                                                    Some(Ok(v)) => {
+                                                    sender.send(jsonrpc::Response {
+                                                            jsonrpc: "2.0",
+                                                            id: input.0.clone(),
+                                                            result: ResponseInner::Event(v),
+                                                        })
+                                                        .await;
+                                                    }
+                                                    Some(Err(_err)) => {
+                                                    #[cfg(feature = "tracing")]
+                                                        tracing::error!("Subscription error: {:?}", _err);
+                                                    }
+                                                    None => {
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Error executing operation: {:?}", err);
+
+                                sender
+                                    .send(jsonrpc::Response {
+                                        jsonrpc: "2.0",
+                                        id: req.id,
+                                        result: ResponseInner::Error(err.into()),
+                                    })
+                                    .await;
+                            }
+                        },
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Error executing operation: {:?}", err);
+
+                            sender
+                                .send(jsonrpc::Response {
+                                    jsonrpc: "2.0",
+                                    id: req.id,
+                                    result: ResponseInner::Error(err.into()),
+                                })
+                                .await;
+                        }
+                    }
+                }
+                SubscriptionUpgrade::Unsupported(sender) => {
+                    sender
                         .send(jsonrpc::Response {
                             jsonrpc: "2.0",
                             id: req.id.clone(),
@@ -184,109 +377,28 @@ pub async fn handle_json_rpc<TCtx, TMeta>(
                                 ExecError::UnsupportedMethod("Subscription".to_string()).into(),
                             ),
                         })
-                        .await
-                        .map_err(|_err| {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Failed to send response: {}", _err);
-                        });
+                        .await;
                 }
-
-                if let Some(id) = sub_id {
-                    if matches!(id, RequestId::Null) {
-                        let _ = sender
-                            .send(jsonrpc::Response {
-                                jsonrpc: "2.0",
-                                id: req.id.clone(),
-                                result: ResponseInner::Error(
-                                    ExecError::ErrSubscriptionWithNullId.into(),
-                                ),
-                            })
-                            .await
-                            .map_err(|_err| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Failed to send response: {}", _err);
-                            });
-                    } else if subscriptions.has_subscription(&id).await {
-                        let _ = sender
-                            .send(jsonrpc::Response {
-                                jsonrpc: "2.0",
-                                id: req.id.clone(),
-                                result: ResponseInner::Error(
-                                    ExecError::ErrSubscriptionDuplicateId.into(),
-                                ),
-                            })
-                            .await
-                            .map_err(|_err| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Failed to send response: {}", _err);
-                            });
+            },
+            RequestInner::SubscriptionStop { input } => {
+                match sender.subscription() {
+                    SubscriptionUpgrade::Supported(_sender, mut subscriptions) => {
+                        subscriptions.remove(&input).await;
                     }
-
-                    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-                    subscriptions.insert(id.clone(), shutdown_tx).await;
-                    let mut sender2 = sender.sender2();
-                    tokio::spawn(async move {
-                        loop {
-                            tokio::select! {
-                                biased; // Note: Order matters
-                                _ = &mut shutdown_rx => {
-                                    #[cfg(feature = "tracing")]
-                                    tracing::debug!("Removing subscription with id '{:?}'", id);
-                                    break;
-                                }
-                                v = stream.next() => {
-                                    match v {
-                                        Some(Ok(v)) => {
-                                            let _ = sender2.send(jsonrpc::Response {
-                                                jsonrpc: "2.0",
-                                                id: id.clone(),
-                                                result: ResponseInner::Event(v),
-                                            })
-                                            .await
-                                            .map_err(|_err| {
-                                                #[cfg(feature = "tracing")]
-                                                tracing::error!("Failed to send response: {:?}", _err);
-                                            });
-                                        }
-                                        Some(Err(_err)) => {
-                                           #[cfg(feature = "tracing")]
-                                            tracing::error!("Subscription error: {:?}", _err);
-                                        }
-                                        None => {
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
+                    SubscriptionUpgrade::Unsupported(sender) => {
+                        sender
+                            .send(jsonrpc::Response {
+                                jsonrpc: "2.0",
+                                id: req.id.clone(),
+                                result: ResponseInner::Error(
+                                    ExecError::UnsupportedMethod("Subscription".to_string()).into(),
+                                ),
+                            })
+                            .await;
+                    }
                 }
-
                 return;
             }
-            Err(err) => {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Error executing operation: {:?}", err);
-
-                ResponseInner::Error(err.into())
-            }
-        },
-        Err(err) => {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error executing operation: {:?}", err);
-            ResponseInner::Error(err.into())
-        }
-    };
-
-    let _ = sender
-        .send(jsonrpc::Response {
-            jsonrpc: "2.0",
-            id: req.id,
-            result,
-        })
-        .await
-        .map_err(|_err| {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Failed to send response: {:?}", _err);
-        });
+        };
+    }
 }

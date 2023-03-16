@@ -45,7 +45,7 @@ bytesize = ["specta/bytesize"]
 glam = ["specta/glam"]
 
 [dependencies]
-specta = { version = "1.0.0", features = ["serde", "typescript"] }
+specta = { version = "1.0.0", features = ["serde", "typescript", "tokio"] }
 httpz = { version = "0.0.4", optional = true } # TODO: Move back to crates.io release
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.93"
@@ -56,6 +56,9 @@ tauri = { version = "1.2.4", optional = true }
 tracing = { version = "0.1.37", optional = true }
 worker = { version = "0.0.12", optional = true }
 anyhow = { version = "1", optional = true }
+futures-locks = { git = "https://github.com/oscartbeaumont/futures-locks", rev = "a2e880337e6bfb3140a261932667149607e3ada9", features = ["tokio"] }
+futures-channel = "0.3.27"
+nougat = "0.2.4"
 
 [dev-dependencies]
 async-stream = "0.3.4"
