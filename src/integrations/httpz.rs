@@ -15,7 +15,7 @@ use std::{
 
 use crate::{
     internal::{
-        jsonrpc::{self, handle_json_rpc, RequestId},
+        jsonrpc::{self, handle_json_rpc, Demo, RequestId},
         ProcedureKind,
     },
     Router,
@@ -508,7 +508,7 @@ where
 
                                                 continue;
                                             }
-                                        }, request, &router, (&mut tx, &mut subscriptions)
+                                        }, request, &router, Demo(&mut tx, &mut subscriptions)
                                         ).await;
                                     }
                                 },
