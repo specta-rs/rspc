@@ -35,7 +35,7 @@ pub enum SubscriptionUpgrade<'a, S: Sender<'a>> {
 // TODO: Removing `Sync`?
 pub trait Sender<'a>: Sized + Send + Sync {
     type SendFut: Future<Output = ()> + Send + Sync;
-    type SubscriptionMap: AsyncMap + Sync + 'a;
+    type SubscriptionMap: AsyncMap<RequestId, oneshot::Sender<()>> + Sync + 'a;
     type OwnedSender: OwnedSender;
 
     fn subscription(self) -> SubscriptionUpgrade<'a, Self>;

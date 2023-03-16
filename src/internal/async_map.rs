@@ -4,42 +4,52 @@
 use std::{
     collections::HashMap,
     future::{ready, Future, Ready},
+    hash::Hash,
 };
 
 use nougat::gat;
-use tokio::sync::oneshot;
-
-use super::jsonrpc::RequestId;
 
 pub use nougat::gat as _nougat_gat;
 
-// TODO: Generic on `K` and `V`
 #[gat]
-pub trait AsyncMap: Send {
-    type ContainsKeyFut<'a>: Future<Output = bool> + Send + 'a;
-    type InsertFut<'a>: Future<Output = Option<oneshot::Sender<()>>> + Send + 'a;
-    type RemoveFut<'a>: Future<Output = Option<oneshot::Sender<()>>> + Send + 'a;
+pub trait AsyncMap<K, V>: Send {
+    type ContainsKeyFut<'a>: Future<Output = bool> + Send + 'a
+    where
+        K: 'a,
+        V: 'a;
+    type InsertFut<'a>: Future<Output = Option<V>> + Send + 'a
+    where
+        K: 'a,
+        V: 'a;
+    type RemoveFut<'a>: Future<Output = Option<V>> + Send + 'a
+    where
+        K: 'a,
+        V: 'a;
 
-    fn contains_key<'a>(&'a self, k: &'a RequestId) -> Self::ContainsKeyFut<'a>;
-    fn insert<'a>(&'a mut self, k: RequestId, v: oneshot::Sender<()>) -> Self::InsertFut<'a>;
-    fn remove<'a>(&'a mut self, k: &'a RequestId) -> Self::RemoveFut<'a>;
+    fn contains_key<'a>(&'a self, k: &'a K) -> Self::ContainsKeyFut<'a>;
+    fn insert<'a>(&'a mut self, k: K, v: V) -> Self::InsertFut<'a>;
+    fn remove<'a>(&'a mut self, k: &'a K) -> Self::RemoveFut<'a>;
 }
 
 #[gat]
-impl AsyncMap for HashMap<RequestId, oneshot::Sender<()>> {
-    type ContainsKeyFut<'a> = Ready<bool>;
-    type InsertFut<'a> = Ready<Option<oneshot::Sender<()>>>;
-    type RemoveFut<'a> = Ready<Option<oneshot::Sender<()>>>;
+impl<K, V> AsyncMap<K, V> for HashMap<K, V>
+where
+    K: Eq + Hash + Send,
+    V: Send,
+{
+    type ContainsKeyFut<'a> = Ready<bool> where K: 'a, V: 'a;
+    type InsertFut<'a> = Ready<Option<V>> where K: 'a, V: 'a;
+    type RemoveFut<'a> = Ready<Option<V>> where K: 'a, V: 'a;
 
-    fn contains_key<'a>(&'a self, k: &'a RequestId) -> Self::ContainsKeyFut<'a> {
+    fn contains_key<'a>(&'a self, k: &'a K) -> Self::ContainsKeyFut<'a> {
         ready(HashMap::contains_key(self, k))
     }
 
-    fn insert<'a>(&'a mut self, k: RequestId, v: oneshot::Sender<()>) -> Self::InsertFut<'a> {
+    fn insert<'a>(&'a mut self, k: K, v: V) -> Self::InsertFut<'a> {
         ready(HashMap::insert(self, k, v))
     }
 
-    fn remove<'a>(&'a mut self, k: &'a RequestId) -> Self::RemoveFut<'a> {
+    fn remove<'a>(&'a mut self, k: &'a K) -> Self::RemoveFut<'a> {
         ready(HashMap::remove(self, k))
     }
 }
@@ -49,24 +59,25 @@ mod futures_locks_impl {
     use std::{
         collections::HashMap,
         future::Future,
+        hash::Hash,
         pin::Pin,
         task::{Context, Poll},
     };
 
     use futures_locks::MutexFut;
     use nougat::gat;
-    use tokio::sync::oneshot;
-
-    use crate::internal::jsonrpc::RequestId;
 
     use super::{AsyncMap, AsyncMapඞContainsKeyFut, AsyncMapඞInsertFut, AsyncMapඞRemoveFut};
 
-    pub struct FuturesLocksContainsKeyFut<'a> {
-        k: &'a RequestId,
-        f: MutexFut<HashMap<RequestId, oneshot::Sender<()>>>,
+    pub struct FuturesLocksContainsKeyFut<'a, K, V> {
+        k: &'a K,
+        f: MutexFut<HashMap<K, V>>,
     }
 
-    impl<'k> Future for FuturesLocksContainsKeyFut<'k> {
+    impl<'k, K, V> Future for FuturesLocksContainsKeyFut<'k, K, V>
+    where
+        K: Eq + Hash + Unpin,
+    {
         type Output = bool;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -78,13 +89,17 @@ mod futures_locks_impl {
         }
     }
 
-    pub struct FuturesLocksInsertFut {
-        kv: Option<(RequestId, oneshot::Sender<()>)>,
-        f: MutexFut<HashMap<RequestId, oneshot::Sender<()>>>,
+    pub struct FuturesLocksInsertFut<K, V> {
+        kv: Option<(K, V)>,
+        f: MutexFut<HashMap<K, V>>,
     }
 
-    impl Future for FuturesLocksInsertFut {
-        type Output = Option<oneshot::Sender<()>>;
+    impl<K, V> Future for FuturesLocksInsertFut<K, V>
+    where
+        K: Eq + Hash + Unpin,
+        V: Unpin,
+    {
+        type Output = Option<V>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let this = self.get_mut();
@@ -98,13 +113,16 @@ mod futures_locks_impl {
         }
     }
 
-    pub struct FuturesLocksRemoveFut<'a> {
-        k: &'a RequestId,
-        f: MutexFut<HashMap<RequestId, oneshot::Sender<()>>>,
+    pub struct FuturesLocksRemoveFut<'a, K, V> {
+        k: &'a K,
+        f: MutexFut<HashMap<K, V>>,
     }
 
-    impl<'a> Future for FuturesLocksRemoveFut<'a> {
-        type Output = Option<oneshot::Sender<()>>;
+    impl<'a, K, V> Future for FuturesLocksRemoveFut<'a, K, V>
+    where
+        K: Eq + Hash,
+    {
+        type Output = Option<V>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let this = self.get_mut();
@@ -116,23 +134,27 @@ mod futures_locks_impl {
     }
 
     #[gat]
-    impl AsyncMap for futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>> {
-        type ContainsKeyFut<'a> = FuturesLocksContainsKeyFut<'a>;
-        type InsertFut<'a> = FuturesLocksInsertFut;
-        type RemoveFut<'a> = FuturesLocksRemoveFut<'a>;
+    impl<K, V> AsyncMap<K, V> for futures_locks::Mutex<HashMap<K, V>>
+    where
+        K: Eq + Hash + Send + Sync + Unpin,
+        V: Send + Unpin,
+    {
+        type ContainsKeyFut<'a> = FuturesLocksContainsKeyFut<'a, K, V> where K: 'a, V: 'a;
+        type InsertFut<'a> = FuturesLocksInsertFut<K, V> where K: 'a, V: 'a;
+        type RemoveFut<'a> = FuturesLocksRemoveFut<'a, K, V> where K: 'a, V: 'a;
 
-        fn contains_key<'a>(&'a self, k: &'a RequestId) -> Self::ContainsKeyFut<'a> {
+        fn contains_key<'a>(&'a self, k: &'a K) -> Self::ContainsKeyFut<'a> {
             FuturesLocksContainsKeyFut { k, f: self.lock() }
         }
 
-        fn insert<'a>(&'a mut self, k: RequestId, v: oneshot::Sender<()>) -> Self::InsertFut<'a> {
+        fn insert<'a>(&'a mut self, k: K, v: V) -> Self::InsertFut<'a> {
             FuturesLocksInsertFut {
                 kv: Some((k, v)),
                 f: self.lock(),
             }
         }
 
-        fn remove<'a>(&'a mut self, k: &'a RequestId) -> Self::RemoveFut<'a> {
+        fn remove<'a>(&'a mut self, k: &'a K) -> Self::RemoveFut<'a> {
             FuturesLocksRemoveFut { k, f: self.lock() }
         }
     }
