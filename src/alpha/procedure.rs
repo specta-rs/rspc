@@ -16,7 +16,7 @@ use specta::Type;
 
 use crate::{
     internal::{BuiltProcedureBuilder, ResolverLayer, UnbuiltProcedureBuilder},
-    ExecError, RequestLayer, Resolver,
+    typedef, ExecError, RequestLayer,
 };
 
 use super::{IntoProcedure, IntoProcedureCtx};
@@ -98,14 +98,15 @@ where
             Box::new(ResolverLayer {
                 // TODO: Still gotta apply middleware here
                 func: move |ctx, input, _| {
-                    resolver.exec(
+                    resolver(
                         ctx,
                         serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
                     )
+                    .into_layer_result()
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(ctx.ty_store),
+            typedef::<TArg, TResult::Result>(ctx.ty_store),
         );
     }
 }

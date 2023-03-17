@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 /// TODO
 pub struct Config {
+    pub(crate) expose_errors: bool,
     pub(crate) export_bindings_on_build: Option<PathBuf>,
     pub(crate) bindings_header: Option<&'static str>,
 }
@@ -15,6 +16,7 @@ impl Default for Config {
 impl Config {
     pub const fn new() -> Self {
         Self {
+            expose_errors: false,
             export_bindings_on_build: None,
             bindings_header: None,
         }
@@ -34,6 +36,13 @@ impl Config {
     /// This is useful if you want to disable ESLint or Prettier.
     pub fn set_ts_bindings_header(mut self, custom: &'static str) -> Self {
         self.bindings_header = Some(custom);
+        self
+    }
+
+    /// expose the errors to the frontend (in the `error` field of the response).
+    /// This will also certainly likely leak information about your backend, so use with caution.
+    pub fn expose_errors(mut self) -> Self {
+        self.expose_errors = true;
         self
     }
 }

@@ -470,7 +470,7 @@ where
 }
 
 #[allow(clippy::unwrap_used)] // TODO
-fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeDefs) -> ProcedureDataType {
+pub(crate) fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeDefs) -> ProcedureDataType {
     ProcedureDataType {
         arg_ty: <TArg as Type>::reference(
             DefOpts {
