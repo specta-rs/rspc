@@ -27,21 +27,64 @@ mod tests {
             .router()
             .procedure(
                 "todo",
-                t.query(|tt| {
-                    tt(|ctx, _: ()| {
-                        println!("TODO: {:?}", ctx);
-                        Ok(())
+                t.with(|mw| {
+                    mw.middleware(|mw| async move {
+                        let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
+                        Ok(mw.with_state(state))
+                    })
+                    .resp(|state, result| async move {
+                        println!(
+                            "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+                            state.0, state.1, state.2, result
+                        );
+                        Ok(result)
                     })
                 })
-                .meta(()),
+                .query(|ctx, _: ()| {
+                    println!("TODO: {:?}", ctx);
+                    Ok(())
+                }),
+                // .meta(()),
             )
+            // .procedure(
+            //     "todo2",
+            //     t.with(|mw| {
+            //         mw.middleware(|mw| async move {
+            //             let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
+            //             Ok(mw.with_state(state))
+            //         })
+            //         .resp(|state, result| async move {
+            //             println!(
+            //                 "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+            //                 state.0, state.1, state.2, result
+            //             );
+            //             Ok(result)
+            //         })
+            //     })
+            //     .with(|mw| {
+            //         mw.middleware(|mw| async move {
+            //             let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
+            //             Ok(mw.with_state(state))
+            //         })
+            //         .resp(|state, result| async move {
+            //             println!(
+            //                 "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+            //                 state.0, state.1, state.2, result
+            //             );
+            //             Ok(result)
+            //         })
+            //     })
+            //     .query(|ctx, _: ()| {
+            //         println!("TODO: {:?}", ctx);
+            //         Ok(())
+            //     }),
+            //     // .meta(()),
+            // )
             .procedure(
-                "todo2",
-                t.query(|tt| {
-                    tt(|ctx, _: ()| {
-                        println!("TODO: {:?}", ctx);
-                        Ok(())
-                    })
+                "todo3",
+                t.query(|ctx, _: ()| {
+                    println!("TODO: {:?}", ctx);
+                    Ok(())
                 }),
             )
             .compat();

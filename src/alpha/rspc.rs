@@ -5,21 +5,19 @@ use specta::Type;
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
+        UnbuiltProcedureBuilder,
     },
-    RequestLayer,
+    MiddlewareBuilder, MiddlewareLike, RequestLayer, RouterBuilder,
 };
 
-use super::{AlphaProcedure, AlphaRouter};
+use super::{AlphaProcedure, AlphaRouter, MissingResolver, ResolverFunction};
 
 pub struct Rspc<
     TCtx = (), // The is the context the current router was initialised with
-    TMiddleware = BaseMiddleware<TCtx>,
 > where
     TCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
-    middleware: TMiddleware,
     builders: Vec<Box<dyn FnOnce()>>,
     phantom: PhantomData<TCtx>,
     // queries: ProcedureStore<TCtx>,
@@ -28,13 +26,12 @@ pub struct Rspc<
 }
 
 #[allow(clippy::new_without_default)]
-impl<TCtx> Rspc<TCtx, BaseMiddleware<TCtx>>
+impl<TCtx> Rspc<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
     pub const fn new() -> Self {
         Self {
-            middleware: BaseMiddleware::new(),
             builders: Vec::new(),
             phantom: PhantomData,
             // queries: ProcedureStore::new("query"),
@@ -44,30 +41,99 @@ where
     }
 }
 
-impl<TCtx, TLayerCtx, TMiddleware> Rspc<TCtx, TMiddleware>
+impl<TCtx> Rspc<TCtx>
 where
     TCtx: Send + Sync + 'static,
-    // TODO: Remove following generics from this
-    TLayerCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
-    pub fn router(&self) -> AlphaRouter<TLayerCtx> {
+    pub fn router(&self) -> AlphaRouter<TCtx> {
         AlphaRouter::new()
     }
 
-    pub fn query<TResolver, TArg, TResult, TResultMarker, TBuilder>(
+    // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
+    pub fn with<TNewLayerCtx, TNewMiddleware>(
         &self,
-        builder: TBuilder,
-    ) -> AlphaProcedure<TLayerCtx, TResolver, TArg, TResult, TResultMarker, TBuilder, ()>
+        builder: impl Fn(MiddlewareBuilder<TCtx>) -> TNewMiddleware, // TODO: Remove builder closure
+    ) -> AlphaProcedure<
+        TCtx,
+        TNewLayerCtx,
+        MissingResolver<TNewLayerCtx>,
+        (),
+        (),
+        MiddlewareLayerBuilder<TCtx, TCtx, TNewLayerCtx, BaseMiddleware<TCtx>, TNewMiddleware>,
+    >
     where
-        TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        TBuilder:
-            Fn(UnbuiltProcedureBuilder<TLayerCtx, TResolver>) -> BuiltProcedureBuilder<TResolver>,
+        TNewLayerCtx: Send + Sync + 'static,
+        TNewMiddleware: MiddlewareLike<TCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
     {
-        AlphaProcedure::new(builder)
+        let mw = builder(MiddlewareBuilder(PhantomData));
+        AlphaProcedure::new_from_middleware(MiddlewareLayerBuilder {
+            middleware: BaseMiddleware::new(),
+            mw,
+            phantom: PhantomData,
+        })
     }
+
+    // pub fn with<TNewMiddleware, TNewLayerCtx>(
+    //     &self,
+    // ) -> RouterBuilder<
+    //     TCtx,
+    //     (),
+    //     MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>,
+    // >
+    // where
+    //     TNewLayerCtx: Send + Sync + 'static,
+    //     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+    // {
+    //     todo!();
+    //     // let Self {
+    //     //     config,
+    //     //     middleware,
+    //     //     queries,
+    //     //     mutations,
+    //     //     subscriptions,
+    //     //     typ_store,
+    //     //     ..
+    //     // } = self;
+
+    //     // let mw = builder(MiddlewareBuilder(PhantomData));
+    //     // RouterBuilder {
+    //     //     config,
+    //     //     middleware: MiddlewareLayerBuilder {
+    //     //         middleware,
+    //     //         mw,
+    //     //         phantom: PhantomData,
+    //     //     },
+    //     //     queries,
+    //     //     mutations,
+    //     //     subscriptions,
+    //     //     typ_store,
+    //     //     phantom: PhantomData,
+    //     // }
+    // }
+
+    pub fn query<R, RMarker>(
+        &self,
+        builder: R,
+    ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), BaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result,
+    {
+        AlphaProcedure::new_from_resolver(builder)
+    }
+
+    // pub fn query<TResolver, TArg, TResult, TResultMarker, TBuilder>(
+    //     &self,
+    //     builder: R,
+    // ) -> AlphaProcedure<TLayerCtx, TResolver, TArg, TResult, TResultMarker, TBuilder, ()>
+    // where
+    //     TArg: DeserializeOwned + Type,
+    //     TResult: RequestLayer<TResultMarker>,
+    //     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    //     TBuilder:
+    //         Fn(UnbuiltProcedureBuilder<TLayerCtx, TResolver>) -> BuiltProcedureBuilder<TResolver>,
+    // {
+    //     AlphaProcedure::new_from_resolver(builder)
+    // }
 
     // pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
     //     mut self,
