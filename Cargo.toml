@@ -69,7 +69,7 @@ members = [
     "./create-rspc-app",
     "./examples",
     "./examples/axum",
-    "./examples/nextjs",
+    "./examples/vercel",
 ]
 
 [patch.crates-io]
