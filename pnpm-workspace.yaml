@@ -3,3 +3,4 @@ packages:
  - packages/*
  - examples/astro
  - examples/nextjs
+ - examples/vercel
