@@ -46,40 +46,40 @@ mod tests {
                 }),
                 // .meta(()),
             )
-            // .procedure(
-            //     "todo2",
-            //     t.with(|mw| {
-            //         mw.middleware(|mw| async move {
-            //             let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
-            //             Ok(mw.with_state(state))
-            //         })
-            //         .resp(|state, result| async move {
-            //             println!(
-            //                 "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
-            //                 state.0, state.1, state.2, result
-            //             );
-            //             Ok(result)
-            //         })
-            //     })
-            //     .with(|mw| {
-            //         mw.middleware(|mw| async move {
-            //             let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
-            //             Ok(mw.with_state(state))
-            //         })
-            //         .resp(|state, result| async move {
-            //             println!(
-            //                 "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
-            //                 state.0, state.1, state.2, result
-            //             );
-            //             Ok(result)
-            //         })
-            //     })
-            //     .query(|ctx, _: ()| {
-            //         println!("TODO: {:?}", ctx);
-            //         Ok(())
-            //     }),
-            //     // .meta(()),
-            // )
+            .procedure(
+                "todo2",
+                t.with(|mw| {
+                    mw.middleware(|mw| async move {
+                        let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
+                        Ok(mw.with_state(state))
+                    })
+                    .resp(|state, result| async move {
+                        println!(
+                            "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+                            state.0, state.1, state.2, result
+                        );
+                        Ok(result)
+                    })
+                })
+                .with(|mw| {
+                    mw.middleware(|mw| async move {
+                        let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
+                        Ok(mw.with_state(state))
+                    })
+                    .resp(|state, result| async move {
+                        println!(
+                            "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+                            state.0, state.1, state.2, result
+                        );
+                        Ok(result)
+                    })
+                })
+                .query(|ctx, _: ()| {
+                    println!("TODO: {:?}", ctx);
+                    Ok(())
+                }),
+                // .meta(()),
+            )
             .procedure(
                 "todo3",
                 t.query(|ctx, _: ()| {

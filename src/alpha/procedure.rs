@@ -5,10 +5,10 @@ use specta::Type;
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, ResolverLayer,
-        UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
+        ResolverLayer, UnbuiltProcedureBuilder,
     },
-    typedef, ExecError, RequestLayer, SerializeMarker,
+    typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
 };
 
 use super::{IntoProcedure, IntoProcedureCtx};
@@ -115,7 +115,37 @@ where
     }
 }
 
-// pub(crate) fn new_from_middleware(); // TODO
+impl<TCtx, TLayerCtx, R, RMarker, TMeta, TMiddleware>
+    AlphaProcedure<TCtx, TLayerCtx, R, RMarker, TMeta, TMiddleware>
+where
+    TCtx: Send + Sync + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    R: ResolverFunction<TLayerCtx, RMarker>,
+    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+{
+    pub fn with<TNewLayerCtx, TNewMiddleware>(
+        self,
+        builder: impl Fn(MiddlewareBuilder<TCtx>) -> TNewMiddleware, // TODO: Remove builder closure
+    ) -> AlphaProcedure<
+        TCtx,
+        TNewLayerCtx,
+        MissingResolver<TNewLayerCtx>,
+        (),
+        (),
+        MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>,
+    >
+    where
+        TNewLayerCtx: Send + Sync + 'static,
+        TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+    {
+        let mw = builder(MiddlewareBuilder(PhantomData));
+        AlphaProcedure::new_from_middleware(MiddlewareLayerBuilder {
+            middleware: self.1,
+            mw,
+            phantom: PhantomData,
+        })
+    }
+}
 
 // TODO: Only do this impl when `R` is not `MissingResolver`!!!!!
 impl<TCtx, TLayerCtx, R, RMarker, TMeta, TMiddleware> IntoProcedure<TCtx>

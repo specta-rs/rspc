@@ -73,44 +73,6 @@ where
         })
     }
 
-    // pub fn with<TNewMiddleware, TNewLayerCtx>(
-    //     &self,
-    // ) -> RouterBuilder<
-    //     TCtx,
-    //     (),
-    //     MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>,
-    // >
-    // where
-    //     TNewLayerCtx: Send + Sync + 'static,
-    //     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
-    // {
-    //     todo!();
-    //     // let Self {
-    //     //     config,
-    //     //     middleware,
-    //     //     queries,
-    //     //     mutations,
-    //     //     subscriptions,
-    //     //     typ_store,
-    //     //     ..
-    //     // } = self;
-
-    //     // let mw = builder(MiddlewareBuilder(PhantomData));
-    //     // RouterBuilder {
-    //     //     config,
-    //     //     middleware: MiddlewareLayerBuilder {
-    //     //         middleware,
-    //     //         mw,
-    //     //         phantom: PhantomData,
-    //     //     },
-    //     //     queries,
-    //     //     mutations,
-    //     //     subscriptions,
-    //     //     typ_store,
-    //     //     phantom: PhantomData,
-    //     // }
-    // }
-
     pub fn query<R, RMarker>(
         &self,
         builder: R,
