@@ -3,9 +3,12 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{Procedure, ProcedureStore, UnbuiltProcedureBuilder},
+    impl_procedure_like,
+    internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
     Config, Router,
 };
+
+use super::{AlphaProcedure, ResolverFunction};
 
 pub struct AlphaRouter<TCtx>
 where
@@ -28,25 +31,29 @@ where
         }
     }
 
-    // TODO: Merge over routers here
-
-    // TODO: Mount Middleware -> Or should middleware stick to `Rspc`?
-
     // TODO: `key` should be `impl Into<Cow<'static, str>>`
     pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedure<TCtx>) -> Self {
         self.procedures.push((key, Box::new(procedure)));
         self
     }
 
+    impl_procedure_like!();
+
+    // TODO: `.merge()` function
+
     // TODO: Return a Legacy router for now
     pub fn compat(self) -> Router<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
-        let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg // TODO: Combine query, mutations and subscriptions into a big one here
+        let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
+        let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
+        let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
 
         let mut ctx = IntoProcedureCtx {
             ty_store: &mut typ_store,
             queries: &mut queries,
+            mutations: &mut mutations,
+            subscriptions: &mut subscriptions,
         };
 
         for (key, mut procedure) in self.procedures.into_iter() {
@@ -68,6 +75,8 @@ where
 pub struct IntoProcedureCtx<'a, TCtx> {
     pub ty_store: &'a mut TypeDefs,
     pub queries: &'a mut ProcedureStore<TCtx>,
+    pub mutations: &'a mut ProcedureStore<TCtx>,
+    pub subscriptions: &'a mut ProcedureStore<TCtx>,
 }
 
 pub trait IntoProcedure<TCtx>: 'static {

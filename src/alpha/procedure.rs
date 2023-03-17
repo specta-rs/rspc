@@ -4,9 +4,10 @@ use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::{
+    impl_procedure_like,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        ResolverLayer, UnbuiltProcedureBuilder,
+        ProcedureKind, ResolverLayer, UnbuiltProcedureBuilder,
     },
     typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
 };
@@ -74,6 +75,7 @@ pub struct AlphaProcedure<TCtx, TLayerCtx, R, RMarker, TMeta, TMiddleware>(
     // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
     Option<R>,
     TMiddleware,
+    Option<ProcedureKind>,
     PhantomData<(TCtx, TLayerCtx, RMarker, TMeta)>,
 )
 where
@@ -88,8 +90,13 @@ where
     TLayerCtx: Send + Sync + 'static,
     R: ResolverFunction<TLayerCtx, RMarker>,
 {
-    pub(crate) fn new_from_resolver(resolver: R) -> Self {
-        Self(Some(resolver), BaseMiddleware::default(), PhantomData)
+    pub(crate) fn new_from_resolver(k: ProcedureKind, resolver: R) -> Self {
+        Self(
+            Some(resolver),
+            BaseMiddleware::default(),
+            Some(k),
+            PhantomData,
+        )
     }
 }
 
@@ -101,18 +108,12 @@ where
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
     pub(crate) fn new_from_middleware(mw: TMiddleware) -> Self {
-        Self(Some(MissingResolver::default()), mw, PhantomData)
+        Self(Some(MissingResolver::default()), mw, None, PhantomData)
     }
 
-    pub fn query<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<TCtx, TLayerCtx, R, RMarker, TMeta, TMiddleware>
-    where
-        R: ResolverFunction<TLayerCtx, RMarker> + Fn(TLayerCtx, R::Arg) -> R::Result,
-    {
-        AlphaProcedure(Some(builder), self.1, PhantomData)
-    }
+    impl_procedure_like!();
+
+    // TODO: Mutation + Subscription
 }
 
 impl<TCtx, TLayerCtx, R, RMarker, TMeta, TMiddleware>
@@ -160,7 +161,18 @@ where
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TCtx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
-        ctx.queries.append(
+
+        let m = match self
+            .2
+            .as_ref()
+            .expect("TODO: Make this case impossible in the type system!")
+        {
+            ProcedureKind::Query => &mut ctx.queries,
+            ProcedureKind::Mutation => &mut ctx.mutations,
+            ProcedureKind::Subscription => &mut ctx.subscriptions,
+        };
+
+        m.append(
             key.into(),
             self.1.build(ResolverLayer {
                 func: move |ctx, input, _| {
@@ -183,26 +195,3 @@ where
         );
     }
 }
-
-pub trait ProcedureBuilder: FnOnce() -> () {}
-impl<T> ProcedureBuilder for T where T: FnOnce() -> () {}
-
-// TODO: Allowing a plugin to require a specific type for `TMeta`, idk???
-// impl<TLayerCtx, TResolver, TArg, TResult, TResultMarker, TBuilder>
-//     AlphaProcedure<TLayerCtx, TResolver, TArg, TResult, TResultMarker, TBuilder, ()>
-// where
-//     TLayerCtx: Send + Sync + 'static,
-//     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-//     TArg: DeserializeOwned + Type,
-//     TResult: RequestLayer<TResultMarker>,
-//     TBuilder: Fn(UnbuiltProcedureBuilder<TLayerCtx, TResolver>) -> BuiltProcedureBuilder<TResolver>,
-// {
-//     // TODO
-//     pub fn meta<TMeta: 'static>(
-//         self,
-//         meta: TMeta,
-//     ) -> AlphaProcedure<TLayerCtx, TResolver, TArg, TResult, TResultMarker, TBuilder, TMeta> {
-//         // TODO: Store `meta` so it can be used
-//         AlphaProcedure(self.0, PhantomData)
-//     }
-// }
