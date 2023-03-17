@@ -1,15 +1,15 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use futures::{SinkExt, StreamExt};
-use futures_channel::{mpsc, oneshot};
+use futures_channel::mpsc;
 use futures_locks::Mutex;
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Manager, Runtime, WindowEvent,
+    Runtime, WindowEvent,
 };
 
 use crate::{
-    internal::jsonrpc::{self, handle_json_rpc, Sender, SubscriptionSender},
+    internal::jsonrpc::{self, handle_json_rpc, SubscriptionSender},
     Router,
 };
 

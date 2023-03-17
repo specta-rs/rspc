@@ -293,7 +293,16 @@ where
     TCtx: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
-    let procedure_name = req.uri().path()[1..].to_string(); // Has to be allocated because `TCtxFn` takes ownership of `req`
+    let procedure_name = match req.server() {
+        #[cfg(feature = "vercel")]
+        httpz::Server::Vercel => req
+            .query_pairs()
+            .and_then(|mut pairs| pairs.find(|e| e.0 == "rspc"))
+            .map(|(_, v)| v.to_string()),
+        _ => Some(req.uri().path()[1..].to_string()), // Has to be allocated because `TCtxFn` takes ownership of `req`
+    }
+    .unwrap();
+
     let input = match *req.method() {
         Method::GET => req
             .query_pairs()
