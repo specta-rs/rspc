@@ -19,6 +19,8 @@ httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
 anyhow = ["dep:anyhow"]
 
+alpha = []
+
 # Webservers
 axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
 # actix-web = ["httpz/actix-web"]
