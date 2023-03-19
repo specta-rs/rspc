@@ -1,4 +1,4 @@
-use std::{borrow::Cow, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{any::type_name, borrow::Cow, marker::PhantomData, pin::Pin, sync::Arc};
 
 use serde::de::DeserializeOwned;
 use specta::Type;
@@ -6,14 +6,15 @@ use specta::Type;
 use crate::{
     impl_procedure_like,
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, LayerResult, MiddlewareLayerBuilder, ProcedureKind,
-        RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, Layer, LayerResult, MiddlewareLayerBuilder,
+        ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
     },
     typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
 };
 
 use super::{
-    AlphaMiddlewareBuilder, AlphaMiddlewareLike, IntoProcedure, IntoProcedureCtx, ProcedureLike,
+    AlphaMiddlewareBuilder, AlphaMiddlewareLike, IntoProcedure, IntoProcedureCtx,
+    MiddlewareArgMapper, Mw, ProcedureLike,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
@@ -175,7 +176,7 @@ where
 {
     pub fn with<TNewLayerCtx, TNewMiddleware>(
         self,
-        builder: impl Fn(AlphaMiddlewareBuilder<TLayerCtx>) -> TNewMiddleware, // TODO: Remove builder closure
+        builder: impl Fn(AlphaMiddlewareBuilder<TLayerCtx, TMiddleware::MwMapper, ()>) -> TNewMiddleware, // TODO: Remove builder closure
     ) -> AlphaProcedure<
         TCtx,
         TNewLayerCtx,
@@ -239,7 +240,7 @@ where
                 phantom: PhantomData,
             }),
             typedef::<
-                R::Arg,
+                <TMiddleware::MwMapper as MiddlewareArgMapper>::Input<R::Arg>,
                 <<R as ResolverFunction<TLayerCtx, RMarker>>::Result as RequestLayer<
                     R::ResultMarker,
                 >>::Result,
@@ -304,10 +305,11 @@ use serde_json::Value;
 
 pub trait AlphaMiddlewareBuilderLike<TCtx> {
     type LayerContext: 'static;
+    type MwMapper: MiddlewareArgMapper;
 
-    fn build<T>(&self, next: T) -> Box<dyn AlphaLayer<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: AlphaLayer<Self::LayerContext>;
+        T: Layer<Self::LayerContext>;
 }
 
 pub struct MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
@@ -318,6 +320,33 @@ where
     pub middleware: TMiddleware,
     pub middleware2: TIncomingMiddleware,
     pub phantom: PhantomData<(TCtx, TLayerCtx)>,
+}
+
+pub struct A<TPrev, TNext>(PhantomData<(TPrev, TNext)>)
+where
+    TPrev: MiddlewareArgMapper,
+    TNext: MiddlewareArgMapper;
+
+impl<TPrev, TNext> MiddlewareArgMapper for A<TPrev, TNext>
+where
+    TPrev: MiddlewareArgMapper,
+    TNext: MiddlewareArgMapper,
+{
+    type Input<T> = TPrev::Input<TNext::Input<T>>
+    where
+        T: DeserializeOwned + Type + 'static;
+
+    type Output<T> = TNext::Output<TPrev::Output<T>>
+    where
+        T: serde::Serialize;
+
+    type State = TNext::State;
+
+    fn map<T: serde::Serialize + DeserializeOwned + Type + 'static>(
+        arg: Self::Input<T>,
+    ) -> (Self::Output<T>, Self::State) {
+        todo!()
+    }
 }
 
 impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
@@ -331,10 +360,11 @@ where
     TIncomingMiddleware: AlphaMiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx>,
 {
     type LayerContext = TNewLayerCtx;
+    type MwMapper = A<TMiddleware::MwMapper, TIncomingMiddleware::MwMapper>;
 
-    fn build<T>(&self, next: T) -> Box<dyn AlphaLayer<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: AlphaLayer<Self::LayerContext>,
+        T: Layer<Self::LayerContext>,
     {
         self.middleware.build(self.middleware2.build(next))
     }
@@ -353,20 +383,26 @@ where
     pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx)>,
 }
 
-impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> AlphaMiddlewareBuilderLike<TCtx>
+impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMwMapper>
+    AlphaMiddlewareBuilderLike<TCtx>
     for AlphaMiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
     TCtx: Send + Sync + 'static,
     TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaMiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
-    TNewMiddleware: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx, MwMapper = TMwMapper>
+        + Send
+        + Sync
+        + 'static,
+    TMwMapper: MiddlewareArgMapper,
 {
     type LayerContext = TNewLayerCtx;
+    type MwMapper = A<TMiddleware::MwMapper, TNewMiddleware::MwMapper>;
 
-    fn build<T>(&self, next: T) -> Box<dyn AlphaLayer<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: AlphaLayer<Self::LayerContext> + Sync,
+        T: Layer<Self::LayerContext> + Sync,
     {
         self.middleware.build(AlphaMiddlewareLayer {
             next: Arc::new(next),
@@ -380,7 +416,7 @@ pub struct AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddle
 where
     TLayerCtx: Send + 'static,
     TNewLayerCtx: Send + 'static,
-    TMiddleware: AlphaLayer<TNewLayerCtx> + 'static,
+    TMiddleware: Layer<TNewLayerCtx> + 'static,
     TNewMiddleware: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
@@ -388,12 +424,12 @@ where
     phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
 }
 
-impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> AlphaLayer<TLayerCtx>
+impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
     for AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewLayerCtx> + Sync + 'static,
+    TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     fn call(
@@ -433,18 +469,14 @@ where
     TCtx: Send + 'static,
 {
     type LayerContext = TCtx;
+    type MwMapper = ();
 
-    fn build<T>(&self, next: T) -> Box<dyn AlphaLayer<TCtx>>
+    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
     where
-        T: AlphaLayer<Self::LayerContext>,
+        T: Layer<Self::LayerContext>,
     {
         Box::new(next)
     }
-}
-
-// TODO: Rename this so it doesn't conflict with the middleware builder struct
-pub trait AlphaLayer<TLayerCtx: 'static>: Send + Sync + 'static {
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
 }
 
 pub struct AlphaResolverLayer<TLayerCtx, T>
@@ -459,7 +491,7 @@ where
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
+impl<T, TLayerCtx> Layer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
@@ -472,14 +504,14 @@ where
     }
 }
 
-impl<TLayerCtx> AlphaLayer<TLayerCtx> for Box<dyn AlphaLayer<TLayerCtx> + 'static>
-where
-    TLayerCtx: 'static,
-{
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-        (**self).call(a, b, c)
-    }
-}
+// impl<TLayerCtx> Layer<TLayerCtx> for Box<dyn Layer<TLayerCtx> + 'static>
+// where
+//     TLayerCtx: 'static,
+// {
+//     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
+//         (**self).call(a, b, c)
+//     }
+// }
 
 // pub enum ValueOrStream {
 //     Value(Value),

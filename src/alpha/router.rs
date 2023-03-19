@@ -8,7 +8,7 @@ use crate::{
     Config, Router, RouterBuilder, RouterBuilderLike,
 };
 
-use super::{AlphaProcedureStore, ResolverFunction};
+use super::ResolverFunction;
 
 pub struct AlphaRouter<TCtx>
 where
@@ -51,9 +51,9 @@ where
     // TODO: Return a Legacy router for now
     pub fn compat(self) -> Router<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
-        let mut queries = AlphaProcedureStore::new("queries"); // TODO: Take in as arg
-        let mut mutations = AlphaProcedureStore::new("mutations"); // TODO: Take in as arg
-        let mut subscriptions = AlphaProcedureStore::new("subscriptions"); // TODO: Take in as arg
+        let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
+        let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
+        let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
 
         let mut ctx = IntoProcedureCtx {
@@ -68,24 +68,22 @@ where
             procedure.build(Cow::Borrowed(key), &mut ctx);
         }
 
-        todo!(); // TODO: Converting back into legacy router? Is this gonna be possible?
-
-        // Router {
-        //     config: Config::new(), // TODO: We need to expose this in the new syntax so the user can change it. Can we tak this in at build time not init time?
-        //     queries,
-        //     mutations,
-        //     subscriptions
-        //     typ_store,
-        //     phantom: PhantomData,
-        // }
+        Router {
+            config: Config::new(), // TODO: We need to expose this in the new syntax so the user can change it. Can we tak this in at build time not init time?
+            queries,
+            mutations,
+            subscriptions,
+            typ_store,
+            phantom: PhantomData,
+        }
     }
 }
 
 pub struct IntoProcedureCtx<'a, TCtx> {
     pub ty_store: &'a mut TypeDefs,
-    pub queries: &'a mut AlphaProcedureStore<TCtx>,
-    pub mutations: &'a mut AlphaProcedureStore<TCtx>,
-    pub subscriptions: &'a mut AlphaProcedureStore<TCtx>,
+    pub queries: &'a mut ProcedureStore<TCtx>,
+    pub mutations: &'a mut ProcedureStore<TCtx>,
+    pub subscriptions: &'a mut ProcedureStore<TCtx>,
 }
 
 pub trait IntoProcedure<TCtx>: 'static {
@@ -107,7 +105,7 @@ where
             queries: r.queries,
             mutations: r.mutations,
             subscriptions: r.subscriptions,
-            typ_store: TypeDefs::new(),
+            typ_store: r.typ_store,
             phantom: PhantomData,
         }
     }

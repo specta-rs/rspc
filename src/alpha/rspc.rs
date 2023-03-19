@@ -13,8 +13,9 @@ use crate::{
 };
 
 use super::{
-    AlphaBaseMiddleware, AlphaMiddlewareBuilder, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike,
-    AlphaRouter, MissingResolver, ResolverFunction,
+    AlphaBaseMiddleware, AlphaMiddlewareBuilder, AlphaMiddlewareBuilderLike,
+    AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter, MiddlewareArgMapper,
+    MiddlewareMerger, MissingResolver, ResolverFunction,
 };
 
 pub struct Rspc<
@@ -50,7 +51,7 @@ where
     // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
     pub fn with<TNewLayerCtx, TNewMiddleware>(
         self,
-        builder: impl Fn(AlphaMiddlewareBuilder<TCtx>) -> TNewMiddleware, // TODO: Remove builder closure
+        builder: impl Fn(AlphaMiddlewareBuilder<TCtx, (), ()>) -> TNewMiddleware, // TODO: Remove builder closure
     ) -> crate::alpha::procedure::AlphaProcedure<
         TCtx,
         TNewLayerCtx,

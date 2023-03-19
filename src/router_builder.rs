@@ -303,16 +303,16 @@ where
     {
         let router = router.expose();
 
-        let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
-        #[allow(clippy::panic)]
-        if prefix_valid {
-            eprintln!(
-                "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
-                Location::caller(),
-                prefix
-            );
-            process::exit(1);
-        }
+        // let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
+        // #[allow(clippy::panic)]
+        // if prefix_valid {
+        //     eprintln!(
+        //         "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
+        //         Location::caller(),
+        //         prefix
+        //     );
+        //     process::exit(1);
+        // }
 
         // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
 
