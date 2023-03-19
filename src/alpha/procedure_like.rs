@@ -1,30 +1,43 @@
-use crate::internal::{BaseMiddleware, ProcedureKind};
+use crate::internal::ProcedureKind;
 
-use super::{AlphaProcedure, ResolverFunction};
+use super::{AlphaMiddlewareBuilderLike, ResolverFunction};
 
 // TODO: Deal with LayerCtx and context switching
-pub trait ProcedureLike<TCtx: Send + Sync + 'static> {
-    // TODO: Use the `impl_procedure_like!()` if I can fix the visibility issue
+pub trait ProcedureLike<TCtx: Send + Sync + 'static, TLayerCtx: Send + Sync + 'static> {
+    type Middleware: AlphaMiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send;
 
-    fn query<R, RMarker>(
+    fn query<R2, R2Marker>(
         &self,
-        builder: R,
-    ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), BaseMiddleware<TCtx>>
+        builder: R2,
+    ) -> crate::alpha::procedure::AlphaProcedure<TCtx, TLayerCtx, R2, R2Marker, (), Self::Middleware>
     where
-        R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result,
-    {
-        AlphaProcedure::new_from_resolver(ProcedureKind::Query, builder)
-    }
+        R2: ResolverFunction<TLayerCtx, R2Marker> + Fn(TLayerCtx, R2::Arg) -> R2::Result;
 
-    fn mutation<R, RMarker>(
-        &self,
-        builder: R,
-    ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result,
-    {
-        AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, builder)
-    }
+    // TODO: `.with()`
+
+    // // TODO: Use the `impl_procedure_like!()` if I can fix the visibility issue
+
+    // // TODO: Using `self`
+
+    // fn query<R, RMarker>(
+    //     &self,
+    //     builder: R,
+    // ) -> AlphaProcedure<TCtx, Self::LayerCtx, R, RMarker, (), Self::Middleware>
+    // where
+    //     R: ResolverFunction<Self::LayerCtx, RMarker> + Fn(Self::LayerCtx, R::Arg) -> R::Result;
+    // {
+    //     AlphaProcedure::new_from_resolver(ProcedureKind::Query, builder)
+    // }
+
+    // fn mutation<R, RMarker>(
+    //     &self,
+    //     builder: R,
+    // ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), Self::Middleware>
+    // where
+    //     R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result;
+    // {
+    //     AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, builder)
+    // }
 
     // TODO: `.subscription`
 }
@@ -35,23 +48,43 @@ pub trait ProcedureLike<TCtx: Send + Sync + 'static> {
 macro_rules! impl_procedure_like {
     () => {
         pub fn query<R, RMarker>(
-            &self,
+            self,
             builder: R,
-        ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), BaseMiddleware<TCtx>>
+        ) -> crate::alpha::procedure::AlphaProcedure<
+            TCtx,
+            TCtx,
+            R,
+            RMarker,
+            (),
+            crate::alpha::AlphaBaseMiddleware<TCtx>,
+        >
         where
             R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result,
         {
-            AlphaProcedure::new_from_resolver(ProcedureKind::Query, builder)
+            crate::alpha::procedure::AlphaProcedure::new_from_resolver(
+                ProcedureKind::Query,
+                builder,
+            )
         }
 
         pub fn mutation<R, RMarker>(
-            &self,
+            self,
             builder: R,
-        ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), BaseMiddleware<TCtx>>
+        ) -> crate::alpha::procedure::AlphaProcedure<
+            TCtx,
+            TCtx,
+            R,
+            RMarker,
+            (),
+            crate::alpha::AlphaBaseMiddleware<TCtx>,
+        >
         where
             R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result,
         {
-            AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, builder)
+            crate::alpha::procedure::AlphaProcedure::new_from_resolver(
+                ProcedureKind::Mutation,
+                builder,
+            )
         }
 
         // TODO: `.subscription`

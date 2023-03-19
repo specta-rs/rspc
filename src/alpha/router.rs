@@ -5,10 +5,10 @@ use specta::TypeDefs;
 use crate::{
     impl_procedure_like,
     internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
-    Config, Router,
+    Config, Router, RouterBuilder, RouterBuilderLike,
 };
 
-use super::{AlphaProcedure, ResolverFunction};
+use super::{AlphaProcedureStore, ResolverFunction};
 
 pub struct AlphaRouter<TCtx>
 where
@@ -37,6 +37,13 @@ where
         self
     }
 
+    // TODO
+    // pub fn merge(self, prefix: &'static str, r: impl RouterBuilderLike<TCtx>) -> Self {
+    //     // TODO: disallow `.` in prefix
+    //     let r = r.expose();
+    //     todo!();
+    // }
+
     impl_procedure_like!();
 
     // TODO: `.merge()` function
@@ -44,9 +51,9 @@ where
     // TODO: Return a Legacy router for now
     pub fn compat(self) -> Router<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
-        let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
-        let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
-        let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
+        let mut queries = AlphaProcedureStore::new("queries"); // TODO: Take in as arg
+        let mut mutations = AlphaProcedureStore::new("mutations"); // TODO: Take in as arg
+        let mut subscriptions = AlphaProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
 
         let mut ctx = IntoProcedureCtx {
@@ -61,24 +68,47 @@ where
             procedure.build(Cow::Borrowed(key), &mut ctx);
         }
 
-        Router {
-            config: Config::new(), // TODO: We need to expose this in the new syntax so the user can change it. Can we tak this in at build time not init time?
-            queries,
-            mutations: ProcedureStore::new("mutations"),
-            subscriptions: ProcedureStore::new("subscriptions"),
-            typ_store,
-            phantom: PhantomData,
-        }
+        todo!(); // TODO: Converting back into legacy router? Is this gonna be possible?
+
+        // Router {
+        //     config: Config::new(), // TODO: We need to expose this in the new syntax so the user can change it. Can we tak this in at build time not init time?
+        //     queries,
+        //     mutations,
+        //     subscriptions
+        //     typ_store,
+        //     phantom: PhantomData,
+        // }
     }
 }
 
 pub struct IntoProcedureCtx<'a, TCtx> {
     pub ty_store: &'a mut TypeDefs,
-    pub queries: &'a mut ProcedureStore<TCtx>,
-    pub mutations: &'a mut ProcedureStore<TCtx>,
-    pub subscriptions: &'a mut ProcedureStore<TCtx>,
+    pub queries: &'a mut AlphaProcedureStore<TCtx>,
+    pub mutations: &'a mut AlphaProcedureStore<TCtx>,
+    pub subscriptions: &'a mut AlphaProcedureStore<TCtx>,
 }
 
 pub trait IntoProcedure<TCtx>: 'static {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TCtx>);
+}
+
+impl<TCtx> RouterBuilderLike<TCtx> for AlphaRouter<TCtx>
+where
+    TCtx: Send + Sync + 'static,
+{
+    type Meta = ();
+    type Middleware = BaseMiddleware<TCtx>;
+
+    fn expose(self) -> RouterBuilder<TCtx, Self::Meta, Self::Middleware> {
+        let r = self.compat();
+        RouterBuilder {
+            config: Config::default(),
+            middleware: BaseMiddleware::new(),
+            queries: r.queries,
+            mutations: r.mutations,
+            subscriptions: r.subscriptions,
+            typ_store: TypeDefs::new(),
+            phantom: PhantomData,
+        }
+    }
 }

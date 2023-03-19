@@ -58,13 +58,13 @@ pub struct RouterBuilder<
     TMeta: Send + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx> + Send + 'static,
 {
-    config: Config,
-    middleware: TMiddleware,
-    queries: ProcedureStore<TCtx>,
-    mutations: ProcedureStore<TCtx>,
-    subscriptions: ProcedureStore<TCtx>,
-    typ_store: TypeDefs,
-    phantom: PhantomData<TMeta>,
+    pub(crate) config: Config,
+    pub(crate) middleware: TMiddleware,
+    pub(crate) queries: ProcedureStore<TCtx>,
+    pub(crate) mutations: ProcedureStore<TCtx>,
+    pub(crate) subscriptions: ProcedureStore<TCtx>,
+    pub(crate) typ_store: TypeDefs,
+    pub(crate) phantom: PhantomData<TMeta>,
 }
 
 pub trait RouterBuilderLike<TCtx>
@@ -185,7 +185,6 @@ where
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
-        #[allow(clippy::panic)]
         if is_invalid_procedure_name(key) {
             eprintln!(
                 "{}: rspc error: attempted to attach a query with the key '{}', however this name is not allowed. ",
@@ -226,7 +225,6 @@ where
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
-        #[allow(clippy::panic)]
         if is_invalid_procedure_name(key) {
             eprintln!(
                 "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
@@ -265,7 +263,6 @@ where
         TArg: DeserializeOwned + Type,
         TResult: StreamRequestLayer<TResultMarker>,
     {
-        #[allow(clippy::panic)]
         if is_invalid_procedure_name(key) {
             eprintln!(
                 "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",

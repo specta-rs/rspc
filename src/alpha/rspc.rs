@@ -6,13 +6,16 @@ use specta::Type;
 use crate::{
     impl_procedure_like,
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        ProcedureKind, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureKind,
+        UnbuiltProcedureBuilder,
     },
     MiddlewareBuilder, MiddlewareLike, RequestLayer, RouterBuilder,
 };
 
-use super::{AlphaProcedure, AlphaRouter, MissingResolver, ResolverFunction};
+use super::{
+    AlphaBaseMiddleware, AlphaMiddlewareBuilder, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike,
+    AlphaRouter, MissingResolver, ResolverFunction,
+};
 
 pub struct Rspc<
     TCtx = (), // The is the context the current router was initialised with
@@ -46,23 +49,29 @@ where
 
     // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
     pub fn with<TNewLayerCtx, TNewMiddleware>(
-        &self,
-        builder: impl Fn(MiddlewareBuilder<TCtx>) -> TNewMiddleware, // TODO: Remove builder closure
-    ) -> AlphaProcedure<
+        self,
+        builder: impl Fn(AlphaMiddlewareBuilder<TCtx>) -> TNewMiddleware, // TODO: Remove builder closure
+    ) -> crate::alpha::procedure::AlphaProcedure<
         TCtx,
         TNewLayerCtx,
         MissingResolver<TNewLayerCtx>,
         (),
         (),
-        MiddlewareLayerBuilder<TCtx, TCtx, TNewLayerCtx, BaseMiddleware<TCtx>, TNewMiddleware>,
+        AlphaMiddlewareLayerBuilder<
+            TCtx,
+            TCtx,
+            TNewLayerCtx,
+            AlphaBaseMiddleware<TCtx>,
+            TNewMiddleware,
+        >,
     >
     where
         TNewLayerCtx: Send + Sync + 'static,
-        TNewMiddleware: MiddlewareLike<TCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+        TNewMiddleware: AlphaMiddlewareLike<TCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
     {
-        let mw = builder(MiddlewareBuilder(PhantomData));
-        AlphaProcedure::new_from_middleware(MiddlewareLayerBuilder {
-            middleware: BaseMiddleware::new(),
+        let mw = builder(AlphaMiddlewareBuilder(PhantomData));
+        crate::alpha::procedure::AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+            middleware: AlphaBaseMiddleware::new(),
             mw,
             phantom: PhantomData,
         })
