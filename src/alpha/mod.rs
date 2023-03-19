@@ -5,12 +5,14 @@ mod procedure;
 mod procedure_like;
 mod router;
 mod rspc;
+mod error;
 
 pub use self::rspc::*;
 pub use middleware::*;
 pub use procedure::*;
 pub use procedure_like::*;
 pub use router::*;
+pub use error::*;
 
 #[cfg(test)]
 mod tests {
