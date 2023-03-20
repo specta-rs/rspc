@@ -1,4 +1,4 @@
-use std::future::Future;
+use std::{future::Future, marker::PhantomData};
 
 use futures::{Stream, StreamExt};
 use serde::Serialize;
@@ -8,6 +8,32 @@ use crate::{
     internal::{LayerResult, ValueOrStream},
     Error, ExecError,
 };
+
+/// For either
+pub trait AnyRequestLayer<TMarker> {
+    type Result: Type;
+
+    // TODO: Rename
+    fn any_into_layer_result(self) -> Result<LayerResult, ExecError>;
+}
+
+pub struct RequestLayerMarker<T>(PhantomData<T>);
+impl<T: RequestLayer<TMarker>, TMarker> AnyRequestLayer<RequestLayerMarker<TMarker>> for T {
+    type Result = T::Result;
+
+    fn any_into_layer_result(self) -> Result<LayerResult, ExecError> {
+        RequestLayer::into_layer_result(self)
+    }
+}
+
+pub struct StreamLayerMarker<T>(PhantomData<T>);
+impl<T: StreamRequestLayer<TMarker>, TMarker> AnyRequestLayer<StreamLayerMarker<TMarker>> for T {
+    type Result = T::Result;
+
+    fn any_into_layer_result(self) -> Result<LayerResult, ExecError> {
+        StreamRequestLayer::into_layer_result(self)
+    }
+}
 
 // For queries and mutations
 

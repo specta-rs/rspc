@@ -9,7 +9,8 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureKind,
         UnbuiltProcedureBuilder,
     },
-    MiddlewareBuilder, MiddlewareLike, RequestLayer, RouterBuilder,
+    MiddlewareBuilder, MiddlewareLike, RequestLayer, RequestLayerMarker, RouterBuilder,
+    StreamLayerMarker,
 };
 
 use super::{
@@ -77,6 +78,20 @@ where
     }
 
     pub fn mutation<R, RMarker>(
+        self,
+        builder: R,
+    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+    {
+        AlphaProcedure::new_from_resolver(
+            ProcedureKind::Mutation,
+            AlphaBaseMiddleware::new(),
+            builder,
+        )
+    }
+
+    pub fn subscription<R, RMarker>(
         self,
         builder: R,
     ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>

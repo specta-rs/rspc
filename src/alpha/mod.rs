@@ -16,10 +16,12 @@ pub use error::*;
 
 #[cfg(test)]
 mod tests {
-    use std::{marker::PhantomData, path::PathBuf};
+    use std::{marker::PhantomData, path::PathBuf, time::Duration};
 
+    use async_stream::stream;
     use serde::{de::DeserializeOwned, Serialize};
     use specta::Type;
+    use tokio::time::sleep;
 
     use crate::{
         alpha::{
@@ -102,6 +104,33 @@ mod tests {
                 t.query(|ctx, _: ()| {
                     println!("TODO: {:?}", ctx);
                     Ok(())
+                }),
+            )
+            .procedure(
+                "demoSubscriptions",
+                t.subscription(|_ctx, _args: ()| {
+                    stream! {
+                        println!("Client subscribed to 'pings'");
+                        for i in 0..5 {
+                            println!("Sending ping {}", i);
+                            yield "ping".to_string();
+                            sleep(Duration::from_secs(1)).await;
+                        }
+                    }
+                })
+            )
+            // TODO: This shouldn't work
+            .procedure(
+                "veryInvalid",
+                t.query(|_ctx, _args: ()| {
+                    stream! {
+                        println!("Client subscribed to 'pings'");
+                        for i in 0..5 {
+                            println!("Sending ping {}", i);
+                            yield "ping".to_string();
+                            sleep(Duration::from_secs(1)).await;
+                        }
+                    }
                 }),
             )
             .compat();

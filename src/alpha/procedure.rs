@@ -9,7 +9,8 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, Layer, LayerResult, MiddlewareLayerBuilder,
         ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
+    typedef, AnyRequestLayer, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer,
+    RequestLayerMarker, SerializeMarker, StreamLayerMarker, StreamRequestLayer,
 };
 
 use super::{
@@ -18,17 +19,17 @@ use super::{
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
-pub struct Marker<A, B, C, D>(PhantomData<(A, B, C, D)>);
 
 pub trait ResolverFunction<TMarker> {
     type LayerCtx: Send + Sync + 'static;
     type Arg: DeserializeOwned + Type;
-    type Result: RequestLayer<Self::ResultMarker>;
+    type Result: AnyRequestLayer<Self::ResultMarker>;
     type ResultMarker;
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 }
 
+pub struct Marker<A, B, C, D>(PhantomData<(A, B, C, D)>);
 impl<
         TLayerCtx,
         TArg,
@@ -44,7 +45,30 @@ where
     type LayerCtx = TLayerCtx;
     type Arg = TArg;
     type Result = TResult;
-    type ResultMarker = TResultMarker;
+    type ResultMarker = RequestLayerMarker<TResultMarker>;
+
+    fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
+        self(ctx, arg)
+    }
+}
+
+pub struct SubscriptionMarker<A, B, C, D>(PhantomData<(A, B, C, D)>);
+impl<
+        TLayerCtx,
+        TArg,
+        TResult,
+        TResultMarker,
+        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    > ResolverFunction<SubscriptionMarker<TArg, TResult, TResultMarker, TLayerCtx>> for F
+where
+    TArg: DeserializeOwned + Type,
+    TResult: StreamRequestLayer<TResultMarker>,
+    TLayerCtx: Send + Sync + 'static,
+{
+    type LayerCtx = TLayerCtx;
+    type Arg = TArg;
+    type Result = TResult;
+    type ResultMarker = StreamLayerMarker<TResultMarker>;
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
         self(ctx, arg)
@@ -70,7 +94,7 @@ where
     type LayerCtx = TLayerCtx;
     type Arg = ();
     type Result = ();
-    type ResultMarker = SerializeMarker;
+    type ResultMarker = RequestLayerMarker<SerializeMarker>;
 
     fn exec(&self, _: Self::LayerCtx, _: Self::Arg) -> Self::Result {
         unreachable!();
@@ -148,6 +172,19 @@ where
             PhantomData,
         )
     }
+
+    pub fn subscription<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, TMiddleware>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
+            + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+    {
+        AlphaProcedure(
+            Some(builder),
+            self.1,
+            Some(ProcedureKind::Subscription),
+            PhantomData,
+        )
+    }
 }
 
 impl<R, RMarker, TMiddleware> AlphaProcedure<R, RMarker, TMiddleware>
@@ -210,13 +247,13 @@ where
                             serde_json::from_value(input)
                                 .map_err(ExecError::DeserializingArgErr)?,
                         )
-                        .into_layer_result()
+                        .any_into_layer_result()
                 },
                 phantom: PhantomData,
             }),
             typedef::<
                 <TMiddleware::MwMapper as MiddlewareArgMapper>::Input<R::Arg>,
-                <<R as ResolverFunction<RMarker>>::Result as RequestLayer<R::ResultMarker>>::Result,
+                <<R as ResolverFunction<RMarker>>::Result as AnyRequestLayer<R::ResultMarker>>::Result,
             >(ctx.ty_store),
         );
     }
