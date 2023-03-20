@@ -58,7 +58,7 @@ where
         AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, TNewMiddleware>,
     >
     where
-        TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx> + Send + Sync + 'static,
+        TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx>,
     {
         let mw = builder(AlphaMiddlewareBuilder(PhantomData));
         AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {

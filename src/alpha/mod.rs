@@ -144,7 +144,7 @@ mod tests {
                 Ok(())
             });
 
-        fn demo() -> impl ProcedureLike<((), i32)> {
+        fn demo() -> impl ProcedureLike<LayerCtx = ((), i32)> {
             t.with(|mw| {
                 mw.middleware(|mw, _| async move {
                     let ctx = mw.ctx.clone(); // This clone is so unnessesary but Rust

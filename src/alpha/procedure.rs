@@ -138,7 +138,7 @@ where
         mw: TMiddleware,
     ) -> AlphaProcedure<MissingResolver<TLayerCtx>, (), TMiddleware>
     where
-        TMiddleware: AlphaMiddlewareBuilderLike<Ctx = TCtx> + Send + 'static,
+        TMiddleware: AlphaMiddlewareBuilderLike<Ctx = TCtx>,
     {
         AlphaProcedure(Some(MissingResolver::default()), mw, (), PhantomData)
     }
@@ -146,7 +146,7 @@ where
 
 impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
 where
-    TMiddleware: AlphaMiddlewareBuilderLike + Send + 'static,
+    TMiddleware: AlphaMiddlewareBuilderLike,
 {
     pub fn query<R, RMarker>(
         self,
@@ -300,12 +300,13 @@ where
 }
 
 // TODO: This only works without a resolver. `ProcedureLike` should work on `AlphaProcedure` without it but just without the `.query()` and `.mutate()` functions.
-impl<TMiddleware> ProcedureLike<TMiddleware::LayerCtx>
+impl<TMiddleware> ProcedureLike
     for AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     type Middleware = TMiddleware;
+    type LayerCtx = TMiddleware::LayerCtx;
 
     fn query<R, RMarker>(
         self,
@@ -379,12 +380,12 @@ where
     pub middleware2: TIncomingMiddleware,
 }
 
-pub struct A<TPrev, TNext>(PhantomData<(TPrev, TNext)>)
+pub struct MwArgMapperMerger<TPrev, TNext>(PhantomData<(TPrev, TNext)>)
 where
     TPrev: MiddlewareArgMapper,
     TNext: MiddlewareArgMapper;
 
-impl<TPrev, TNext> MiddlewareArgMapper for A<TPrev, TNext>
+impl<TPrev, TNext> MiddlewareArgMapper for MwArgMapperMerger<TPrev, TNext>
 where
     TPrev: MiddlewareArgMapper,
     TNext: MiddlewareArgMapper,
@@ -414,7 +415,7 @@ where
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TIncomingMiddleware::LayerCtx;
-    type MwMapper = A<TMiddleware::MwMapper, TIncomingMiddleware::MwMapper>;
+    type MwMapper = MwArgMapperMerger<TMiddleware::MwMapper, TIncomingMiddleware::MwMapper>;
 
     fn build<T>(&self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
@@ -441,7 +442,7 @@ where
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
-    type MwMapper = A<TMiddleware::MwMapper, TNewMiddleware::MwMapper>;
+    type MwMapper = MwArgMapperMerger<TMiddleware::MwMapper, TNewMiddleware::MwMapper>;
 
     fn build<T>(&self, next: T) -> Box<dyn Layer<TMiddleware::Ctx>>
     where
