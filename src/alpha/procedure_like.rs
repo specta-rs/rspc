@@ -7,7 +7,7 @@ use super::{AlphaBaseMiddleware, AlphaMiddlewareBuilderLike, AlphaProcedure, Res
 
 /// TODO
 pub trait ProcedureLike<TLayerCtx: Send + Sync + 'static> {
-    type Middleware: AlphaMiddlewareBuilderLike<LayerContext = TLayerCtx>;
+    type Middleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx>;
 
     fn query<R, RMarker>(
         self,
