@@ -8,13 +8,13 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, Layer, LayerResult, MiddlewareLayerBuilder,
         ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestKind, RequestLayer,
-    RequestLayerMarker, SerializeMarker, StreamLayerMarker, StreamRequestLayer,
+    typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
+    StreamRequestLayer,
 };
 
 use super::{
     AlphaMiddlewareBuilder, AlphaMiddlewareLike, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, Mw, ProcedureLike,
+    MiddlewareArgMapper, Mw, ProcedureLike, RequestKind, RequestLayerMarker, StreamLayerMarker,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types

@@ -1,9 +1,9 @@
-use crate::{
-    internal::ProcedureKind, RequestLayer, RequestLayerMarker, StreamLayerMarker,
-    StreamRequestLayer,
-};
+use crate::{internal::ProcedureKind, RequestLayer, StreamRequestLayer};
 
-use super::{AlphaBaseMiddleware, AlphaMiddlewareBuilderLike, AlphaProcedure, ResolverFunction};
+use super::{
+    AlphaBaseMiddleware, AlphaMiddlewareBuilderLike, AlphaProcedure, RequestLayerMarker,
+    ResolverFunction, StreamLayerMarker,
+};
 
 /// TODO
 pub trait ProcedureLike<TLayerCtx: Send + Sync + 'static> {

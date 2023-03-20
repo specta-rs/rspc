@@ -8,14 +8,14 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureKind,
         UnbuiltProcedureBuilder,
     },
-    MiddlewareBuilder, MiddlewareLike, RequestKind, RequestLayer, RequestLayerMarker,
-    RouterBuilder, StreamLayerMarker, StreamRequestLayer,
+    MiddlewareBuilder, MiddlewareLike, RequestLayer, RouterBuilder, StreamRequestLayer,
 };
 
 use super::{
     procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareBuilder,
     AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter,
-    MiddlewareArgMapper, MiddlewareMerger, MissingResolver, ResolverFunction,
+    MiddlewareArgMapper, MiddlewareMerger, MissingResolver, RequestKind, RequestLayerMarker,
+    ResolverFunction, StreamLayerMarker,
 };
 
 pub struct Rspc<

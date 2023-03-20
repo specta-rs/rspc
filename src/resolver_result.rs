@@ -1,4 +1,4 @@
-use std::{future::Future, marker::PhantomData};
+use std::future::Future;
 
 use futures::{Stream, StreamExt};
 use serde::Serialize;
@@ -8,33 +8,6 @@ use crate::{
     internal::{LayerResult, ValueOrStream},
     Error, ExecError,
 };
-
-#[derive(Clone, Copy)]
-pub enum RequestKind {
-    Query,
-    Mutation,
-}
-
-/// For either
-pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
-
-impl<T> RequestLayerMarker<T> {
-    pub fn new(kind: RequestKind) -> Self {
-        Self(kind, Default::default())
-    }
-
-    pub fn kind(&self) -> RequestKind {
-        self.0
-    }
-}
-
-pub struct StreamLayerMarker<T>(PhantomData<T>);
-
-impl<T> StreamLayerMarker<T> {
-    pub fn new() -> Self {
-        Self(Default::default())
-    }
-}
 
 // For queries and mutations
 
