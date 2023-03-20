@@ -8,16 +8,15 @@ use crate::{
 };
 
 use super::{
-    procedure::AlphaProcedure, AlphaBaseMiddleware, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareLike, AlphaRouterBuilderLike,
+    ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
 };
 
 pub struct AlphaRouter<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
-    procedures: Vec<(&'static str, Box<dyn IntoProcedure<TCtx>>)>,
-    phantom: PhantomData<TCtx>,
+    procedures: ProcedureList<TCtx>,
 }
 
 impl<TCtx> AlphaRouter<TCtx>
@@ -29,13 +28,12 @@ where
     pub fn new() -> Self {
         Self {
             procedures: Vec::new(),
-            phantom: PhantomData,
         }
     }
 
-    // TODO: `key` should be `impl Into<Cow<'static, str>>`
     pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedure<TCtx>) -> Self {
-        self.procedures.push((key, Box::new(procedure)));
+        self.procedures
+            .push((Cow::Borrowed(key), Box::new(procedure)));
         self
     }
 
@@ -93,6 +91,33 @@ where
         )
     }
 
+    pub fn merge(
+        mut self,
+        prefix: &'static str,
+        router: impl AlphaRouterBuilderLike<TCtx>,
+    ) -> Self {
+        // TODO
+        // let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
+        // #[allow(clippy::panic)]
+        // if prefix_valid {
+        //     eprintln!(
+        //         "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
+        //         Location::caller(),
+        //         prefix
+        //     );
+        //     process::exit(1);
+        // }
+
+        self.procedures.extend(
+            router
+                .procedures()
+                .into_iter()
+                .map(|(key, procedure)| (Cow::Owned(format!("{}{}", prefix, key)), procedure)),
+        );
+
+        self
+    }
+
     // TODO: `.merge()` function
 
     // TODO: Return a Legacy router for now
@@ -112,7 +137,7 @@ where
 
         for (key, mut procedure) in self.procedures.into_iter() {
             // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-            procedure.build(Cow::Borrowed(key), &mut ctx);
+            procedure.build(key, &mut ctx);
         }
 
         Router {
@@ -123,6 +148,12 @@ where
             typ_store,
             phantom: PhantomData,
         }
+    }
+}
+
+impl<TCtx: Send + Sync + 'static> AlphaRouterBuilderLike<TCtx> for AlphaRouter<TCtx> {
+    fn procedures(self) -> ProcedureList<TCtx> {
+        self.procedures
     }
 }
 
