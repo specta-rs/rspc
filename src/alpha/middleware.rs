@@ -16,7 +16,7 @@ use crate::{
 
 // TODO: Rename
 pub trait Mw<TLayerCtx, TPrevMwMapper>:
-    Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> Self::NewMiddleware + Send
+    Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> Self::NewMiddleware
 where
     TLayerCtx: Send,
     TPrevMwMapper: MiddlewareArgMapper,
@@ -24,19 +24,15 @@ where
     type LayerCtx: Send + Sync + 'static;
     type PrevMwMapper: MiddlewareArgMapper;
     type NewLayerCtx: Send;
-    type NewMiddleware: AlphaMiddlewareLike<LayerCtx = TLayerCtx, NewCtx = Self::NewLayerCtx>
-        + Send
-        + Sync
-        + 'static;
+    type NewMiddleware: AlphaMiddlewareLike<LayerCtx = TLayerCtx, NewCtx = Self::NewLayerCtx>;
 }
 
 impl<TLayerCtx, TNewLayerCtx, TNewMiddleware, F, TPrevMwMapper> Mw<TLayerCtx, TPrevMwMapper> for F
 where
     TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send,
-    TNewMiddleware:
-        AlphaMiddlewareLike<LayerCtx = TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
-    F: Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> TNewMiddleware + Send,
+    TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TLayerCtx, NewCtx = TNewLayerCtx>,
+    F: Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> TNewMiddleware,
     TPrevMwMapper: MiddlewareArgMapper,
 {
     type LayerCtx = TLayerCtx;
@@ -80,7 +76,7 @@ impl MiddlewareArgMapper for MiddlewareArgMapperPassthrough {
 // All of the following stuff is clones of the legacy API with breaking changes for the new system.
 //
 
-pub trait AlphaMiddlewareLike: Clone {
+pub trait AlphaMiddlewareLike: Clone + Send + Sync + 'static {
     type LayerCtx: Send + Sync + 'static;
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + Sync + 'static;
@@ -396,11 +392,14 @@ where
     TLayerCtx: Send + Sync + 'static,
     TNewCtx: Send + Sync + 'static,
     THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
-        + Clone,
+        + Clone
+        + Send
+        + Sync
+        + 'static,
     THandlerFut: Future<Output = Result<AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
-    TMwMapper: MiddlewareArgMapper,
+    TMwMapper: MiddlewareArgMapper + 'static,
 {
     type LayerCtx = TLayerCtx;
     type State = TState;
@@ -462,13 +461,17 @@ where
     TLayerCtx: Send + Sync + 'static,
     TNewCtx: Send + Sync + 'static,
     THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
-        + Clone,
+        + Clone
+        + Send
+        + Sync
+        + 'static,
     THandlerFut: Future<Output = Result<AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
+        + Sync
         + 'static,
     TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
-    TMwMapper: MiddlewareArgMapper,
+    TMwMapper: MiddlewareArgMapper + 'static,
 {
     type LayerCtx = TLayerCtx;
     type State = TState;

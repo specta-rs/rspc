@@ -9,29 +9,30 @@ use crate::{
     Error, ExecError,
 };
 
-/// For either
-pub trait AnyRequestLayer<TMarker> {
-    type Result: Type;
-
-    // TODO: Rename
-    fn any_into_layer_result(self) -> Result<LayerResult, ExecError>;
+#[derive(Clone, Copy)]
+pub enum RequestKind {
+    Query,
+    Mutation,
 }
 
-pub struct RequestLayerMarker<T>(PhantomData<T>);
-impl<T: RequestLayer<TMarker>, TMarker> AnyRequestLayer<RequestLayerMarker<TMarker>> for T {
-    type Result = T::Result;
+/// For either
+pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
 
-    fn any_into_layer_result(self) -> Result<LayerResult, ExecError> {
-        RequestLayer::into_layer_result(self)
+impl<T> RequestLayerMarker<T> {
+    pub fn new(kind: RequestKind) -> Self {
+        Self(kind, Default::default())
+    }
+
+    pub fn kind(&self) -> RequestKind {
+        self.0
     }
 }
 
 pub struct StreamLayerMarker<T>(PhantomData<T>);
-impl<T: StreamRequestLayer<TMarker>, TMarker> AnyRequestLayer<StreamLayerMarker<TMarker>> for T {
-    type Result = T::Result;
 
-    fn any_into_layer_result(self) -> Result<LayerResult, ExecError> {
-        StreamRequestLayer::into_layer_result(self)
+impl<T> StreamLayerMarker<T> {
+    pub fn new() -> Self {
+        Self(Default::default())
     }
 }
 

@@ -4,7 +4,8 @@ use specta::TypeDefs;
 
 use crate::{
     internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
-    Config, RequestLayer, Router, RouterBuilder, RouterBuilderLike, StreamRequestLayer,
+    Config, RequestKind, RequestLayer, RequestLayerMarker, Router, RouterBuilder,
+    RouterBuilderLike,
 };
 
 use super::{procedure::AlphaProcedure, AlphaBaseMiddleware, ResolverFunction};
@@ -42,47 +43,39 @@ where
     //     let r = r.expose();
     //     todo!();
     // }
-
     pub fn query<R, RMarker>(
         self,
         builder: R,
-    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RawResultMarker>,
+        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
+            + Fn(TCtx, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::ResultMarker>,
     {
-        AlphaProcedure::new_from_resolver(ProcedureKind::Query, AlphaBaseMiddleware::new(), builder)
+        AlphaProcedure::new_from_resolver(
+            RequestLayerMarker::new(RequestKind::Query),
+            AlphaBaseMiddleware::new(),
+            builder,
+        )
     }
 
     pub fn mutation<R, RMarker>(
         self,
         builder: R,
-    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RawResultMarker>,
+        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
+            + Fn(TCtx, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::ResultMarker>,
     {
         AlphaProcedure::new_from_resolver(
-            ProcedureKind::Mutation,
+            RequestLayerMarker::new(RequestKind::Mutation),
             AlphaBaseMiddleware::new(),
             builder,
         )
     }
 
-    pub fn subscription<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RawResultMarker>,
-    {
-        AlphaProcedure::new_from_resolver(
-            ProcedureKind::Mutation,
-            AlphaBaseMiddleware::new(),
-            builder,
-        )
-    }
+    // TODO: `.merge()` function
 
     // TODO: Return a Legacy router for now
     pub fn compat(self) -> Router<TCtx, ()> {
