@@ -5,7 +5,7 @@ use specta::TypeDefs;
 use crate::{
     internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
     Config, RequestKind, RequestLayer, RequestLayerMarker, Router, RouterBuilder,
-    RouterBuilderLike,
+    RouterBuilderLike, StreamLayerMarker, StreamRequestLayer,
 };
 
 use super::{procedure::AlphaProcedure, AlphaBaseMiddleware, ResolverFunction};
@@ -70,6 +70,22 @@ where
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
+            AlphaBaseMiddleware::new(),
+            builder,
+        )
+    }
+
+    pub fn subscription<R, RMarker>(
+        self,
+        builder: R,
+    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
+            + Fn(TCtx, R::Arg) -> R::Result,
+        R::Result: StreamRequestLayer<R::RequestMarker>,
+    {
+        AlphaProcedure::new_from_resolver(
+            StreamLayerMarker::new(),
             AlphaBaseMiddleware::new(),
             builder,
         )
