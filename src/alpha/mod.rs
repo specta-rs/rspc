@@ -109,84 +109,7 @@ mod tests {
         r.export_ts(PathBuf::from("./demo.bindings.ts")).unwrap();
     }
 
-    // fn admin_middleware() -> impl Middleware {} // TODO: basic middleware + context switching
-    // TODO: Allowing a router to take parameters -> Will require proxy syntax on frontend
-    // TODO: Internally storing those as `fn()` instead of `impl Fn()` (Basically using a `Cow` for functions)??
-
-    // TODO: Maybe making a macro to do this without so many internal APIs, lmao!
-    fn test_crazy_spacedrive_stuff() {
-        pub type Context = ();
-        pub type Db = i32;
-        pub struct Library {
-            db: i32,
-        }
-        pub struct SdRspc {
-            db: i32,
-        };
-
-        // TODO: THIS SYSTEM DOESN'T HANDLE `t.use(...).query(...)` it only does `t.query(...)`
-
-        pub struct LibraryResolver<F>(F, Db);
-
-        pub struct BetterMarker<A, B, C>(PhantomData<(A, B, C)>);
-        impl<
-                TLayerCtx,
-                TArg,
-                TResult,
-                TResultMarker,
-                F: Fn(TLayerCtx, TArg, Db) -> TResult + Send + Sync + 'static,
-            > ResolverFunction<TLayerCtx, BetterMarker<TArg, TResult, TResultMarker>>
-            for LibraryResolver<F>
-        where
-            TArg: DeserializeOwned + Type,
-            TResult: RequestLayer<TResultMarker>,
-        {
-            type Arg = TArg;
-            type Result = TResult;
-            type ResultMarker = TResultMarker;
-
-            fn exec(&self, ctx: TLayerCtx, arg: Self::Arg) -> Self::Result {
-                self.0(ctx, arg, self.1)
-            }
-        }
-
-        impl SdRspc {
-            pub fn query<R, TArg, TResult, TResultMarker>(
-                &self,
-                builder: R,
-            ) -> AlphaProcedure<
-                Context,
-                Context,
-                LibraryResolver<R>,
-                BetterMarker<TArg, TResult, TResultMarker>,
-                (),
-                AlphaBaseMiddleware<Context>,
-            >
-            where
-                R: Fn(Context, TArg, Db) -> TResult + Send + Sync + 'static,
-                TArg: DeserializeOwned + Type,
-                TResult: RequestLayer<TResultMarker>,
-            {
-                AlphaProcedure::new_from_resolver(
-                    ProcedureKind::Query,
-                    LibraryResolver(builder, 42),
-                )
-            }
-        }
-
-        const t: SdRspc = SdRspc { db: 42 };
-
-        let p = t.query(|ctx, _: (), db| {
-            println!("TODO: {:?}", ctx);
-            Ok(())
-        });
-
-        let p = t.query(|ctx, _: (), db| {
-            println!("TODO: {:?}", ctx);
-            Ok(())
-        });
-    }
-
+    #[test]
     fn test_context_switching() {
         const t: Rspc = Rspc::new();
 
@@ -202,7 +125,7 @@ mod tests {
                 Ok(())
             });
 
-        fn demo() -> impl ProcedureLike<(), ((), i32)> {
+        fn demo() -> impl ProcedureLike<((), i32)> {
             t.with(|mw| {
                 mw.middleware(|mw, _| async move {
                     let ctx = mw.ctx.clone(); // This clone is so unnessesary but Rust
@@ -218,8 +141,9 @@ mod tests {
         });
     }
 
+    #[test]
     fn with_middleware_from_func() {
-        pub fn library<TLayerCtx, TPrevMwMapper>() -> impl Mw<TLayerCtx, TPrevMwMapper, (), NewLayerCtx = (TLayerCtx, i32)>
+        pub fn library<TLayerCtx, TPrevMwMapper>() -> impl Mw<TLayerCtx, TPrevMwMapper, NewLayerCtx = (TLayerCtx, i32)>
         where
             TLayerCtx: Send + Sync + Clone + 'static,
             TPrevMwMapper: MiddlewareArgMapper + Send + Sync + 'static,
@@ -240,6 +164,7 @@ mod tests {
         });
     }
 
+    #[test]
     fn middleware_args() {
         pub struct LibraryArgsMap;
 
@@ -332,24 +257,4 @@ mod tests {
 
             let r = t.router().procedure("demo", p).compat().export_ts(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./demo2.bindings.ts")).unwrap();
     }
-
-    // fn bruh() {
-    //     pub struct LibraryArgsMap;
-
-    //     impl MiddlewareArgMapper for LibraryArgsMap {
-    //         type Input<T> = (T, i32) 
-    //         where
-    //             T: DeserializeOwned + Type + 'static;
-    //         type Output<T> = T;
-    //         type State = i32;
-
-    //         fn map<T: DeserializeOwned + Type + 'static>(
-    //             arg: Self::Input<T>,
-    //         ) -> (Self::Output<T>, Self::State) {
-    //             (arg.0, arg.1)
-    //         }
-    //     }
-    // }
-
-    // TODO: `LibraryArgs<T>` style system with middleware
 }

@@ -13,9 +13,9 @@ use crate::{
 };
 
 use super::{
-    AlphaBaseMiddleware, AlphaMiddlewareBuilder, AlphaMiddlewareBuilderLike,
-    AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter, MiddlewareArgMapper,
-    MiddlewareMerger, MissingResolver, ResolverFunction,
+    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareBuilder,
+    AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter,
+    MiddlewareArgMapper, MiddlewareMerger, MissingResolver, ResolverFunction,
 };
 
 pub struct Rspc<
@@ -49,34 +49,44 @@ where
     }
 
     // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
-    pub fn with<TNewLayerCtx, TNewMiddleware>(
+    pub fn with<TNewMiddleware>(
         self,
         builder: impl Fn(AlphaMiddlewareBuilder<TCtx, (), ()>) -> TNewMiddleware, // TODO: Remove builder closure
-    ) -> crate::alpha::procedure::AlphaProcedure<
-        TCtx,
-        TNewLayerCtx,
-        MissingResolver<TNewLayerCtx>,
+    ) -> AlphaProcedure<
+        MissingResolver<TNewMiddleware::NewCtx>,
         (),
-        (),
-        AlphaMiddlewareLayerBuilder<
-            TCtx,
-            TCtx,
-            TNewLayerCtx,
-            AlphaBaseMiddleware<TCtx>,
-            TNewMiddleware,
-        >,
+        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, TNewMiddleware>,
     >
     where
-        TNewLayerCtx: Send + Sync + 'static,
-        TNewMiddleware: AlphaMiddlewareLike<TCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+        TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx> + Send + Sync + 'static,
     {
         let mw = builder(AlphaMiddlewareBuilder(PhantomData));
-        crate::alpha::procedure::AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
             middleware: AlphaBaseMiddleware::new(),
             mw,
-            phantom: PhantomData,
         })
     }
+    pub fn query<R, RMarker>(
+        self,
+        builder: R,
+    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+    {
+        AlphaProcedure::new_from_resolver(ProcedureKind::Query, AlphaBaseMiddleware::new(), builder)
+    }
 
-    impl_procedure_like!();
+    pub fn mutation<R, RMarker>(
+        self,
+        builder: R,
+    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+    {
+        AlphaProcedure::new_from_resolver(
+            ProcedureKind::Mutation,
+            AlphaBaseMiddleware::new(),
+            builder,
+        )
+    }
 }

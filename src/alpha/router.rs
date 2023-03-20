@@ -8,7 +8,7 @@ use crate::{
     Config, Router, RouterBuilder, RouterBuilderLike,
 };
 
-use super::ResolverFunction;
+use super::{procedure::AlphaProcedure, AlphaBaseMiddleware, ResolverFunction};
 
 pub struct AlphaRouter<TCtx>
 where
@@ -43,8 +43,29 @@ where
     //     let r = r.expose();
     //     todo!();
     // }
+    pub fn query<R, RMarker>(
+        self,
+        builder: R,
+    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+    {
+        AlphaProcedure::new_from_resolver(ProcedureKind::Query, AlphaBaseMiddleware::new(), builder)
+    }
 
-    impl_procedure_like!();
+    pub fn mutation<R, RMarker>(
+        self,
+        builder: R,
+    ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+    {
+        AlphaProcedure::new_from_resolver(
+            ProcedureKind::Mutation,
+            AlphaBaseMiddleware::new(),
+            builder,
+        )
+    }
 
     // TODO: `.merge()` function
 

@@ -15,38 +15,37 @@ use crate::{
 };
 
 // TODO: Rename
-pub trait Mw<TLayerCtx, TPrevMwMapper, TMwMapper>:
+pub trait Mw<TLayerCtx, TPrevMwMapper>:
     Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> Self::NewMiddleware + Send
 where
     TLayerCtx: Send,
     TPrevMwMapper: MiddlewareArgMapper,
-    TMwMapper: MiddlewareArgMapper,
 {
+    type LayerCtx: Send + Sync + 'static;
+    type PrevMwMapper: MiddlewareArgMapper;
     type NewLayerCtx: Send;
-    type NewMiddleware: AlphaMiddlewareLike<TLayerCtx, NewCtx = Self::NewLayerCtx, MwMapper = TMwMapper>
+    type NewMiddleware: AlphaMiddlewareLike<LayerCtx = TLayerCtx, NewCtx = Self::NewLayerCtx>
         + Send
         + Sync
         + 'static;
 }
 
-impl<TLayerCtx, TNewLayerCtx, TNewMiddleware, F, TPrevMwMapper, TMwMapper>
-    Mw<TLayerCtx, TPrevMwMapper, TMwMapper> for F
+impl<TLayerCtx, TNewLayerCtx, TNewMiddleware, F, TPrevMwMapper> Mw<TLayerCtx, TPrevMwMapper> for F
 where
-    TLayerCtx: Send + Sync,
+    TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send,
-    TNewMiddleware: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx, MwMapper = TMwMapper>
-        + Send
-        + Sync
-        + 'static,
+    TNewMiddleware:
+        AlphaMiddlewareLike<LayerCtx = TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
     F: Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> TNewMiddleware + Send,
     TPrevMwMapper: MiddlewareArgMapper,
-    TMwMapper: MiddlewareArgMapper,
 {
-    type NewLayerCtx = TNewLayerCtx;
+    type LayerCtx = TLayerCtx;
+    type PrevMwMapper = TPrevMwMapper;
+    type NewLayerCtx = TNewMiddleware::NewCtx;
     type NewMiddleware = TNewMiddleware;
 }
 
-pub trait MiddlewareArgMapper {
+pub trait MiddlewareArgMapper: Send + Sync {
     type Input<T>: DeserializeOwned + Type + 'static
     where
         T: DeserializeOwned + Type + 'static;
@@ -81,14 +80,15 @@ impl MiddlewareArgMapper for MiddlewareArgMapperPassthrough {
 // All of the following stuff is clones of the legacy API with breaking changes for the new system.
 //
 
-pub trait AlphaMiddlewareLike<TLayerCtx>: Clone {
+pub trait AlphaMiddlewareLike: Clone {
+    type LayerCtx: Send + Sync + 'static;
     type State: Clone + Send + Sync + 'static;
-    type NewCtx: Send + 'static;
+    type NewCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
 
     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
         &self,
-        ctx: TLayerCtx,
+        ctx: Self::LayerCtx,
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
@@ -389,13 +389,12 @@ where
     }
 }
 
-impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
-    AlphaMiddlewareLike<TLayerCtx>
+impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper> AlphaMiddlewareLike
     for AlphaMiddleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
 where
     TState: Clone + Send + Sync + 'static,
-    TLayerCtx: Send,
-    TNewCtx: Send + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    TNewCtx: Send + Sync + 'static,
     THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
         + Clone,
     THandlerFut: Future<Output = Result<AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
@@ -403,6 +402,7 @@ where
         + 'static,
     TMwMapper: MiddlewareArgMapper,
 {
+    type LayerCtx = TLayerCtx;
     type State = TState;
     type NewCtx = TNewCtx;
     type MwMapper = TMwMapper;
@@ -446,7 +446,7 @@ impl<
         TRespHandlerFunc,
         TRespHandlerFut,
         TMwMapper,
-    > AlphaMiddlewareLike<TLayerCtx>
+    > AlphaMiddlewareLike
     for AlphaMiddlewareWithResponseHandler<
         TState,
         TLayerCtx,
@@ -459,8 +459,8 @@ impl<
     >
 where
     TState: Clone + Send + Sync + 'static,
-    TLayerCtx: Send + 'static,
-    TNewCtx: Send + 'static,
+    TLayerCtx: Send + Sync + 'static,
+    TNewCtx: Send + Sync + 'static,
     THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
         + Clone,
     THandlerFut: Future<Output = Result<AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
@@ -470,6 +470,7 @@ where
     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
     TMwMapper: MiddlewareArgMapper,
 {
+    type LayerCtx = TLayerCtx;
     type State = TState;
     type NewCtx = TNewCtx;
     type MwMapper = TMwMapper;
@@ -532,50 +533,5 @@ where
                 )
             },
         )))
-    }
-}
-
-///
-/// `procedure_store.rs`
-///
-
-// TODO: Make private
-pub struct AlphaProcedure<TCtx> {
-    pub exec: Box<dyn Layer<TCtx>>,
-    pub ty: ProcedureDataType,
-}
-
-pub struct AlphaProcedureStore<TCtx> {
-    name: &'static str,
-    pub store: BTreeMap<String, AlphaProcedure<TCtx>>,
-}
-
-impl<TCtx> AlphaProcedureStore<TCtx> {
-    pub const fn new(name: &'static str) -> Self {
-        Self {
-            name,
-            store: BTreeMap::new(),
-        }
-    }
-
-    pub fn append(&mut self, key: String, exec: Box<dyn Layer<TCtx>>, ty: ProcedureDataType) {
-        #[allow(clippy::panic)]
-        if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
-            panic!(
-                "rspc error: attempted to create {} operation named '{}', however this name is not allowed.",
-                self.name,
-                key
-            );
-        }
-
-        #[allow(clippy::panic)]
-        if self.store.contains_key(&key) {
-            panic!(
-                "rspc error: {} operation already has resolver with name '{}'",
-                self.name, key
-            );
-        }
-
-        self.store.insert(key, AlphaProcedure { exec, ty });
     }
 }
