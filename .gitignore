@@ -34,3 +34,7 @@ crates/*/wip
 
 # Rollup plugin analyser
 stats.html
+
+# Alpha bindings
+demo.bindings.ts
+demo2.bindings.ts

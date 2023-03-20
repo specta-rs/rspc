@@ -50,25 +50,24 @@ async fn main() {
                     Ok(result)
                 })
             })
-            .middleware(|next, ctx| async move {
-                let lib = get_library().await?;
-
-                next.next((ctx, lib))
-                    .handle_response(|result| {
-                        println!(
-                            "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
-                            state.0, state.1, state.2, result
-                        );
-                        Ok(result)
-                    })
-                    .handle_subscription(|stream| {
-                        async_stream::stream! {
-                            while let Some(msg) = stream.next().await {
-                                yield msg;
-                            }
-                        }
-                    })
-            })
+            // .middleware(|next, ctx| async move {
+            //     let lib = get_library().await?;
+            //     next.next((ctx, lib))
+            //         .handle_response(|result| {
+            //             println!(
+            //                 "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+            //                 state.0, state.1, state.2, result
+            //             );
+            //             Ok(result)
+            //         })
+            //         .handle_subscription(|stream| {
+            //             async_stream::stream! {
+            //                 while let Some(msg) = stream.next().await {
+            //                     yield msg;
+            //                 }
+            //             }
+            //         })
+            // })
             .query("version", |t| {
                 t(|_ctx, _: ()| {
                     println!("ANOTHER QUERY");
