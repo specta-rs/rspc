@@ -4,13 +4,12 @@ use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::{
-    impl_procedure_like,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureKind,
         UnbuiltProcedureBuilder,
     },
-    MiddlewareBuilder, MiddlewareLike, RequestLayer, RequestLayerMarker, RouterBuilder,
-    StreamLayerMarker,
+    AnyRequestLayer, MiddlewareBuilder, MiddlewareLike, RequestLayer, RequestLayerMarker,
+    RouterBuilder, StreamLayerMarker, StreamRequestLayer,
 };
 
 use super::{
@@ -67,12 +66,14 @@ where
             mw,
         })
     }
+
     pub fn query<R, RMarker>(
         self,
         builder: R,
     ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
     where
         R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::RawResultMarker>,
     {
         AlphaProcedure::new_from_resolver(ProcedureKind::Query, AlphaBaseMiddleware::new(), builder)
     }
@@ -83,6 +84,7 @@ where
     ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
     where
         R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::RawResultMarker>,
     {
         AlphaProcedure::new_from_resolver(
             ProcedureKind::Mutation,
@@ -97,6 +99,7 @@ where
     ) -> AlphaProcedure<R, RMarker, AlphaBaseMiddleware<TCtx>>
     where
         R: ResolverFunction<RMarker, LayerCtx = TCtx> + Fn(TCtx, R::Arg) -> R::Result,
+        R::Result: StreamRequestLayer<R::RawResultMarker>,
     {
         AlphaProcedure::new_from_resolver(
             ProcedureKind::Mutation,

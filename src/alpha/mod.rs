@@ -119,20 +119,6 @@ mod tests {
                     }
                 })
             )
-            // TODO: This shouldn't work
-            .procedure(
-                "veryInvalid",
-                t.query(|_ctx, _args: ()| {
-                    stream! {
-                        println!("Client subscribed to 'pings'");
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                }),
-            )
             .compat();
 
         r.export_ts(PathBuf::from("./demo.bindings.ts")).unwrap();

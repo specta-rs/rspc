@@ -4,7 +4,6 @@ use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::{
-    impl_procedure_like,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, Layer, LayerResult, MiddlewareLayerBuilder,
         ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
@@ -25,6 +24,7 @@ pub trait ResolverFunction<TMarker> {
     type Arg: DeserializeOwned + Type;
     type Result: AnyRequestLayer<Self::ResultMarker>;
     type ResultMarker;
+    type RawResultMarker;
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 }
@@ -46,6 +46,7 @@ where
     type Arg = TArg;
     type Result = TResult;
     type ResultMarker = RequestLayerMarker<TResultMarker>;
+    type RawResultMarker = TResultMarker;
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
         self(ctx, arg)
@@ -69,6 +70,7 @@ where
     type Arg = TArg;
     type Result = TResult;
     type ResultMarker = StreamLayerMarker<TResultMarker>;
+    type RawResultMarker = TResultMarker;
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
         self(ctx, arg)
@@ -95,6 +97,7 @@ where
     type Arg = ();
     type Result = ();
     type ResultMarker = RequestLayerMarker<SerializeMarker>;
+    type RawResultMarker = SerializeMarker;
 
     fn exec(&self, _: Self::LayerCtx, _: Self::Arg) -> Self::Result {
         unreachable!();
@@ -145,45 +148,31 @@ impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerContext>, (),
 where
     TMiddleware: AlphaMiddlewareBuilderLike + Send + 'static,
 {
-    // impl_procedure_like!(); // TODO: Use this instead of redeclaring below
-
     pub fn query<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, TMiddleware>
     where
         R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
             + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::RawResultMarker>,
     {
-        AlphaProcedure(
-            Some(builder),
-            self.1,
-            Some(ProcedureKind::Query),
-            PhantomData,
-        )
+        AlphaProcedure::new_from_resolver(ProcedureKind::Query, self.1, builder)
     }
 
     pub fn mutation<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, TMiddleware>
     where
         R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
             + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::RawResultMarker>,
     {
-        AlphaProcedure(
-            Some(builder),
-            self.1,
-            Some(ProcedureKind::Mutation),
-            PhantomData,
-        )
+        AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, self.1, builder)
     }
 
     pub fn subscription<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, TMiddleware>
     where
         R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
             + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+        R::Result: StreamRequestLayer<R::RawResultMarker>,
     {
-        AlphaProcedure(
-            Some(builder),
-            self.1,
-            Some(ProcedureKind::Subscription),
-            PhantomData,
-        )
+        AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, self.1, builder)
     }
 }
 
@@ -267,35 +256,32 @@ where
 {
     type Middleware = TMiddleware;
 
-    fn query<R2, R2Marker>(self, builder: R2) -> AlphaProcedure<R2, R2Marker, Self::Middleware>
+    fn query<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, Self::Middleware>
     where
-        R2: ResolverFunction<R2Marker, LayerCtx = TMiddleware::LayerContext>
-            + Fn(TMiddleware::LayerContext, R2::Arg) -> R2::Result,
+        R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
+            + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::RawResultMarker>,
     {
         AlphaProcedure::new_from_resolver(ProcedureKind::Query, self.1, builder)
     }
 
-    // fn query<R2, R2Marker>(
-    //     &self,
-    //     builder: R2,
-    // ) -> AlphaProcedure<TCtx, Self::LayerCtx, R2, R2Marker, (), Self::Middleware>
-    // where
-    //     R2: ResolverFunction<Self::LayerCtx, R2Marker> + Fn(Self::LayerCtx, R2::Arg) -> R2::Result,
-    // {
-    //     // AlphaProcedure::<TCtx, TLayerCtx, R, RMarker, TMiddleware>
-    //     // Self::query(self, builder)
-    //     todo!();
-    // }
+    fn mutation<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, Self::Middleware>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
+            + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+        R::Result: RequestLayer<R::RawResultMarker>,
+    {
+        AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, self.1, builder)
+    }
 
-    // fn mutation<R, RMarker>(
-    //     &self,
-    //     builder: R,
-    // ) -> AlphaProcedure<TCtx, TCtx, R, RMarker, (), BaseMiddleware<TCtx>>
-    // where
-    //     R: ResolverFunction<TCtx, RMarker> + Fn(TCtx, R::Arg) -> R::Result,
-    // {
-    //     AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, builder)
-    // }
+    fn subscription<R, RMarker>(self, builder: R) -> AlphaProcedure<R, RMarker, Self::Middleware>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerContext>
+            + Fn(TMiddleware::LayerContext, R::Arg) -> R::Result,
+        R::Result: StreamRequestLayer<R::RawResultMarker>,
+    {
+        AlphaProcedure::new_from_resolver(ProcedureKind::Mutation, self.1, builder)
+    }
 }
 
 ///
