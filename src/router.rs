@@ -223,7 +223,7 @@ fn generate_procedures_ts<Ctx>(
         _ => procedures
             .iter()
             .map(|(key, operation)| {
-                let input = match &operation.ty.arg_ty {
+                let input = match &operation.ty.input {
                     DataType::Tuple(def)
                         // This condition is met with an empty enum or `()`.
                         if def.fields.is_empty() =>
@@ -234,7 +234,7 @@ fn generate_procedures_ts<Ctx>(
                     ty => datatype(config, ty).unwrap(),
                 };
                 #[allow(clippy::unwrap_used)] // TODO
-                let result_ts = datatype(config, &operation.ty.result_ty).unwrap();
+                let result_ts = datatype(config, &operation.ty.result).unwrap();
 
                 // TODO: Specta API
                 format!(

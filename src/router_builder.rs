@@ -1,13 +1,13 @@
-use std::{marker::PhantomData, panic::Location, process};
+use std::{borrow::Cow, marker::PhantomData, panic::Location, process};
 
 use serde::de::DeserializeOwned;
-use specta::{DefOpts, Type, TypeDefs};
+use specta::{Type, TypeDefs};
 
 use crate::{
+    alpha_stable::ResolverFunction,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        MiddlewareMerger, ProcedureDataType, ProcedureStore, ResolverLayer,
-        UnbuiltProcedureBuilder,
+        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
     Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
 };
@@ -207,7 +207,8 @@ where
                 },
                 phantom: PhantomData,
             }),
-            typedef::<TArg, TResult::Result>(&mut self.typ_store),
+            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
+                .unwrap(),
         );
         self
     }
@@ -247,7 +248,8 @@ where
                 },
                 phantom: PhantomData,
             }),
-            typedef::<TArg, TResult::Result>(&mut self.typ_store),
+            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
+                .unwrap(),
         );
         self
     }
@@ -285,7 +287,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            typedef::<TArg, TResult::Result>(&mut self.typ_store),
+            <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
         );
         self
     }
@@ -463,27 +465,5 @@ where
         }
 
         router
-    }
-}
-
-#[allow(clippy::unwrap_used)] // TODO
-pub(crate) fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeDefs) -> ProcedureDataType {
-    ProcedureDataType {
-        arg_ty: <TArg as Type>::reference(
-            DefOpts {
-                parent_inline: false,
-                type_map: defs,
-            },
-            &[],
-        )
-        .unwrap(), // TODO: Error handling the `unwrap`'s in this file
-        result_ty: <TResult as Type>::reference(
-            DefOpts {
-                parent_inline: false,
-                type_map: defs,
-            },
-            &[],
-        )
-        .unwrap(),
     }
 }

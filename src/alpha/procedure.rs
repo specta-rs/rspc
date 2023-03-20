@@ -1,108 +1,24 @@
 use std::{any::type_name, borrow::Cow, marker::PhantomData, pin::Pin, sync::Arc};
 
 use serde::de::DeserializeOwned;
-use specta::Type;
+use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, Layer, LayerResult, MiddlewareLayerBuilder,
-        ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
+        ProcedureDataType, ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    typedef, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
+    ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
     StreamRequestLayer,
 };
 
 use super::{
     AlphaMiddlewareBuilder, AlphaMiddlewareLike, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, Mw, ProcedureLike, RequestKind, RequestLayerMarker, StreamLayerMarker,
+    MiddlewareArgMapper, MissingResolver, Mw, ProcedureLike, RequestKind, RequestLayerMarker,
+    ResolverFunction, StreamLayerMarker,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
-
-pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
-    type LayerCtx: Send + Sync + 'static;
-    type Arg: DeserializeOwned + Type;
-    type RequestMarker;
-    type Result;
-    type ResultMarker;
-
-    fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
-}
-
-pub struct Marker<A, B, C, D>(PhantomData<(A, B, C, D)>);
-
-impl<
-        TLayerCtx,
-        TArg,
-        TResult,
-        TResultMarker,
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
-where
-    TArg: DeserializeOwned + Type,
-    TResult: RequestLayer<TResultMarker>,
-    TLayerCtx: Send + Sync + 'static,
-{
-    type LayerCtx = TLayerCtx;
-    type Arg = TArg;
-    type Result = TResult;
-    type ResultMarker = RequestLayerMarker<TResultMarker>;
-    type RequestMarker = TResultMarker;
-
-    fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
-        self(ctx, arg)
-    }
-}
-
-impl<
-        TLayerCtx,
-        TArg,
-        TResult,
-        TResultMarker,
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
-where
-    TArg: DeserializeOwned + Type,
-    TResult: StreamRequestLayer<TResultMarker>,
-    TLayerCtx: Send + Sync + 'static,
-{
-    type LayerCtx = TLayerCtx;
-    type Arg = TArg;
-    type Result = TResult;
-    type ResultMarker = StreamLayerMarker<TResultMarker>;
-    type RequestMarker = TResultMarker;
-
-    fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
-        self(ctx, arg)
-    }
-}
-
-pub struct MissingResolver<TLayerCtx> {
-    phantom: PhantomData<TLayerCtx>,
-}
-
-impl<TLayerCtx> Default for MissingResolver<TLayerCtx> {
-    fn default() -> Self {
-        Self {
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<TLayerCtx> ResolverFunction<()> for MissingResolver<TLayerCtx>
-where
-    TLayerCtx: Send + Sync + 'static,
-{
-    type LayerCtx = TLayerCtx;
-    type Arg = ();
-    type Result = ();
-    type ResultMarker = RequestLayerMarker<SerializeMarker>;
-    type RequestMarker = SerializeMarker;
-
-    fn exec(&self, _: Self::LayerCtx, _: Self::Arg) -> Self::Result {
-        unreachable!();
-    }
-}
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
 
@@ -229,10 +145,7 @@ where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
-        let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!"));
-        // TODO: Removing `Arc`?
-
-        // serde_json::from_value::<TMiddleware::ArgMap<R::Arg>>();
+        let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
         let m = match self.2.kind() {
             RequestKind::Query => &mut ctx.queries,
@@ -240,7 +153,7 @@ where
         };
 
         m.append(
-            key.into(),
+            key.to_string(),
             self.1.build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
                     resolver
@@ -253,12 +166,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            typedef::<
-                <TMiddleware::MwMapper as MiddlewareArgMapper>::Input<R::Arg>,
-                <<R as ResolverFunction<RequestLayerMarker<RMarker>>>::Result as RequestLayer<
-                    R::RequestMarker,
-                >>::Result,
-            >(ctx.ty_store),
+            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
         );
     }
 }
@@ -275,10 +183,8 @@ where
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
-        // serde_json::from_value::<TMiddleware::ArgMap<R::Arg>>();
-
         ctx.subscriptions.append(
-            key.into(),
+            key.to_string(),
             self.1.build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
                     resolver
@@ -291,10 +197,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            typedef::<
-                <TMiddleware::MwMapper as MiddlewareArgMapper>::Input<R::Arg>,
-                <<R as ResolverFunction<StreamLayerMarker<RMarker>>>::Result as StreamRequestLayer<R::RequestMarker>>::Result,
-            >(ctx.ty_store),
+            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
         );
     }
 }

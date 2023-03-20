@@ -48,7 +48,7 @@ bytesize = ["specta/bytesize"]
 glam = ["specta/glam"]
 
 [dependencies]
-specta = { version = "1.0.0", features = ["serde", "typescript", "tokio"] }
+specta = { version = "1.0.1", features = ["serde", "typescript", "tokio"] }
 httpz = { version = "0.0.4", optional = true } # TODO: Move back to crates.io release
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.93"
@@ -75,4 +75,5 @@ members = [
 ]
 
 [patch.crates-io]
+specta = { git = "https://github.com/oscartbeaumont/specta.git", rev = "df67cd18ea7a79819387e4c6a329b0e3929fb79e" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "be67ead9320095bdecf90cae75fded2411509b0f" } # TODO: Move back to crates.io release

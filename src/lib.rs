@@ -12,6 +12,7 @@
 
 #[cfg(feature = "alpha")]
 pub mod alpha;
+pub(crate) mod alpha_stable;
 mod config;
 mod error;
 mod middleware;

@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use specta::Type;
 
 pub use super::jsonrpc_exec::*;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Type, PartialEq, Eq, Hash)]
+/// TODO
+///
+/// @internal
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(specta::Type))]
 #[serde(untagged)]
 pub enum RequestId {
     Null,
@@ -12,15 +15,30 @@ pub enum RequestId {
     String(String),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)] // TODO: Type on this
+impl RequestId {
+    fn null() -> Self {
+        Self::Null
+    }
+}
+
+/// TODO
+///
+/// @internal
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
 pub struct Request {
     pub jsonrpc: Option<String>, // This is required in the JsonRPC spec but I make it optional.
+    #[serde(default = "RequestId::null")] // Optional is not part of spec but copying tRPC
     pub id: RequestId,
     #[serde(flatten)]
     pub inner: RequestInner,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Type)]
+/// TODO
+///
+/// @internal
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
 pub enum RequestInner {
     Query {
@@ -47,7 +65,11 @@ pub struct Response {
     pub result: ResponseInner,
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
+/// TODO
+///
+/// @internal
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum ResponseInner {
     Event(Value),
@@ -55,64 +77,13 @@ pub enum ResponseInner {
     Error(JsonRPCError),
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
+/// TODO
+///
+/// @internal
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
 pub struct JsonRPCError {
     pub code: i32,
     pub message: String,
     pub data: Option<Value>,
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use std::{fs::File, io::Write, path::PathBuf};
-
-//     use super::*;
-
-//     #[test]
-//     fn export_internal_bindings() {
-//         // let mut file = File::create(
-//         //     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./packages/client/src/types.ts"),
-//         // )
-//         // .unwrap();
-//         // file.write_all(
-//         //     b"// Do not modify this file. It was generated from the Rust types by running ``.\n\n",
-//         // )
-//         // .unwrap();
-//         // // TODO: Add an API into Specta which allows exporting a type and all types it depends on.
-//         // file.write_all(format!("{}\n\n", specta::ts_export::<RequestId>().unwrap()).as_bytes())
-//         //     .unwrap();
-//         // file.write_all(format!("{}\n\n", specta::ts_export::<Request>().unwrap()).as_bytes())
-//         //     .unwrap();
-//     }
-
-//     #[test]
-//     fn test_request_id() {
-//         // println!(
-//         //     "{}",
-//         //     serde_json::to_string(&Request {
-//         //         jsonrpc: None,
-//         //         id: RequestId::Null,
-//         //         inner: RequestInner::Query {
-//         //             path: "test".into(),
-//         //             input: None,
-//         //         },
-//         //     })
-//         //     .unwrap()
-//         // );
-//         todo!();
-
-//         // TODO: Test serde
-
-//         // TODO: Test specta
-//     }
-
-//     #[test]
-//     fn test_jsonrpc_request() {
-//         todo!();
-//     }
-
-//     #[test]
-//     fn test_jsonrpc_response() {
-//         todo!();
-//     }
-// }

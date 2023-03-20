@@ -1,9 +1,5 @@
 use std::marker::PhantomData;
 
-use specta::Type;
-
-use crate::{internal::LayerResult, ExecError, RequestLayer, StreamRequestLayer};
-
 #[derive(Clone, Copy)]
 pub enum RequestKind {
     Query,

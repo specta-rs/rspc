@@ -6,7 +6,6 @@ mod procedure_like;
 mod router;
 mod rspc;
 mod error;
-mod resolver_result;
 mod router_builder_like;
 
 pub use self::rspc::*;
@@ -15,8 +14,9 @@ pub use procedure::*;
 pub use procedure_like::*;
 pub use router::*;
 pub use error::*;
-pub use resolver_result::*;
 pub use router_builder_like::*;
+
+pub use crate::alpha_stable::*;
 
 #[cfg(test)]
 mod tests {
@@ -29,8 +29,8 @@ mod tests {
 
     use crate::{
         alpha::{
-            procedure::AlphaProcedure, AlphaBaseMiddleware, Marker, MiddlewareArgMapper, Mw,
-            ProcedureLike, ResolverFunction,
+            procedure::AlphaProcedure, AlphaBaseMiddleware, MiddlewareArgMapper, Mw,
+            ProcedureLike,
         },
         internal::ProcedureKind,
         RequestLayer,
