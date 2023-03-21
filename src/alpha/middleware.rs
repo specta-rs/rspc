@@ -185,8 +185,20 @@ where
 //     }
 // }
 
-pub struct AlphaMiddleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
-where
+#[derive(Clone)]
+pub struct MiddlewareNoResponseMarker;
+#[derive(Clone)]
+pub struct MiddlewareResponseMarker<THandlerFunc>(THandlerFunc);
+
+pub struct AlphaMiddleware<
+    TState,
+    TLayerCtx,
+    TNewCtx,
+    THandlerFunc,
+    THandlerFut,
+    TMwMapper,
+    TResponseMarker,
+> where
     TState: Send,
     TLayerCtx: Send,
     THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
@@ -197,11 +209,20 @@ where
     TMwMapper: MiddlewareArgMapper,
 {
     handler: THandlerFunc,
+    resp_handler: TResponseMarker,
     phantom: PhantomData<(TState, TLayerCtx, TMwMapper)>,
 }
 
-impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper> Clone
-    for AlphaMiddleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
+impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper, TResponseMarker> Clone
+    for AlphaMiddleware<
+        TState,
+        TLayerCtx,
+        TNewCtx,
+        THandlerFunc,
+        THandlerFut,
+        TMwMapper,
+        TResponseMarker,
+    >
 where
     TState: Send,
     TLayerCtx: Send,
@@ -211,10 +232,12 @@ where
         + Send
         + 'static,
     TMwMapper: MiddlewareArgMapper,
+    TResponseMarker: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             handler: self.handler.clone(),
+            resp_handler: self.resp_handler.clone(),
             phantom: PhantomData,
         }
     }
@@ -265,7 +288,15 @@ where
     pub fn middleware<TState, TNewCtx, THandlerFunc, THandlerFut>(
         &self,
         handler: THandlerFunc,
-    ) -> AlphaMiddleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
+    ) -> AlphaMiddleware<
+        TState,
+        TLayerCtx,
+        TNewCtx,
+        THandlerFunc,
+        THandlerFut,
+        TMwMapper,
+        MiddlewareNoResponseMarker,
+    >
     where
         TState: Send,
         THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
@@ -277,13 +308,22 @@ where
     {
         AlphaMiddleware {
             handler,
+            resp_handler: MiddlewareNoResponseMarker,
             phantom: PhantomData,
         }
     }
 }
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
-    AlphaMiddleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
+    AlphaMiddleware<
+        TState,
+        TLayerCtx,
+        TNewCtx,
+        THandlerFunc,
+        THandlerFut,
+        TMwMapper,
+        MiddlewareNoResponseMarker,
+    >
 where
     TState: Send,
     TLayerCtx: Send,
@@ -297,97 +337,37 @@ where
     pub fn resp<TRespHandlerFunc, TRespHandlerFut>(
         self,
         handler: TRespHandlerFunc,
-    ) -> AlphaMiddlewareWithResponseHandler<
+    ) -> AlphaMiddleware<
         TState,
         TLayerCtx,
         TNewCtx,
         THandlerFunc,
         THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
         TMwMapper,
+        MiddlewareResponseMarker<TRespHandlerFunc>,
     >
     where
         TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
         TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
     {
-        AlphaMiddlewareWithResponseHandler {
+        AlphaMiddleware {
             handler: self.handler,
-            resp_handler: handler,
-            phantom: PhantomData,
-        }
-    }
-}
-
-pub struct AlphaMiddlewareWithResponseHandler<
-    TState,
-    TLayerCtx,
-    TNewCtx,
-    THandlerFunc,
-    THandlerFut,
-    TRespHandlerFunc,
-    TRespHandlerFut,
-    TMwMapper,
-> where
-    TState: Send,
-    TLayerCtx: Send,
-    THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
-        + Clone,
-    THandlerFut: Future<Output = Result<AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        + Send
-        + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
-    TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
-    TMwMapper: MiddlewareArgMapper,
-{
-    handler: THandlerFunc,
-    resp_handler: TRespHandlerFunc,
-    phantom: PhantomData<(TState, TLayerCtx, TMwMapper)>,
-}
-
-impl<
-        TState,
-        TLayerCtx,
-        TNewCtx,
-        THandlerFunc,
-        THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
-        TMwMapper,
-    > Clone
-    for AlphaMiddlewareWithResponseHandler<
-        TState,
-        TLayerCtx,
-        TNewCtx,
-        THandlerFunc,
-        THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
-        TMwMapper,
-    >
-where
-    TState: Send,
-    TLayerCtx: Send,
-    THandlerFunc: Fn(AlphaMiddlewareContext<TLayerCtx, TLayerCtx, ()>, TMwMapper::State) -> THandlerFut
-        + Clone,
-    THandlerFut: Future<Output = Result<AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        + Send
-        + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
-    TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
-    TMwMapper: MiddlewareArgMapper,
-{
-    fn clone(&self) -> Self {
-        Self {
-            handler: self.handler.clone(),
-            resp_handler: self.resp_handler.clone(),
+            resp_handler: MiddlewareResponseMarker(handler),
             phantom: PhantomData,
         }
     }
 }
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper> AlphaMiddlewareLike
-    for AlphaMiddleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TMwMapper>
+    for AlphaMiddleware<
+        TState,
+        TLayerCtx,
+        TNewCtx,
+        THandlerFunc,
+        THandlerFut,
+        TMwMapper,
+        MiddlewareNoResponseMarker,
+    >
 where
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send + Sync + 'static,
@@ -447,15 +427,14 @@ impl<
         TRespHandlerFut,
         TMwMapper,
     > AlphaMiddlewareLike
-    for AlphaMiddlewareWithResponseHandler<
+    for AlphaMiddleware<
         TState,
         TLayerCtx,
         TNewCtx,
         THandlerFunc,
         THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
         TMwMapper,
+        MiddlewareResponseMarker<TRespHandlerFunc>,
     >
 where
     TState: Clone + Send + Sync + 'static,
@@ -501,7 +480,7 @@ where
             state,
         );
 
-        let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
+        let f = self.resp_handler.clone().0; // TODO: Runtime clone is bad. Avoid this!
 
         Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
             async move {
