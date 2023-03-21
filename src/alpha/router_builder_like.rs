@@ -4,7 +4,7 @@ use crate::internal::MiddlewareBuilderLike;
 
 use super::{AlphaRouter, IntoProcedure};
 
-pub type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedure<TCtx>>)>;
+pub(crate) type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedure<TCtx>>)>;
 
 pub trait AlphaRouterBuilderLike<TCtx>
 where

@@ -1,5 +1,6 @@
 #![allow(unused)] // TODO: Remove once this stuff has been stabilized
 
+mod middleware_old;
 mod middleware;
 mod procedure;
 mod procedure_like;
@@ -9,12 +10,13 @@ mod error;
 mod router_builder_like;
 
 pub use self::rspc::*;
-pub use middleware::*;
+pub use middleware_old::*;
 pub use procedure::*;
 pub use procedure_like::*;
 pub use router::*;
 pub use error::*;
 pub use router_builder_like::*;
+pub use middleware::*;
 
 pub use crate::alpha_stable::*;
 
