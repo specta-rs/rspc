@@ -91,7 +91,7 @@ pub trait AlphaMiddlewareLike: Clone + Send + Sync + 'static {
     ) -> Result<LayerResult, ExecError>;
 }
 
-pub struct AlphaMiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = (), TChildArg = ()>
+pub struct AlphaMiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
     TState: Send,
 {
@@ -99,7 +99,7 @@ where
     pub input: Value,
     pub ctx: TNewCtx,
     pub req: RequestContext,
-    pub phantom: PhantomData<(TLayerCtx, TChildArg)>,
+    pub phantom: PhantomData<TLayerCtx>,
 }
 
 // This will match were TState is the default (`()`) so it shouldn't let you call it if you've already swapped the generic
@@ -143,7 +143,6 @@ where
         }
     }
 
-    #[cfg(feature = "alpha")] // TODO: Stablise
     pub fn map_ctx<TNewCtx>(
         self,
         new_ctx: impl FnOnce(TLayerCtx) -> TNewCtx,
@@ -157,33 +156,6 @@ where
         }
     }
 }
-
-// impl<TLayerCtx, TNewCtx, TState, TChildArg>
-//     AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState, TChildArg>
-// where
-//     TLayerCtx: Send,
-//     TNewCtx: Send,
-//     TState: Send,
-//     TChildArg: Type + DeserializeOwned + 'static,
-// {
-//     pub fn map_arg<TMapper>(
-//         self,
-//         arg: impl FnOnce(TMapper::Output<TChildArg>) -> TMapper::Input<TChildArg>,
-//     ) -> AlphaMiddlewareContext<TLayerCtx, TNewCtx, TState>
-//     where
-//         TMapper: MiddlewareArgMapper,
-//     {
-//         // TODO: TMapper
-
-//         AlphaMiddlewareContext {
-//             state: self.state,
-//             input: self.input,
-//             ctx: self.ctx,
-//             req: self.req,
-//             phantom: PhantomData,
-//         }
-//     }
-// }
 
 #[derive(Clone)]
 pub struct MiddlewareNoResponseMarker;
