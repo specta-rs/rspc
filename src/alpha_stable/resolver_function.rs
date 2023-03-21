@@ -3,7 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{internal::ProcedureDataType, RequestLayer, SerializeMarker, StreamRequestLayer};
+use crate::{internal::ProcedureDataType, RequestLayer, StreamRequestLayer};
 
 use super::{RequestLayerMarker, StreamLayerMarker};
 
@@ -101,21 +101,5 @@ impl<TLayerCtx> Default for MissingResolver<TLayerCtx> {
         Self {
             phantom: PhantomData,
         }
-    }
-}
-
-impl<TLayerCtx> ResolverFunction<()> for MissingResolver<TLayerCtx>
-where
-    TLayerCtx: Send + Sync + 'static,
-{
-    type LayerCtx = TLayerCtx;
-    type Arg = ();
-    type Result = ();
-    type ResultMarker = RequestLayerMarker<SerializeMarker>;
-    type RequestMarker = SerializeMarker;
-    type RawResult = ();
-
-    fn exec(&self, _: Self::LayerCtx, _: Self::Arg) -> Self::Result {
-        unreachable!();
     }
 }

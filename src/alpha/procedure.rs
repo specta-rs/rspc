@@ -32,13 +32,11 @@ pub struct AlphaProcedure<R, RMarker, TMiddleware>(
     PhantomData<(RMarker)>,
 )
 where
-    R: ResolverFunction<RMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike;
 
 impl<TMiddleware, R, RMarker> AlphaProcedure<R, RMarker, TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    R: ResolverFunction<RMarker>,
 {
     pub fn new_from_resolver(k: RMarker, mw: TMiddleware, resolver: R) -> Self {
         Self(Some(resolver), mw, k, PhantomData)
@@ -109,10 +107,9 @@ where
     }
 }
 
-impl<R, RMarker, TMiddleware> AlphaProcedure<R, RMarker, TMiddleware>
+impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerCtx>,
 {
     pub fn with<TNewMiddleware>(
         self,
@@ -135,7 +132,6 @@ where
     }
 }
 
-// TODO: Only do this impl when `R` is not `MissingResolver`!!!!!
 impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
     for AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
 where
@@ -171,7 +167,6 @@ where
     }
 }
 
-// TODO: Only do this impl when `R` is not `MissingResolver`!!!!!
 impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
     for AlphaProcedure<R, StreamLayerMarker<RMarker>, TMiddleware>
 where

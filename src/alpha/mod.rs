@@ -165,7 +165,7 @@ mod tests {
         pub fn library<TLayerCtx, TPrevMwMapper>() -> impl Mw<TLayerCtx, TPrevMwMapper, NewLayerCtx = (TLayerCtx, i32)>
         where
             TLayerCtx: Send + Sync + Clone + 'static,
-            TPrevMwMapper: MiddlewareArgMapper + Send + Sync + 'static,
+            TPrevMwMapper: MiddlewareArgMapper,
         {
             |mw| mw.middleware(|mw, _| async move { Ok(mw.map_ctx(|ctx| (ctx, 42))) })
         }

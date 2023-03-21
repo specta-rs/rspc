@@ -104,7 +104,20 @@ where
     }
 }
 
-pub struct Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
+#[derive(Clone)]
+pub struct MiddlewareNoResponseMarker;
+#[derive(Clone)]
+pub struct MiddlewareResponseMarker<TRespHandlerFunc> {
+    handler: TRespHandlerFunc,
+}
+
+impl<TRespHandlerFunc> MiddlewareResponseMarker<TRespHandlerFunc> {
+    pub fn new(handler: TRespHandlerFunc) -> Self {
+        Self { handler }
+    }
+}
+
+pub struct Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TResponseMarker>
 where
     TState: Send,
     TLayerCtx: Send,
@@ -114,11 +127,12 @@ where
         + 'static,
 {
     handler: THandlerFunc,
+    resp_handler: TResponseMarker,
     phantom: PhantomData<(TState, TLayerCtx)>,
 }
 
-impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> Clone
-    for Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
+impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TResponseMarker> Clone
+    for Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TResponseMarker>
 where
     TState: Send,
     TLayerCtx: Send,
@@ -126,10 +140,12 @@ where
     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
+    TResponseMarker: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             handler: self.handler.clone(),
+            resp_handler: self.resp_handler.clone(),
             phantom: PhantomData,
         }
     }
@@ -146,7 +162,7 @@ where
     pub fn middleware<TState, TNewCtx, THandlerFunc, THandlerFut>(
         &self,
         handler: THandlerFunc,
-    ) -> Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
+    ) -> Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, MiddlewareNoResponseMarker>
     where
         TState: Send,
         THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
@@ -156,6 +172,7 @@ where
     {
         Middleware {
             handler,
+            resp_handler: MiddlewareNoResponseMarker,
             phantom: PhantomData,
         }
     }
@@ -169,7 +186,7 @@ where
 }
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
-    Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
+    Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, MiddlewareNoResponseMarker>
 where
     TState: Send,
     TLayerCtx: Send,
@@ -181,81 +198,35 @@ where
     pub fn resp<TRespHandlerFunc, TRespHandlerFut>(
         self,
         handler: TRespHandlerFunc,
-    ) -> MiddlewareWithResponseHandler<
+    ) -> Middleware<
         TState,
         TLayerCtx,
         TNewCtx,
         THandlerFunc,
         THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
+        MiddlewareResponseMarker<TRespHandlerFunc>,
     >
     where
         TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
         TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
     {
-        MiddlewareWithResponseHandler {
+        Middleware {
             handler: self.handler,
-            resp_handler: handler,
-            phantom: PhantomData,
-        }
-    }
-}
-
-pub struct MiddlewareWithResponseHandler<
-    TState,
-    TLayerCtx,
-    TNewCtx,
-    THandlerFunc,
-    THandlerFut,
-    TRespHandlerFunc,
-    TRespHandlerFut,
-> where
-    TState: Send,
-    TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        + Send
-        + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
-    TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
-{
-    handler: THandlerFunc,
-    resp_handler: TRespHandlerFunc,
-    phantom: PhantomData<(TState, TLayerCtx)>,
-}
-
-impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut> Clone
-    for MiddlewareWithResponseHandler<
-        TState,
-        TLayerCtx,
-        TNewCtx,
-        THandlerFunc,
-        THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
-    >
-where
-    TState: Send,
-    TLayerCtx: Send,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        + Send
-        + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
-    TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
-{
-    fn clone(&self) -> Self {
-        Self {
-            handler: self.handler.clone(),
-            resp_handler: self.resp_handler.clone(),
+            resp_handler: MiddlewareResponseMarker::new(handler),
             phantom: PhantomData,
         }
     }
 }
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> MiddlewareLike<TLayerCtx>
-    for Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
+    for Middleware<
+        TState,
+        TLayerCtx,
+        TNewCtx,
+        THandlerFunc,
+        THandlerFut,
+        MiddlewareNoResponseMarker,
+    >
 where
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send,
@@ -299,14 +270,13 @@ pub(crate) enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
 
 impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut>
     MiddlewareLike<TLayerCtx>
-    for MiddlewareWithResponseHandler<
+    for Middleware<
         TState,
         TLayerCtx,
         TNewCtx,
         THandlerFunc,
         THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
+        MiddlewareResponseMarker<TRespHandlerFunc>,
     >
 where
     TState: Clone + Send + Sync + 'static,
@@ -338,7 +308,7 @@ where
             phantom: PhantomData,
         });
 
-        let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
+        let f = self.resp_handler.clone().handler; // TODO: Runtime clone is bad. Avoid this!
 
         Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
             async move {
