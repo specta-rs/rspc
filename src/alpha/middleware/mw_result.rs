@@ -12,13 +12,13 @@ use super::{Fut, Ret};
 pub trait Executable2 {
     type Fut: Future<Output = Value>;
 
-    fn call(&self, v: Value) -> Self::Fut;
+    fn call(self, v: Value) -> Self::Fut;
 }
 
-impl<TFut: Fut<Value>, TFunc: Fn(Value) -> TFut + 'static> Executable2 for TFunc {
+impl<TFut: Fut<Value>, TFunc: FnOnce(Value) -> TFut + 'static> Executable2 for TFunc {
     type Fut = TFut;
 
-    fn call(&self, v: Value) -> Self::Fut {
+    fn call(self, v: Value) -> Self::Fut {
         (self)(v)
     }
 }
@@ -28,7 +28,7 @@ pub struct Executable2Placeholder {}
 impl Executable2 for Executable2Placeholder {
     type Fut = Ready<Value>;
 
-    fn call(&self, v: Value) -> Self::Fut {
+    fn call(self, v: Value) -> Self::Fut {
         unreachable!();
     }
 }
@@ -85,8 +85,9 @@ mod tests {
 
     use super::*;
 
-    fn mw<
-        TMarker,
+    fn mw<TMarker, Mw>(m: Mw)
+    where
+        TMarker: Send + 'static,
         Mw: MwV2<(), TMarker>
             + Fn(
                 AlphaMiddlewareContext<
@@ -94,9 +95,7 @@ mod tests {
                 >,
                 (),
             ) -> Mw::Fut,
-    >(
-        m: Mw,
-    ) {
+    {
     }
 
     #[tokio::test]
@@ -115,6 +114,9 @@ mod tests {
             let my_mappers_state = mw.state;
             mw.args::<()>().next(())
         });
+
+        // TODO: Handle response returning Result
+        // mw(|mw, ctx| async move { mw.next(()).resp(|result| async move { Ok(result) }) });
 
         // TODO: Handle only query/mutation response
         // mw(|mw, ctx| async move {

@@ -12,10 +12,10 @@ use crate::{
 };
 
 use super::{
-    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareBuilder,
-    AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter,
-    MiddlewareArgMapper, MissingResolver, RequestKind, RequestLayerMarker, ResolverFunction,
-    StreamLayerMarker,
+    middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
+    AlphaMiddlewareBuilder, AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder,
+    AlphaMiddlewareLike, AlphaRouter, MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result,
+    RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
 };
 
 pub struct Rspc<
@@ -49,22 +49,49 @@ where
     }
 
     // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
-    pub fn with<TNewMiddleware>(
+    // pub fn with<TNewMiddleware>(
+    //     self,
+    //     builder: impl Fn(AlphaMiddlewareBuilder<TCtx, (), ()>) -> TNewMiddleware, // TODO: Remove builder closure
+    // ) -> AlphaProcedure<
+    //     MissingResolver<TNewMiddleware::NewCtx>,
+    //     (),
+    //     AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, TNewMiddleware>,
+    // >
+    // where
+    //     TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx>,
+    // {
+    //     let mw = builder(AlphaMiddlewareBuilder(PhantomData));
+    //     AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+    //         middleware: AlphaBaseMiddleware::new(),
+    //         mw,
+    //     })
+    // }
+
+    // TODO: Response type
+    pub fn with<TMarker, Mw>(
         self,
-        builder: impl Fn(AlphaMiddlewareBuilder<TCtx, (), ()>) -> TNewMiddleware, // TODO: Remove builder closure
+        mw: Mw,
     ) -> AlphaProcedure<
-        MissingResolver<TNewMiddleware::NewCtx>,
+        MissingResolver<Mw::NewCtx>,
         (),
-        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, TNewMiddleware>,
+        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw, TMarker>,
     >
     where
-        TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx>,
+        TMarker: Send + 'static,
+        Mw: MwV2<TCtx, TMarker>
+            + Fn(
+                AlphaMiddlewareContext<
+                    <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
+                >,
+                TCtx,
+            ) -> Mw::Fut,
     {
-        let mw = builder(AlphaMiddlewareBuilder(PhantomData));
-        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
-            middleware: AlphaBaseMiddleware::new(),
-            mw,
-        })
+        // let mw = builder(AlphaMiddlewareBuilder(PhantomData));
+        // AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+        //     middleware: AlphaBaseMiddleware::new(),
+        //     mw,
+        // })
+        todo!();
     }
 
     pub fn query<R, RMarker>(

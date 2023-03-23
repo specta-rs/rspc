@@ -22,8 +22,8 @@ use crate::{
 
 use super::{
     AlphaMiddlewareBuilder, AlphaMiddlewareLike, Executable, Fut, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, MissingResolver, Mw, ProcedureLike, RequestKind, RequestLayerMarker,
-    ResolverFunction, Ret, StreamLayerMarker,
+    MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike, RequestKind,
+    RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
@@ -37,7 +37,8 @@ use super::{
 pub struct AlphaProcedure<R, RMarker, TMiddleware>(
     // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
     Option<R>,
-    TMiddleware,
+    // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
+    Option<TMiddleware>,
     RMarker,
 )
 where
@@ -48,7 +49,7 @@ where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     pub fn new_from_resolver(k: RMarker, mw: TMiddleware, resolver: R) -> Self {
-        Self(Some(resolver), mw, k)
+        Self(Some(resolver), Some(mw), k)
     }
 }
 
@@ -63,7 +64,7 @@ where
     where
         TMiddleware: AlphaMiddlewareBuilderLike<Ctx = TCtx>,
     {
-        AlphaProcedure(Some(MissingResolver::default()), mw, ())
+        AlphaProcedure(Some(MissingResolver::default()), Some(mw), ())
     }
 }
 
@@ -72,7 +73,7 @@ where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     pub fn query<R, RMarker>(
-        self,
+        mut self,
         builder: R,
     ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
     where
@@ -82,13 +83,13 @@ where
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
-            self.1,
+            self.1.take().unwrap(),
             builder,
         )
     }
 
     pub fn mutation<R, RMarker>(
-        self,
+        mut self,
         builder: R,
     ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
     where
@@ -98,13 +99,13 @@ where
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
-            self.1,
+            self.1.take().unwrap(),
             builder,
         )
     }
 
     pub fn subscription<R, RMarker>(
-        self,
+        mut self,
         builder: R,
     ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, TMiddleware>
     where
@@ -112,7 +113,7 @@ where
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
         R::Result: StreamRequestLayer<R::RequestMarker>,
     {
-        AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1, builder)
+        AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
 }
 
@@ -120,25 +121,26 @@ impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMi
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
-    pub fn with<TNewMiddleware>(
-        self,
-        builder: impl Fn(
-            AlphaMiddlewareBuilder<TMiddleware::LayerCtx, TMiddleware::MwMapper, ()>,
-        ) -> TNewMiddleware, // TODO: Remove builder closure
-    ) -> AlphaProcedure<
-        MissingResolver<TNewMiddleware::NewCtx>,
-        (),
-        AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>,
-    >
-    where
-        TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TMiddleware::LayerCtx>,
-    {
-        let mw = builder(AlphaMiddlewareBuilder(PhantomData));
-        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
-            middleware: self.1,
-            mw,
-        })
-    }
+    // TODO: Fix this
+    // pub fn with<TNewMiddleware>(
+    //     self,
+    //     builder: impl Fn(
+    //         AlphaMiddlewareBuilder<TMiddleware::LayerCtx, TMiddleware::MwMapper, ()>,
+    //     ) -> TNewMiddleware, // TODO: Remove builder closure
+    // ) -> AlphaProcedure<
+    //     MissingResolver<TNewMiddleware::NewCtx>,
+    //     (),
+    //     AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>,
+    // >
+    // where
+    //     TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TMiddleware::LayerCtx>,
+    // {
+    //     let mw = builder(AlphaMiddlewareBuilder(PhantomData));
+    //     AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+    //         middleware: self.1,
+    //         mw,
+    //     })
+    // }
 }
 
 impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
@@ -159,7 +161,7 @@ where
 
         m.append(
             key.to_string(),
-            self.1.build(AlphaResolverLayer {
+            self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
                     resolver
                         .exec(
@@ -189,7 +191,7 @@ where
 
         ctx.subscriptions.append(
             key.to_string(),
-            self.1.build(AlphaResolverLayer {
+            self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
                     resolver
                         .exec(
@@ -216,7 +218,7 @@ where
     type LayerCtx = TMiddleware::LayerCtx;
 
     fn query<R, RMarker>(
-        self,
+        mut self,
         builder: R,
     ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
     where
@@ -226,13 +228,13 @@ where
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
-            self.1,
+            self.1.take().unwrap(),
             builder,
         )
     }
 
     // fn mutation<R, RMarker>(
-    //     self,
+    //     mut self,
     //     builder: R,
     // ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
     // where
@@ -242,13 +244,13 @@ where
     // {
     //     AlphaProcedure::new_from_resolver(
     //         RequestLayerMarker::new(RequestKind::Query),
-    //         self.1,
+    //         self.1.take().unwrap(),
     //         builder,
     //     )
     // }
 
     // fn subscription<R, RMarker>(
-    //     self,
+    //     mut self,
     //     builder: R,
     // ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
     // where
@@ -256,7 +258,7 @@ where
     //         + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
     //     R::Result: StreamRequestLayer<R::RequestMarker>,
     // {
-    //     AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1, builder)
+    //     AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     // }
 }
 
@@ -273,7 +275,7 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type LayerCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<Self::Ctx>>
+    fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
         T: Layer<Self::LayerCtx>;
 
@@ -318,33 +320,38 @@ where
     }
 }
 
-pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
+pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TMiddleware::LayerCtx>,
+    TMarker: Send,
+    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
 {
-    pub middleware: TMiddleware,
-    pub mw: TNewMiddleware,
+    pub(crate) middleware: TMiddleware,
+    pub(crate) mw: TNewMiddleware,
+    pub(crate) phantom: PhantomData<TMarker>,
 }
 
-impl<TMiddleware, TNewMiddleware> AlphaMiddlewareBuilderLike
-    for AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
+impl<TMiddleware, TNewMiddleware, TMarker> AlphaMiddlewareBuilderLike
+    for AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TMiddleware::LayerCtx>,
+    TMarker: Send + 'static,
+    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
-    type MwMapper = MwArgMapperMerger<TMiddleware::MwMapper, TNewMiddleware::MwMapper>;
+    type MwMapper =
+        MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<TMiddleware::Ctx>>
+    fn build<T>(self, next: T) -> Box<dyn Layer<TMiddleware::Ctx>>
     where
         T: Layer<Self::LayerCtx> + Sync,
     {
-        self.middleware.build(AlphaMiddlewareLayer {
-            next: Arc::new(next),
-            mw: self.mw.clone(),
-        })
+        todo!();
+        // self.middleware.build(AlphaMiddlewareLayer {
+        //     next: Arc::new(next), // TODO: Removing `Arc`
+        //     mw: self.mw, // .replace().expect("Can't be built twice!"), // Cleanup error or make this impossible in the type system!
+        // })
     }
 
     type Ret<TRet: Ret> = TRet;
@@ -471,7 +478,7 @@ where
     type LayerCtx = TCtx;
     type MwMapper = ();
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<Self::Ctx>>
+    fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
         T: Layer<Self::LayerCtx>,
     {

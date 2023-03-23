@@ -9,20 +9,25 @@ use crate::{
 
 use super::{Executable2Placeholder, MwResultWithCtx, MwV2Result};
 
-pub trait MwV2<TLCtx, TMarker> {
+pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Fut: Future<Output = Self::Result>;
     type Result: MwV2Result;
+    type NewCtx: Send + Sync + 'static;
 }
 
 pub struct MwV2Marker<A, B>(PhantomData<(A, B)>);
 impl<TLCtx, F, Fu, R> MwV2<TLCtx, MwV2Marker<Fu, R>> for F
 where
-    F: Fn(AlphaMiddlewareContext<<R::MwMapper as MiddlewareArgMapper>::State>, TLCtx) -> Fu,
-    Fu: Future<Output = R>,
-    R: MwV2Result,
+    TLCtx: Send + Sync + 'static,
+    F: Fn(AlphaMiddlewareContext<<R::MwMapper as MiddlewareArgMapper>::State>, TLCtx) -> Fu
+        + Send
+        + 'static,
+    Fu: Future<Output = R> + Send + 'static,
+    R: MwV2Result + Send + 'static,
 {
     type Fut = Fu;
     type Result = R;
+    type NewCtx = TLCtx; // TODO: Make this work with context switching
 }
 
 // TODO: Only hold output and not the whole `M` generic?
