@@ -290,6 +290,10 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
         &self,
         t: T,
+        ctx: Self::LayerCtx,
+        input: Value,
+        req: RequestContext,
+        state: <Self::MwMapper as MiddlewareArgMapper>::State,
     ) -> Self::Result<TRet, TFut, T>;
 }
 
@@ -357,45 +361,55 @@ where
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = MapPluginFuture<Self::Ret<TRet>, TFut>;
     type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> =
-        MapPluginResult<Self::Ret<TRet>, TFut, T>;
+        MapPluginResult<Self::Ret<TRet>, TFut, T, TMiddleware, TNewMiddleware, TMarker>;
 
     fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
         &self,
-        t: T,
+        next: T,
+        ctx: Self::LayerCtx,
+        input: Value,
+        req: RequestContext,
+        state: <Self::MwMapper as MiddlewareArgMapper>::State,
     ) -> Self::Result<TRet, TFut, T> {
-        // TODO
-
-        todo!();
+        MapPluginResult {
+            fut: self.mw.exec(ctx, input, req, state),
+            next,
+            phantom: PhantomData,
+        }
     }
-
-    // TODO: Make this work `where A: Plugin, B: Plugin` -> Or maybe not?
-    // type Ret<TRet: Ret> = A::Ret<B::Ret<TRet>>;
-    // type Fut<TRet: Ret, TFut: Fut<TRet>> = A::Fut<B::Ret<TRet>, B::Fut<TRet, TFut>>;
-    // type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> =
-    //     A::Result<B::Ret<TRet>, B::Fut<TRet, TFut>, B::Result<TRet, TFut, T>>;
-
-    // fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
-    //     &self,
-    //     t: T,
-    // ) -> Self::Result<TRet, TFut, T> {
-    //     self.a.map(self.b.map(t))
-    // }
 }
 
-pub struct MapPluginResult<TRet, TFut, T>(T, PhantomData<(TRet, TFut)>);
+pub struct MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
+where
+    TMiddleware: AlphaMiddlewareBuilderLike,
+    TMarker: Send + 'static,
+    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+{
+    fut: TNewMiddleware::Fut,
+    next: T,
+    phantom: PhantomData<(TRet, TFut, TMiddleware, TMarker)>,
+}
 
-impl<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> Executable<TRet>
-    for MapPluginResult<TRet, TFut, T>
+impl<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker> Executable<TRet>
+    for MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
+where
+    TRet: Ret,
+    TFut: Fut<TRet>,
+    T: Executable<TRet, Fut = TFut>,
+    TMiddleware: AlphaMiddlewareBuilderLike,
+    TMarker: Send + 'static,
+    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
 {
     type Fut = MapPluginFuture<TRet, TFut>;
 
     fn call(&self) -> Self::Fut {
         println!("MAP - BEFORE");
 
-        MapPluginFuture {
-            fut: self.0.call(),
-            phantom: PhantomData,
-        }
+        // MapPluginFuture {
+        //     fut: self.t.call(),
+        //     phantom: PhantomData,
+        // }
+        todo!();
     }
 }
 
@@ -492,6 +506,10 @@ where
     fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
         &self,
         t: T,
+        _ctx: Self::LayerCtx,
+        _input: Value,
+        _req: RequestContext,
+        _state: <Self::MwMapper as MiddlewareArgMapper>::State,
     ) -> Self::Result<TRet, TFut, T> {
         println!("BUILD BASE"); // TODO: Remove log
         t

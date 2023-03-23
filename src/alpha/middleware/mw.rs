@@ -13,6 +13,15 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Fut: Future<Output = Self::Result>;
     type Result: MwV2Result;
     type NewCtx: Send + Sync + 'static;
+
+    // TODO: Take in `AlphaMiddlewareContext` directly???
+    fn exec(
+        &self,
+        ctx: Self::NewCtx,
+        input: Value,
+        req: RequestContext,
+        state: <<Self::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
+    ) -> Self::Fut;
 }
 
 pub struct MwV2Marker<A, B>(PhantomData<(A, B)>);
@@ -28,6 +37,24 @@ where
     type Fut = Fu;
     type Result = R;
     type NewCtx = TLCtx; // TODO: Make this work with context switching
+
+    fn exec(
+        &self,
+        ctx: Self::NewCtx,
+        input: Value,
+        req: RequestContext,
+        state: <R::MwMapper as MiddlewareArgMapper>::State,
+    ) -> Self::Fut {
+        (self)(
+            AlphaMiddlewareContext {
+                input,
+                req,
+                state,
+                _priv: (),
+            },
+            ctx,
+        )
+    }
 }
 
 // TODO: Only hold output and not the whole `M` generic?
