@@ -19,21 +19,21 @@ pub trait ProcedureLike {
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
         R::Result: RequestLayer<R::RequestMarker>;
 
-    fn mutation<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
-            + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>;
+    // fn mutation<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    // where
+    //     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
+    //         + Fn(Self::LayerCtx, R::Arg) -> R::Result,
+    //     R::Result: RequestLayer<R::RequestMarker>;
 
-    fn subscription<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
-    where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
-            + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>;
+    // fn subscription<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
+    // where
+    //     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
+    //         + Fn(Self::LayerCtx, R::Arg) -> R::Result,
+    //     R::Result: StreamRequestLayer<R::RequestMarker>;
 }

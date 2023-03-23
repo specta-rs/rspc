@@ -13,9 +13,9 @@ use crate::{
 };
 
 use super::{
-    AlphaMiddlewareBuilder, AlphaMiddlewareLike, IntoProcedure, IntoProcedureCtx,
+    AlphaMiddlewareBuilder, AlphaMiddlewareLike, Executable, Fut, IntoProcedure, IntoProcedureCtx,
     MiddlewareArgMapper, MissingResolver, Mw, ProcedureLike, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    ResolverFunction, Ret, StreamLayerMarker,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
@@ -24,12 +24,13 @@ use super::{
 
 // TODO: Check metadata stores on this so plugins can extend it to do cool stuff
 // TODO: Logical order for these generics cause right now it's random
+// TODO: Rename `RMarker` so cause we use it at runtime making it not really a "Marker" anymore
+// TODO: Use named struct fields
 pub struct AlphaProcedure<R, RMarker, TMiddleware>(
     // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
     Option<R>,
     TMiddleware,
     RMarker,
-    PhantomData<(RMarker)>,
 )
 where
     TMiddleware: AlphaMiddlewareBuilderLike;
@@ -39,7 +40,7 @@ where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     pub fn new_from_resolver(k: RMarker, mw: TMiddleware, resolver: R) -> Self {
-        Self(Some(resolver), mw, k, PhantomData)
+        Self(Some(resolver), mw, k)
     }
 }
 
@@ -54,7 +55,7 @@ where
     where
         TMiddleware: AlphaMiddlewareBuilderLike<Ctx = TCtx>,
     {
-        AlphaProcedure(Some(MissingResolver::default()), mw, (), PhantomData)
+        AlphaProcedure(Some(MissingResolver::default()), mw, ())
     }
 }
 
@@ -222,33 +223,33 @@ where
         )
     }
 
-    fn mutation<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>,
-    {
-        AlphaProcedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Query),
-            self.1,
-            builder,
-        )
-    }
+    // fn mutation<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    // where
+    //     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+    //         + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+    //     R::Result: RequestLayer<R::RequestMarker>,
+    // {
+    //     AlphaProcedure::new_from_resolver(
+    //         RequestLayerMarker::new(RequestKind::Query),
+    //         self.1,
+    //         builder,
+    //     )
+    // }
 
-    fn subscription<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
-    where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>,
-    {
-        AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1, builder)
-    }
+    // fn subscription<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
+    // where
+    //     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+    //         + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+    //     R::Result: StreamRequestLayer<R::RequestMarker>,
+    // {
+    //     AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1, builder)
+    // }
 }
 
 ///
@@ -267,6 +268,19 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     fn build<T>(&self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
         T: Layer<Self::LayerCtx>;
+
+    // TODO: New stuff
+    type Ret<TRet: Ret>: Ret;
+    type Fut<TRet: Ret, TFut: Fut<TRet>>: Fut<Self::Ret<TRet>>;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>: Executable<
+        Self::Ret<TRet>,
+        Fut = Self::Fut<TRet, TFut>,
+    >;
+
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
+        &self,
+        t: T,
+    ) -> Self::Result<TRet, TFut, T>;
 }
 
 pub struct MiddlewareMerger<TMiddleware, TIncomingMiddleware>
@@ -321,6 +335,17 @@ where
     {
         self.middleware.build(self.middleware2.build(next))
     }
+
+    type Ret<TRet: Ret> = TRet;
+    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> = T;
+
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
+        &self,
+        t: T,
+    ) -> Self::Result<TRet, TFut, T> {
+        todo!();
+    }
 }
 
 pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
@@ -350,6 +375,17 @@ where
             next: Arc::new(next),
             mw: self.mw.clone(),
         })
+    }
+
+    type Ret<TRet: Ret> = TRet;
+    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> = T;
+
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
+        &self,
+        t: T,
+    ) -> Self::Result<TRet, TFut, T> {
+        todo!();
     }
 }
 
@@ -413,6 +449,17 @@ where
         T: Layer<Self::LayerCtx>,
     {
         Box::new(next)
+    }
+
+    type Ret<TRet: Ret> = TRet;
+    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> = T;
+
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
+        &self,
+        t: T,
+    ) -> Self::Result<TRet, TFut, T> {
+        todo!();
     }
 }
 

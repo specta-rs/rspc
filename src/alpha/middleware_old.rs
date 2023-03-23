@@ -215,7 +215,7 @@ where
     }
 }
 
-#[deprecated = "Cringe type alert!"]
+// TODO: Remove this
 impl MiddlewareArgMapper for () {
     type State = ();
     type Output<T> = T where T: Serialize;
