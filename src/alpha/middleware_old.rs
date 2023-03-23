@@ -215,6 +215,7 @@ where
     }
 }
 
+#[deprecated = "Cringe type alert!"]
 impl MiddlewareArgMapper for () {
     type State = ();
     type Output<T> = T where T: Serialize;
@@ -242,7 +243,6 @@ where
     TLayerCtx: Send,
     TPrevMwMapper: MiddlewareArgMapper,
 {
-    // #[cfg(feature = "alpha")] // TODO: Stablise
     pub fn args<TMiddlewareMapper: MiddlewareArgMapper>(
         &self,
     ) -> AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, TMiddlewareMapper> {
