@@ -1,3 +1,5 @@
+// TODO: Refactor type names though this whole package cause it's currently pretty messy
+#![allow(deprecated)] // TODO: Remove once stuff is stabilized
 #![allow(unused)] // TODO: Remove once this stuff has been stabilized
 
 mod middleware_old;

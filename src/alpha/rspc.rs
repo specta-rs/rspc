@@ -14,8 +14,8 @@ use crate::{
 use super::{
     procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareBuilder,
     AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter,
-    MiddlewareArgMapper, MiddlewareMerger, MissingResolver, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    MiddlewareArgMapper, MissingResolver, RequestKind, RequestLayerMarker, ResolverFunction,
+    StreamLayerMarker,
 };
 
 pub struct Rspc<

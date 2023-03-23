@@ -1,5 +1,13 @@
-use std::{any::type_name, borrow::Cow, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{
+    any::type_name,
+    borrow::Cow,
+    marker::PhantomData,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
+use pin_project_lite::pin_project;
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
@@ -283,15 +291,6 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     ) -> Self::Result<TRet, TFut, T>;
 }
 
-pub struct MiddlewareMerger<TMiddleware, TIncomingMiddleware>
-where
-    TMiddleware: AlphaMiddlewareBuilderLike,
-    TIncomingMiddleware: AlphaMiddlewareBuilderLike<Ctx = TMiddleware::LayerCtx>,
-{
-    pub middleware: TMiddleware,
-    pub middleware2: TIncomingMiddleware,
-}
-
 pub struct MwArgMapperMerger<TPrev, TNext>(PhantomData<(TPrev, TNext)>)
 where
     TPrev: MiddlewareArgMapper,
@@ -315,36 +314,7 @@ where
     fn map<T: serde::Serialize + DeserializeOwned + Type + 'static>(
         arg: Self::Input<T>,
     ) -> (Self::Output<T>, Self::State) {
-        todo!()
-    }
-}
-
-impl<TMiddleware, TIncomingMiddleware> AlphaMiddlewareBuilderLike
-    for MiddlewareMerger<TMiddleware, TIncomingMiddleware>
-where
-    TMiddleware: AlphaMiddlewareBuilderLike,
-    TIncomingMiddleware: AlphaMiddlewareBuilderLike<Ctx = TMiddleware::LayerCtx>,
-{
-    type Ctx = TMiddleware::Ctx;
-    type LayerCtx = TIncomingMiddleware::LayerCtx;
-    type MwMapper = MwArgMapperMerger<TMiddleware::MwMapper, TIncomingMiddleware::MwMapper>;
-
-    fn build<T>(&self, next: T) -> Box<dyn Layer<Self::Ctx>>
-    where
-        T: Layer<Self::LayerCtx>,
-    {
-        self.middleware.build(self.middleware2.build(next))
-    }
-
-    type Ret<TRet: Ret> = TRet;
-    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> = T;
-
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
-        &self,
-        t: T,
-    ) -> Self::Result<TRet, TFut, T> {
-        todo!();
+        todo!() // TODO: Is this unreachable?
     }
 }
 
@@ -378,14 +348,71 @@ where
     }
 
     type Ret<TRet: Ret> = TRet;
-    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> = T;
+    type Fut<TRet: Ret, TFut: Fut<TRet>> = MapPluginFuture<Self::Ret<TRet>, TFut>;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> =
+        MapPluginResult<Self::Ret<TRet>, TFut, T>;
 
     fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
         &self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
+        // TODO
+
         todo!();
+    }
+
+    // TODO: Make this work `where A: Plugin, B: Plugin` -> Or maybe not?
+    // type Ret<TRet: Ret> = A::Ret<B::Ret<TRet>>;
+    // type Fut<TRet: Ret, TFut: Fut<TRet>> = A::Fut<B::Ret<TRet>, B::Fut<TRet, TFut>>;
+    // type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> =
+    //     A::Result<B::Ret<TRet>, B::Fut<TRet, TFut>, B::Result<TRet, TFut, T>>;
+
+    // fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
+    //     &self,
+    //     t: T,
+    // ) -> Self::Result<TRet, TFut, T> {
+    //     self.a.map(self.b.map(t))
+    // }
+}
+
+pub struct MapPluginResult<TRet, TFut, T>(T, PhantomData<(TRet, TFut)>);
+
+impl<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> Executable<TRet>
+    for MapPluginResult<TRet, TFut, T>
+{
+    type Fut = MapPluginFuture<TRet, TFut>;
+
+    fn call(&self) -> Self::Fut {
+        println!("MAP - BEFORE");
+
+        MapPluginFuture {
+            fut: self.0.call(),
+            phantom: PhantomData,
+        }
+    }
+}
+
+pin_project! {
+    pub struct MapPluginFuture<TRet: Ret, TFut: Fut<TRet>> {
+        #[pin]
+        fut: TFut,
+        // fut2: THandler,
+        phantom: PhantomData<TRet>
+    }
+}
+
+impl<TRet: Ret, TFut: Fut<TRet>> Future for MapPluginFuture<TRet, TFut> {
+    type Output = TRet;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this.fut.poll(cx) {
+            Poll::Ready(data) => {
+                println!("MAP - AFTER");
+                Poll::Ready(data)
+            }
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -459,7 +486,8 @@ where
         &self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
-        todo!();
+        println!("BUILD BASE"); // TODO: Remove log
+        t
     }
 }
 
