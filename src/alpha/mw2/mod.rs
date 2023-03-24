@@ -18,19 +18,11 @@ where
     TFut: Fut<Value>,
 {
     type Fut: Fut<Value>;
+    type Ctx;
+    type State; // TODO: Type erase this into the trait
 
-    fn exec(self) -> Self::Fut;
-}
-impl<TFut, TFunc> Executable<TFut> for TFunc
-where
-    TFut: Fut<Value>,
-    TFunc: Fn() -> TFut + Send + 'static,
-{
-    type Fut = TFut;
-
-    fn exec(self) -> Self::Fut {
-        self()
-    }
+    // TODO: `state` shouldn't be an arg -> It should be handled internally
+    fn exec(self, ctx: Self::Ctx, state: Self::State) -> Self::Fut;
 }
 
 pub struct Router<TCtx = (), TPlugin: Plugin = BasePlugin> {
@@ -84,7 +76,7 @@ where
         let y = ResolverPluginExecutable(func, PhantomData);
         let y = self.plugin.map(y);
         println!("\nBUILT\n");
-        println!("{:?}\n", y.exec().await);
+        // println!("{:?}\n", y.exec((), ()).await); // TODO
     }
 }
 
@@ -117,23 +109,32 @@ where
     TFut: Fut<TRet>,
     TFunc: Fn() -> TFut + Send + 'static;
 
-impl<TRet, TFut, TFunc> Executable<ResolverPluginFut>
+impl<TRet, TFut, TFunc> Executable<ResolverPluginFut<TRet, TFut>>
     for ResolverPluginExecutable<TRet, TFut, TFunc>
 where
     TRet: Debug + Send + 'static,
     TFut: Fut<TRet>,
     TFunc: Fn() -> TFut + Send + 'static,
 {
-    type Fut = ResolverPluginFut;
+    type Fut = ResolverPluginFut<TRet, TFut>;
+    type Ctx = ();
+    type State = ();
 
-    fn exec(self) -> Self::Fut {
-        todo!()
+    fn exec(self, _ctx: Self::State, _state: Self::State) -> Self::Fut {
+        ResolverPluginFut((self.0)(), PhantomData)
     }
 }
 
-pub struct ResolverPluginFut();
+pub struct ResolverPluginFut<TRet, TFut>(TFut, PhantomData<TRet>)
+where
+    TRet: Debug + Send + 'static,
+    TFut: Fut<TRet>;
 
-impl Future for ResolverPluginFut {
+impl<TRet, TFut> Future for ResolverPluginFut<TRet, TFut>
+where
+    TRet: Debug + Send + 'static,
+    TFut: Fut<TRet>,
+{
     type Output = Value;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -192,13 +193,17 @@ where
     TMarker: Send + 'static,
 {
     type Fut = Pin<Box<dyn Fut<Value>>>;
+    type Ctx = Mw::NewCtx;
+    type State = AlphaMiddlewareContext<
+        <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
+    >;
 
-    fn exec(self) -> Self::Fut {
-        let y = self.mw.run_me();
+    fn exec(self, _ctx: Self::Ctx, _state: Self::State) -> Self::Fut {
+        // let y = self.mw.run_me();
 
         // TODO: Named future
         Box::pin(async move {
-            let result = y.await;
+            // let result = y.await;
 
             // let next_ctx = result.get_ctx(); // TODO
 
@@ -226,6 +231,7 @@ mod tests {
 
         let r = <Router>::new()
             .with(|mw, ctx| async move { mw.next(ctx) })
+            // TODO: Take ctx and arg as params
             .query(|| async move {
                 println!("QUERY");
                 "Query!".to_string()

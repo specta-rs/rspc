@@ -25,9 +25,15 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
         Value,
     >;
 
-    fn into_executable(self) -> Self::Executable;
+    // fn into_executable(self) -> Self::Executable;
 
-    fn run_me(&self) -> Self::Fut;
+    fn run_me(
+        &self,
+        ctx: Self::NewCtx,
+        mw: AlphaMiddlewareContext<
+            <<Self::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
+        >,
+    ) -> Self::Fut;
 }
 
 pub struct MwV2Marker<A, B>(PhantomData<(A, B)>);
@@ -46,13 +52,16 @@ where
 
     type Executable = Demo<TLCtx, <R::MwMapper as MiddlewareArgMapper>::State, Value>; // TODO: Custom type here
 
-    fn into_executable(self) -> Self::Executable {
-        todo!();
-    }
+    // fn into_executable(self) -> Self::Executable {
+    //     todo!();
+    // }
 
-    fn run_me(&self) -> Self::Fut {
-        // self()
-        todo!();
+    fn run_me(
+        &self,
+        ctx: Self::NewCtx,
+        mw: AlphaMiddlewareContext<<R::MwMapper as MiddlewareArgMapper>::State>,
+    ) -> Self::Fut {
+        self(mw, ctx)
     }
 }
 
