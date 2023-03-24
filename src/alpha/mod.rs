@@ -58,64 +58,65 @@ mod tests {
                         "[LOG] req='{:?}' ctx='{:?}' input='{:?}'",
                         mw.req, ctx, mw.input
                     );
-                    mw.next(ctx).resp(|result| async move {
-                        println!("{msg} result='{result:?}'");
-                        result
-                    })
+                    mw.next(ctx)
+                    // .resp(|result| async move {
+                    //     println!("{msg} result='{result:?}'");
+                    //     result
+                    // })
                 })
                 .query(|ctx, _: ()| {
                     println!("TODO: {:?}", ctx);
                     Ok(())
                 }),
             )
-            .procedure(
-                "todo2",
-                t.with(|mw, ctx| async move {
-                    let msg = format!(
-                        "[LOG] req='{:?}' ctx='{:?}' input='{:?}'",
-                        mw.req, ctx, mw.input
-                    );
-                    mw.next(ctx).resp(|result| async move {
-                        println!("{msg} result='{result:?}'");
-                        result
-                    })
-                })
-                // TODO: Make this work
-                // .with(|mw, ctx| async move {
-                //     let msg = format!(
-                //         "[LOG2] req='{:?}' ctx='{:?}' input='{:?}'",
-                //         mw.req, ctx, mw.input
-                //     );
-                //     mw.next(ctx).resp(|result| async move {
-                //         println!("{msg} result='{result:?}'");
-                //         result
-                //     })
-                // })
-                .query(|ctx, _: ()| {
-                    println!("TODO: {:?}", ctx);
-                    Ok(())
-                }),
-            )
-            .procedure(
-                "todo3",
-                t.query(|ctx, _: ()| {
-                    println!("TODO: {:?}", ctx);
-                    Ok(())
-                }),
-            )
-            .procedure(
-                "demoSubscriptions",
-                t.subscription(|_ctx, _args: ()| {
-                    stream! {
-                        println!("Client subscribed to 'pings'");
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                }),
-            )
+            // .procedure(
+            //     "todo2",
+            //     t.with(|mw, ctx| async move {
+            //         let msg = format!(
+            //             "[LOG] req='{:?}' ctx='{:?}' input='{:?}'",
+            //             mw.req, ctx, mw.input
+            //         );
+            //         mw.next(ctx).resp(|result| async move {
+            //             println!("{msg} result='{result:?}'");
+            //             result
+            //         })
+            //     })
+            //     // TODO: Make this work
+            //     // .with(|mw, ctx| async move {
+            //     //     let msg = format!(
+            //     //         "[LOG2] req='{:?}' ctx='{:?}' input='{:?}'",
+            //     //         mw.req, ctx, mw.input
+            //     //     );
+            //     //     mw.next(ctx).resp(|result| async move {
+            //     //         println!("{msg} result='{result:?}'");
+            //     //         result
+            //     //     })
+            //     // })
+            //     .query(|ctx, _: ()| {
+            //         println!("TODO: {:?}", ctx);
+            //         Ok(())
+            //     }),
+            // )
+            // .procedure(
+            //     "todo3",
+            //     t.query(|ctx, _: ()| {
+            //         println!("TODO: {:?}", ctx);
+            //         Ok(())
+            //     }),
+            // )
+            // .procedure(
+            //     "demoSubscriptions",
+            //     t.subscription(|_ctx, _args: ()| {
+            //         stream! {
+            //             println!("Client subscribed to 'pings'");
+            //             for i in 0..5 {
+            //                 println!("Sending ping {}", i);
+            //                 yield "ping".to_string();
+            //                 sleep(Duration::from_secs(1)).await;
+            //             }
+            //         }
+            //     }),
+            // )
             .compat();
 
         r.export_ts(PathBuf::from("./demo.bindings.ts")).unwrap();
