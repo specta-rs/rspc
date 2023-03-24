@@ -8,10 +8,19 @@ impl<T: Debug + 'static> Ret for T {}
 pub trait Fut<TRet: Ret>: Future<Output = TRet> + Send + 'static {}
 impl<TRet: Ret, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut {}
 
-pub trait Func<TRet: Ret, TFut: Fut<TRet>>: FnOnce() -> TFut + Send + 'static {}
-impl<TRet: Ret, TFut: Fut<TRet>, TFunc: FnOnce() -> TFut + Send + 'static> Func<TRet, TFut>
+pub trait Executable<TRet: Ret, TFut: Fut<TRet>>: Send + 'static {
+    type Fut: Fut<TRet>;
+
+    fn exec(self) -> Self::Fut;
+}
+impl<TRet: Ret, TFut: Fut<TRet>, TFunc: Fn() -> TFut + Send + 'static> Executable<TRet, TFut>
     for TFunc
 {
+    type Fut = TFut;
+
+    fn exec(self) -> Self::Fut {
+        self()
+    }
 }
 
 pub struct Router<TCtx = (), TPlugin: Plugin = BasePlugin> {
@@ -51,23 +60,23 @@ impl<TCtx, TPlugin: Plugin> Router<TCtx, TPlugin> {
         }
     }
 
-    pub async fn query<TRet: Ret, TFut: Fut<TRet>>(&self, func: impl Func<TRet, TFut>) {
+    pub async fn query<TRet: Ret, TFut: Fut<TRet>>(self, func: impl Executable<TRet, TFut>) {
         let y = self.plugin.map(func);
         println!("\nBUILT\n");
-        println!("{:?}\n", y().await);
+        println!("{:?}\n", y.exec().await);
     }
 }
 
 pub trait Plugin {
     type Ret<TRet: Ret>: Ret;
     type Fut<TRet: Ret, TFut: Fut<TRet>>: Fut<Self::Ret<TRet>>;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>>: Func<
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>>: Executable<
         Self::Ret<TRet>,
         Self::Fut<TRet, TFut>,
     >;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>>(
-        &self,
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>>(
+        self,
         t: T,
     ) -> Self::Result<TRet, TFut, T>;
 }
@@ -80,11 +89,11 @@ pub struct PluginJoiner<A: Plugin, B: Plugin> {
 impl<A: Plugin, B: Plugin> Plugin for PluginJoiner<A, B> {
     type Ret<TRet: Ret> = A::Ret<B::Ret<TRet>>;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = A::Fut<B::Ret<TRet>, B::Fut<TRet, TFut>>;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>> =
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>> =
         A::Result<B::Ret<TRet>, B::Fut<TRet, TFut>, B::Result<TRet, TFut, T>>;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>>(
-        &self,
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>>(
+        self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
         self.a.map(self.b.map(t))
@@ -96,13 +105,12 @@ pub struct BasePlugin;
 impl Plugin for BasePlugin {
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>> = T;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>> = T;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>>(
-        &self,
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>>(
+        self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
-        println!("BUILD BASE");
         t
     }
 }
@@ -117,22 +125,31 @@ impl<TCtx, TMarker: Send + 'static, Mw: MwV2<TCtx, TMarker>> Plugin
 {
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = Pin<Box<dyn Fut<Self::Ret<TRet>>>>;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>> =
-        Box<dyn Func<Self::Ret<TRet>, Self::Fut<TRet, TFut>>>;
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>> =
+        Box<dyn Fn() -> Self::Fut<TRet, TFut> + Send + 'static>;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>>(
-        &self,
+    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>>(
+        self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
         // TODO: We need to avoid this `clone`
         // let id = self.0.clone();
-        // println!("BUILD {}", id);
+
+        // let y = y().await;
+
+        let y = self.0.into_executable();
         Box::new(move || {
+            // let y = y.call();
+
             Box::pin(async move {
                 // println!("MAP {} - BEFORE", id);
-                let data = t().await;
+
+                // let y = y.await;
+
+                // let data = t.exec().await;
                 // println!("MAP {} - AFTER", id);
-                data
+                // data
+                todo!();
             })
         })
     }
