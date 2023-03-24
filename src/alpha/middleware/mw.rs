@@ -23,7 +23,6 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
         TLCtx,
         <<Self::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
         Value,
-        (),
     >;
 
     fn into_executable(self) -> Self::Executable;

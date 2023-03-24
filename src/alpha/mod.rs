@@ -5,6 +5,7 @@
 mod error;
 mod middleware;
 mod middleware_old;
+pub mod mw2; // TODO: `pub use mw2::*;` on this
 mod procedure;
 mod procedure_like;
 mod router;
@@ -53,21 +54,11 @@ mod tests {
             .router()
             .procedure(
                 "todo",
-                t.with(|mw, ctx| async move {
-                    let msg = format!(
-                        "[LOG] req='{:?}' ctx='{:?}' input='{:?}'",
-                        mw.req, ctx, mw.input
-                    );
-                    mw.next(ctx)
-                    // .resp(|result| async move {
-                    //     println!("{msg} result='{result:?}'");
-                    //     result
-                    // })
-                })
-                .query(|ctx, _: ()| {
-                    println!("TODO: {:?}", ctx);
-                    Ok(())
-                }),
+                t.with(|mw, ctx| async move { mw.next(ctx) })
+                    .query(|ctx, _: ()| {
+                        println!("TODO: {:?}", ctx);
+                        Ok(())
+                    }),
             )
             // .procedure(
             //     "todo2",
