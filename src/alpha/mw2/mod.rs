@@ -13,7 +13,7 @@ use super::{middleware::AlphaMiddlewareContext, MiddlewareArgMapper, MwV2, MwV2R
 pub trait Fut<TRet: Send + 'static>: Future<Output = TRet> + Send + 'static {}
 impl<TRet: Send + 'static, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut {}
 
-pub trait Executable<TFut>: Send + 'static
+pub trait Executable<TBCtx, TFut>: Send + 'static
 where
     TFut: Fut<Value>,
 {
@@ -23,41 +23,42 @@ where
     fn exec(self, ctx: Self::Ctx) -> Self::Fut;
 }
 
-pub struct Router<TCtx = (), TPlugin: Plugin = BasePlugin> {
+pub struct Router<TBCtx = (), TPlugin: Plugin<TBCtx> = BasePlugin<TBCtx>> {
     plugin: TPlugin,
-    phantom: PhantomData<TCtx>,
+    phantom: PhantomData<TBCtx>,
 }
 
-impl<TCtx> Router<TCtx, BasePlugin> {
+impl<TBCtx> Router<TBCtx, BasePlugin<TBCtx>> {
     pub fn new() -> Self {
         Self {
-            plugin: BasePlugin {},
+            plugin: BasePlugin(PhantomData),
             phantom: PhantomData,
         }
     }
 }
 
-impl<TCtx, TPlugin: Plugin> Router<TCtx, TPlugin>
+impl<TBCtx, TPlugin: Plugin<TBCtx>> Router<TBCtx, TPlugin>
 where
-    TCtx: Send + 'static,
+    TBCtx: Send + 'static,
 {
     pub fn with<
         TMarker: Send + 'static,
-        Mw: MwV2<TCtx, TMarker>
+        Mw: MwV2<TBCtx, TMarker>
             + Fn(
                 AlphaMiddlewareContext<
                     <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
                 >,
-                TCtx,
+                TBCtx,
             ) -> Mw::Fut,
     >(
         self,
         mw: Mw,
-    ) -> Router<TCtx, PluginJoiner<TPlugin, MapPlugin<TCtx, TMarker, Mw>>> {
+    ) -> Router<TBCtx, PluginJoiner<TBCtx, TPlugin, MapPlugin<TBCtx, TMarker, Mw>>> {
         Router {
             plugin: PluginJoiner {
                 a: self.plugin,
                 b: MapPlugin(mw, PhantomData),
+                phantom: PhantomData,
             },
             phantom: PhantomData,
         }
@@ -70,7 +71,7 @@ where
     >(
         self,
         func: TFunc,
-        ctx: TCtx,
+        ctx: TBCtx,
     ) {
         let y = ResolverPluginExecutable(func, PhantomData);
         let y = self.plugin.map(y);
@@ -79,38 +80,51 @@ where
     }
 }
 
-pub trait Plugin {
+pub trait Plugin<TBCtx> {
     // TODO: Maybe remove `Fut` in favor of `Result::Output` or whatever????
     type Fut<TFut: Fut<Value>>: Fut<Value>;
-    type Result<TFut: Fut<Value>, T: Executable<TFut>>: Executable<Self::Fut<TFut>>;
+    type Result<TFut: Fut<Value>, T: Executable<TBCtx, TFut>>: Executable<TBCtx, Self::Fut<TFut>>;
 
-    fn map<TFut: Fut<Value>, T: Executable<TFut>>(self, t: T) -> Self::Result<TFut, T>;
+    fn map<TFut: Fut<Value>, T: Executable<TBCtx, TFut>>(self, t: T) -> Self::Result<TFut, T>;
 }
 
-pub struct PluginJoiner<A: Plugin, B: Plugin> {
+pub struct PluginJoiner<TBCtx, A, B>
+where
+    TBCtx: Send + 'static,
+    A: Plugin<TBCtx>,
+    B: Plugin<TBCtx>,
+{
     a: A,
     b: B,
+    phantom: PhantomData<TBCtx>,
 }
 
-impl<A: Plugin, B: Plugin> Plugin for PluginJoiner<A, B> {
+impl<TBCtx, A, B> Plugin<TBCtx> for PluginJoiner<TBCtx, A, B>
+where
+    TBCtx: Send + 'static,
+    A: Plugin<TBCtx>,
+    B: Plugin<TBCtx>,
+{
     type Fut<TFut: Fut<Value>> = A::Fut<B::Fut<TFut>>;
-    type Result<TFut: Fut<Value>, T: Executable<TFut>> =
+    type Result<TFut: Fut<Value>, T: Executable<TBCtx, TFut>> =
         A::Result<B::Fut<TFut>, B::Result<TFut, T>>;
 
-    fn map<TFut: Fut<Value>, T: Executable<TFut>>(self, t: T) -> Self::Result<TFut, T> {
+    fn map<TFut: Fut<Value>, T: Executable<TBCtx, TFut>>(self, t: T) -> Self::Result<TFut, T> {
         self.a.map(self.b.map(t))
     }
 }
 
-pub struct ResolverPluginExecutable<TRet, TFut, TFunc>(TFunc, PhantomData<TRet>)
+pub struct ResolverPluginExecutable<TBCtx, TRet, TFut, TFunc>(TFunc, PhantomData<(TBCtx, TRet)>)
 where
+    TBCtx: Send + 'static,
     TRet: Debug + Send + 'static,
     TFut: Fut<TRet>,
     TFunc: Fn() -> TFut + Send + 'static;
 
-impl<TRet, TFut, TFunc> Executable<ResolverPluginFut<TRet, TFut>>
-    for ResolverPluginExecutable<TRet, TFut, TFunc>
+impl<TBCtx, TRet, TFut, TFunc> Executable<TBCtx, ResolverPluginFut<TRet, TFut>>
+    for ResolverPluginExecutable<TBCtx, TRet, TFut, TFunc>
 where
+    TBCtx: Send + 'static,
     TRet: Debug + Send + 'static,
     TFut: Fut<TRet>,
     TFunc: Fn() -> TFut + Send + 'static,
@@ -140,33 +154,33 @@ where
     }
 }
 
-pub struct BasePlugin;
+pub struct BasePlugin<TBCtx>(PhantomData<TBCtx>);
 
-impl Plugin for BasePlugin {
+impl<TBCtx> Plugin<TBCtx> for BasePlugin<TBCtx> {
     type Fut<TFut: Fut<Value>> = TFut;
-    type Result<TFut: Fut<Value>, T: Executable<TFut>> = T;
+    type Result<TFut: Fut<Value>, T: Executable<TBCtx, TFut>> = T;
 
-    fn map<TFut: Fut<Value>, T: Executable<TFut>>(self, t: T) -> Self::Result<TFut, T> {
+    fn map<TFut: Fut<Value>, T: Executable<TBCtx, TFut>>(self, t: T) -> Self::Result<TFut, T> {
         t
     }
 }
 
-pub struct MapPlugin<TCtx, TMarker, Mw>(Mw, PhantomData<(TCtx, TMarker)>)
+pub struct MapPlugin<TBCtx, TMarker, Mw>(Mw, PhantomData<(TBCtx, TMarker)>)
 where
-    TCtx: 'static,
+    TBCtx: 'static,
     TMarker: Send + 'static,
-    Mw: MwV2<TCtx, TMarker>;
+    Mw: MwV2<TBCtx, TMarker>;
 
-impl<TCtx, TMarker, Mw> Plugin for MapPlugin<TCtx, TMarker, Mw>
+impl<TBCtx, TMarker, Mw> Plugin<TBCtx> for MapPlugin<TBCtx, TMarker, Mw>
 where
-    TCtx: Send + 'static,
+    TBCtx: Send + 'static,
     TMarker: Send + 'static,
-    Mw: MwV2<TCtx, TMarker>,
+    Mw: MwV2<TBCtx, TMarker>,
 {
     type Fut<TFut: Fut<Value>> = Pin<Box<dyn Fut<Value>>>;
-    type Result<TFut: Fut<Value>, T: Executable<TFut>> = Demo<TCtx, Mw, TMarker>;
+    type Result<TFut: Fut<Value>, T: Executable<TBCtx, TFut>> = Demo<TBCtx, Mw, TMarker>;
 
-    fn map<TFut: Fut<Value>, T: Executable<TFut>>(self, t: T) -> Self::Result<TFut, T> {
+    fn map<TFut: Fut<Value>, T: Executable<TBCtx, TFut>>(self, t: T) -> Self::Result<TFut, T> {
         Demo {
             mw: self.0,
             phantom: PhantomData,
@@ -174,20 +188,20 @@ where
     }
 }
 
-pub struct Demo<TCtx, Mw, TMarker>
+pub struct Demo<TBCtx, Mw, TMarker>
 where
-    TCtx: 'static,
-    Mw: MwV2<TCtx, TMarker>,
+    TBCtx: 'static,
+    Mw: MwV2<TBCtx, TMarker>,
     TMarker: Send + 'static,
 {
     mw: Mw,
-    phantom: PhantomData<(TCtx, TMarker)>,
+    phantom: PhantomData<(TBCtx, TMarker)>,
 }
 
-impl<TCtx, Mw, TMarker> Executable<Pin<Box<dyn Fut<Value>>>> for Demo<TCtx, Mw, TMarker>
+impl<TBCtx, Mw, TMarker> Executable<TBCtx, Pin<Box<dyn Fut<Value>>>> for Demo<TBCtx, Mw, TMarker>
 where
-    TCtx: Send + 'static,
-    Mw: MwV2<TCtx, TMarker>,
+    TBCtx: Send + 'static,
+    Mw: MwV2<TBCtx, TMarker>,
     TMarker: Send + 'static,
 {
     type Fut = Pin<Box<dyn Fut<Value>>>;
