@@ -41,11 +41,11 @@ impl<TCtx, TPlugin: Plugin> Router<TCtx, TPlugin> {
     >(
         self,
         mw: Mw,
-    ) -> Router<TCtx, PluginJoiner<TPlugin, MapPlugin>> {
+    ) -> Router<TCtx, PluginJoiner<TPlugin, MapPlugin<TCtx, TMarker, Mw>>> {
         Router {
             plugin: PluginJoiner {
                 a: self.plugin,
-                b: MapPlugin("A".into()),
+                b: MapPlugin(mw, PhantomData),
             },
             phantom: PhantomData,
         }
@@ -107,9 +107,14 @@ impl Plugin for BasePlugin {
     }
 }
 
-pub struct MapPlugin(String);
+pub struct MapPlugin<TCtx, TMarker: Send + 'static, Mw: MwV2<TCtx, TMarker>>(
+    Mw,
+    PhantomData<(TCtx, TMarker)>,
+);
 
-impl Plugin for MapPlugin {
+impl<TCtx, TMarker: Send + 'static, Mw: MwV2<TCtx, TMarker>> Plugin
+    for MapPlugin<TCtx, TMarker, Mw>
+{
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = Pin<Box<dyn Fut<Self::Ret<TRet>>>>;
     type Result<TRet: Ret, TFut: Fut<TRet>, T: Func<TRet, TFut>> =
@@ -119,13 +124,14 @@ impl Plugin for MapPlugin {
         &self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
-        let id = self.0.clone();
-        println!("BUILD {}", id);
+        // TODO: We need to avoid this `clone`
+        // let id = self.0.clone();
+        // println!("BUILD {}", id);
         Box::new(move || {
             Box::pin(async move {
-                println!("MAP {} - BEFORE", id);
+                // println!("MAP {} - BEFORE", id);
                 let data = t().await;
-                println!("MAP {} - AFTER", id);
+                // println!("MAP {} - AFTER", id);
                 data
             })
         })
@@ -133,6 +139,8 @@ impl Plugin for MapPlugin {
 }
 
 async fn todo() {
+    // TODO: Context switching
+
     let r = <Router>::new()
         .with(|mw, ctx| async move { mw.next(ctx) })
         .query(|| async move {
