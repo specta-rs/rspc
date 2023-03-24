@@ -19,10 +19,8 @@ where
 {
     type Fut: Fut<Value>;
     type Ctx;
-    type State; // TODO: Type erase this into the trait
 
-    // TODO: `state` shouldn't be an arg -> It should be handled internally
-    fn exec(self, ctx: Self::Ctx, state: Self::State) -> Self::Fut;
+    fn exec(self, ctx: Self::Ctx) -> Self::Fut;
 }
 
 pub struct Router<TCtx = (), TPlugin: Plugin = BasePlugin> {
@@ -72,11 +70,12 @@ where
     >(
         self,
         func: TFunc,
+        ctx: TCtx,
     ) {
         let y = ResolverPluginExecutable(func, PhantomData);
         let y = self.plugin.map(y);
         println!("\nBUILT\n");
-        // println!("{:?}\n", y.exec((), ()).await); // TODO
+        // println!("{:?}\n", y.exec(ctx).await); // TODO
     }
 }
 
@@ -117,10 +116,9 @@ where
     TFunc: Fn() -> TFut + Send + 'static,
 {
     type Fut = ResolverPluginFut<TRet, TFut>;
-    type Ctx = ();
-    type State = ();
+    type Ctx = (); // TODO
 
-    fn exec(self, _ctx: Self::State, _state: Self::State) -> Self::Fut {
+    fn exec(self, _ctx: Self::Ctx) -> Self::Fut {
         ResolverPluginFut((self.0)(), PhantomData)
     }
 }
@@ -194,11 +192,13 @@ where
 {
     type Fut = Pin<Box<dyn Fut<Value>>>;
     type Ctx = Mw::NewCtx;
-    type State = AlphaMiddlewareContext<
-        <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
-    >;
+    // type State = AlphaMiddlewareContext<
+    //     <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
+    // >;
 
-    fn exec(self, _ctx: Self::Ctx, _state: Self::State) -> Self::Fut {
+    fn exec(self, _ctx: Self::Ctx) -> Self::Fut {
+        // let state = self.mw.get_state();
+
         // let y = self.mw.run_me();
 
         // TODO: Named future
@@ -232,10 +232,13 @@ mod tests {
         let r = <Router>::new()
             .with(|mw, ctx| async move { mw.next(ctx) })
             // TODO: Take ctx and arg as params
-            .query(|| async move {
-                println!("QUERY");
-                "Query!".to_string()
-            })
+            .query(
+                || async move {
+                    println!("QUERY");
+                    "Query!".to_string()
+                },
+                (),
+            )
             .await;
     }
 }
