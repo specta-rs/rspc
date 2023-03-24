@@ -7,8 +7,9 @@ use crate::{
     internal::RequestContext,
 };
 
-use super::{Executable2Placeholder, MwResultWithCtx, MwV2Result};
+use super::{Executable, Executable2Placeholder, MwResultWithCtx, MwV2Result};
 
+// TODO: Maybe deprecate this trait in favor of `Executable`?
 pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Fut: Future<Output = Self::Result>;
     type Result: MwV2Result;
@@ -24,6 +25,7 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     ) -> Self::Fut;
 }
 
+// TODO: Maybe replace with executable?
 pub struct MwV2Marker<A, B>(PhantomData<(A, B)>);
 impl<TLCtx, F, Fu, R> MwV2<TLCtx, MwV2Marker<Fu, R>> for F
 where
@@ -56,6 +58,45 @@ where
         )
     }
 }
+
+// impl<TLCtx, F, Fu, R>
+//     Executable<TLCtx, <R::MwMapper as MiddlewareArgMapper, MwV2Marker<(), ()>>::State, R::ActualOutput> for F
+// where
+//     TLCtx: Send + Sync + 'static,
+//     F: Fn(AlphaMiddlewareContext<<R::MwMapper as MiddlewareArgMapper>::State>, TLCtx) -> Fu
+//         + Send
+//         + 'static,
+//     Fu: Future<Output = R> + Send + 'static,
+//     R: MwV2Result + Send + 'static,
+// {
+//     type Fut = Fu;
+
+//     fn call(
+//         &self,
+//         ctx: TLCtx,
+//         input: Value,
+//         req: RequestContext,
+//         state: <R::MwMapper as MiddlewareArgMapper>::State,
+//     ) -> Self::Fut {
+//         todo!()
+//     }
+// }
+
+// pub struct ExecutableMwV2<TLCtx, TMarker: Send, T: MwV2<TLCtx, TMarker>>(
+//     T,
+//     PhantomData<(TLCtx, TMarker)>,
+// );
+
+// impl<TLCtx, TMarker: Send, T: MwV2<TLCtx, TMarker>>
+//     Executable<TLCtx, <R::MwMapper as MiddlewareArgMapper>::State, R::>
+//     for ExecutableMwV2<TLCtx, TMarker, T>
+// {
+//     type Fut;
+
+//     fn call(&self, ctx: TLCtx, input: Value, req: RequestContext, state: TState) -> Self::Fut {
+//         todo!()
+//     }
+// }
 
 // TODO: Only hold output and not the whole `M` generic?
 pub struct AlphaMiddlewareContext<MState> {

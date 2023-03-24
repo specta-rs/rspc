@@ -1,6 +1,7 @@
 use std::{
     any::type_name,
     borrow::Cow,
+    future::Ready,
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
@@ -21,9 +22,9 @@ use crate::{
 };
 
 use super::{
-    AlphaMiddlewareBuilder, AlphaMiddlewareLike, Executable, Fut, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike, RequestKind,
-    RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
+    AlphaMiddlewareBuilder, AlphaMiddlewareLike, Demo, Executable, Fut, IntoProcedure,
+    IntoProcedureCtx, MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike,
+    RequestKind, RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
@@ -274,26 +275,28 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
-    type IncomingState; // TODO: Merge this onto something else or take in as `IncomingMiddleware`?
+    type IncomingState: Send + 'static; // TODO: Merge this onto something else or take in as `IncomingMiddleware`?
 
     fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
         T: Layer<Self::LayerCtx>;
 
     // TODO: New stuff
+    type Marker;
     type Ret<TRet: Ret>: Ret;
-    type Fut<TRet: Ret, TFut: Fut<TRet>>: Fut<Self::Ret<TRet>>;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>>: Executable<
+    type Fut<TRet: Ret, TFut: Fut<TRet>>: Fut<Self::Ret<TRet>>; // TODO: Can this be replaced by `Result::Fut` -> I don't think so but try again
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<Self::Ctx, Self::IncomingState, TRet, Self::Marker, Fut = TFut>>: Executable<
         Self::Ctx,
         Self::IncomingState,
         Self::Ret<TRet>,
+        Self::Marker,
         Fut = Self::Fut<TRet, TFut>,
     >;
 
     fn map<
         TRet: Ret,
         TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
+        T: Executable<Self::Ctx, Self::IncomingState, TRet, Self::Marker, Fut = TFut>,
     >(
         self,
         t: T,
@@ -362,91 +365,178 @@ where
         // })
     }
 
+    // TMiddleware::Result<
+    //     TRet,
+    //     TFut,
+    //     IntoExecutable<Self::LayerCtx, TMarker, TNewMiddleware::Result>,
+    // >;
+
+    // <TNewMiddleware as AlphaMiddlewareBuilderLike>::Result<TRet, TFut, T>
+
+    // <TMiddleware as AlphaMiddlewareBuilderLike>::Result<TRet, TFut, T>;
+    // IntoExecutable<Self::LayerCtx, TMarker, TNewMiddleware>;
+    // MapPluginResult<Self::Ret<TRet>, TFut, T, TMiddleware, TNewMiddleware, TMarker>;
+    // MapPluginFuture<Self::Ret<TRet>, TFut>;
+
+    // BREAK
+
+    // let y = self.mw.exec();
+    // Once `y` then `self.mw`
+
+    // let a = next;
+    // let a = self.mw.map(a);
+    // let a = IntoExecutable(a, PhantomData);
+    // let a: TMiddleware::Result<TRet, TFut, T> = self.middleware.map(a);
+    // a
+
+    // MapPluginResult {
+    //     middleware: self.middleware.build(self.mw),
+    //     mw: self.mw, // TODO: Remove this
+    //     next: Some(next),
+    //     phantom: PhantomData,
+    // }
+
+    type Marker = ();
     type Ret<TRet: Ret> = TRet;
-    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut; // MapPluginFuture<Self::Ret<TRet>, TFut>;
+    type Fut<TRet: Ret, TFut: Fut<TRet>> = Ready<TRet>;
     type Result<
         TRet: Ret,
         TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
-    > = MapPluginResult<Self::Ret<TRet>, TFut, T, TMiddleware, TNewMiddleware, TMarker>;
+        T: Executable<Self::Ctx, Self::IncomingState, TRet, Self::Marker, Fut = TFut>,
+    > = Demo<Self::Ctx, Self::IncomingState, Self::Ret<TRet>>;
 
+    // GOAL: self.middleware(self.mw(next))
     fn map<
         TRet: Ret,
         TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
+        T: Executable<Self::Ctx, Self::IncomingState, TRet, Self::Marker, Fut = TFut>,
     >(
         self,
         next: T,
     ) -> Self::Result<TRet, TFut, T> {
-        MapPluginResult {
-            middleware: self.middleware,
-            mw: self.mw,
-            next: Some(next),
-            phantom: PhantomData,
-        }
+        // let a = TheNextOne::<TMiddleware::LayerCtx, TNewMiddleware, TMarker, Self::IncomingState> {
+        //     mw: self.mw,
+        //     // next: next, // TODO
+        //     phantom: PhantomData,
+        // };
+
+        // let a: Demo<
+        //     <TMiddleware as AlphaMiddlewareBuilderLike>::Ctx, // TODO: This should be `TMiddleware::LayerCtx`
+        //     <TMiddleware as AlphaMiddlewareBuilderLike>::IncomingState,
+        //     TRet,
+        // > = Demo(PhantomData);
+        // let a: <TMiddleware as AlphaMiddlewareBuilderLike>::Result<
+        //     TRet,
+        //     Ready<TRet>,
+        //     Demo<
+        //         <TMiddleware as AlphaMiddlewareBuilderLike>::Ctx,
+        //         <TMiddleware as AlphaMiddlewareBuilderLike>::IncomingState,
+        //         TRet,
+        //     >,
+        // > = self.middleware.map(a);
+
+        // let a = Demo(PhantomData);
+        // let a = self.mw.map(a);
+
+        todo!();
     }
+
+    // fn map2() {
+    //     // TODO: `self.mw` on the result of `.map`
+
+    //     // TODO: Then finally `self.middleware` and return it
+    // }
 
     // TODO: Resolve `t.middleware` then `t.mw`
 }
 
-pub struct MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
-where
-    TMiddleware: AlphaMiddlewareBuilderLike,
-    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
-    TMarker: Send + 'static,
-{
-    middleware: TMiddleware,
-    mw: TNewMiddleware,
-    next: Option<T>,
-    phantom: PhantomData<(TRet, TFut, TMiddleware, TMarker)>,
-}
+// TODO: Remove `TState` and get it from `M`????
+// pub struct TheNextOne<TLCtx, M, TMarker, TState>
+// where
+//     TLCtx: Send + 'static,
+//     M: MwV2<TLCtx, TMarker>,
+//     TMarker: Send + 'static,
+//     TState: Send + 'static,
+// {
+//     mw: M,
+//     phantom: PhantomData<(TLCtx, TMarker, TState)>,
+// }
 
-impl<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
-    Executable<TMiddleware::Ctx, <TMiddleware::MwMapper as MiddlewareArgMapper>::State, TRet>
-    for MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
-where
-    TRet: Ret,
-    TFut: Fut<TRet>,
-    T: Executable<
-        TMiddleware::Ctx,
-        <TMiddleware::MwMapper as MiddlewareArgMapper>::State,
-        TRet,
-        Fut = TFut,
-    >,
-    TMiddleware: AlphaMiddlewareBuilderLike,
-    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
-    TMarker: Send + 'static,
-{
-    type Fut = TFut; // MapPluginFuture<TRet, TFut>;
+// impl<TLCtx, M, TMarker, TState> Executable<TLCtx, TState, (), ()>
+//     for TheNextOne<TLCtx, M, TMarker, TState>
+// where
+//     TLCtx: Send + 'static,
+//     M: MwV2<TLCtx, TMarker>,
+//     TMarker: Send + 'static,
+//     TState: Send + 'static,
+// {
+//     type Fut = Ready<()>; // TODO
 
-    fn call(
-        &self,
-        ctx: TMiddleware::Ctx,
-        input: Value,
-        req: RequestContext,
-        state: <TMiddleware::MwMapper as MiddlewareArgMapper>::State,
-    ) -> Self::Fut {
-        println!("MAP - BEFORE");
+//     fn call(&self, ctx: TLCtx, input: Value, req: RequestContext, state: TState) -> Self::Fut {
+//         todo!()
+//     }
+// }
 
-        // self.mw.exec(ctx, input, req, state)
-        todo!();
-    }
+// pub struct MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
+// where
+//     TMiddleware: AlphaMiddlewareBuilderLike,
+//     TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+//     TMarker: Send + 'static,
+// {
+//     middleware: TMiddleware,
+//     mw: TNewMiddleware,
+//     next: Option<T>,
+//     phantom: PhantomData<(TRet, TFut, TMiddleware, TMarker)>,
+// }
 
-    // fn call2(&self, prev_result: TRet) -> () {
-    //     println!("MAP - NEXT");
+// impl<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
+//     Executable<TMiddleware::Ctx, <TMiddleware::MwMapper as MiddlewareArgMapper>::State, TRet>
+//     for MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
+// where
+//     TRet: Ret,
+//     TFut: Fut<TRet>,
+//     T: Executable<
+//         TMiddleware::Ctx,
+//         <TMiddleware::MwMapper as MiddlewareArgMapper>::State,
+//         TRet,
+//         Fut = TFut,
+//     >,
+//     TMiddleware: AlphaMiddlewareBuilderLike,
+//     TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+//     TMarker: Send + 'static,
+// {
+//     type Fut = TFut; // MapPluginFuture<TRet, TFut>;
 
-    //     let y = self.next.call(prev_result);
+//     fn call(
+//         &self,
+//         ctx: TMiddleware::Ctx,
+//         input: Value,
+//         req: RequestContext,
+//         state: <TMiddleware::MwMapper as MiddlewareArgMapper>::State,
+//     ) -> Self::Fut {
+//         println!("MAP - BEFORE");
 
-    //     todo!();
+//         // self.middleware
 
-    //     // MapPluginFuture {
-    //     //     fut: todo!(), // self.mw.exec(ctx, input, req, state),
-    //     //     // next: self.next.take().unwrap(), // TODO: This means we can only call the resolver once. Make this work without `T: Clone` using references?
-    //     //     // next_fut: PinnedOption::None,
-    //     //     phantom: PhantomData,
-    //     // }
-    // }
-}
+//         // self.mw.exec(ctx, input, req, state)
+//         // todo!();
+//     }
+
+//     // fn call2(&self, prev_result: TRet) -> () {
+//     //     println!("MAP - NEXT");
+
+//     //     let y = self.next.call(prev_result);
+
+//     //     todo!();
+
+//     //     // MapPluginFuture {
+//     //     //     fut: todo!(), // self.mw.exec(ctx, input, req, state),
+//     //     //     // next: self.next.take().unwrap(), // TODO: This means we can only call the resolver once. Make this work without `T: Clone` using references?
+//     //     //     // next_fut: PinnedOption::None,
+//     //     //     phantom: PhantomData,
+//     //     // }
+//     // }
+// }
 
 // #[pin_project(project = PinnedOptionProj)]
 // enum PinnedOption<T> {
@@ -585,6 +675,7 @@ where
         Box::new(next)
     }
 
+    type Marker = ();
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
     type Result<
@@ -594,6 +685,7 @@ where
             Self::LayerCtx,
             <Self::MwMapper as MiddlewareArgMapper>::State,
             TRet,
+            Self::Marker,
             Fut = TFut,
         >,
     > = T;
@@ -601,7 +693,13 @@ where
     fn map<
         TRet: Ret,
         TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, <Self::MwMapper as MiddlewareArgMapper>::State, TRet, Fut = TFut>,
+        T: Executable<
+            Self::Ctx,
+            <Self::MwMapper as MiddlewareArgMapper>::State,
+            TRet,
+            Self::Marker,
+            Fut = TFut,
+        >,
     >(
         self,
         t: T,

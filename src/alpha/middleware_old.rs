@@ -49,7 +49,7 @@ pub trait MiddlewareArgMapper: Send + Sync {
     type Output<T>: Serialize
     where
         T: Serialize;
-    type State;
+    type State: Send + 'static;
 
     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
         arg: Self::Input<T>,
