@@ -5,16 +5,21 @@ use serde_json::Value;
 
 use crate::{ExecError, MiddlewareLike};
 
-pub trait MiddlewareBuilderLike<TCtx> {
+pub trait MiddlewareBuilderLike<TCtx: 'static> {
     type LayerContext: 'static;
+    type LayerResult<T>: Layer<TCtx>
+    where
+        T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
+    fn build<T>(&self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>;
 }
 
 pub struct MiddlewareMerger<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TIncomingMiddleware>
 where
+    TCtx: 'static,
+    TLayerCtx: 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx>,
     TIncomingMiddleware: MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx>,
 {
@@ -33,8 +38,11 @@ where
     TIncomingMiddleware: MiddlewareBuilderLike<TLayerCtx, LayerContext = TNewLayerCtx>,
 {
     type LayerContext = TNewLayerCtx;
+    type LayerResult<T> = TMiddleware::LayerResult<TIncomingMiddleware::LayerResult<T>>
+    where
+        T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
+    fn build<T>(&self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>,
     {
@@ -65,8 +73,11 @@ where
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     type LayerContext = TNewLayerCtx;
+    type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TLayerCtx, TNewLayerCtx, T, TNewMiddleware>> // TODO
+    where
+        T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
+    fn build<T>(&self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext> + Sync,
     {
@@ -135,12 +146,15 @@ where
     TCtx: Send + 'static,
 {
     type LayerContext = TCtx;
+    type LayerResult<T> = T
+    where
+        T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
+    fn build<T>(&self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>,
     {
-        Box::new(next)
+        next
     }
 }
 
@@ -174,6 +188,7 @@ where
     }
 }
 
+// TODO: Avoiding this so it's only usable for the top layer
 impl<TLayerCtx> Layer<TLayerCtx> for Box<dyn Layer<TLayerCtx> + 'static>
 where
     TLayerCtx: 'static,

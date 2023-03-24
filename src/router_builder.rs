@@ -197,7 +197,7 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.queries.append(
             key.into(),
-            self.middleware.build(ResolverLayer {
+            Box::new(self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
                     resolver(
                         ctx,
@@ -206,7 +206,7 @@ where
                     .into_layer_result()
                 },
                 phantom: PhantomData,
-            }),
+            })),
             <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
                 .unwrap(),
         );
@@ -238,7 +238,7 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.mutations.append(
             key.into(),
-            self.middleware.build(ResolverLayer {
+            Box::new(self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
                     resolver(
                         ctx,
@@ -247,7 +247,7 @@ where
                     .into_layer_result()
                 },
                 phantom: PhantomData,
-            }),
+            })),
             <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
                 .unwrap(),
         );
@@ -277,7 +277,7 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.subscriptions.append(
             key.into(),
-            self.middleware.build(ResolverLayer {
+            Box::new(self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
                     resolver(
                         ctx,
@@ -286,7 +286,7 @@ where
                     .into_layer_result()
                 },
                 phantom: PhantomData,
-            }),
+            })),
             <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
         );
         self
@@ -322,7 +322,7 @@ where
             // query.ty.key = format!("{}{}", prefix, key);
             self.queries.append(
                 format!("{}{}", prefix, key),
-                self.middleware.build(query.exec),
+                Box::new(self.middleware.build(query.exec)),
                 query.ty,
             );
         }
@@ -331,7 +331,7 @@ where
             // mutation.ty.key = format!("{}{}", prefix, key);
             self.mutations.append(
                 format!("{}{}", prefix, key),
-                self.middleware.build(mutation.exec),
+                Box::new(self.middleware.build(mutation.exec)),
                 mutation.ty,
             );
         }
@@ -340,7 +340,7 @@ where
             // subscription.ty.key = format!("{}{}", prefix, key);
             self.subscriptions.append(
                 format!("{}{}", prefix, key),
-                self.middleware.build(subscription.exec),
+                Box::new(self.middleware.build(subscription.exec)),
                 subscription.ty,
             );
         }
@@ -398,7 +398,7 @@ where
         for (key, query) in router.queries.store {
             queries.append(
                 format!("{}{}", prefix, key),
-                middleware.build(query.exec),
+                Box::new(middleware.build(query.exec)),
                 query.ty,
             );
         }
@@ -406,7 +406,7 @@ where
         for (key, mutation) in router.mutations.store {
             mutations.append(
                 format!("{}{}", prefix, key),
-                middleware.build(mutation.exec),
+                Box::new(middleware.build(mutation.exec)),
                 mutation.ty,
             );
         }
@@ -414,7 +414,7 @@ where
         for (key, subscription) in router.subscriptions.store {
             subscriptions.append(
                 format!("{}{}", prefix, key),
-                middleware.build(subscription.exec),
+                Box::new(middleware.build(subscription.exec)),
                 subscription.ty,
             );
         }
