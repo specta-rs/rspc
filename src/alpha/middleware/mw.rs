@@ -15,7 +15,7 @@ use super::{
 };
 
 pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
-    type Fut: Future<Output = Self::Result>;
+    type Fut: Future<Output = Self::Result> + Send + 'static;
     type Result: MwV2Result;
     type NewCtx: Send + Sync + 'static;
 
@@ -26,6 +26,8 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     >;
 
     fn into_executable(self) -> Self::Executable;
+
+    fn run_me(&self) -> Self::Fut;
 }
 
 pub struct MwV2Marker<A, B>(PhantomData<(A, B)>);
@@ -45,6 +47,11 @@ where
     type Executable = Demo<TLCtx, <R::MwMapper as MiddlewareArgMapper>::State, Value>; // TODO: Custom type here
 
     fn into_executable(self) -> Self::Executable {
+        todo!();
+    }
+
+    fn run_me(&self) -> Self::Fut {
+        // self()
         todo!();
     }
 }

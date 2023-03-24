@@ -38,7 +38,10 @@ pub trait MwV2Result {
     type MwMapper: MiddlewareArgMapper;
     type Resp: Executable2;
 
-    fn into_executable(self) -> Option<Self::Resp>;
+    // TODO: Rename this
+    // fn into_executable(self) -> Option<Self::Resp>;
+
+    fn explode(self) -> (Self::Ctx, Option<Self::Resp>);
 }
 
 pub struct MwResultWithCtx<TLCtx, M, TResp>
@@ -46,7 +49,7 @@ where
     M: MiddlewareArgMapper,
     TResp: Executable2,
 {
-    pub(crate) ctx: TLCtx,
+    pub(crate) ctx: Option<TLCtx>,
     pub(crate) resp: Option<TResp>,
     pub(crate) phantom: PhantomData<M>,
 }
@@ -74,8 +77,12 @@ where
     type MwMapper = M;
     type Resp = TResp;
 
-    fn into_executable(self) -> Option<Self::Resp> {
-        self.resp
+    // fn into_executable(self) -> Option<Self::Resp> {
+    //     self.resp
+    // }
+
+    fn explode(self) -> (Self::Ctx, Option<Self::Resp>) {
+        (self.ctx.unwrap(), self.resp)
     }
 }
 

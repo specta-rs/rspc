@@ -52,14 +52,14 @@ mod tests {
 
         let r = t
             .router()
-            .procedure(
-                "todo",
-                t.with(|mw, ctx| async move { mw.next(ctx) })
-                    .query(|ctx, _: ()| {
-                        println!("TODO: {:?}", ctx);
-                        Ok(())
-                    }),
-            )
+            // .procedure(
+            //     "todo",
+            //     t.with(|mw, ctx| async move { mw.next(ctx) })
+            //         .query(|ctx, _: ()| {
+            //             println!("TODO: {:?}", ctx);
+            //             Ok(())
+            //         }),
+            // )
             // .procedure(
             //     "todo2",
             //     t.with(|mw, ctx| async move {

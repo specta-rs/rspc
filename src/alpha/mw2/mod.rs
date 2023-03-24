@@ -2,8 +2,8 @@ use std::{fmt::Debug, future::Future, marker::PhantomData, pin::Pin};
 
 use super::{middleware::AlphaMiddlewareContext, MiddlewareArgMapper, MwV2, MwV2Result};
 
-pub trait Ret: Debug + 'static {}
-impl<T: Debug + 'static> Ret for T {}
+pub trait Ret: Debug + Send + 'static {}
+impl<T: Debug + Send + 'static> Ret for T {}
 
 pub trait Fut<TRet: Ret>: Future<Output = TRet> + Send + 'static {}
 impl<TRet: Ret, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut {}
@@ -37,7 +37,10 @@ impl<TCtx> Router<TCtx, BasePlugin> {
     }
 }
 
-impl<TCtx, TPlugin: Plugin> Router<TCtx, TPlugin> {
+impl<TCtx, TPlugin: Plugin> Router<TCtx, TPlugin>
+where
+    TCtx: Send + 'static,
+{
     pub fn with<
         TMarker: Send + 'static,
         Mw: MwV2<TCtx, TMarker>
@@ -115,54 +118,91 @@ impl Plugin for BasePlugin {
     }
 }
 
-pub struct MapPlugin<TCtx, TMarker: Send + 'static, Mw: MwV2<TCtx, TMarker>>(
-    Mw,
-    PhantomData<(TCtx, TMarker)>,
-);
+pub struct MapPlugin<TCtx, TMarker, Mw>(Mw, PhantomData<(TCtx, TMarker)>)
+where
+    TCtx: 'static,
+    TMarker: Send + 'static,
+    Mw: MwV2<TCtx, TMarker>;
 
-impl<TCtx, TMarker: Send + 'static, Mw: MwV2<TCtx, TMarker>> Plugin
-    for MapPlugin<TCtx, TMarker, Mw>
+impl<TCtx, TMarker, Mw> Plugin for MapPlugin<TCtx, TMarker, Mw>
+where
+    TCtx: Send + 'static,
+    TMarker: Send + 'static,
+    Mw: MwV2<TCtx, TMarker>,
 {
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = Pin<Box<dyn Fut<Self::Ret<TRet>>>>;
     type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>> =
-        Box<dyn Fn() -> Self::Fut<TRet, TFut> + Send + 'static>;
+        Demo<TCtx, Mw, TMarker, TRet>;
 
     fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, TFut>>(
         self,
         t: T,
     ) -> Self::Result<TRet, TFut, T> {
-        // TODO: We need to avoid this `clone`
-        // let id = self.0.clone();
+        Demo {
+            mw: self.0,
+            phantom: PhantomData,
+        }
+    }
+}
 
-        // let y = y().await;
+pub struct Demo<TCtx, Mw, TMarker, TRet>
+where
+    TCtx: 'static,
+    Mw: MwV2<TCtx, TMarker>,
+    TMarker: Send + 'static,
+    TRet: Ret,
+{
+    mw: Mw,
+    phantom: PhantomData<(TCtx, TMarker, TRet)>,
+}
 
-        let y = self.0.into_executable();
-        Box::new(move || {
-            // let y = y.call();
+impl<TCtx, Mw, TMarker, TRet> Executable<TRet, Pin<Box<dyn Fut<TRet>>>>
+    for Demo<TCtx, Mw, TMarker, TRet>
+where
+    TCtx: Send + 'static,
+    Mw: MwV2<TCtx, TMarker>,
+    TMarker: Send + 'static,
+    TRet: Ret,
+{
+    type Fut = Pin<Box<dyn Fut<TRet>>>;
 
-            Box::pin(async move {
-                // println!("MAP {} - BEFORE", id);
+    fn exec(self) -> Self::Fut {
+        let y = self.mw.run_me();
 
-                // let y = y.await;
+        // TODO: Named future
+        Box::pin(async move {
+            let result = y.await;
 
-                // let data = t.exec().await;
-                // println!("MAP {} - AFTER", id);
-                // data
-                todo!();
-            })
+            // let next_ctx = result.get_ctx(); // TODO
+
+            // let data = t.exec().await; // TODO: Do this without cloning `t` by having two methods on `Executable`
+
+            // println!("RESULT: {:?}", result);
+
+            // let y = result.into_executable();
+
+            // println!("MAP {} - AFTER", id);
+            // data
+            todo!();
         })
     }
 }
 
-async fn todo() {
-    // TODO: Context switching
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let r = <Router>::new()
-        .with(|mw, ctx| async move { mw.next(ctx) })
-        .query(|| async move {
-            println!("QUERY");
-            "Query!".to_string()
-        })
-        .await;
+    #[tokio::test]
+    async fn mw2() {
+        // TODO: Context switching
+
+        let r = <Router>::new()
+            .with(|mw, ctx| async move { mw.next(ctx) })
+            .query(|| async move {
+                println!("QUERY");
+                "Query!".to_string()
+            })
+            .await;
+    }
 }
