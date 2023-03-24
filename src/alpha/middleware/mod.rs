@@ -6,8 +6,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use pin_project_lite::pin_project;
-
 mod executable;
 mod mw;
 mod mw_result;

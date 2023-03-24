@@ -7,7 +7,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
@@ -274,6 +274,7 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
+    type IncomingState; // TODO: Merge this onto something else or take in as `IncomingMiddleware`?
 
     fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
@@ -282,18 +283,20 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     // TODO: New stuff
     type Ret<TRet: Ret>: Ret;
     type Fut<TRet: Ret, TFut: Fut<TRet>>: Fut<Self::Ret<TRet>>;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>: Executable<
+    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>>: Executable<
+        Self::Ctx,
+        Self::IncomingState,
         Self::Ret<TRet>,
         Fut = Self::Fut<TRet, TFut>,
     >;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
-        &self,
+    fn map<
+        TRet: Ret,
+        TFut: Fut<TRet>,
+        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
+    >(
+        self,
         t: T,
-        ctx: Self::LayerCtx,
-        input: Value,
-        req: RequestContext,
-        state: <Self::MwMapper as MiddlewareArgMapper>::State,
     ) -> Self::Result<TRet, TFut, T>;
 }
 
@@ -346,6 +349,7 @@ where
     type LayerCtx = TNewMiddleware::NewCtx;
     type MwMapper =
         MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
+    type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
 
     fn build<T>(self, next: T) -> Box<dyn Layer<TMiddleware::Ctx>>
     where
@@ -359,83 +363,164 @@ where
     }
 
     type Ret<TRet: Ret> = TRet;
-    type Fut<TRet: Ret, TFut: Fut<TRet>> = MapPluginFuture<Self::Ret<TRet>, TFut>;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> =
-        MapPluginResult<Self::Ret<TRet>, TFut, T, TMiddleware, TNewMiddleware, TMarker>;
+    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut; // MapPluginFuture<Self::Ret<TRet>, TFut>;
+    type Result<
+        TRet: Ret,
+        TFut: Fut<TRet>,
+        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
+    > = MapPluginResult<Self::Ret<TRet>, TFut, T, TMiddleware, TNewMiddleware, TMarker>;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
-        &self,
+    fn map<
+        TRet: Ret,
+        TFut: Fut<TRet>,
+        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
+    >(
+        self,
         next: T,
-        ctx: Self::LayerCtx,
-        input: Value,
-        req: RequestContext,
-        state: <Self::MwMapper as MiddlewareArgMapper>::State,
     ) -> Self::Result<TRet, TFut, T> {
         MapPluginResult {
-            fut: self.mw.exec(ctx, input, req, state),
-            next,
+            middleware: self.middleware,
+            mw: self.mw,
+            next: Some(next),
             phantom: PhantomData,
         }
     }
+
+    // TODO: Resolve `t.middleware` then `t.mw`
 }
 
 pub struct MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TMarker: Send + 'static,
     TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+    TMarker: Send + 'static,
 {
-    fut: TNewMiddleware::Fut,
-    next: T,
+    middleware: TMiddleware,
+    mw: TNewMiddleware,
+    next: Option<T>,
     phantom: PhantomData<(TRet, TFut, TMiddleware, TMarker)>,
 }
 
-impl<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker> Executable<TRet>
+impl<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
+    Executable<TMiddleware::Ctx, <TMiddleware::MwMapper as MiddlewareArgMapper>::State, TRet>
     for MapPluginResult<TRet, TFut, T, TMiddleware, TNewMiddleware, TMarker>
 where
     TRet: Ret,
     TFut: Fut<TRet>,
-    T: Executable<TRet, Fut = TFut>,
+    T: Executable<
+        TMiddleware::Ctx,
+        <TMiddleware::MwMapper as MiddlewareArgMapper>::State,
+        TRet,
+        Fut = TFut,
+    >,
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TMarker: Send + 'static,
     TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+    TMarker: Send + 'static,
 {
-    type Fut = MapPluginFuture<TRet, TFut>;
+    type Fut = TFut; // MapPluginFuture<TRet, TFut>;
 
-    fn call(&self) -> Self::Fut {
+    fn call(
+        &self,
+        ctx: TMiddleware::Ctx,
+        input: Value,
+        req: RequestContext,
+        state: <TMiddleware::MwMapper as MiddlewareArgMapper>::State,
+    ) -> Self::Fut {
         println!("MAP - BEFORE");
 
-        // MapPluginFuture {
-        //     fut: self.t.call(),
-        //     phantom: PhantomData,
-        // }
+        // self.mw.exec(ctx, input, req, state)
         todo!();
     }
+
+    // fn call2(&self, prev_result: TRet) -> () {
+    //     println!("MAP - NEXT");
+
+    //     let y = self.next.call(prev_result);
+
+    //     todo!();
+
+    //     // MapPluginFuture {
+    //     //     fut: todo!(), // self.mw.exec(ctx, input, req, state),
+    //     //     // next: self.next.take().unwrap(), // TODO: This means we can only call the resolver once. Make this work without `T: Clone` using references?
+    //     //     // next_fut: PinnedOption::None,
+    //     //     phantom: PhantomData,
+    //     // }
+    // }
 }
 
-pin_project! {
-    pub struct MapPluginFuture<TRet: Ret, TFut: Fut<TRet>> {
-        #[pin]
-        fut: TFut,
-        // fut2: THandler,
-        phantom: PhantomData<TRet>
-    }
-}
+// #[pin_project(project = PinnedOptionProj)]
+// enum PinnedOption<T> {
+//     Some(#[pin] T),
+//     None,
+// }
 
-impl<TRet: Ret, TFut: Fut<TRet>> Future for MapPluginFuture<TRet, TFut> {
-    type Output = TRet;
+// #[pin_project(project = MapPluginFutureProj)]
+// pub struct MapPluginFuture<TRet, TFut>
+// where
+//     TRet: Ret,
+//     TFut: Fut<TRet>, // TODO: Remove this and use `T::Fut` instead?
+//                      // T: Executable<TRet, Fut = TFut>,
+// {
+//     #[pin]
+//     fut: PinnedOption<TFut>,
+//     // next: T,
+//     // #[pin]
+//     // next_fut: PinnedOption<T::Fut>,
+//     phantom: PhantomData<TRet>,
+// }
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this.fut.poll(cx) {
-            Poll::Ready(data) => {
-                println!("MAP - AFTER");
-                Poll::Ready(data)
-            }
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
+// impl<TRet, TFut> Future for MapPluginFuture<TRet, TFut>
+// where
+//     TRet: Ret,
+//     TFut: Fut<TRet>,
+//     // T: Executable<TRet, Fut = TFut>,
+// {
+//     type Output = TRet;
+
+//     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+//         let mut this = self.as_mut().project();
+
+//         match this.fut.as_mut().project() {
+//             PinnedOptionProj::Some(mut fut) => {
+//                 match fut.poll(cx) {
+//                     Poll::Ready(result) => {
+//                         println!("RESULT {:?}", result);
+
+//                         this.fut.set(PinnedOption::None);
+
+//                         // TODO: Pass `result` into this
+//                         // this.next_fut.set(PinnedOption::Some(this.next.call()));
+//                     }
+//                     Poll::Pending => return Poll::Pending,
+//                 }
+//             }
+//             PinnedOptionProj::None => {}
+//         }
+
+//         // match this.next_fut.as_mut().project() {
+//         //     PinnedOptionProj::Some(mut fut) => match fut.poll(cx) {
+//         //         Poll::Ready(result) => {
+//         //             println!("NEXT RESULT {:?}", result);
+
+//         //             this.next_fut.set(PinnedOption::None);
+
+//         //             // TODO: TODO
+//         //             // if resp_function {
+//         //             //     this.resp_fut.set(PinnedOption::Some(this.resp.call()));
+//         //             // } else {
+//         //             //     return Poll::Ready(result);
+//         //             // }
+//         //         }
+//         //         Poll::Pending => return Poll::Pending,
+//         //     },
+//         //     PinnedOptionProj::None => {}
+//         // }
+
+//         // TODO: Poll resp function fut and return the response of it
+
+//         unreachable!();
+//     }
+// }
 
 pub struct AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
 where
@@ -491,6 +576,7 @@ where
     type Ctx = TCtx;
     type LayerCtx = TCtx;
     type MwMapper = ();
+    type IncomingState = ();
 
     fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
     where
@@ -501,15 +587,24 @@ where
 
     type Ret<TRet: Ret> = TRet;
     type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>> = T;
+    type Result<
+        TRet: Ret,
+        TFut: Fut<TRet>,
+        T: Executable<
+            Self::LayerCtx,
+            <Self::MwMapper as MiddlewareArgMapper>::State,
+            TRet,
+            Fut = TFut,
+        >,
+    > = T;
 
-    fn map<TRet: Ret, TFut: Fut<TRet>, T: Executable<TRet, Fut = TFut>>(
-        &self,
+    fn map<
+        TRet: Ret,
+        TFut: Fut<TRet>,
+        T: Executable<Self::Ctx, <Self::MwMapper as MiddlewareArgMapper>::State, TRet, Fut = TFut>,
+    >(
+        self,
         t: T,
-        _ctx: Self::LayerCtx,
-        _input: Value,
-        _req: RequestContext,
-        _state: <Self::MwMapper as MiddlewareArgMapper>::State,
     ) -> Self::Result<TRet, TFut, T> {
         println!("BUILD BASE"); // TODO: Remove log
         t

@@ -48,26 +48,6 @@ where
         AlphaRouter::new()
     }
 
-    // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
-    // pub fn with<TNewMiddleware>(
-    //     self,
-    //     builder: impl Fn(AlphaMiddlewareBuilder<TCtx, (), ()>) -> TNewMiddleware, // TODO: Remove builder closure
-    // ) -> AlphaProcedure<
-    //     MissingResolver<TNewMiddleware::NewCtx>,
-    //     (),
-    //     AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, TNewMiddleware>,
-    // >
-    // where
-    //     TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx>,
-    // {
-    //     let mw = builder(AlphaMiddlewareBuilder(PhantomData));
-    //     AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
-    //         middleware: AlphaBaseMiddleware::new(),
-    //         mw,
-    //     })
-    // }
-
-    // TODO: Response type
     pub fn with<TMarker, Mw>(
         self,
         mw: Mw,
@@ -91,6 +71,7 @@ where
         //     middleware: AlphaBaseMiddleware::new(),
         //     mw,
         // })
+
         todo!();
     }
 
