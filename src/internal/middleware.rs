@@ -118,31 +118,13 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = Pin<
-        Box<
-            dyn Future<Output = Result<ValueOrStreamOrFut2<Self::Fut2>, ExecError>>
-                + Send
-                + 'static,
-        >,
-    >;
-    type Fut2 = Ready<Result<ValueOrStream, ExecError>>;
-    // TODO: TNewMiddleware::Fut<'a, TMiddleware>;
+    type Fut = TNewMiddleware::Fut<TMiddleware>;
+    type Fut2 = TNewMiddleware::Fut2<TMiddleware>;
 
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
-        // self.mw.handle(ctx, input, req, self.next.clone())
-        todo!();
-
-        // TODO: The goal is for this fut to be able to hold `&self`
-        // Box::pin(async move {
-
-        //     // self.mw.await;
-        //     // self.next.call(...).await;
-        //     // todo!();
-        // })
-
-        todo!();
+        self.mw.handle(ctx, input, req, self.next.clone())
     }
 }
 
@@ -221,8 +203,13 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         b: Value,
         c: RequestContext,
     ) -> Result<FutureValueOrStream<'a>, ExecError> {
-        // Ok(Box::pin(Layer::call(self, a, b, c)))
-        todo!();
+        Ok(Box::pin(async move {
+            match Layer::call(self, a, b, c).await? {
+                ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
+                ValueOrStreamOrFut2::Fut2(x) => x.await,
+                ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
+            }
+        }))
     }
 }
 
@@ -243,17 +230,11 @@ where
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
     type Fut = ResolverLayerFut<TFut>;
-    type Fut2 = Ready<Result<ValueOrStream, ExecError>>;
+    type Fut2 = Ready<Result<ValueOrStream, ExecError>>; // Unused
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
         ResolverLayerFut((self.func)(a, b, c))
     }
-
-    // type Fut = ResolverLayerFut<TFut>;
-
-    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
-    //     ResolverLayerFut((self.func)(a, b, c))
-    // }
 }
 
 #[pin_project(project = ResolverLayerFutProj)]

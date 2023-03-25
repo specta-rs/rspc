@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    internal::{Layer, RequestContext, ValueOrStream},
+    internal::{Layer, RequestContext, ValueOrStream, ValueOrStreamOrFut2},
     ExecError,
 };
 
@@ -17,9 +17,16 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
-    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
+    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2<Self::Fut2<TMiddleware>>, ExecError>>
         + Send
         + 'static;
+    type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
+        + Send
+        + 'static;
+
+    // type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>>
+    //     + Send
+    //     + 'static;
 
     // TODO: Rename `exec`
     fn handle<TMiddleware: Layer<Self::NewCtx>>(
@@ -282,6 +289,7 @@ where
     // TODO: Change this back
     type Fut<TMiddleware: Layer<Self::NewCtx>> =
         MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
+    type Fut2<TMiddleware: Layer<Self::NewCtx>> = NoShot<TNewCtx, TMiddleware>;
 
     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
         &self,
@@ -311,6 +319,7 @@ pub(crate) enum PinnedOption<T> {
     None,
 }
 
+// TODO: Cleanup generics on this
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
 pub struct MiddlewareFutOrSomething<
     TState: Clone + Send + Sync + 'static,
@@ -336,7 +345,7 @@ impl<
         TMiddleware: Layer<TNewCtx> + 'static,
     > Future for MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
 {
-    type Output = Result<ValueOrStream, ExecError>;
+    type Output = Result<ValueOrStreamOrFut2<NoShot<TNewCtx, TMiddleware>>, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -347,6 +356,9 @@ impl<
                     let fut = this.1.call(handler.ctx, handler.input, handler.req);
                     this.0.set(PinnedOption::None);
                     // this.2.set(PinnedOption::Some(fut)); // TODO: Problem here cause the lifetime's don't match
+
+                    // return Poll::Ready(Ok(ValueOrStreamOrFut2::Fut2(fut)));
+                    todo!();
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
                 Poll::Pending => return Poll::Pending,
@@ -367,6 +379,50 @@ impl<
         // }
 
         unreachable!()
+    }
+}
+
+#[pin_project(project = NoShotProj)]
+pub struct NoShot<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static>(
+    #[pin] PinnedOption<TMiddleware::Fut>,
+);
+
+impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
+    for NoShot<TNewCtx, TMiddleware>
+{
+    type Output = Result<ValueOrStream, ExecError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // let mut this = self.project();
+
+        // match this.0.as_mut().project() {
+        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+        //         Poll::Ready(Ok(handler)) => {
+        //             let fut = this.1.call(handler.ctx, handler.input, handler.req);
+        //             this.0.set(PinnedOption::None);
+        //             // this.2.set(PinnedOption::Some(fut)); // TODO: Problem here cause the lifetime's don't match
+
+        //             return Poll::Ready(Ok(ValueOrStreamOrFut2::Fut2(fut)));
+        //         }
+        //         Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
+        //         Poll::Pending => return Poll::Pending,
+        //     },
+        //     PinnedOptionProj::None => {}
+        // }
+
+        // match this.2.as_mut().project() {
+        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+        //         Poll::Ready(Ok(result)) => {
+        //             this.2.set(PinnedOption::None);
+        //             return Poll::Ready(Ok(result));
+        //         }
+        //         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+        //         Poll::Pending => return Poll::Pending,
+        //     },
+        //     PinnedOptionProj::None => {}
+        // }
+
+        todo!()
     }
 }
 
