@@ -18,10 +18,6 @@ pub trait MiddlewareBuilderLike<TCtx: 'static> {
     where
         T: Layer<Self::LayerContext>;
 
-    // type LayerFut<T>: Future<Output = ()>
-    // where
-    //     T: Layer<Self::LayerContext>;
-
     fn build<T>(&self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>;
@@ -120,11 +116,11 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = Ready<Result<LayerResult, ExecError>>; // TODO: `TMiddleware::Fut`
+    type Fut = TMiddleware::Fut;
 
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
-        todo!();
         // self.mw.handle(ctx, input, req, self.next.clone())
+        todo!();
     }
 }
 
