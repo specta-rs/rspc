@@ -60,7 +60,7 @@ where
             .get(&key)
             .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
             .exec
-            .call(
+            .dyn_call(
                 ctx,
                 input.unwrap_or(Value::Null),
                 RequestContext {
@@ -88,7 +88,7 @@ where
             .get(&key)
             .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
             .exec
-            .call(
+            .dyn_call(
                 ctx,
                 input.unwrap_or(Value::Null),
                 RequestContext {

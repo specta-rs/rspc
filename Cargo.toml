@@ -62,6 +62,7 @@ anyhow = { version = "1", optional = true }
 futures-locks = { git = "https://github.com/oscartbeaumont/futures-locks", rev = "a2e880337e6bfb3140a261932667149607e3ada9", features = ["tokio"] }
 futures-channel = "0.3.27"
 nougat = "0.2.4"
+pin-project = "1.0.12"
 
 [dev-dependencies]
 async-stream = "0.3.4"

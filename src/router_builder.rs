@@ -197,100 +197,102 @@ where
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
         self.queries.append(
             key.into(),
-            Box::new(self.middleware.build(ResolverLayer {
+            self.middleware.build(ResolverLayer {
                 func: move |ctx, input, _| {
                     resolver(
                         ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+                        serde_json::from_value(input)
+                            .map_err(ExecError::DeserializingArgErr)
+                            .unwrap(), // TODO: Don't unwrap
                     )
                     .into_layer_result()
                 },
                 phantom: PhantomData,
-            })),
+            }),
             <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
                 .unwrap(),
         );
         self
     }
 
-    #[track_caller]
-    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
-        mut self,
-        key: &'static str,
-        builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
-    ) -> Self
-    where
-        TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    {
-        if is_invalid_procedure_name(key) {
-            eprintln!(
-                "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
-                Location::caller(),
-                key
-            );
-            process::exit(1);
-        }
+    // #[track_caller]
+    // pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+    //     mut self,
+    //     key: &'static str,
+    //     builder: impl Fn(
+    //         UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+    //     ) -> BuiltProcedureBuilder<TResolver>,
+    // ) -> Self
+    // where
+    //     TArg: DeserializeOwned + Type,
+    //     TResult: RequestLayer<TResultMarker>,
+    //     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    // {
+    //     if is_invalid_procedure_name(key) {
+    //         eprintln!(
+    //             "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
+    //             Location::caller(),
+    //             key
+    //         );
+    //         process::exit(1);
+    //     }
 
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-        self.mutations.append(
-            key.into(),
-            Box::new(self.middleware.build(ResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                    .into_layer_result()
-                },
-                phantom: PhantomData,
-            })),
-            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-                .unwrap(),
-        );
-        self
-    }
+    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+    //     self.mutations.append(
+    //         key.into(),
+    //         self.middleware.build(ResolverLayer {
+    //             func: move |ctx, input, _| {
+    //                 resolver(
+    //                     ctx,
+    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+    //                 )
+    //                 .into_layer_result()
+    //             },
+    //             phantom: PhantomData,
+    //         }),
+    //         <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
+    //             .unwrap(),
+    //     );
+    //     self
+    // }
 
-    #[track_caller]
-    pub fn subscription<F, TArg, TResult, TResultMarker>(
-        mut self,
-        key: &'static str,
-        builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
-    ) -> Self
-    where
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        TArg: DeserializeOwned + Type,
-        TResult: StreamRequestLayer<TResultMarker>,
-    {
-        if is_invalid_procedure_name(key) {
-            eprintln!(
-                "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
-                Location::caller(),
-                key
-            );
-            process::exit(1);
-        }
+    // #[track_caller]
+    // pub fn subscription<F, TArg, TResult, TResultMarker>(
+    //     mut self,
+    //     key: &'static str,
+    //     builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
+    // ) -> Self
+    // where
+    //     F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    //     TArg: DeserializeOwned + Type,
+    //     TResult: StreamRequestLayer<TResultMarker>,
+    // {
+    //     if is_invalid_procedure_name(key) {
+    //         eprintln!(
+    //             "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
+    //             Location::caller(),
+    //             key
+    //         );
+    //         process::exit(1);
+    //     }
 
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-        self.subscriptions.append(
-            key.into(),
-            Box::new(self.middleware.build(ResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                    .into_layer_result()
-                },
-                phantom: PhantomData,
-            })),
-            <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
-        );
-        self
-    }
+    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+    //     self.subscriptions.append(
+    //         key.into(),
+    //         self.middleware.build(ResolverLayer {
+    //             func: move |ctx, input, _| {
+    //                 resolver(
+    //                     ctx,
+    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+    //                 )
+    //                 .into_layer_result()
+    //             },
+    //             phantom: PhantomData,
+    //         }),
+    //         <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
+    //     );
+    //     self
+    // }
 
     #[track_caller]
     pub fn merge<TNewLayerCtx, TIncomingMiddleware>(
@@ -318,32 +320,34 @@ where
 
         // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
 
-        for (key, query) in router.queries.store {
-            // query.ty.key = format!("{}{}", prefix, key);
-            self.queries.append(
-                format!("{}{}", prefix, key),
-                Box::new(self.middleware.build(query.exec)),
-                query.ty,
-            );
-        }
+        // TODO: This would require `DynLayer` -> `Layer` which is a cringe operation but we won't need that with the new syntax so it's fine.
 
-        for (key, mutation) in router.mutations.store {
-            // mutation.ty.key = format!("{}{}", prefix, key);
-            self.mutations.append(
-                format!("{}{}", prefix, key),
-                Box::new(self.middleware.build(mutation.exec)),
-                mutation.ty,
-            );
-        }
+        // for (key, query) in router.queries.store {
+        //     // query.ty.key = format!("{}{}", prefix, key);
+        //     self.queries.append(
+        //         format!("{}{}", prefix, key),
+        //         self.middleware.build(query.exec),
+        //         query.ty,
+        //     );
+        // }
 
-        for (key, subscription) in router.subscriptions.store {
-            // subscription.ty.key = format!("{}{}", prefix, key);
-            self.subscriptions.append(
-                format!("{}{}", prefix, key),
-                Box::new(self.middleware.build(subscription.exec)),
-                subscription.ty,
-            );
-        }
+        // for (key, mutation) in router.mutations.store {
+        //     // mutation.ty.key = format!("{}{}", prefix, key);
+        //     self.mutations.append(
+        //         format!("{}{}", prefix, key),
+        //         self.middleware.build(mutation.exec),
+        //         mutation.ty,
+        //     );
+        // }
+
+        // for (key, subscription) in router.subscriptions.store {
+        //     // subscription.ty.key = format!("{}{}", prefix, key);
+        //     self.subscriptions.append(
+        //         format!("{}{}", prefix, key),
+        //         self.middleware.build(subscription.exec),
+        //         subscription.ty,
+        //     );
+        // }
 
         for (name, typ) in router.typ_store {
             self.typ_store.insert(name, typ);
@@ -395,29 +399,31 @@ where
             ..
         } = self;
 
-        for (key, query) in router.queries.store {
-            queries.append(
-                format!("{}{}", prefix, key),
-                Box::new(middleware.build(query.exec)),
-                query.ty,
-            );
-        }
+        // TODO: This would require `DynLayer` -> `Layer` which is a cringe operation but we won't need that with the new syntax so it's fine.
 
-        for (key, mutation) in router.mutations.store {
-            mutations.append(
-                format!("{}{}", prefix, key),
-                Box::new(middleware.build(mutation.exec)),
-                mutation.ty,
-            );
-        }
+        // for (key, query) in router.queries.store {
+        //     queries.append(
+        //         format!("{}{}", prefix, key),
+        //         middleware.build(query.exec),
+        //         query.ty,
+        //     );
+        // }
 
-        for (key, subscription) in router.subscriptions.store {
-            subscriptions.append(
-                format!("{}{}", prefix, key),
-                Box::new(middleware.build(subscription.exec)),
-                subscription.ty,
-            );
-        }
+        // for (key, mutation) in router.mutations.store {
+        //     mutations.append(
+        //         format!("{}{}", prefix, key),
+        //         middleware.build(mutation.exec),
+        //         mutation.ty,
+        //     );
+        // }
+
+        // for (key, subscription) in router.subscriptions.store {
+        //     subscriptions.append(
+        //         format!("{}{}", prefix, key),
+        //         middleware.build(subscription.exec),
+        //         subscription.ty,
+        //     );
+        // }
 
         for (name, typ) in router.typ_store {
             typ_store.insert(name, typ);

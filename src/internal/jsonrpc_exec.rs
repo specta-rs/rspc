@@ -160,7 +160,7 @@ where
                     .get(&path)
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                     .and_then(|v| {
-                        v.exec.call(
+                        v.exec.dyn_call(
                             ctx,
                             input.unwrap_or(Value::Null),
                             RequestContext {
@@ -215,7 +215,7 @@ where
                     .get(&path)
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                     .and_then(|v| {
-                        v.exec.call(
+                        v.exec.dyn_call(
                             ctx,
                             input.unwrap_or(Value::Null),
                             RequestContext {
@@ -271,7 +271,7 @@ where
                         .get(&path)
                         .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                         .and_then(|v| {
-                            v.exec.call(
+                            v.exec.dyn_call(
                                 ctx,
                                 input.1.unwrap_or(Value::Null),
                                 RequestContext {

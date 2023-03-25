@@ -1,6 +1,12 @@
-use std::future::Future;
+use std::{
+    future::{ready, Future, Ready},
+    marker::PhantomData,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use futures::{Stream, StreamExt};
+use pin_project::pin_project;
 use serde::Serialize;
 use specta::Type;
 
@@ -13,8 +19,9 @@ use crate::{
 
 pub trait RequestLayer<TMarker> {
     type Result: Type;
+    type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError>;
+    fn into_layer_result(self) -> Self::Fut;
 }
 
 pub enum SerializeMarker {}
@@ -23,11 +30,14 @@ where
     T: Serialize + Type,
 {
     type Result = T;
+    type Fut = Ready<Result<ValueOrStream, ExecError>>;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Ready(Ok(
-            serde_json::to_value(self).map_err(ExecError::SerializingResultErr)?
-        )))
+    fn into_layer_result(self) -> Self::Fut {
+        ready(
+            serde_json::to_value(self)
+                .map(ValueOrStream::Value)
+                .map_err(ExecError::SerializingResultErr),
+        )
     }
 }
 
@@ -37,12 +47,14 @@ where
     T: Serialize + Type,
 {
     type Result = T;
+    type Fut = Ready<Result<ValueOrStream, ExecError>>;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Ready(Ok(serde_json::to_value(
-            self.map_err(ExecError::ErrResolverError)?,
-        )
-        .map_err(ExecError::SerializingResultErr)?)))
+    fn into_layer_result(self) -> Self::Fut {
+        ready(self.map_err(ExecError::ErrResolverError).and_then(|v| {
+            serde_json::to_value(v)
+                .map(ValueOrStream::Value)
+                .map_err(ExecError::SerializingResultErr)
+        }))
     }
 }
 
@@ -53,19 +65,59 @@ where
     T: Serialize + Type + Send + 'static,
 {
     type Result = T;
+    type Fut = FutureResultFuture<TFut, T>;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Future(Box::pin(async move {
-            match self
-                .await
-                .into_layer_result()?
-                .into_value_or_stream()
-                .await?
-            {
-                ValueOrStream::Stream(_) => unreachable!(),
-                ValueOrStream::Value(v) => Ok(v),
+    fn into_layer_result(self) -> Self::Fut {
+        FutureResultFuture(self, PhantomData)
+        // Ok(LayerResult::Future(Box::pin(async move {
+        //     match self
+        //         .await
+        //         .into_layer_result()?
+        //         .into_value_or_stream()
+        //         .await?
+        //     {
+        //         ValueOrStream::Stream(_) => unreachable!(),
+        //         ValueOrStream::Value(v) => Ok(v),
+        //     }
+        // })))
+
+        // ready(self.map_err(ExecError::ErrResolverError).and_then(|v| {
+        //     serde_json::to_value(v)
+        //         .map(ValueOrStream::Value)
+        //         .map_err(ExecError::SerializingResultErr)
+        // }))
+    }
+}
+
+#[pin_project(project = FutureResultFutProj)]
+pub struct FutureResultFuture<TFut, T>(#[pin] TFut, PhantomData<T>);
+
+impl<TFut, T> Future for FutureResultFuture<TFut, T>
+where
+    TFut: Future<Output = T> + Send + 'static,
+    T: Serialize + Type + Send + 'static,
+{
+    type Output = Result<ValueOrStream, ExecError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this.0.poll(cx) {
+            Poll::Ready(v) => {
+                todo!(); // `v.into_layer_result()?` then repeat
+
+                // Poll::Ready(
+                //     v.and_then(|v| {
+                //         serde_json::to_value(v)
+                //             .map(ValueOrStream::Value)
+                //             .map_err(ExecError::SerializingResultErr)
+                //     }), // serde_json::to_value(v)
+                //         //     .map(ValueOrStream::Value)
+                //         //     .map_err(ExecError::SerializingResultErr),
+                // )
             }
-        })))
+            // Poll::Ready(Err(e)) => Poll::Ready(Err(ExecError::ErrResolverError(e))),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -76,19 +128,21 @@ where
     T: Serialize + Type + Send + 'static,
 {
     type Result = T;
+    type Fut = Ready<Result<ValueOrStream, ExecError>>; // TODO
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Future(Box::pin(async move {
-            match self
-                .await
-                .into_layer_result()?
-                .into_value_or_stream()
-                .await?
-            {
-                ValueOrStream::Stream(_) => unreachable!(),
-                ValueOrStream::Value(v) => Ok(v),
-            }
-        })))
+    fn into_layer_result(self) -> Self::Fut {
+        // Ok(LayerResult::Future(Box::pin(async move {
+        //     match self
+        //         .await
+        //         .into_layer_result()?
+        //         .into_value_or_stream()
+        //         .await?
+        //     {
+        //         ValueOrStream::Stream(_) => unreachable!(),
+        //         ValueOrStream::Value(v) => Ok(v),
+        //     }
+        // })))
+        todo!();
     }
 }
 
@@ -96,6 +150,7 @@ where
 
 pub trait StreamRequestLayer<TMarker> {
     type Result: Type;
+    // TODO: type Stream = TODO;
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError>;
 }

@@ -1,4 +1,9 @@
-use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{
+    future::{Future, Ready},
+    marker::PhantomData,
+    pin::Pin,
+    sync::Arc,
+};
 
 use futures::Stream;
 use serde_json::Value;
@@ -10,6 +15,10 @@ pub trait MiddlewareBuilderLike<TCtx: 'static> {
     type LayerResult<T>: Layer<TCtx>
     where
         T: Layer<Self::LayerContext>;
+
+    // type LayerFut<T>: Future<Output = ()>
+    // where
+    //     T: Layer<Self::LayerContext>;
 
     fn build<T>(&self, next: T) -> Self::LayerResult<T>
     where
@@ -82,7 +91,7 @@ where
         T: Layer<Self::LayerContext> + Sync,
     {
         self.middleware.build(MiddlewareLayer {
-            next: Arc::new(next),
+            next: Arc::new(next), // Avoiding `Arc`
             mw: self.mw.clone(),
             phantom: PhantomData,
         })
@@ -109,6 +118,8 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
+    // type Fut = Ready<()>; // TODO
+
     fn call(
         &self,
         ctx: TLayerCtx,
@@ -159,42 +170,65 @@ where
 }
 
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
-pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
+pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
+    // type Fut: Future<Output = ()> + Send + 'static;
+
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
+
+    fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
+    }
 }
 
-pub struct ResolverLayer<TLayerCtx, T>
+pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
+    fn dyn_call(&self, a: TLayerCtx, b: Value, c: RequestContext)
+        -> Result<LayerResult, ExecError>;
+}
+
+impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
+    fn dyn_call(
+        &self,
+        a: TLayerCtx,
+        b: Value,
+        c: RequestContext,
+    ) -> Result<LayerResult, ExecError> {
+        Layer::call(self, a, b, c)
+    }
+}
+
+// impl<TLayerCtx> DynLayer<TLayerCtx> for Box<dyn DynLayer<TLayerCtx> + 'static>
+// where
+//     TLayerCtx: 'static,
+// {
+//     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
+//         (**self).call(a, b, c)
+//     }
+// }
+
+pub struct ResolverLayer<TLayerCtx, T, TFut>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
-        + Send
-        + Sync
-        + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
+    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
     pub func: T,
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx> Layer<TLayerCtx> for ResolverLayer<TLayerCtx, T>
+impl<T, TLayerCtx, TFut> Layer<TLayerCtx> for ResolverLayer<TLayerCtx, T, TFut>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
-        + Send
-        + Sync
-        + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
+    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-        (self.func)(a, b, c)
-    }
-}
+    // type Fut = Ready<()>; // TODO
 
-// TODO: Avoiding this so it's only usable for the top layer
-impl<TLayerCtx> Layer<TLayerCtx> for Box<dyn Layer<TLayerCtx> + 'static>
-where
-    TLayerCtx: 'static,
-{
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-        (**self).call(a, b, c)
+        // (self.func)(a, b, c)
+        todo!();
     }
 }
 
