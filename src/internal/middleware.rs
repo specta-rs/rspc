@@ -118,16 +118,24 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut<'a> = TNewMiddleware::Fut<'a, TMiddleware>;
+    type Fut<'a> = Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a>>;
+    // TODO: TNewMiddleware::Fut<'a, TMiddleware>;
 
     fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
-        self.mw.handle(ctx, input, req, self.next.clone())
+        // self.mw.handle(ctx, input, req, self.next.clone())
+        todo!();
 
-        // self.mw.await;
-        // self.next.call(...).await;
-        // todo!();
+        // TODO: The goal is for this fut to be able to hold `&self`
+        // Box::pin(async move {
+
+        //     // self.mw.await;
+        //     // self.next.call(...).await;
+        //     // todo!();
+        // })
+
+        todo!();
     }
 }
 

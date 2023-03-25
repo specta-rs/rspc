@@ -20,7 +20,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     // TODO: `'a` on `Future`
     type Fut<'a, TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
         + Send
-        + 'static
+        + 'a
     where
         Self: 'a; // TODO: Remove this bound!!!
 
@@ -283,7 +283,7 @@ where
     type State = TState;
     type NewCtx = TNewCtx;
     // TODO: Change this back
-    type Fut<'a, TMiddleware: Layer<Self::NewCtx>> = Ready<Result<ValueOrStream, ExecError>> where Self: 'a; // MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
+    type Fut<'a, TMiddleware: Layer<Self::NewCtx>> =  MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware> where Self: 'a;
 
     fn handle<'a, TMiddleware: Layer<Self::NewCtx> + 'static>(
         &'a self,
@@ -313,67 +313,67 @@ pub(crate) enum PinnedOption<T> {
     None,
 }
 
-// #[pin_project(project = MiddlewareFutOrSomethingProj)]
-// pub struct MiddlewareFutOrSomething<
-//     'a,
-//     TState: Clone + Send + Sync + 'static,
-//     TLayerCtx: Send + 'static,
-//     TNewCtx: Send + 'static,
-//     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-//         + Send
-//         + 'static,
-//     TMiddleware: Layer<TNewCtx> + 'static,
-// >(
-//     #[pin] PinnedOption<THandlerFut>,
-//     Arc<TMiddleware>,
-//     #[pin] PinnedOption<TMiddleware::Fut<'a>>,
-// );
+#[pin_project(project = MiddlewareFutOrSomethingProj)]
+pub struct MiddlewareFutOrSomething<
+    'a,
+    TState: Clone + Send + Sync + 'static,
+    TLayerCtx: Send + 'static,
+    TNewCtx: Send + 'static,
+    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+        + Send
+        + 'static,
+    TMiddleware: Layer<TNewCtx> + 'static,
+>(
+    #[pin] PinnedOption<THandlerFut>,
+    Arc<TMiddleware>,
+    #[pin] PinnedOption<TMiddleware::Fut<'a>>, // TODO: `Self::Fut` is created in `<Self as Future>::poll` so it's lifetime doesn't exist when creating this struct. `Middleware::Fut` has to have lifetime because of this type.
+);
 
-// impl<
-//         'a,
-//         TState: Clone + Send + Sync + 'static,
-//         TLayerCtx: Send + 'static,
-//         TNewCtx: Send + 'static,
-//         THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-//             + Send
-//             + 'static,
-//         TMiddleware: Layer<TNewCtx> + 'static,
-//     > Future
-//     for MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
-// {
-//     type Output = Result<ValueOrStream, ExecError>;
+impl<
+        'a,
+        TState: Clone + Send + Sync + 'static,
+        TLayerCtx: Send + 'static,
+        TNewCtx: Send + 'static,
+        THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+            + Send
+            + 'static,
+        TMiddleware: Layer<TNewCtx> + 'static,
+    > Future
+    for MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
+{
+    type Output = Result<ValueOrStream, ExecError>;
 
-//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-//         let mut this = self.project();
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
 
-//         match this.0.as_mut().project() {
-//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-//                 Poll::Ready(Ok(handler)) => {
-//                     let fut = this.1.call(handler.ctx, handler.input, handler.req);
-//                     this.0.set(PinnedOption::None);
-//                     this.2.set(PinnedOption::Some(fut));
-//                 }
-//                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
-//                 Poll::Pending => return Poll::Pending,
-//             },
-//             PinnedOptionProj::None => {}
-//         }
+        match this.0.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(Ok(handler)) => {
+                    let fut = this.1.call(handler.ctx, handler.input, handler.req);
+                    this.0.set(PinnedOption::None);
+                    // this.2.set(PinnedOption::Some(fut)); // TODO: Problem here cause the lifetime's don't match
+                }
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
 
-//         match this.2.as_mut().project() {
-//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-//                 Poll::Ready(Ok(result)) => {
-//                     this.2.set(PinnedOption::None);
-//                     return Poll::Ready(Ok(result));
-//                 }
-//                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-//                 Poll::Pending => return Poll::Pending,
-//             },
-//             PinnedOptionProj::None => {}
-//         }
+        // match this.2.as_mut().project() {
+        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+        //         Poll::Ready(Ok(result)) => {
+        //             this.2.set(PinnedOption::None);
+        //             return Poll::Ready(Ok(result));
+        //         }
+        //         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+        //         Poll::Pending => return Poll::Pending,
+        //     },
+        //     PinnedOptionProj::None => {}
+        // }
 
-//         unreachable!()
-//     }
-// }
+        unreachable!()
+    }
+}
 
 // TODO: Removing this?
 pub(crate) enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
