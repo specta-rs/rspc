@@ -68,7 +68,6 @@ where
                     path: key.clone(),
                 },
             )?
-            .into_value_or_stream()
             .await?
         {
             ValueOrStream::Value(v) => Ok(v),
@@ -96,7 +95,6 @@ where
                     path: key.clone(),
                 },
             )?
-            .into_value_or_stream()
             .await?
         {
             ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),

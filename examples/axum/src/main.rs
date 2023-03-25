@@ -34,33 +34,33 @@ async fn main() {
                     )) as Result<String, rspc::Error>
                 })
             })
-            .mutation("error", |t| {
-                t(|_, _: ()| {
-                    Err(rspc::Error::new(
-                        rspc::ErrorCode::InternalServerError,
-                        "Something went wrong".into(),
-                    )) as Result<String, rspc::Error>
-                })
-            })
-            .query("transformMe", |t| t(|_, _: ()| "Hello, world!".to_string()))
-            .mutation("sendMsg", |t| {
-                t(|_, v: String| {
-                    println!("Client said '{}'", v);
-                    v
-                })
-            })
-            .subscription("pings", |t| {
-                t(|_ctx, _args: ()| {
-                    stream! {
-                        println!("Client subscribed to 'pings'");
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                })
-            })
+            // .mutation("error", |t| {
+            //     t(|_, _: ()| {
+            //         Err(rspc::Error::new(
+            //             rspc::ErrorCode::InternalServerError,
+            //             "Something went wrong".into(),
+            //         )) as Result<String, rspc::Error>
+            //     })
+            // })
+            // .query("transformMe", |t| t(|_, _: ()| "Hello, world!".to_string()))
+            // .mutation("sendMsg", |t| {
+            //     t(|_, v: String| {
+            //         println!("Client said '{}'", v);
+            //         v
+            //     })
+            // })
+            // .subscription("pings", |t| {
+            //     t(|_ctx, _args: ()| {
+            //         stream! {
+            //             println!("Client subscribed to 'pings'");
+            //             for i in 0..5 {
+            //                 println!("Sending ping {}", i);
+            //                 yield "ping".to_string();
+            //                 sleep(Duration::from_secs(1)).await;
+            //             }
+            //         }
+            //     })
+            // })
             // TODO: Results being returned from subscriptions
             // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
             //     stream! {

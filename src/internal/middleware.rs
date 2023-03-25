@@ -177,9 +177,16 @@ pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static
     }
 }
 
+pub type FutureValueOrStream =
+    Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>;
+
 pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
-    fn dyn_call(&self, a: TLayerCtx, b: Value, c: RequestContext)
-        -> Result<LayerResult, ExecError>;
+    fn dyn_call(
+        &self,
+        a: TLayerCtx,
+        b: Value,
+        c: RequestContext,
+    ) -> Result<FutureValueOrStream, ExecError>;
 }
 
 impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
@@ -188,8 +195,8 @@ impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         a: TLayerCtx,
         b: Value,
         c: RequestContext,
-    ) -> Result<LayerResult, ExecError> {
-        // Layer::call(self, a, b, c)
+    ) -> Result<FutureValueOrStream, ExecError> {
+        // Ok(Box::pin(Layer::call(self, a, b, c)))
         todo!();
     }
 }
@@ -276,12 +283,14 @@ pub struct RequestContext {
 
 // TODO: Avoid using `Ready<T>` for top layer and instead store as `Value` so the procedure can be quick as fuck???
 
+// TODO: Move this into the file with `dyn_call` and stop using it in this file
 pub enum ValueOrStream {
     Value(Value),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
 // TODO: Replace this with `LayerResult` for now
+// #[deprecated = "goodbye old friend!"]
 pub enum LayerResult {
     // Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
@@ -292,17 +301,18 @@ pub enum LayerResult {
     Ready(Result<Value, ExecError>),
 }
 
-impl LayerResult {
-    pub async fn into_value_or_stream(self) -> Result<ValueOrStream, ExecError> {
-        match self {
-            // LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
-            LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
-            LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
-            LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
-                ValueOrStream::Value(val) => ValueOrStream::Value(val),
-                ValueOrStream::Stream(stream) => ValueOrStream::Stream(stream),
-            }),
-            LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
-        }
-    }
-}
+// impl LayerResult {
+//     #[deprecated = "goodbye old friend!"]
+//     pub async fn into_value_or_stream(self) -> Result<ValueOrStream, ExecError> {
+//         match self {
+//             // LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
+//             LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
+//             LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
+//             LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
+//                 ValueOrStream::Value(val) => ValueOrStream::Value(val),
+//                 ValueOrStream::Stream(stream) => ValueOrStream::Stream(stream),
+//             }),
+//             LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
+//         }
+//     }
+// }

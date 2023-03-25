@@ -169,7 +169,7 @@ where
                             },
                         )
                     }) {
-                    Ok(op) => match op.into_value_or_stream().await {
+                    Ok(op) => match op.await {
                         Ok(ValueOrStream::Value(v)) => {
                             sender
                                 .send(jsonrpc::Response {
@@ -224,7 +224,7 @@ where
                             },
                         )
                     }) {
-                    Ok(op) => match op.into_value_or_stream().await {
+                    Ok(op) => match op.await {
                         Ok(ValueOrStream::Value(v)) => {
                             sender
                                 .send(jsonrpc::Response {
@@ -280,7 +280,7 @@ where
                                 },
                             )
                         }) {
-                        Ok(op) => match op.into_value_or_stream().await {
+                        Ok(op) => match op.await {
                             Ok(ValueOrStream::Value(_v)) => {
                                 unreachable!();
                             }

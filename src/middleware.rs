@@ -21,10 +21,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         + Send
         + 'static;
 
-    // type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = ValueOrStream> + Send + 'static;
-
-    // TODO: Should this be called`handle` or `build` cause it takes the `next` middleware?
-    // TODO: Return `Self::Fut`
+    // TODO: Should this be called `handle` or `build` cause it takes the `next` middleware?
     fn handle<TMiddleware: Layer<Self::NewCtx>>(
         &self,
         ctx: TLayerCtx,
@@ -32,7 +29,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         req: RequestContext,
         // TODO: Avoid `Arc` here
         next: Arc<TMiddleware>,
-    ) -> Result<LayerResult, ExecError>;
+    ) -> Self::Fut<TMiddleware>;
 }
 pub struct MiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
@@ -291,7 +288,7 @@ where
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Result<LayerResult, ExecError> {
+    ) -> Self::Fut<TMiddleware> {
         let handler = (self.handler)(MiddlewareContext {
             state: (),
             ctx,
@@ -300,10 +297,7 @@ where
             phantom: PhantomData,
         });
 
-        // TODO: Return this
-        let y = MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None);
-
-        todo!();
+        MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
     }
 }
 
@@ -413,7 +407,7 @@ where
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Result<LayerResult, ExecError> {
+    ) -> Self::Fut<TMiddleware> {
         let handler = (self.handler)(MiddlewareContext {
             state: (),
             ctx,
@@ -425,7 +419,8 @@ where
 
         let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
 
-        let y = MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None);
+        // TODO: Try returning this and check that it works?
+        // MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
 
         // Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
         //     async move {
