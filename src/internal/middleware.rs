@@ -118,10 +118,17 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut<'a> = Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a>>;
+    type Fut = Pin<
+        Box<
+            dyn Future<Output = Result<ValueOrStreamOrFut2<Self::Fut2>, ExecError>>
+                + Send
+                + 'static,
+        >,
+    >;
+    type Fut2 = Ready<Result<ValueOrStream, ExecError>>;
     // TODO: TNewMiddleware::Fut<'a, TMiddleware>;
 
-    fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
+    fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
         // self.mw.handle(ctx, input, req, self.next.clone())
@@ -181,11 +188,10 @@ where
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 // TODO: Document the types and functions so they make sense
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    type Fut<'a>: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a;
-    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
+    type Fut: Future<Output = Result<ValueOrStreamOrFut2<Self::Fut2>, ExecError>> + Send + 'static; // TODO: This may need lifetime back but let's remove it for now
+    type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
 
-    // type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
-    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
@@ -195,6 +201,7 @@ pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static
     }
 }
 
+// TODO: Does this need lifetime?
 pub type FutureValueOrStream<'a> =
     Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a>>;
 
@@ -214,7 +221,8 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         b: Value,
         c: RequestContext,
     ) -> Result<FutureValueOrStream<'a>, ExecError> {
-        Ok(Box::pin(Layer::call(self, a, b, c)))
+        // Ok(Box::pin(Layer::call(self, a, b, c)))
+        todo!();
     }
 }
 
@@ -234,9 +242,10 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
-    type Fut<'a> = ResolverLayerFut<TFut>;
+    type Fut = ResolverLayerFut<TFut>;
+    type Fut2 = Ready<Result<ValueOrStream, ExecError>>;
 
-    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
         ResolverLayerFut((self.func)(a, b, c))
     }
 
@@ -255,14 +264,18 @@ pub struct ResolverLayerFut<
 impl<TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static> Future
     for ResolverLayerFut<TFut>
 {
-    type Output = Result<ValueOrStream, ExecError>;
+    type Output = Result<ValueOrStreamOrFut2<Ready<Result<ValueOrStream, ExecError>>>, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         match this.0.poll(cx) {
             // TODO: Simplify this a bit
-            Poll::Ready(Ok(ValueOrStream::Value(v))) => Poll::Ready(Ok(ValueOrStream::Value(v))),
-            Poll::Ready(Ok(ValueOrStream::Stream(s))) => Poll::Ready(Ok(ValueOrStream::Stream(s))),
+            Poll::Ready(Ok(ValueOrStream::Value(v))) => {
+                Poll::Ready(Ok(ValueOrStreamOrFut2::Value(v)))
+            }
+            Poll::Ready(Ok(ValueOrStream::Stream(s))) => {
+                Poll::Ready(Ok(ValueOrStreamOrFut2::Stream(s)))
+            }
             Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
             Poll::Pending => Poll::Pending,
         }
@@ -297,8 +310,16 @@ pub struct RequestContext {
 
 // TODO: Avoid using `Ready<T>` for top layer and instead store as `Value` so the procedure can be quick as fuck???
 
-// TODO: Move this into the file with `dyn_call` and stop using it in this file
+// TODO: Replace this with `ValueOrStreamOrFut2`
 pub enum ValueOrStream {
     Value(Value),
+    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+}
+
+// TODO: `where F2: Future<Output = ...>`
+pub enum ValueOrStreamOrFut2<F2> {
+    Value(Value),
+    Fut2(F2),
+    // TODO: Take this type in as a generic
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }

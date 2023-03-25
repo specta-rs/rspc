@@ -17,22 +17,19 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
-    // TODO: `'a` on `Future`
-    type Fut<'a, TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
+    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
         + Send
-        + 'a
-    where
-        Self: 'a; // TODO: Remove this bound!!!
+        + 'static;
 
     // TODO: Rename `exec`
-    fn handle<'a, TMiddleware: Layer<Self::NewCtx>>(
-        &'a self,
+    fn handle<TMiddleware: Layer<Self::NewCtx>>(
+        &self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
         // TODO: Avoid `Arc` here
         next: Arc<TMiddleware>,
-    ) -> Self::Fut<'a, TMiddleware>;
+    ) -> Self::Fut<TMiddleware>;
 }
 pub struct MiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
@@ -283,15 +280,16 @@ where
     type State = TState;
     type NewCtx = TNewCtx;
     // TODO: Change this back
-    type Fut<'a, TMiddleware: Layer<Self::NewCtx>> =  MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware> where Self: 'a;
+    type Fut<TMiddleware: Layer<Self::NewCtx>> =
+        MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
 
-    fn handle<'a, TMiddleware: Layer<Self::NewCtx> + 'static>(
-        &'a self,
+    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+        &self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Self::Fut<'a, TMiddleware> {
+    ) -> Self::Fut<TMiddleware> {
         let handler = (self.handler)(MiddlewareContext {
             state: (),
             ctx,
@@ -315,7 +313,6 @@ pub(crate) enum PinnedOption<T> {
 
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
 pub struct MiddlewareFutOrSomething<
-    'a,
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send + 'static,
     TNewCtx: Send + 'static,
@@ -326,11 +323,10 @@ pub struct MiddlewareFutOrSomething<
 >(
     #[pin] PinnedOption<THandlerFut>,
     Arc<TMiddleware>,
-    #[pin] PinnedOption<TMiddleware::Fut<'a>>, // TODO: `Self::Fut` is created in `<Self as Future>::poll` so it's lifetime doesn't exist when creating this struct. `Middleware::Fut` has to have lifetime because of this type.
+    // #[pin] PinnedOption<TMiddleware::Fut>, // TODO: `Self::Fut` is created in `<Self as Future>::poll` so it's lifetime doesn't exist when creating this struct. `Middleware::Fut` has to have lifetime because of this type.
 );
 
 impl<
-        'a,
         TState: Clone + Send + Sync + 'static,
         TLayerCtx: Send + 'static,
         TNewCtx: Send + 'static,
@@ -338,8 +334,7 @@ impl<
             + Send
             + 'static,
         TMiddleware: Layer<TNewCtx> + 'static,
-    > Future
-    for MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
+    > Future for MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
 {
     type Output = Result<ValueOrStream, ExecError>;
 
