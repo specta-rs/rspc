@@ -24,6 +24,18 @@ async fn main() {
                     Ok(mw)
                 })
             })
+            .middleware(|mw| {
+                mw.middleware(|mw| async move {
+                    println!("MW2 FOR THE WIN");
+                    Ok(mw)
+                })
+            })
+            .middleware(|mw| {
+                mw.middleware(|mw| async move {
+                    println!("MW3 FOR THE WIN");
+                    Ok(mw)
+                })
+            })
             .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
             .query("X-Demo-Header", |t| {
                 t(|ctx, _: ()| {

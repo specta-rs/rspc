@@ -307,9 +307,7 @@ where
         });
 
         // TODO: Avoid taking ownership of `next`
-        // MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
-
-        todo!();
+        MiddlewareFutOrSomething(PinnedOption::Some(handler), next)
     }
 }
 
@@ -355,10 +353,10 @@ impl<
                 Poll::Ready(Ok(handler)) => {
                     let fut = this.1.call(handler.ctx, handler.input, handler.req);
                     this.0.set(PinnedOption::None);
-                    // this.2.set(PinnedOption::Some(fut)); // TODO: Problem here cause the lifetime's don't match
-
-                    // return Poll::Ready(Ok(ValueOrStreamOrFut2::Fut2(fut)));
-                    todo!();
+                    return Poll::Ready(Ok(ValueOrStreamOrFut2::Fut2(NoShot(
+                        PinnedOption::Some(fut),
+                        PinnedOption::None,
+                    ))));
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
                 Poll::Pending => return Poll::Pending,
@@ -385,6 +383,7 @@ impl<
 #[pin_project(project = NoShotProj)]
 pub struct NoShot<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static>(
     #[pin] PinnedOption<TMiddleware::Fut>,
+    #[pin] PinnedOption<TMiddleware::Fut2>,
 );
 
 impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
@@ -393,36 +392,46 @@ impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
     type Output = Result<ValueOrStream, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // let mut this = self.project();
+        let mut this = self.project();
 
-        // match this.0.as_mut().project() {
-        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-        //         Poll::Ready(Ok(handler)) => {
-        //             let fut = this.1.call(handler.ctx, handler.input, handler.req);
-        //             this.0.set(PinnedOption::None);
-        //             // this.2.set(PinnedOption::Some(fut)); // TODO: Problem here cause the lifetime's don't match
+        match this.0.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(Ok(result)) => {
+                    this.0.set(PinnedOption::None);
 
-        //             return Poll::Ready(Ok(ValueOrStreamOrFut2::Fut2(fut)));
-        //         }
-        //         Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
-        //         Poll::Pending => return Poll::Pending,
-        //     },
-        //     PinnedOptionProj::None => {}
-        // }
+                    match result {
+                        ValueOrStreamOrFut2::Value(v) => {
+                            return Poll::Ready(Ok(ValueOrStream::Value(v)))
+                        }
+                        ValueOrStreamOrFut2::Stream(s) => {
+                            return Poll::Ready(Ok(ValueOrStream::Stream(s)))
+                        }
+                        ValueOrStreamOrFut2::Fut2(fut) => {
+                            this.1.set(PinnedOption::Some(fut));
+                        }
+                    }
+                }
+                Poll::Ready(Err(e)) => {
+                    this.0.set(PinnedOption::None);
+                    return Poll::Ready(Err(e));
+                }
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
 
-        // match this.2.as_mut().project() {
-        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-        //         Poll::Ready(Ok(result)) => {
-        //             this.2.set(PinnedOption::None);
-        //             return Poll::Ready(Ok(result));
-        //         }
-        //         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-        //         Poll::Pending => return Poll::Pending,
-        //     },
-        //     PinnedOptionProj::None => {}
-        // }
+        match this.1.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(result) => {
+                    this.1.set(PinnedOption::None);
+                    return Poll::Ready(result);
+                }
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
 
-        todo!()
+        unreachable!()
     }
 }
 
