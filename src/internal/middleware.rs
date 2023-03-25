@@ -120,19 +120,9 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = Ready<Result<LayerResult, ExecError>>;
+    type Fut = Ready<Result<LayerResult, ExecError>>; // TODO: `TMiddleware::Fut`
 
-    fn call2(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
-        todo!();
-        // self.mw.handle(ctx, input, req, self.next.clone())
-    }
-
-    fn call(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-    ) -> Result<LayerResult, ExecError> {
+    fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
         todo!();
         // self.mw.handle(ctx, input, req, self.next.clone())
     }
@@ -181,10 +171,7 @@ where
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
     type Fut: Future<Output = Result<LayerResult, ExecError>> + Send + 'static; // TODO: `Output = ValueOrStream`
 
-    fn call2(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
-
-    // TODO: Return `Self::Fut`
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
@@ -206,7 +193,8 @@ impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         b: Value,
         c: RequestContext,
     ) -> Result<LayerResult, ExecError> {
-        Layer::call(self, a, b, c)
+        // Layer::call(self, a, b, c)
+        todo!();
     }
 }
 
@@ -237,14 +225,8 @@ where
 {
     type Fut = ResolverLayerFut<TFut>;
 
-    fn call2(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
+    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
         ResolverLayerFut((self.func)(a, b, c))
-    }
-
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-        // (self.func)(a, b, c)
-        // ready((self.func)(a, b, c))
-        todo!();
     }
 }
 
@@ -295,6 +277,8 @@ pub struct RequestContext {
     pub kind: ProcedureKind,
     pub path: String, // TODO: String slice??
 }
+
+// TODO: Avoid using `Ready<T>` for top layer and instead store as `Value` so the procedure can be quick as fuck???
 
 pub enum ValueOrStream {
     Value(Value),

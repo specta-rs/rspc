@@ -291,12 +291,11 @@ where
         });
 
         // TODO: Custom future
-        Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
-            let handler = handler.await?;
-            next.call(handler.ctx, handler.input, handler.req)?
-                .into_value_or_stream()
-                .await
-        })))
+        // Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
+        //     let handler = handler.await?;
+        //     next.call(handler.ctx, handler.input, handler.req).await?
+        // })))
+        todo!();
     }
 }
 
@@ -353,29 +352,26 @@ where
                 let handler = handler.await?;
 
                 Ok(
-                    match next
-                        .call(handler.ctx, handler.input, handler.req)?
-                        .into_value_or_stream()
-                        .await?
-                    {
-                        ValueOrStream::Value(v) => ValueOrStream::Value(f(handler.state, v).await?),
-                        ValueOrStream::Stream(s) => {
-                            ValueOrStream::Stream(Box::pin(s.then(move |v| {
-                                let v = match v {
-                                    Ok(v) => FutOrValue::Fut(f(handler.state.clone(), v)),
-                                    e => FutOrValue::Value(e),
-                                };
+                    match next.call(handler.ctx, handler.input, handler.req).await? {
+                        // ValueOrStream::Value(v) => ValueOrStream::Value(f(handler.state, v).await?),
+                        // ValueOrStream::Stream(s) => {
+                        //     ValueOrStream::Stream(Box::pin(s.then(move |v| {
+                        //         let v = match v {
+                        //             Ok(v) => FutOrValue::Fut(f(handler.state.clone(), v)),
+                        //             e => FutOrValue::Value(e),
+                        //         };
 
-                                async move {
-                                    match v {
-                                        FutOrValue::Fut(fut) => {
-                                            fut.await.map_err(ExecError::ErrResolverError)
-                                        }
-                                        FutOrValue::Value(v) => v,
-                                    }
-                                }
-                            })))
-                        }
+                        //         async move {
+                        //             match v {
+                        //                 FutOrValue::Fut(fut) => {
+                        //                     fut.await.map_err(ExecError::ErrResolverError)
+                        //                 }
+                        //                 FutOrValue::Value(v) => v,
+                        //             }
+                        //         }
+                        //     })))
+                        // }
+                        _ => todo!(),
                     },
                 )
             },
