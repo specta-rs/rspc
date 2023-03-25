@@ -1,6 +1,7 @@
 use pin_project::pin_project;
 use serde_json::Value;
 use std::{
+    any::Any,
     future::{Future, Ready},
     marker::PhantomData,
     pin::Pin,
@@ -323,7 +324,7 @@ pub struct MiddlewareFutOrSomething<
         + Send
         + 'static,
     TMiddleware: Layer<TNewCtx> + 'static,
->(#[pin] PinnedOption<THandlerFut>, Arc<TMiddleware>);
+>(#[pin] PinnedOption<THandlerFut>, Arc<TMiddleware>); // TODO: Remove `.1`
 
 impl<
         TState: Clone + Send + Sync + 'static,
@@ -343,12 +344,16 @@ impl<
         match this.0.as_mut().project() {
             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                 Poll::Ready(Ok(handler)) => {
-                    let fut = this.1.call(handler.ctx, handler.input, handler.req);
                     this.0.set(PinnedOption::None);
-                    return Poll::Ready(Ok(ValueOrStreamOrFut2::Fut2(NoShot(
-                        PinnedOption::Some(fut),
-                        PinnedOption::None,
-                    ))));
+                    // let fut = this.1.call(handler.ctx, handler.input, handler.req); // TODO
+
+                    let ctx: Box<dyn Any + Send + 'static> = Box::new(handler.ctx); // TODO: Add generics so this isn't allocated
+
+                    return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
+                        ctx,
+                        handler.input,
+                        handler.req,
+                    )));
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
                 Poll::Pending => return Poll::Pending,
@@ -360,10 +365,12 @@ impl<
     }
 }
 
+// TODO: Move into another file where it's used
+// TODO: Should I remove this?
 #[pin_project(project = NoShotProj)]
 pub struct NoShot<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static>(
-    #[pin] PinnedOption<TMiddleware::Fut>,
-    #[pin] PinnedOption<TMiddleware::Fut2>,
+    #[pin] pub(crate) PinnedOption<TMiddleware::Fut>,
+    #[pin] pub(crate) PinnedOption<TMiddleware::Fut2>,
 );
 
 impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
@@ -388,6 +395,10 @@ impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
                         }
                         ValueOrStreamOrFut2::Fut2(fut) => {
                             this.1.set(PinnedOption::Some(fut));
+                        }
+                        ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
+                            // return Poll::Ready(ValueOrStream)
+                            todo!();
                         }
                     }
                 }

@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     future::{ready, Future, Ready},
     marker::PhantomData,
     pin::Pin,
@@ -10,7 +11,7 @@ use futures::Stream;
 use pin_project::pin_project;
 use serde_json::Value;
 
-use crate::{ExecError, MiddlewareLike};
+use crate::{ExecError, MiddlewareLike, NoShot, PinnedOption};
 
 pub trait MiddlewareBuilderLike<TCtx: 'static> {
     type LayerContext: 'static;
@@ -120,11 +121,22 @@ where
 {
     type Fut = TNewMiddleware::Fut<TMiddleware>;
     type Fut2 = TNewMiddleware::Fut2<TMiddleware>;
+    type Call2Fut = NoShot<TNewLayerCtx, TMiddleware>;
 
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
         self.mw.handle(ctx, input, req, self.next.clone())
+    }
+
+    fn call2(
+        &self,
+        ctx: Box<dyn Any + Send + 'static>,
+        value: Value,
+        req: RequestContext,
+    ) -> Self::Call2Fut {
+        let fut = self.next.call(*ctx.downcast().unwrap(), value, req);
+        NoShot(PinnedOption::Some(fut), PinnedOption::None)
     }
 }
 
@@ -172,10 +184,18 @@ where
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
     type Fut: Future<Output = Result<ValueOrStreamOrFut2<Self::Fut2>, ExecError>> + Send + 'static; // TODO: This may need lifetime back but let's remove it for now
     type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
+    type Call2Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
 
-    fn demo(&self);
+    fn call2(
+        &self,
+        ctx: Box<dyn Any + Send + 'static>,
+        value: Value,
+        req: RequestContext,
+    ) -> Self::Call2Fut {
+        unreachable!(); // TODO: Don't do this
+    }
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
@@ -209,9 +229,13 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
             match Layer::call(self, a, b, c).await? {
                 ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
                 ValueOrStreamOrFut2::Fut2(x) => {
-                    self.demo(); // TODO: This could call back to self because `self.next` is a thing and if so that means we don't need `self.next` inside the future.
+                    // x.await
+                    unreachable!();
+                }
+                ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
+                    let y = self.call2(ctx, input, req).await; // TODO: This could call back to self because `self.next` is a thing and if so that means we don't need `self.next` inside the future avoiding lifetimes completely.
 
-                    x.await
+                    y
                 }
                 ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
             }
@@ -237,6 +261,7 @@ where
 {
     type Fut = ResolverLayerFut<TFut>;
     type Fut2 = Ready<Result<ValueOrStream, ExecError>>; // Unused
+    type Call2Fut = Ready<Result<ValueOrStream, ExecError>>; // Unused
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
         ResolverLayerFut((self.func)(a, b, c))
@@ -301,12 +326,25 @@ pub struct RequestContext {
 pub enum ValueOrStream {
     Value(Value),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+    // TODO: Rename this
+    // TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
 }
+
+// // TODO: Deal with this
+// pub enum ValueOrStreamOrThing {
+//     Value(Value),
+//     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
+//     // TODO: Rename this
+//     TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
+// }
 
 // TODO: `where F2: Future<Output = ...>`
 pub enum ValueOrStreamOrFut2<F2> {
     Value(Value),
+    // TODO: If i'm not using this remove it
     Fut2(F2),
+    // TODO: Rename this
+    TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
     // TODO: Take this type in as a generic
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }

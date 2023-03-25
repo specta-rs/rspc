@@ -18,12 +18,12 @@ async fn main() {
             .config(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
             ))
-            .middleware(|mw| {
-                mw.middleware(|mw| async move {
-                    println!("MW FOR THE WIN");
-                    Ok(mw)
-                })
-            })
+            // .middleware(|mw| {
+            //     mw.middleware(|mw| async move {
+            //         println!("MW FOR THE WIN");
+            //         Ok(mw)
+            //     })
+            // })
             .middleware(|mw| {
                 mw.middleware(|mw| async move {
                     println!("MW2 FOR THE WIN");
