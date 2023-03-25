@@ -21,6 +21,7 @@ pub trait RequestLayer<TMarker> {
     type Result: Type;
     type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
 
+    // TODO: Rename func
     fn into_layer_result(self) -> Self::Fut;
 }
 
@@ -146,80 +147,80 @@ where
     }
 }
 
-// For subscriptions
+// // For subscriptions
 
-pub trait StreamRequestLayer<TMarker> {
-    type Result: Type;
-    // TODO: type Stream = TODO;
+// pub trait StreamRequestLayer<TMarker> {
+//     type Result: Type;
+//     // TODO: type Stream = TODO;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError>;
-}
+//     fn into_layer_result(self) -> Result<LayerResult, ExecError>;
+// }
 
-pub enum StreamMarker {}
-impl<TStream, T> StreamRequestLayer<StreamMarker> for TStream
-where
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
-{
-    type Result = T;
+// pub enum StreamMarker {}
+// impl<TStream, T> StreamRequestLayer<StreamMarker> for TStream
+// where
+//     TStream: Stream<Item = T> + Send + Sync + 'static,
+//     T: Serialize + Type,
+// {
+//     type Result = T;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Stream(Box::pin(self.map(|v| {
-            serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
-        }))))
-    }
-}
+//     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
+//         Ok(LayerResult::Stream(Box::pin(self.map(|v| {
+//             serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+//         }))))
+//     }
+// }
 
-pub enum ResultStreamMarker {}
-impl<TStream, T> StreamRequestLayer<ResultStreamMarker> for Result<TStream, Error>
-where
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
-{
-    type Result = T;
+// pub enum ResultStreamMarker {}
+// impl<TStream, T> StreamRequestLayer<ResultStreamMarker> for Result<TStream, Error>
+// where
+//     TStream: Stream<Item = T> + Send + Sync + 'static,
+//     T: Serialize + Type,
+// {
+//     type Result = T;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::Stream(Box::pin(
-            self.map_err(ExecError::ErrResolverError)?
-                .map(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
-        )))
-    }
-}
+//     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
+//         Ok(LayerResult::Stream(Box::pin(
+//             self.map_err(ExecError::ErrResolverError)?
+//                 .map(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
+//         )))
+//     }
+// }
 
-pub enum FutureStreamMarker {}
-impl<TFut, TStream, T> StreamRequestLayer<FutureStreamMarker> for TFut
-where
-    TFut: Future<Output = TStream> + Send + 'static,
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
-{
-    type Result = T;
+// pub enum FutureStreamMarker {}
+// impl<TFut, TStream, T> StreamRequestLayer<FutureStreamMarker> for TFut
+// where
+//     TFut: Future<Output = TStream> + Send + 'static,
+//     TStream: Stream<Item = T> + Send + Sync + 'static,
+//     T: Serialize + Type,
+// {
+//     type Result = T;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
-            Ok(ValueOrStream::Stream(Box::pin(self.await.map(|v| {
-                serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
-            }))))
-        })))
-    }
-}
+//     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
+//         Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
+//             Ok(ValueOrStream::Stream(Box::pin(self.await.map(|v| {
+//                 serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+//             }))))
+//         })))
+//     }
+// }
 
-pub enum FutureResultStreamMarker {}
-impl<TFut, TStream, T> StreamRequestLayer<FutureResultStreamMarker> for TFut
-where
-    TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
-{
-    type Result = T;
+// pub enum FutureResultStreamMarker {}
+// impl<TFut, TStream, T> StreamRequestLayer<FutureResultStreamMarker> for TFut
+// where
+//     TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
+//     TStream: Stream<Item = T> + Send + Sync + 'static,
+//     T: Serialize + Type,
+// {
+//     type Result = T;
 
-    fn into_layer_result(self) -> Result<LayerResult, ExecError> {
-        Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
-            Ok(ValueOrStream::Stream(Box::pin(
-                self.await
-                    .map_err(ExecError::ErrResolverError)?
-                    .map(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
-            )))
-        })))
-    }
-}
+//     fn into_layer_result(self) -> Result<LayerResult, ExecError> {
+//         Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
+//             Ok(ValueOrStream::Stream(Box::pin(
+//                 self.await
+//                     .map_err(ExecError::ErrResolverError)?
+//                     .map(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
+//             )))
+//         })))
+//     }
+// }

@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
 use crate::{
-    internal::{Layer, LayerResult, RequestContext, ValueOrStream, ValueOrStreamOrFutureStream},
+    internal::{Layer, LayerResult, RequestContext, ValueOrStream},
     ExecError,
 };
 
@@ -350,11 +350,9 @@ where
                         .into_value_or_stream()
                         .await?
                     {
-                        ValueOrStream::Value(v) => {
-                            ValueOrStreamOrFutureStream::Value(f(handler.state, v).await?)
-                        }
+                        ValueOrStream::Value(v) => ValueOrStream::Value(f(handler.state, v).await?),
                         ValueOrStream::Stream(s) => {
-                            ValueOrStreamOrFutureStream::Stream(Box::pin(s.then(move |v| {
+                            ValueOrStream::Stream(Box::pin(s.then(move |v| {
                                 let v = match v {
                                     Ok(v) => FutOrValue::Fut(f(handler.state.clone(), v)),
                                     e => FutOrValue::Value(e),

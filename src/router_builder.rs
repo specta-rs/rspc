@@ -9,7 +9,7 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
         MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
     },
-    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
+    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router,
 };
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.

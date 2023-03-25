@@ -3,7 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{internal::ProcedureDataType, RequestLayer, StreamRequestLayer};
+use crate::{internal::ProcedureDataType, RequestLayer};
 
 use super::{RequestLayerMarker, StreamLayerMarker};
 
@@ -68,29 +68,29 @@ where
     }
 }
 
-impl<
-        TLayerCtx,
-        TArg,
-        TResult,
-        TResultMarker,
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
-where
-    TArg: DeserializeOwned + Type,
-    TResult: StreamRequestLayer<TResultMarker>,
-    TLayerCtx: Send + Sync + 'static,
-{
-    type LayerCtx = TLayerCtx;
-    type Arg = TArg;
-    type Result = TResult;
-    type ResultMarker = StreamLayerMarker<TResultMarker>;
-    type RequestMarker = TResultMarker;
-    type RawResult = TResult::Result;
+// impl<
+//         TLayerCtx,
+//         TArg,
+//         TResult,
+//         TResultMarker,
+//         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+//     > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
+// where
+//     TArg: DeserializeOwned + Type,
+//     TResult: StreamRequestLayer<TResultMarker>,
+//     TLayerCtx: Send + Sync + 'static,
+// {
+//     type LayerCtx = TLayerCtx;
+//     type Arg = TArg;
+//     type Result = TResult;
+//     type ResultMarker = StreamLayerMarker<TResultMarker>;
+//     type RequestMarker = TResultMarker;
+//     type RawResult = TResult::Result;
 
-    fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
-        self(ctx, arg)
-    }
-}
+//     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
+//         self(ctx, arg)
+//     }
+// }
 
 pub struct MissingResolver<TLayerCtx> {
     phantom: PhantomData<TLayerCtx>,

@@ -263,17 +263,12 @@ pub enum ValueOrStream {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
-pub enum ValueOrStreamOrFutureStream {
-    Value(Value),
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
-}
-
 pub enum LayerResult {
     Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
     FutureValueOrStream(Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>),
     FutureValueOrStreamOrFutureStream(
-        Pin<Box<dyn Future<Output = Result<ValueOrStreamOrFutureStream, ExecError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>,
     ),
     Ready(Result<Value, ExecError>),
 }
@@ -285,8 +280,8 @@ impl LayerResult {
             LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
             LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
             LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
-                ValueOrStreamOrFutureStream::Value(val) => ValueOrStream::Value(val),
-                ValueOrStreamOrFutureStream::Stream(stream) => ValueOrStream::Stream(stream),
+                ValueOrStream::Value(val) => ValueOrStream::Value(val),
+                ValueOrStream::Stream(stream) => ValueOrStream::Stream(stream),
             }),
             LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
         }
