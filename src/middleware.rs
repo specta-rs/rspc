@@ -1,7 +1,7 @@
 use pin_project::pin_project;
 use serde_json::Value;
 use std::{
-    future::Future,
+    future::{Future, Ready},
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
@@ -16,6 +16,7 @@ use crate::{
 pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
+    // TODO: <'a>
     type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
         + Send
         + 'static;
@@ -278,8 +279,8 @@ where
 {
     type State = TState;
     type NewCtx = TNewCtx;
-    type Fut<TMiddleware: Layer<Self::NewCtx>> =
-        MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
+    // TODO: Change this back
+    type Fut<TMiddleware: Layer<Self::NewCtx>> = Ready<Result<ValueOrStream, ExecError>>; // MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
 
     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
         &self,
@@ -297,7 +298,9 @@ where
         });
 
         // TODO: Avoid taking ownership of `next`
-        MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
+        // MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
+
+        todo!();
     }
 }
 
@@ -307,64 +310,67 @@ pub(crate) enum PinnedOption<T> {
     None,
 }
 
-#[pin_project(project = MiddlewareFutOrSomethingProj)]
-pub struct MiddlewareFutOrSomething<
-    TState: Clone + Send + Sync + 'static,
-    TLayerCtx: Send + 'static,
-    TNewCtx: Send + 'static,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        + Send
-        + 'static,
-    TMiddleware: Layer<TNewCtx> + 'static,
->(
-    #[pin] PinnedOption<THandlerFut>,
-    Arc<TMiddleware>,
-    #[pin] PinnedOption<TMiddleware::Fut>,
-);
+// #[pin_project(project = MiddlewareFutOrSomethingProj)]
+// pub struct MiddlewareFutOrSomething<
+//     'a,
+//     TState: Clone + Send + Sync + 'static,
+//     TLayerCtx: Send + 'static,
+//     TNewCtx: Send + 'static,
+//     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+//         + Send
+//         + 'static,
+//     TMiddleware: Layer<TNewCtx> + 'static,
+// >(
+//     #[pin] PinnedOption<THandlerFut>,
+//     Arc<TMiddleware>,
+//     #[pin] PinnedOption<TMiddleware::Fut<'a>>,
+// );
 
-impl<
-        TState: Clone + Send + Sync + 'static,
-        TLayerCtx: Send + 'static,
-        TNewCtx: Send + 'static,
-        THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-            + Send
-            + 'static,
-        TMiddleware: Layer<TNewCtx> + 'static,
-    > Future for MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
-{
-    type Output = Result<ValueOrStream, ExecError>;
+// impl<
+//         'a,
+//         TState: Clone + Send + Sync + 'static,
+//         TLayerCtx: Send + 'static,
+//         TNewCtx: Send + 'static,
+//         THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+//             + Send
+//             + 'static,
+//         TMiddleware: Layer<TNewCtx> + 'static,
+//     > Future
+//     for MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
+// {
+//     type Output = Result<ValueOrStream, ExecError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
+//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+//         let mut this = self.project();
 
-        match this.0.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(Ok(handler)) => {
-                    let fut = this.1.call(handler.ctx, handler.input, handler.req);
-                    this.0.set(PinnedOption::None);
-                    this.2.set(PinnedOption::Some(fut));
-                }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
+//         match this.0.as_mut().project() {
+//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+//                 Poll::Ready(Ok(handler)) => {
+//                     let fut = this.1.call(handler.ctx, handler.input, handler.req);
+//                     this.0.set(PinnedOption::None);
+//                     this.2.set(PinnedOption::Some(fut));
+//                 }
+//                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
+//                 Poll::Pending => return Poll::Pending,
+//             },
+//             PinnedOptionProj::None => {}
+//         }
 
-        match this.2.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(Ok(result)) => {
-                    this.2.set(PinnedOption::None);
-                    return Poll::Ready(Ok(result));
-                }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
+//         match this.2.as_mut().project() {
+//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+//                 Poll::Ready(Ok(result)) => {
+//                     this.2.set(PinnedOption::None);
+//                     return Poll::Ready(Ok(result));
+//                 }
+//                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+//                 Poll::Pending => return Poll::Pending,
+//             },
+//             PinnedOptionProj::None => {}
+//         }
 
-        unreachable!()
-    }
-}
+//         unreachable!()
+//     }
+// }
 
 // TODO: Removing this?
 pub(crate) enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
@@ -372,83 +378,83 @@ pub(crate) enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
     Value(Result<Value, ExecError>),
 }
 
-// TODO: Deduplicate this with `MiddlewareLike<TLayerCtx> for Middleware` that is basically the same minus the oncomplete bit. Same with deduplicating the futures
-impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut>
-    MiddlewareLike<TLayerCtx>
-    for MiddlewareWithResponseHandler<
-        TState,
-        TLayerCtx,
-        TNewCtx,
-        THandlerFunc,
-        THandlerFut,
-        TRespHandlerFunc,
-        TRespHandlerFut,
-    >
-where
-    TState: Clone + Send + Sync + 'static,
-    TLayerCtx: Send + 'static,
-    TNewCtx: Send + 'static,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
-    THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        + Send
-        + 'static,
-    TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
-    TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
-{
-    type State = TState;
-    type NewCtx = TNewCtx;
+// // TODO: Deduplicate this with `MiddlewareLike<TLayerCtx> for Middleware` that is basically the same minus the oncomplete bit. Same with deduplicating the futures
+// impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut, TRespHandlerFunc, TRespHandlerFut>
+//     MiddlewareLike<TLayerCtx>
+//     for MiddlewareWithResponseHandler<
+//         TState,
+//         TLayerCtx,
+//         TNewCtx,
+//         THandlerFunc,
+//         THandlerFut,
+//         TRespHandlerFunc,
+//         TRespHandlerFut,
+//     >
+// where
+//     TState: Clone + Send + Sync + 'static,
+//     TLayerCtx: Send + 'static,
+//     TNewCtx: Send + 'static,
+//     THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+//     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+//         + Send
+//         + 'static,
+//     TRespHandlerFunc: Fn(TState, Value) -> TRespHandlerFut + Clone + Sync + Send + 'static,
+//     TRespHandlerFut: Future<Output = Result<Value, crate::Error>> + Send + 'static,
+// {
+//     type State = TState;
+//     type NewCtx = TNewCtx;
 
-    type Fut<TMiddleware: Layer<Self::NewCtx>> =
-        MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
+//     type Fut<TMiddleware: Layer<Self::NewCtx>> =
+//         MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-        next: Arc<TMiddleware>,
-    ) -> Self::Fut<TMiddleware> {
-        let handler = (self.handler)(MiddlewareContext {
-            state: (),
-            ctx,
-            input,
-            req,
-            // new_ctx: None,
-            phantom: PhantomData,
-        });
+//     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+//         &self,
+//         ctx: TLayerCtx,
+//         input: Value,
+//         req: RequestContext,
+//         next: Arc<TMiddleware>,
+//     ) -> Self::Fut<TMiddleware> {
+//         let handler = (self.handler)(MiddlewareContext {
+//             state: (),
+//             ctx,
+//             input,
+//             req,
+//             // new_ctx: None,
+//             phantom: PhantomData,
+//         });
 
-        let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
+//         let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
 
-        // Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
-        //     async move {
-        //         let handler = handler.await?;
+//         // Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
+//         //     async move {
+//         //         let handler = handler.await?;
 
-        //         Ok(
-        //             match next.call(handler.ctx, handler.input, handler.req).await? {
-        //                 // ValueOrStream::Value(v) => ValueOrStream::Value(f(handler.state, v).await?),
-        //                 // ValueOrStream::Stream(s) => {
-        //                 //     ValueOrStream::Stream(Box::pin(s.then(move |v| {
-        //                 //         let v = match v {
-        //                 //             Ok(v) => FutOrValue::Fut(f(handler.state.clone(), v)),
-        //                 //             e => FutOrValue::Value(e),
-        //                 //         };
+//         //         Ok(
+//         //             match next.call(handler.ctx, handler.input, handler.req).await? {
+//         //                 // ValueOrStream::Value(v) => ValueOrStream::Value(f(handler.state, v).await?),
+//         //                 // ValueOrStream::Stream(s) => {
+//         //                 //     ValueOrStream::Stream(Box::pin(s.then(move |v| {
+//         //                 //         let v = match v {
+//         //                 //             Ok(v) => FutOrValue::Fut(f(handler.state.clone(), v)),
+//         //                 //             e => FutOrValue::Value(e),
+//         //                 //         };
 
-        //                 //         async move {
-        //                 //             match v {
-        //                 //                 FutOrValue::Fut(fut) => {
-        //                 //                     fut.await.map_err(ExecError::ErrResolverError)
-        //                 //                 }
-        //                 //                 FutOrValue::Value(v) => v,
-        //                 //             }
-        //                 //         }
-        //                 //     })))
-        //                 // }
-        //                 _ => todo!(),
-        //             },
-        //         )
-        //     },
-        // )))
+//         //                 //         async move {
+//         //                 //             match v {
+//         //                 //                 FutOrValue::Fut(fut) => {
+//         //                 //                     fut.await.map_err(ExecError::ErrResolverError)
+//         //                 //                 }
+//         //                 //                 FutOrValue::Value(v) => v,
+//         //                 //             }
+//         //                 //         }
+//         //                 //     })))
+//         //                 // }
+//         //                 _ => todo!(),
+//         //             },
+//         //         )
+//         //     },
+//         // )))
 
-        todo!("Middleware we `.resp` currently isn't wired up to work but it should be easy to fix in future!");
-    }
-}
+//         todo!("Middleware we `.resp` currently isn't wired up to work but it should be easy to fix in future!");
+//     }
+// }

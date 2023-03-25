@@ -118,9 +118,9 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = TNewMiddleware::Fut<TMiddleware>;
+    type Fut<'a> = TNewMiddleware::Fut<TMiddleware>;
 
-    fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
+    fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
         self.mw.handle(ctx, input, req, self.next.clone())
@@ -173,13 +173,11 @@ where
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 // TODO: Document the types and functions so they make sense
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    // TODO: The goal once `dyn_call` supports it
-    // type Fut<'a>: Future<Output = Result<Self::State, ExecError>> + Send + 'a;
-    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
+    type Fut<'a>: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a;
+    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
 
-    type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
-
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
+    // type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
+    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
@@ -228,17 +226,17 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
-    // type Fut<'a> = ResolverLayerFut<TFut>;
+    type Fut<'a> = ResolverLayerFut<TFut>;
 
-    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
-    //     ResolverLayerFut((self.func)(a, b, c))
-    // }
-
-    type Fut = ResolverLayerFut<TFut>;
-
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
+    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
         ResolverLayerFut((self.func)(a, b, c))
     }
+
+    // type Fut = ResolverLayerFut<TFut>;
+
+    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
+    //     ResolverLayerFut((self.func)(a, b, c))
+    // }
 }
 
 #[pin_project(project = ResolverLayerFutProj)]
