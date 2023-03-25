@@ -24,10 +24,6 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         + Send
         + 'static;
 
-    // type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>>
-    //     + Send
-    //     + 'static;
-
     // TODO: Rename `exec`
     fn handle<TMiddleware: Layer<Self::NewCtx>>(
         &self,
@@ -327,11 +323,7 @@ pub struct MiddlewareFutOrSomething<
         + Send
         + 'static,
     TMiddleware: Layer<TNewCtx> + 'static,
->(
-    #[pin] PinnedOption<THandlerFut>,
-    Arc<TMiddleware>,
-    // #[pin] PinnedOption<TMiddleware::Fut>, // TODO: `Self::Fut` is created in `<Self as Future>::poll` so it's lifetime doesn't exist when creating this struct. `Middleware::Fut` has to have lifetime because of this type.
-);
+>(#[pin] PinnedOption<THandlerFut>, Arc<TMiddleware>);
 
 impl<
         TState: Clone + Send + Sync + 'static,
@@ -363,18 +355,6 @@ impl<
             },
             PinnedOptionProj::None => {}
         }
-
-        // match this.2.as_mut().project() {
-        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-        //         Poll::Ready(Ok(result)) => {
-        //             this.2.set(PinnedOption::None);
-        //             return Poll::Ready(Ok(result));
-        //         }
-        //         Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-        //         Poll::Pending => return Poll::Pending,
-        //     },
-        //     PinnedOptionProj::None => {}
-        // }
 
         unreachable!()
     }

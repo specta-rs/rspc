@@ -175,6 +175,8 @@ pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
 
+    fn demo(&self);
+
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
         Self: Sized,
@@ -206,7 +208,11 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         Ok(Box::pin(async move {
             match Layer::call(self, a, b, c).await? {
                 ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
-                ValueOrStreamOrFut2::Fut2(x) => x.await,
+                ValueOrStreamOrFut2::Fut2(x) => {
+                    self.demo(); // TODO: This could call back to self because `self.next` is a thing and if so that means we don't need `self.next` inside the future.
+
+                    x.await
+                }
                 ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
             }
         }))
