@@ -200,15 +200,6 @@ impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
     }
 }
 
-// impl<TLayerCtx> DynLayer<TLayerCtx> for Box<dyn DynLayer<TLayerCtx> + 'static>
-// where
-//     TLayerCtx: 'static,
-// {
-//     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-//         (**self).call(a, b, c)
-//     }
-// }
-
 pub struct ResolverLayer<TLayerCtx, T, TFut>
 where
     TLayerCtx: Send + Sync + 'static,
@@ -287,31 +278,3 @@ pub enum ValueOrStream {
     Value(Value),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
-
-// TODO: Replace this with `LayerResult` for now
-// #[deprecated = "goodbye old friend!"]
-pub enum LayerResult {
-    // Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
-    Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
-    FutureValueOrStream(Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>),
-    FutureValueOrStreamOrFutureStream(
-        Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>,
-    ),
-    Ready(Result<Value, ExecError>),
-}
-
-// impl LayerResult {
-//     #[deprecated = "goodbye old friend!"]
-//     pub async fn into_value_or_stream(self) -> Result<ValueOrStream, ExecError> {
-//         match self {
-//             // LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
-//             LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
-//             LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
-//             LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
-//                 ValueOrStream::Value(val) => ValueOrStream::Value(val),
-//                 ValueOrStream::Stream(stream) => ValueOrStream::Stream(stream),
-//             }),
-//             LayerResult::Ready(res) => Ok(ValueOrStream::Value(res?)),
-//         }
-//     }
-// }

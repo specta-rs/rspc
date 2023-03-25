@@ -10,10 +10,7 @@ use pin_project::pin_project;
 use serde::Serialize;
 use specta::Type;
 
-use crate::{
-    internal::{LayerResult, ValueOrStream},
-    Error, ExecError,
-};
+use crate::{internal::ValueOrStream, Error, ExecError};
 
 // TODO: Replace `ValueOrStream` with assoicated type and trait on it to make it work
 

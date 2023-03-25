@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    internal::{Layer, LayerResult, RequestContext, ValueOrStream},
+    internal::{Layer, RequestContext, ValueOrStream},
     ExecError,
 };
 
