@@ -118,7 +118,7 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut<'a> = TNewMiddleware::Fut<TMiddleware>;
+    type Fut<'a> = TNewMiddleware::Fut<'a, TMiddleware>;
 
     fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed

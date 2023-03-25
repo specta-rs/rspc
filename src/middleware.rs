@@ -16,20 +16,23 @@ use crate::{
 pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
-    // TODO: <'a>
-    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
+
+    // TODO: `'a` on `Future`
+    type Fut<'a, TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
         + Send
-        + 'static;
+        + 'static
+    where
+        Self: 'a; // TODO: Remove this bound!!!
 
     // TODO: Rename `exec`
-    fn handle<TMiddleware: Layer<Self::NewCtx>>(
-        &self,
+    fn handle<'a, TMiddleware: Layer<Self::NewCtx>>(
+        &'a self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
         // TODO: Avoid `Arc` here
         next: Arc<TMiddleware>,
-    ) -> Self::Fut<TMiddleware>;
+    ) -> Self::Fut<'a, TMiddleware>;
 }
 pub struct MiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
@@ -280,15 +283,15 @@ where
     type State = TState;
     type NewCtx = TNewCtx;
     // TODO: Change this back
-    type Fut<TMiddleware: Layer<Self::NewCtx>> = Ready<Result<ValueOrStream, ExecError>>; // MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
+    type Fut<'a, TMiddleware: Layer<Self::NewCtx>> = Ready<Result<ValueOrStream, ExecError>> where Self: 'a; // MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
-        &self,
+    fn handle<'a, TMiddleware: Layer<Self::NewCtx> + 'static>(
+        &'a self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
         next: Arc<TMiddleware>,
-    ) -> Self::Fut<TMiddleware> {
+    ) -> Self::Fut<'a, TMiddleware> {
         let handler = (self.handler)(MiddlewareContext {
             state: (),
             ctx,
