@@ -1,8 +1,7 @@
-use futures::StreamExt;
 use pin_project::pin_project;
 use serde_json::Value;
 use std::{
-    future::{Future, Ready},
+    future::Future,
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
@@ -21,7 +20,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         + Send
         + 'static;
 
-    // TODO: Should this be called `handle` or `build` cause it takes the `next` middleware?
+    // TODO: Rename `exec`
     fn handle<TMiddleware: Layer<Self::NewCtx>>(
         &self,
         ctx: TLayerCtx,
@@ -297,6 +296,7 @@ where
             phantom: PhantomData,
         });
 
+        // TODO: Avoid taking ownership of `next`
         MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
     }
 }
@@ -419,9 +419,6 @@ where
 
         let f = self.resp_handler.clone(); // TODO: Runtime clone is bad. Avoid this!
 
-        // TODO: Try returning this and check that it works?
-        // MiddlewareFutOrSomething(PinnedOption::Some(handler), next, PinnedOption::None)
-
         // Ok(LayerResult::FutureValueOrStreamOrFutureStream(Box::pin(
         //     async move {
         //         let handler = handler.await?;
@@ -452,70 +449,6 @@ where
         //     },
         // )))
 
-        todo!();
+        todo!("Middleware we `.resp` currently isn't wired up to work but it should be easy to fix in future!");
     }
 }
-
-// TODO: Middleware functions should be able to be async or sync & return a value or result
-
-// #[pin_project(project = MiddlewareFutOrSomething2Proj)]
-// pub struct MiddlewareFutOrSomething2<
-//     TState: Clone + Send + Sync + 'static,
-//     TLayerCtx: Send + 'static,
-//     TNewCtx: Send + 'static,
-//     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-//         + Send
-//         + 'static,
-//     TMiddleware: Layer<TNewCtx> + 'static,
-// >(
-//     #[pin] PinnedOption<THandlerFut>,
-//     Arc<TMiddleware>,
-//     #[pin] PinnedOption<TMiddleware::Fut>,
-// );
-
-// impl<
-//         TState: Clone + Send + Sync + 'static,
-//         TLayerCtx: Send + 'static,
-//         TNewCtx: Send + 'static,
-//         THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-//             + Send
-//             + 'static,
-//         TMiddleware: Layer<TNewCtx> + 'static,
-//     > Future for MiddlewareFutOrSomething2<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
-// {
-//     type Output = Result<LayerResult, ExecError>;
-
-//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-//         let mut this = self.project();
-
-//         match this.0.as_mut().project() {
-//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-//                 Poll::Ready(Ok(handler)) => {
-//                     let fut = this.1.call(handler.ctx, handler.input, handler.req);
-//                     this.0.set(PinnedOption::None);
-//                     this.2.set(PinnedOption::Some(fut));
-//                 }
-//                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
-//                 Poll::Pending => return Poll::Pending,
-//             },
-//             PinnedOptionProj::None => {}
-//         }
-
-//         match this.2.as_mut().project() {
-//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-//                 Poll::Ready(Ok(result)) => {
-//                     this.2.set(PinnedOption::None);
-
-//                     match result {}
-
-//                     return Poll::Ready(Ok(result));
-//                 }
-//                 Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-//                 Poll::Pending => return Poll::Pending,
-//             },
-//             PinnedOptionProj::None => {}
-//         }
-
-//         unreachable!()
-//     }
-// }

@@ -57,6 +57,8 @@ where
     }
 }
 
+pub struct MiddlewareLayerWithNext();
+
 pub struct MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
 where
     TCtx: Send + Sync + 'static,
@@ -90,7 +92,7 @@ where
     {
         self.middleware.build(MiddlewareLayer {
             next: Arc::new(next), // Avoiding `Arc`
-            mw: self.mw.clone(),
+            mw: self.mw.clone(),  // TODO: Avoid `Clone` bound when `build` takes `self`
             phantom: PhantomData,
         })
     }
@@ -119,7 +121,13 @@ where
     type Fut = TNewMiddleware::Fut<TMiddleware>;
 
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
+        // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
+
         self.mw.handle(ctx, input, req, self.next.clone())
+
+        // self.mw.await;
+        // self.next.call(...).await;
+        // todo!();
     }
 }
 
@@ -163,7 +171,12 @@ where
 }
 
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
+// TODO: Document the types and functions so they make sense
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
+    // TODO: The goal once `dyn_call` supports it
+    // type Fut<'a>: Future<Output = Result<Self::State, ExecError>> + Send + 'a;
+    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
+
     type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
@@ -188,7 +201,7 @@ pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
     ) -> Result<FutureValueOrStream, ExecError>;
 }
 
-impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
+impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
     fn dyn_call(
         &self,
         a: TLayerCtx,
@@ -215,6 +228,12 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
+    // type Fut<'a> = ResolverLayerFut<TFut>;
+
+    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
+    //     ResolverLayerFut((self.func)(a, b, c))
+    // }
+
     type Fut = ResolverLayerFut<TFut>;
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {

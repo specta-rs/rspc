@@ -6,6 +6,7 @@ use rspc::{integrations::httpz::Request, Config};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
+#[derive(Clone)]
 struct Ctx {
     x_demo_header: Option<String>,
 }
@@ -17,6 +18,12 @@ async fn main() {
             .config(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
             ))
+            .middleware(|mw| {
+                mw.middleware(|mw| async move {
+                    println!("MW FOR THE WIN");
+                    Ok(mw)
+                })
+            })
             .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
             .query("X-Demo-Header", |t| {
                 t(|ctx, _: ()| {
