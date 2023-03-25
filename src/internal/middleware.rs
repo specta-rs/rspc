@@ -165,7 +165,7 @@ where
 
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    type Fut: Future<Output = Result<LayerResult, ExecError>> + Send + 'static; // TODO: `Output = ValueOrStream`
+    type Fut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
 
@@ -196,8 +196,7 @@ impl<TLayerCtx: 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         b: Value,
         c: RequestContext,
     ) -> Result<FutureValueOrStream, ExecError> {
-        // Ok(Box::pin(Layer::call(self, a, b, c)))
-        todo!();
+        Ok(Box::pin(Layer::call(self, a, b, c)))
     }
 }
 
@@ -241,14 +240,14 @@ pub struct ResolverLayerFut<
 impl<TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static> Future
     for ResolverLayerFut<TFut>
 {
-    type Output = Result<LayerResult, ExecError>;
+    type Output = Result<ValueOrStream, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         match this.0.poll(cx) {
             // TODO: Simplify this a bit
-            Poll::Ready(Ok(ValueOrStream::Value(v))) => Poll::Ready(Ok(LayerResult::Ready(Ok(v)))),
-            Poll::Ready(Ok(ValueOrStream::Stream(s))) => Poll::Ready(Ok(LayerResult::Stream(s))),
+            Poll::Ready(Ok(ValueOrStream::Value(v))) => Poll::Ready(Ok(ValueOrStream::Value(v))),
+            Poll::Ready(Ok(ValueOrStream::Stream(s))) => Poll::Ready(Ok(ValueOrStream::Stream(s))),
             Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
             Poll::Pending => Poll::Pending,
         }

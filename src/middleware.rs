@@ -17,7 +17,7 @@ use crate::{
 pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
-    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<LayerResult, ExecError>>
+    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
         + Send
         + 'static;
 
@@ -332,7 +332,7 @@ impl<
         TMiddleware: Layer<TNewCtx> + 'static,
     > Future for MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
 {
-    type Output = Result<LayerResult, ExecError>;
+    type Output = Result<ValueOrStream, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
