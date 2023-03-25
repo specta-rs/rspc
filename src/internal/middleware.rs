@@ -116,11 +116,10 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = TMiddleware::Fut;
+    type Fut = TNewMiddleware::Fut<TMiddleware>;
 
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
-        // self.mw.handle(ctx, input, req, self.next.clone())
-        todo!();
+        self.mw.handle(ctx, input, req, self.next.clone())
     }
 }
 
