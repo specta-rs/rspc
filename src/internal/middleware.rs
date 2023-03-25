@@ -189,25 +189,25 @@ pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static
     }
 }
 
-pub type FutureValueOrStream =
-    Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>;
+pub type FutureValueOrStream<'a> =
+    Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a>>;
 
 pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
-    fn dyn_call(
-        &self,
+    fn dyn_call<'a>(
+        &'a self,
         a: TLayerCtx,
         b: Value,
         c: RequestContext,
-    ) -> Result<FutureValueOrStream, ExecError>;
+    ) -> Result<FutureValueOrStream<'a>, ExecError>;
 }
 
 impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
-    fn dyn_call(
-        &self,
+    fn dyn_call<'a>(
+        &'a self,
         a: TLayerCtx,
         b: Value,
         c: RequestContext,
-    ) -> Result<FutureValueOrStream, ExecError> {
+    ) -> Result<FutureValueOrStream<'a>, ExecError> {
         Ok(Box::pin(Layer::call(self, a, b, c)))
     }
 }
