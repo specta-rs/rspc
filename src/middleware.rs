@@ -18,12 +18,12 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
-    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2<Self::Fut2<TMiddleware>>, ExecError>>
+    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>>
         + Send
         + 'static;
-    type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
-        + Send
-        + 'static;
+    // type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
+    //     + Send
+    //     + 'static;
 
     // TODO: Rename `exec`
     fn handle<TMiddleware: Layer<Self::NewCtx>>(
@@ -286,7 +286,7 @@ where
     // TODO: Change this back
     type Fut<TMiddleware: Layer<Self::NewCtx>> =
         MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
-    type Fut2<TMiddleware: Layer<Self::NewCtx>> = NoShot<TNewCtx, TMiddleware>;
+    // type Fut2<TMiddleware: Layer<Self::NewCtx>> = NoShot<TNewCtx, TMiddleware>;
 
     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
         &self,
@@ -336,7 +336,7 @@ impl<
         TMiddleware: Layer<TNewCtx> + 'static,
     > Future for MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
 {
-    type Output = Result<ValueOrStreamOrFut2<NoShot<TNewCtx, TMiddleware>>, ExecError>;
+    type Output = Result<ValueOrStreamOrFut2, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -367,60 +367,57 @@ impl<
 
 // TODO: Move into another file where it's used
 // TODO: Should I remove this?
+// #[deprecated = "I think this does nothing and can be removed?"] // TODO
 #[pin_project(project = NoShotProj)]
 pub struct NoShot<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static>(
     #[pin] pub(crate) PinnedOption<TMiddleware::Fut>,
-    #[pin] pub(crate) PinnedOption<TMiddleware::Fut2>,
+    // #[pin] pub(crate) PinnedOption<TMiddleware::Fut2>,
 );
 
 impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
     for NoShot<TNewCtx, TMiddleware>
 {
-    type Output = Result<ValueOrStream, ExecError>;
+    type Output = Result<ValueOrStreamOrFut2, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         match this.0.as_mut().project() {
             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(Ok(result)) => {
+                Poll::Ready(result) => {
                     this.0.set(PinnedOption::None);
+                    // return Poll::Ready(result);
 
-                    match result {
+                    match result.unwrap() {
                         ValueOrStreamOrFut2::Value(v) => {
-                            return Poll::Ready(Ok(ValueOrStream::Value(v)))
+                            return Poll::Ready(Ok(ValueOrStreamOrFut2::Value(v)))
                         }
                         ValueOrStreamOrFut2::Stream(s) => {
-                            return Poll::Ready(Ok(ValueOrStream::Stream(s)))
-                        }
-                        ValueOrStreamOrFut2::Fut2(fut) => {
-                            this.1.set(PinnedOption::Some(fut));
+                            return Poll::Ready(Ok(ValueOrStreamOrFut2::Stream(s)))
                         }
                         ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
-                            // return Poll::Ready(ValueOrStream)
-                            todo!();
+                            return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
+                                ctx, input, req,
+                            )));
+                            // todo!();
                         }
                     }
                 }
-                Poll::Ready(Err(e)) => {
-                    this.0.set(PinnedOption::None);
-                    return Poll::Ready(Err(e));
-                }
                 Poll::Pending => return Poll::Pending,
             },
             PinnedOptionProj::None => {}
         }
 
-        match this.1.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(result) => {
-                    this.1.set(PinnedOption::None);
-                    return Poll::Ready(result);
-                }
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
+        // match this.1.as_mut().project() {
+        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+        //         Poll::Ready(result) => {
+        //             this.1.set(PinnedOption::None);
+        //             return Poll::Ready(result);
+        //         }
+        //         Poll::Pending => return Poll::Pending,
+        //     },
+        //     PinnedOptionProj::None => {}
+        // }
 
         unreachable!()
     }

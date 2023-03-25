@@ -24,12 +24,12 @@ async fn main() {
             //         Ok(mw)
             //     })
             // })
-            .middleware(|mw| {
-                mw.middleware(|mw| async move {
-                    println!("MW2 FOR THE WIN");
-                    Ok(mw)
-                })
-            })
+            // .middleware(|mw| {
+            //     mw.middleware(|mw| async move {
+            //         println!("MW2 FOR THE WIN");
+            //         Ok(mw)
+            //     })
+            // })
             .middleware(|mw| {
                 mw.middleware(|mw| async move {
                     println!("MW3 FOR THE WIN");
