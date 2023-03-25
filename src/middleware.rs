@@ -11,11 +11,16 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+    // type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = ValueOrStream> + Send + 'static;
+
+    // TODO: Does this `handle` or `build` cause it takes the `next` middleware?
+    // TODO: Return `Self::Fut`
+    fn handle<TMiddleware: Layer<Self::NewCtx>>(
         &self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
+        // TODO: Avoid `Arc` here
         next: Arc<TMiddleware>,
     ) -> Result<LayerResult, ExecError>;
 }
@@ -268,6 +273,8 @@ where
     type State = TState;
     type NewCtx = TNewCtx;
 
+    // type Fut<TMiddleware: Layer<Self::NewCtx>> = TMiddleware::Fut<TMiddleware>;
+
     fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
         &self,
         ctx: TLayerCtx,
@@ -283,6 +290,7 @@ where
             phantom: PhantomData,
         });
 
+        // TODO: Custom future
         Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
             let handler = handler.await?;
             next.call(handler.ctx, handler.input, handler.req)?

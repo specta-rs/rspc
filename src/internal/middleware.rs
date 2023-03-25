@@ -1,11 +1,13 @@
 use std::{
-    future::{Future, Ready},
+    future::{ready, Future, Ready},
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
+    task::{Context, Poll},
 };
 
 use futures::Stream;
+use pin_project::pin_project;
 use serde_json::Value;
 
 use crate::{ExecError, MiddlewareLike};
@@ -118,7 +120,12 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    // type Fut = Ready<()>; // TODO
+    type Fut = Ready<Result<LayerResult, ExecError>>;
+
+    fn call2(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
+        todo!();
+        // self.mw.handle(ctx, input, req, self.next.clone())
+    }
 
     fn call(
         &self,
@@ -126,7 +133,8 @@ where
         input: Value,
         req: RequestContext,
     ) -> Result<LayerResult, ExecError> {
-        self.mw.handle(ctx, input, req, self.next.clone())
+        todo!();
+        // self.mw.handle(ctx, input, req, self.next.clone())
     }
 }
 
@@ -171,8 +179,11 @@ where
 
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    // type Fut: Future<Output = ()> + Send + 'static;
+    type Fut: Future<Output = Result<LayerResult, ExecError>> + Send + 'static; // TODO: `Output = ValueOrStream`
 
+    fn call2(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
+
+    // TODO: Return `Self::Fut`
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
@@ -224,11 +235,38 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
-    // type Fut = Ready<()>; // TODO
+    type Fut = ResolverLayerFut<TFut>;
+
+    fn call2(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
+        ResolverLayerFut((self.func)(a, b, c))
+    }
 
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
         // (self.func)(a, b, c)
+        // ready((self.func)(a, b, c))
         todo!();
+    }
+}
+
+#[pin_project(project = ResolverLayerFutProj)]
+pub struct ResolverLayerFut<
+    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
+>(#[pin] TFut);
+
+impl<TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static> Future
+    for ResolverLayerFut<TFut>
+{
+    type Output = Result<LayerResult, ExecError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        match this.0.poll(cx) {
+            // TODO: Simplify this a bit
+            Poll::Ready(Ok(ValueOrStream::Value(v))) => Poll::Ready(Ok(LayerResult::Ready(Ok(v)))),
+            Poll::Ready(Ok(ValueOrStream::Stream(s))) => Poll::Ready(Ok(LayerResult::Stream(s))),
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -263,8 +301,9 @@ pub enum ValueOrStream {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
+// TODO: Replace this with `LayerResult` for now
 pub enum LayerResult {
-    Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
+    // Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
     FutureValueOrStream(Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send>>),
     FutureValueOrStreamOrFutureStream(
@@ -276,8 +315,8 @@ pub enum LayerResult {
 impl LayerResult {
     pub async fn into_value_or_stream(self) -> Result<ValueOrStream, ExecError> {
         match self {
+            // LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
             LayerResult::Stream(stream) => Ok(ValueOrStream::Stream(stream)),
-            LayerResult::Future(fut) => Ok(ValueOrStream::Value(fut.await?)),
             LayerResult::FutureValueOrStream(fut) => Ok(fut.await?),
             LayerResult::FutureValueOrStreamOrFutureStream(fut) => Ok(match fut.await? {
                 ValueOrStream::Value(val) => ValueOrStream::Value(val),
