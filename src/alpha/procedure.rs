@@ -120,9 +120,8 @@ where
 
 impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
 where
-    TMiddleware: AlphaMiddlewareBuilderLike,
+    TMiddleware: AlphaMiddlewareBuilderLike + Sync,
 {
-    // TODO: Fix this
     // pub fn with<TNewMiddleware>(
     //     self,
     //     builder: impl Fn(
@@ -131,17 +130,45 @@ where
     // ) -> AlphaProcedure<
     //     MissingResolver<TNewMiddleware::NewCtx>,
     //     (),
-    //     AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>,
+    //     AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>,
     // >
     // where
     //     TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TMiddleware::LayerCtx>,
     // {
-    //     let mw = builder(AlphaMiddlewareBuilder(PhantomData));
     //     AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
     //         middleware: self.1,
     //         mw,
+    //         phantom: PhantomData,
     //     })
     // }
+
+    pub fn with<TMarker, Mw>(
+        self,
+        mw: Mw,
+    ) -> AlphaProcedure<
+        MissingResolver<Mw::NewCtx>,
+        (),
+        AlphaMiddlewareLayerBuilder<TMiddleware, Mw, TMarker>,
+    >
+    where
+        TMarker: Send + Sync + 'static,
+        Mw: MwV2<TMiddleware::LayerCtx, TMarker>
+            + Fn(
+                super::middleware::AlphaMiddlewareContext<
+                    <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
+                >,
+                TMiddleware::LayerCtx,
+            ) -> Mw::Fut
+            + Send
+            + Sync
+            + 'static,
+    {
+        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+            middleware: self.1.expect("Uh oh, stinky"),
+            mw,
+            phantom: PhantomData,
+        })
+    }
 }
 
 impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>

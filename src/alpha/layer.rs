@@ -41,12 +41,11 @@ impl<TLayerCtx: Send + 'static, L: AlphaLayer<TLayerCtx>> DynLayer<TLayerCtx> fo
         b: Value,
         c: RequestContext,
     ) -> Result<FutureValueOrStream<'a>, ExecError> {
-        // Ok(Box::pin(async move {
-        //     match AlphaLayer::call(self, a, b, c).await? {
-        //         ValueOrStream::Value(x) => Ok(ValueOrStream::Value(x)),
-        //         ValueOrStream::Stream(x) => Ok(ValueOrStream::Stream(x)),
-        //     }
-        // }))
-        todo!();
+        Ok(Box::pin(async move {
+            match AlphaLayer::call(self, a, b, c).await? {
+                ValueOrStream::Value(x) => Ok(ValueOrStream::Value(x)),
+                ValueOrStream::Stream(x) => Ok(ValueOrStream::Stream(x)),
+            }
+        }))
     }
 }

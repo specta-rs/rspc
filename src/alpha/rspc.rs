@@ -70,13 +70,11 @@ where
             + Sync
             + 'static,
     {
-        // let mw = builder(AlphaMiddlewareBuilder(PhantomData));
-        // AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
-        //     middleware: AlphaBaseMiddleware::new(),
-        //     mw,
-        // })
-
-        todo!();
+        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+            middleware: AlphaBaseMiddleware::new(),
+            mw,
+            phantom: PhantomData,
+        })
     }
 
     pub fn query<R, RMarker>(

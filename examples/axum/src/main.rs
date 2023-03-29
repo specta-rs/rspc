@@ -17,6 +17,42 @@ async fn main() {
     let router = R
         .router()
         .procedure("version", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .procedure(
+            "version1",
+            R.with(|mw, ctx| async move {
+                println!("MW ONE");
+                mw.next(ctx)
+            })
+            .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+        )
+        .procedure(
+            "version2",
+            R.with(|mw, ctx| async move {
+                println!("MW ONE");
+                mw.next(ctx)
+            })
+            .with(|mw, ctx| async move {
+                println!("MW TWO");
+                mw.next(ctx)
+            })
+            .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+        )
+        .procedure(
+            "version3",
+            R.with(|mw, ctx| async move {
+                println!("MW ONE");
+                mw.next(ctx)
+            })
+            .with(|mw, ctx| async move {
+                println!("MW TWO");
+                mw.next(ctx)
+            })
+            .with(|mw, ctx| async move {
+                println!("MW THREE");
+                mw.next(ctx)
+            })
+            .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+        )
         .compat()
         .arced();
 
