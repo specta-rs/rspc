@@ -35,7 +35,7 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         next: &Arc<TMiddleware>,
     ) -> Self::Fut<TMiddleware>;
 
-    type Fn: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> Self::Fut2 + Clone; // TODO: Use `Executable`
+    type Fn: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> Self::Fut2 + Send + Sync + 'static; // TODO: Use `Executable`
     type Fut2: Future<
             Output = Result<MiddlewareContext<TLayerCtx, Self::NewCtx, Self::State>, crate::Error>,
         > + Send
@@ -284,7 +284,12 @@ where
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send + 'static,
     TNewCtx: Send + 'static,
-    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut + Clone,
+    // TODO: Remove `Clone` bound
+    THandlerFunc: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> THandlerFut
+        + Send
+        + Sync
+        + Clone
+        + 'static,
     THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
         + Send
         + 'static,
@@ -339,7 +344,10 @@ pub struct MiddlewareFutOrSomething<
         + Send
         + 'static,
     TMiddleware: Layer<TNewCtx> + 'static,
->(#[pin] PinnedOption<THandlerFut>, Arc<TMiddleware>); // TODO: Remove `.1`
+>(
+    #[pin] pub(crate) PinnedOption<THandlerFut>,
+    pub(crate) Arc<TMiddleware>,
+); // TODO: Remove `.1`
 
 impl<
         TState: Clone + Send + Sync + 'static,

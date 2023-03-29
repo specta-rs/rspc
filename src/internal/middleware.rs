@@ -11,7 +11,9 @@ use futures::Stream;
 use pin_project::pin_project;
 use serde_json::Value;
 
-use crate::{ExecError, MiddlewareFutOrSomething, MiddlewareLike, NoShot, PinnedOption};
+use crate::{
+    ExecError, MiddlewareContext, MiddlewareFutOrSomething, MiddlewareLike, NoShot, PinnedOption,
+};
 
 pub trait MiddlewareBuilderLike<TCtx: 'static> {
     type LayerContext: 'static;
@@ -91,9 +93,11 @@ where
     where
         T: Layer<Self::LayerContext> + Sync,
     {
+        let func = self.mw.explode();
+
         self.middleware.build(MiddlewareLayer {
             next: Arc::new(next), // Avoiding `Arc`
-            mw: self.mw.clone(),  // TODO: Avoid `Clone` bound when `build` takes `self`
+            mw: func, // self.mw.clone(),  // TODO: Avoid `Clone` bound when `build` takes `self`
             phantom: PhantomData,
         })
     }
@@ -107,7 +111,8 @@ where
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
-    mw: TNewMiddleware,
+    // mw: TNewMiddleware,
+    mw: TNewMiddleware::Fn,
     phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
 }
 
@@ -119,13 +124,30 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = TNewMiddleware::Fut<TMiddleware>;
+    type Fut = MiddlewareFutOrSomething<
+        TNewMiddleware::State,
+        TLayerCtx,
+        TNewLayerCtx,
+        TNewMiddleware::Fut2,
+        TMiddleware,
+    >; // TNewMiddleware::Fut<TMiddleware>;
     type Call2Fut = NoShot<TNewLayerCtx, TMiddleware>;
 
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
-        self.mw.handle(ctx, input, req, &self.next)
+        // self.mw.handle(ctx, input, req, &self.next)
+
+        let handler = (self.mw)(MiddlewareContext {
+            state: (),
+            ctx,
+            input,
+            req,
+            phantom: PhantomData,
+        });
+
+        // TODO: Avoid taking ownership of `next`
+        MiddlewareFutOrSomething(PinnedOption::Some(handler), self.next.clone())
     }
 
     fn call2(
