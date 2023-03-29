@@ -348,6 +348,7 @@ pub struct MiddlewareFutOrSomething<
 >(
     #[pin] pub(crate) PinnedOption<THandlerFut>,
     pub(crate) &'a TMiddleware,
+    #[pin] pub(crate) PinnedOption<TMiddleware::Fut<'a>>,
 ); // TODO: Remove `.1`
 
 impl<
@@ -371,14 +372,45 @@ impl<
             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                 Poll::Ready(Ok(handler)) => {
                     this.0.set(PinnedOption::None);
-                    return Poll::Ready(Ok(ValueOrStreamOrFut2::A(
-                        this.1,
-                        handler.ctx,
-                        handler.input,
-                        handler.req,
-                    )));
+
+                    let fut = this.1.call(handler.ctx, handler.input, handler.req);
+                    this.2.set(PinnedOption::Some(fut));
+
+                    // return Poll::Ready(Ok(ValueOrStreamOrFut2::A(
+                    //     this.1,
+                    //     handler.ctx,
+                    //     handler.input,
+                    //     handler.req,
+                    // )));
+
+                    // todo!();
                 }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
+                Poll::Ready(Err(e)) => {
+                    this.0.set(PinnedOption::None);
+                    return Poll::Ready(Err(ExecError::ErrResolverError(e)));
+                }
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
+
+        match this.2.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(Ok(value)) => {
+                    this.2.set(PinnedOption::None);
+
+                    // todo!();
+
+                    return Poll::Ready(Ok(match value {
+                        ValueOrStreamOrFut2::Value(value) => ValueOrStreamOrFut2::Value(value),
+                        ValueOrStreamOrFut2::Stream(stream) => ValueOrStreamOrFut2::Stream(stream),
+                        _ => todo!(),
+                    }));
+                }
+                Poll::Ready(Err(e)) => {
+                    this.2.set(PinnedOption::None);
+                    return Poll::Ready(Err(e));
+                }
                 Poll::Pending => return Poll::Pending,
             },
             PinnedOptionProj::None => {}

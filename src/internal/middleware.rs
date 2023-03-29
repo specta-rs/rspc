@@ -149,8 +149,29 @@ where
         });
 
         // TODO: Avoid taking ownership of `next`
-        MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next)
+        MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next, PinnedOption::None)
     }
+
+    // type ResolveFutFut = Ready<Result<ValueOrStream, ExecError>>;
+
+    // fn resolve_fut<'a>(
+    //     &self,
+    //     input: ValueOrStreamOrFut2<'a, Self::Middleware, Self::NewCtx>,
+    // ) -> Self::ResolveFutFut {
+    //     // match input {
+    //     //     ValueOrStreamOrFut2::Value(v) => Ok(ValueOrStream::Value(v)),
+    //     //     ValueOrStreamOrFut2::Stream(s) => Ok(ValueOrStream::Stream(s)),
+    //     //     ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+    //     //         let fut = mw.call(ctx, input, req);
+
+    //     //         // let fut = fut.map(|v| ValueOrStream::Value(v));
+    //     //         // Ok(ValueOrStream::Fut(fut))
+    //     //         todo!();
+    //     //     }
+    //     // };
+
+    //     todo!();
+    // }
 
     // TODO: Removing this
     // fn call2(
@@ -164,6 +185,8 @@ where
     //     todo!();
     // }
 }
+
+// pub enum
 
 pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
 where
@@ -218,6 +241,14 @@ pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static
 
     fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
 
+    // type ResolveFutFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
+
+    // // This works around the recursive async function problem.
+    // fn resolve_fut<'a>(
+    //     &self,
+    //     input: ValueOrStreamOrFut2<'a, Self::Middleware, Self::NewCtx>,
+    // ) -> Self::ResolveFutFut;
+
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
         Self: Sized,
@@ -235,6 +266,15 @@ impl Layer<()> for () {
     fn call<'a>(&'a self, a: (), b: Value, c: RequestContext) -> Self::Fut<'a> {
         unreachable!()
     }
+
+    // type ResolveFutFut = Ready<Result<ValueOrStream, ExecError>>; // Unused
+
+    // fn resolve_fut<'a>(
+    //     &self,
+    //     input: ValueOrStreamOrFut2<'a, Self::Middleware, Self::NewCtx>,
+    // ) -> Self::ResolveFutFut {
+    //     unreachable!();
+    // }
 }
 
 // TODO: Does this need lifetime?
@@ -258,33 +298,45 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         c: RequestContext,
     ) -> Result<FutureValueOrStream<'a>, ExecError> {
         Ok(Box::pin(async move {
-            recursive_resolve(Layer::call(self, a, b, c).await?).await
-            // match Layer::call(self, a, b, c).await? {
-            //     ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
-            //     ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
-            //         recursive_resolve(mw, ctx, input, req).await
-            //     }
-            //     ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
-            // }
+            // recursive_resolve(Layer::call(self, a, b, c).await?).await;
+
+            // let y = self.resolve_fut(Layer::call(self, a, b, c).await?);
+
+            match Layer::call(self, a, b, c).await? {
+                ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
+                ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+                    todo!();
+                }
+                ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
+            }
         }))
     }
 }
 
-async fn recursive_resolve<'a, TMiddleware, TNewCtx>(
-    result: ValueOrStreamOrFut2<'a, TMiddleware, TNewCtx>,
-) -> Result<ValueOrStream, ExecError>
-where
-    TMiddleware: Layer<TNewCtx> + 'static,
-    TNewCtx: 'static,
-{
-    match result {
-        ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
-        ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
-            recursive_resolve(mw.call(ctx, input, req).await?).await
-        }
-        ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
-    }
-}
+// async fn recursive_resolve<'a, TMiddleware, TNewCtx>(
+//     result: ValueOrStreamOrFut2<'a, TMiddleware, TNewCtx>,
+// ) -> Result<ValueOrStream, ExecError>
+// where
+//     TMiddleware: Layer<TNewCtx> + 'static,
+//     TNewCtx: 'static,
+// {
+//     match result {
+//         ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
+//         ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+//             // recursive_resolve(mw.call(ctx, input, req).await?).await
+
+//             match mw.call(ctx, input, req).await? {
+//                 ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
+//                 ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+//                     // recursive_resolve(mw.call(ctx, input, req).await?).await
+//                     todo!();
+//                 }
+//                 ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
+//             }
+//         }
+//         ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
+//     }
+// }
 
 pub struct ResolverLayer<TLayerCtx, T, TFut>
 where
@@ -309,6 +361,15 @@ where
     fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
         ResolverLayerFut((self.func)(a, b, c), PhantomData)
     }
+
+    // type ResolveFutFut = Ready<Result<ValueOrStream, ExecError>>; // Unused
+
+    // fn resolve_fut<'a>(
+    //     &self,
+    //     input: ValueOrStreamOrFut2<'a, Self::Middleware, Self::NewCtx>,
+    // ) -> Self::ResolveFutFut {
+    //     todo!();
+    // }
 }
 
 #[pin_project(project = ResolverLayerFutProj)]
