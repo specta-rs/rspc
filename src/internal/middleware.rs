@@ -11,9 +11,7 @@ use futures::Stream;
 use pin_project::pin_project;
 use serde_json::Value;
 
-use crate::{
-    ExecError, MiddlewareContext, MiddlewareFutOrSomething, MiddlewareLike, NoShot, PinnedOption,
-};
+use crate::{ExecError, MiddlewareContext, MiddlewareFutOrSomething, MiddlewareLike, PinnedOption};
 
 pub trait MiddlewareBuilderLike<TCtx: 'static> {
     type LayerContext: 'static;
@@ -124,16 +122,16 @@ where
     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    type Fut = MiddlewareFutOrSomething<
+    type Fut<'a> = MiddlewareFutOrSomething<
         TNewMiddleware::State,
         TLayerCtx,
         TNewLayerCtx,
         TNewMiddleware::Fut2,
         TMiddleware,
     >; // TNewMiddleware::Fut<TMiddleware>;
-    type Call2Fut = NoShot<TNewLayerCtx, TMiddleware>;
+    type Call2Fut = Ready<Result<ValueOrStreamOrFut2, ExecError>>; // TODO: NoShot<TNewLayerCtx, TMiddleware>;
 
-    fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
+    fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
         // self.mw.handle(ctx, input, req, &self.next)
@@ -156,8 +154,9 @@ where
         value: Value,
         req: RequestContext,
     ) -> Self::Call2Fut {
-        let fut = self.next.call(*ctx.downcast().unwrap(), value, req);
-        NoShot(PinnedOption::Some(fut))
+        // let fut = self.next.call(*ctx.downcast().unwrap(), value, req);
+        // NoShot(PinnedOption::Some(fut))
+        todo!();
     }
 }
 
@@ -203,11 +202,11 @@ where
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 // TODO: Document the types and functions so they make sense
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    type Fut: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static; // TODO: This may need lifetime back but let's remove it for now
-                                                                                        // type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
+    type Fut<'a>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static; // TODO: This may need lifetime back but let's remove it for now
+                                                                                            // type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
     type Call2Fut: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static;
 
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut;
+    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
 
     fn call2(
         &self,
@@ -289,10 +288,10 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
-    type Fut = ResolverLayerFut<TFut>;
+    type Fut<'a> = ResolverLayerFut<TFut>;
     type Call2Fut = Ready<Result<ValueOrStreamOrFut2, ExecError>>; // Unused
 
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut {
+    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
         ResolverLayerFut((self.func)(a, b, c))
     }
 }

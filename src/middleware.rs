@@ -389,62 +389,62 @@ impl<
     }
 }
 
-// TODO: Move into another file where it's used
-// TODO: Should I remove this?
-// #[deprecated = "I think this does nothing and can be removed?"] // TODO
-#[pin_project(project = NoShotProj)]
-pub struct NoShot<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static>(
-    #[pin] pub(crate) PinnedOption<TMiddleware::Fut>,
-    // #[pin] pub(crate) PinnedOption<TMiddleware::Fut2>,
-);
+// // TODO: Move into another file where it's used
+// // TODO: Should I remove this?
+// // #[deprecated = "I think this does nothing and can be removed?"] // TODO
+// #[pin_project(project = NoShotProj)]
+// pub struct NoShot<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static>(
+//     #[pin] pub(crate) PinnedOption<TMiddleware::Fut>,
+//     // #[pin] pub(crate) PinnedOption<TMiddleware::Fut2>,
+// );
 
-impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
-    for NoShot<TNewCtx, TMiddleware>
-{
-    type Output = Result<ValueOrStreamOrFut2, ExecError>;
+// impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
+//     for NoShot<TNewCtx, TMiddleware>
+// {
+//     type Output = Result<ValueOrStreamOrFut2, ExecError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
+//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+//         let mut this = self.project();
 
-        match this.0.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(result) => {
-                    this.0.set(PinnedOption::None);
-                    // return Poll::Ready(result);
+//         match this.0.as_mut().project() {
+//             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+//                 Poll::Ready(result) => {
+//                     this.0.set(PinnedOption::None);
+//                     // return Poll::Ready(result);
 
-                    match result.unwrap() {
-                        ValueOrStreamOrFut2::Value(v) => {
-                            return Poll::Ready(Ok(ValueOrStreamOrFut2::Value(v)))
-                        }
-                        ValueOrStreamOrFut2::Stream(s) => {
-                            return Poll::Ready(Ok(ValueOrStreamOrFut2::Stream(s)))
-                        }
-                        ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
-                            return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
-                                ctx, input, req,
-                            )));
-                        }
-                    }
-                }
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
+//                     match result.unwrap() {
+//                         ValueOrStreamOrFut2::Value(v) => {
+//                             return Poll::Ready(Ok(ValueOrStreamOrFut2::Value(v)))
+//                         }
+//                         ValueOrStreamOrFut2::Stream(s) => {
+//                             return Poll::Ready(Ok(ValueOrStreamOrFut2::Stream(s)))
+//                         }
+//                         ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
+//                             return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
+//                                 ctx, input, req,
+//                             )));
+//                         }
+//                     }
+//                 }
+//                 Poll::Pending => return Poll::Pending,
+//             },
+//             PinnedOptionProj::None => {}
+//         }
 
-        // match this.1.as_mut().project() {
-        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-        //         Poll::Ready(result) => {
-        //             this.1.set(PinnedOption::None);
-        //             return Poll::Ready(result);
-        //         }
-        //         Poll::Pending => return Poll::Pending,
-        //     },
-        //     PinnedOptionProj::None => {}
-        // }
+//         // match this.1.as_mut().project() {
+//         //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+//         //         Poll::Ready(result) => {
+//         //             this.1.set(PinnedOption::None);
+//         //             return Poll::Ready(result);
+//         //         }
+//         //         Poll::Pending => return Poll::Pending,
+//         //     },
+//         //     PinnedOptionProj::None => {}
+//         // }
 
-        unreachable!()
-    }
-}
+//         unreachable!()
+//     }
+// }
 
 // TODO: Removing this?
 pub(crate) enum FutOrValue<T: Future<Output = Result<Value, crate::Error>>> {
