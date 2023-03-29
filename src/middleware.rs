@@ -347,7 +347,7 @@ pub struct MiddlewareFutOrSomething<
     TMiddleware: Layer<TNewCtx> + 'static,
 >(
     #[pin] pub(crate) PinnedOption<THandlerFut>,
-    pub(crate) &'a Arc<TMiddleware>,
+    pub(crate) &'a TMiddleware,
 ); // TODO: Remove `.1`
 
 impl<
@@ -371,9 +371,7 @@ impl<
             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                 Poll::Ready(Ok(handler)) => {
                     this.0.set(PinnedOption::None);
-                    // let fut = this.1.call(handler.ctx, handler.input, handler.req); // TODO
-
-                    let ctx: Box<dyn Any + Send + 'static> = Box::new(handler.ctx); // TODO: Add generics so this isn't allocated
+                    let fut = this.1.call(handler.ctx, handler.input, handler.req); // TODO
 
                     todo!();
 
