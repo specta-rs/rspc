@@ -13,6 +13,7 @@ use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
+    alpha::Executable2,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureDataType,
         ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder, ValueOrStream,
@@ -409,7 +410,8 @@ where
             PinnedOption::Some(fut),
             &self.next,
             PinnedOption::None,
-            PhantomData,
+            None,
+            PinnedOption::None,
         )
     }
 }
@@ -423,6 +425,7 @@ pub(crate) enum PinnedOption<T> {
 
 // TODO: Rename this type
 // TODO: Cleanup generics on this
+// TODO: Use named fields!!!!!
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
 pub struct MiddlewareFutOrSomething<
     'a,
@@ -431,17 +434,12 @@ pub struct MiddlewareFutOrSomething<
     TMarker: Send + Sync + 'static,
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
-    // TState: Clone + Send + Sync + 'static,
-    // TLayerCtx: Send + 'static,
-    // TNewCtx: Send + 'static,
-    // THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-    //     + Send
-    //     + 'static,
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
     &'a TMiddleware,
     #[pin] PinnedOption<TMiddleware::Fut<'a>>,
-    PhantomData<()>,
+    Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
+    #[pin] PinnedOption<<<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
 );
 
 impl<
@@ -450,19 +448,11 @@ impl<
         TMarker: Send + Sync + 'static,
         TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
         TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
-        // TState: Clone + Send + Sync + 'static,
-        // TLayerCtx: Send + 'static,
-        // TNewCtx: Send + 'static,
-        // THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
-        //     + Send
-        //     + 'static,
-        // TMiddleware: AlphaLayer<TNewCtx> + 'static,
     > Future for MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>
-// TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware
 {
     type Output = Result<ValueOrStream, ExecError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         match this.0.as_mut().project() {
@@ -471,7 +461,7 @@ impl<
                     this.0.set(PinnedOption::None);
 
                     let (ctx, input, req, resp) = result.explode();
-                    // TODO: handle `resp`
+                    *this.3 = resp;
 
                     let fut = this.1.call(ctx, input, req);
                     this.2.set(PinnedOption::Some(fut));
@@ -486,8 +476,32 @@ impl<
                 Poll::Ready(result) => {
                     this.2.set(PinnedOption::None);
 
-                    // TODO: Execute `resp` here
-                    return Poll::Ready(result);
+                    match this.3.take() {
+                        Some(resp) => {
+                            // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
+                            let result = match result.unwrap() {
+                                ValueOrStream::Value(result) => result,
+                                // TODO: Executing `resp` for every value in a stream???
+                                ValueOrStream::Stream(_) => todo!(),
+                            };
+
+                            let fut = resp.call(result);
+                            this.4.set(PinnedOption::Some(fut));
+                        }
+                        None => return Poll::Ready(result),
+                    }
+                }
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
+
+        match this.4.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(result) => {
+                    this.4.set(PinnedOption::None);
+
+                    return Poll::Ready(Ok(ValueOrStream::Value(result)));
                 }
                 Poll::Pending => return Poll::Pending,
             },

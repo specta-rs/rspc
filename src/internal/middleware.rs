@@ -219,6 +219,7 @@ pub enum ValueOrStreamOrFutureStream {
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
+// TODO: Ensure this is removed from the old one
 #[deprecated = "Remove this cringe boy"]
 pub enum LayerResult {
     Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),

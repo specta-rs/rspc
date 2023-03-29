@@ -9,13 +9,13 @@ use crate::{alpha::MiddlewareArgMapper, internal::RequestContext};
 
 use super::{Fut, Ret};
 
-pub trait Executable2 {
-    type Fut: Future<Output = Value>;
+pub trait Executable2: Send + Sync + 'static {
+    type Fut: Future<Output = Value> + Send;
 
     fn call(self, v: Value) -> Self::Fut;
 }
 
-impl<TFut: Fut<Value>, TFunc: FnOnce(Value) -> TFut + 'static> Executable2 for TFunc {
+impl<TFut: Fut<Value>, TFunc: FnOnce(Value) -> TFut + Send + Sync + 'static> Executable2 for TFunc {
     type Fut = TFut;
 
     fn call(self, v: Value) -> Self::Fut {
