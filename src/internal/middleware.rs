@@ -258,16 +258,31 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         c: RequestContext,
     ) -> Result<FutureValueOrStream<'a>, ExecError> {
         Ok(Box::pin(async move {
-            match Layer::call(self, a, b, c).await? {
-                ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
-                ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
-                    let fut = mw.call(ctx, input, req).await;
-
-                    todo!();
-                }
-                ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
-            }
+            recursive_resolve(Layer::call(self, a, b, c).await?).await
+            // match Layer::call(self, a, b, c).await? {
+            //     ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
+            //     ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+            //         recursive_resolve(mw, ctx, input, req).await
+            //     }
+            //     ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
+            // }
         }))
+    }
+}
+
+async fn recursive_resolve<'a, TMiddleware, TNewCtx>(
+    result: ValueOrStreamOrFut2<'a, TMiddleware, TNewCtx>,
+) -> Result<ValueOrStream, ExecError>
+where
+    TMiddleware: Layer<TNewCtx> + 'static,
+    TNewCtx: 'static,
+{
+    match result {
+        ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
+        ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+            recursive_resolve(mw.call(ctx, input, req).await?).await
+        }
+        ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
     }
 }
 

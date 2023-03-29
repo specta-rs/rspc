@@ -1,13 +1,15 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, process};
 
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use specta::{Type, TypeDefs};
 
 use crate::{
     alpha_stable::ResolverFunction,
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, DynLayer, MiddlewareBuilderLike,
+        MiddlewareLayerBuilder, MiddlewareMerger, ProcedureStore, RequestContext, ResolverLayer,
+        UnbuiltProcedureBuilder, ValueOrStream,
     },
     Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router,
 };
@@ -173,12 +175,13 @@ where
     }
 
     #[track_caller]
-    pub fn query<TResolver, TArg, TResult, TResultMarker>(
+    pub async fn query<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
         builder: impl Fn(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
+        ctx: TCtx,
     ) where
         TArg: DeserializeOwned + Type,
         TResult: RequestLayer<TResultMarker>,
@@ -194,22 +197,60 @@ where
         }
 
         let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-        self.queries.append(
-            key.into(),
-            self.middleware.build(ResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver(
-                        ctx,
-                        serde_json::from_value(input)
-                            .map_err(ExecError::DeserializingArgErr)
-                            .unwrap(), // TODO: Don't unwrap
-                    )
-                    .into_layer_result()
+        // self.queries.append(
+        //     key.into(),
+        //     self.middleware.build(ResolverLayer {
+        //         func: move |ctx, input, _| {
+        //             resolver(
+        //                 ctx,
+        //                 serde_json::from_value(input)
+        //                     .map_err(ExecError::DeserializingArgErr)
+        //                     .unwrap(), // TODO: Don't unwrap
+        //             )
+        //             .into_layer_result()
+        //         },
+        //         phantom: PhantomData,
+        //     }),
+        //     <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
+        //         .unwrap(),
+        // );
+
+        self.queries;
+
+        let x = self.middleware.build(ResolverLayer {
+            func: move |ctx, input, _| {
+                resolver(
+                    ctx,
+                    serde_json::from_value(input)
+                        .map_err(ExecError::DeserializingArgErr)
+                        .unwrap(), // TODO: Don't unwrap
+                )
+                .into_layer_result()
+            },
+            phantom: PhantomData,
+        });
+
+        // TODO: Call this multiple times
+
+        let y = x
+            .dyn_call(
+                ctx,
+                Value::Null,
+                RequestContext {
+                    kind: crate::internal::ProcedureKind::Query,
+                    path: "todo".into(),
                 },
-                phantom: PhantomData,
-            }),
-            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-                .unwrap(),
+            )
+            .unwrap()
+            .await
+            .unwrap(); // TODO: This is a hack for testing
+
+        println!(
+            "{:?}",
+            match y {
+                ValueOrStream::Value(v) => v,
+                ValueOrStream::Stream(_) => panic!("Stream"),
+            }
         );
     }
 
