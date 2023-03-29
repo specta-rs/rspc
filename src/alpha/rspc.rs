@@ -57,7 +57,7 @@ where
         AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw, TMarker>,
     >
     where
-        TMarker: Send + 'static,
+        TMarker: Send + Sync + 'static,
         Mw: MwV2<TCtx, TMarker>
             + Fn(
                 AlphaMiddlewareContext<

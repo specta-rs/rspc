@@ -16,8 +16,9 @@ use crate::{
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, LayerResult, MiddlewareLayerBuilder,
         ProcedureDataType, ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
+        ValueOrStream,
     },
-    ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
+    ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, RequestLayer, SerializeMarker,
     StreamRequestLayer,
 };
 
@@ -274,16 +275,6 @@ use futures::Stream;
 use serde_json::Value;
 
 pub trait AlphaMiddlewareBuilderLike: Send + 'static {
-    // TODO: Newer stuff
-    // type LayerContext: 'static;
-    // type LayerResult<T>: Layer<TCtx>
-    // where
-    //     T: Layer<Self::LayerContext>;
-
-    // fn build<T>(self, next: T) -> Self::LayerResult<T>
-    // where
-    //     T: Layer<Self::LayerContext>;
-
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
@@ -340,7 +331,7 @@ impl<TLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaMiddlewareBuilderLike
     for AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + Sync + 'static,
-    TMarker: Send + 'static,
+    TMarker: Send + Sync + 'static,
     TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
     // TCtx: Send + Sync + 'static,
@@ -354,7 +345,7 @@ where
         MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
     type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
 
-    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, TNewMiddleware::NewCtx, T, TNewMiddleware>>
+    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, TNewMiddleware::NewCtx, T, TNewMiddleware, TMarker>>
     where
         T: AlphaLayer<Self::LayerCtx>;
 
@@ -362,42 +353,45 @@ where
     where
         T: AlphaLayer<Self::LayerCtx> + Sync,
     {
-        todo!();
-        // self.middleware.build(AlphaMiddlewareLayer {
-        //     next: Arc::new(next), // TODO: Removing `Arc`
-        //     mw: self.mw, // .replace().expect("Can't be built twice!"), // Cleanup error or make this impossible in the type system!
-        // })
+        self.middleware.build(AlphaMiddlewareLayer {
+            next,
+            mw: self.mw,
+            phantom: PhantomData,
+        })
     }
 }
 
-pub struct AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+pub struct AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + 'static,
     TNewLayerCtx: Send + 'static,
-    TMiddleware: Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
-    TNewMiddleware: Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+    TMiddleware: AlphaLayer<TNewLayerCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
+    // TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+    TMarker: Send + Sync + 'static,
 {
     next: TMiddleware,
     mw: TNewMiddleware, // TODO: TNewMiddleware::Fn,
-    phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
+    phantom: PhantomData<(TLayerCtx, TNewLayerCtx, TMarker)>,
 }
 
-impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> AlphaLayer<TLayerCtx>
-    for AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaLayer<TLayerCtx>
+    for AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + Sync + 'static,
     TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: Send + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
-    TNewMiddleware: Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+    TMiddleware: AlphaLayer<TNewLayerCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
+    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+    TMarker: Send + Sync + 'static,
 {
-    // type Fut<'a> = MiddlewareFutOrSomething<
-    //     'a,
-    //     TNewMiddleware::State,
-    //     TLayerCtx,
-    //     TNewLayerCtx,
-    //     TNewMiddleware::Fut2,
-    //     TMiddleware,
-    // >;
+    type Fut<'a> = MiddlewareFutOrSomething<
+        'a,
+        // (), // TODO: I think this is legacy mw state not mw mapper state and that is a problem: <TNewMiddleware::Result as MwV2Result>::MwMapper::State,
+        // TLayerCtx,
+        // TNewLayerCtx,
+        // TNewMiddleware::Fut,
+        // TMiddleware,
+    >;
 
     // fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
     //     // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
@@ -421,6 +415,81 @@ where
         req: RequestContext,
     ) -> Result<LayerResult, ExecError> {
         todo!();
+    }
+}
+
+#[pin_project(project = PinnedOptionProj)]
+pub(crate) enum PinnedOption<T> {
+    Some(#[pin] T),
+    None,
+}
+
+// TODO: Cleanup generics on this
+#[pin_project(project = MiddlewareFutOrSomethingProj)]
+pub struct MiddlewareFutOrSomething<
+    'a,
+    // TState: Clone + Send + Sync + 'static,
+    // TLayerCtx: Send + 'static,
+    // TNewCtx: Send + 'static,
+    // THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+    //     + Send
+    //     + 'static,
+    // TMiddleware: AlphaLayer<TNewCtx> + 'static,
+>(
+    // #[pin] PinnedOption<THandlerFut>,
+    // &'a TMiddleware,
+    // #[pin]PinnedOption<TMiddleware::Fut<'a>>,
+    PhantomData<&'a ()>,
+);
+
+impl<
+        'a,
+        // TState: Clone + Send + Sync + 'static,
+        // TLayerCtx: Send + 'static,
+        // TNewCtx: Send + 'static,
+        // THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
+        //     + Send
+        //     + 'static,
+        // TMiddleware: AlphaLayer<TNewCtx> + 'static,
+    > Future for MiddlewareFutOrSomething<'a>
+// TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware
+{
+    type Output = Result<ValueOrStream, ExecError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut this = self.project();
+
+        // match this.0.as_mut().project() {
+        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+        //         Poll::Ready(Ok(handler)) => {
+        //             this.0.set(PinnedOption::None);
+
+        //             let fut = this.1.call(handler.ctx, handler.input, handler.req);
+        //             // this.2.set(PinnedOption::Some(fut));
+        //             todo!();
+        //         }
+        //         Poll::Ready(Err(e)) => {
+        //             this.0.set(PinnedOption::None);
+        //             return Poll::Ready(Err(ExecError::ErrResolverError(e)));
+        //         }
+        //         Poll::Pending => return Poll::Pending,
+        //     },
+        //     PinnedOptionProj::None => {}
+        // }
+
+        // match this.2.as_mut().project() {
+        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+        //         Poll::Ready(result) => {
+        //             this.2.set(PinnedOption::None);
+
+        //             return Poll::Ready(result);
+        //         }
+        //         Poll::Pending => return Poll::Pending,
+        //     },
+        //     PinnedOptionProj::None => {}
+        // }
+
+        unreachable!()
     }
 }
 
@@ -467,27 +536,56 @@ where
     }
 }
 
-pub struct AlphaResolverLayer<TLayerCtx, T>
+// pub struct AlphaResolverLayer<TLayerCtx, T>
+// where
+//     TLayerCtx: Send + Sync + 'static,
+//     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
+//         + Send
+//         + Sync
+//         + 'static,
+// {
+//     pub func: T,
+//     pub phantom: PhantomData<TLayerCtx>,
+// }
+
+// impl<T, TLayerCtx> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
+// where
+//     TLayerCtx: Send + Sync + 'static,
+//     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
+//         + Send
+//         + Sync
+//         + 'static,
+// {
+//     type Fut<'a> = TFut;
+
+//     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
+//         (self.func)(a, b, c)
+//     }
+// }
+
+pub struct AlphaResolverLayer<TLayerCtx, T, TFut>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
-        + Send
-        + Sync
-        + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
+    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
     pub func: T,
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
+impl<T, TLayerCtx, TFut> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, TFut>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
-        + Send
-        + Sync
-        + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
+    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
+    type Fut<'a> = TFut;
+
     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-        (self.func)(a, b, c)
+        todo!()
     }
+
+    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
+    //     (self.func)(a, b, c)
+    // }
 }
