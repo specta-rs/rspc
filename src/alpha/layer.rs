@@ -3,7 +3,7 @@ use std::{future::Future, marker::PhantomData, pin::Pin};
 use serde_json::Value;
 
 use crate::{
-    internal::{LayerResult, RequestContext, ValueOrStream},
+    internal::{RequestContext, ValueOrStream},
     ExecError,
 };
 

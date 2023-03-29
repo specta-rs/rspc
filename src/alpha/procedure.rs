@@ -14,9 +14,8 @@ use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, LayerResult, MiddlewareLayerBuilder,
-        ProcedureDataType, ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
-        ValueOrStream,
+        BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureDataType,
+        ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder, ValueOrStream,
     },
     ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, SerializeMarker,
 };
@@ -165,16 +164,25 @@ where
         //     key.to_string(),
         //     self.1.take().unwrap().build(AlphaResolverLayer {
         //         func: move |ctx, input, _| {
-        //             resolver.exec(
+        //             let fut = resolver.exec(
         //                 ctx,
-        //                 serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-        //             )
-        //             // .into_layer_result()
+        //                 serde_json::from_value(input)
+        //                     .map_err(ExecError::DeserializingArgErr)
+        //                     .unwrap(), // TODO: Error handling
+        //             );
+
+        //             async move {
+        //                 // let f = fut.await;
+
+        //                 // todo!();
+        //                 fut.into_layer_result()
+        //             }
         //         },
         //         phantom: PhantomData,
         //     }),
         //     R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
         // );
+        todo!();
     }
 }
 

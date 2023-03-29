@@ -174,125 +174,125 @@ where
         }
     }
 
-    #[track_caller]
-    pub fn query<TResolver, TArg, TResult, TResultMarker>(
-        mut self,
-        key: &'static str,
-        builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
-    ) -> Self
-    where
-        TArg: DeserializeOwned + Type,
-        TResult: AlphaRequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    {
-        if is_invalid_procedure_name(key) {
-            eprintln!(
-                "{}: rspc error: attempted to attach a query with the key '{}', however this name is not allowed. ",
-                Location::caller(),
-                key
-            );
-            process::exit(1);
-        }
+    // #[track_caller]
+    // pub fn query<TResolver, TArg, TResult, TResultMarker>(
+    //     mut self,
+    //     key: &'static str,
+    //     builder: impl Fn(
+    //         UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+    //     ) -> BuiltProcedureBuilder<TResolver>,
+    // ) -> Self
+    // where
+    //     TArg: DeserializeOwned + Type,
+    //     TResult: RequestLayer<TResultMarker>,
+    //     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    // {
+    //     if is_invalid_procedure_name(key) {
+    //         eprintln!(
+    //             "{}: rspc error: attempted to attach a query with the key '{}', however this name is not allowed. ",
+    //             Location::caller(),
+    //             key
+    //         );
+    //         process::exit(1);
+    //     }
 
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-        self.queries.append(
-            key.into(),
-            self.middleware.build(ResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                    .into_layer_result()
-                },
-                phantom: PhantomData,
-            }),
-            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-                .unwrap(),
-        );
-        self
-    }
+    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+    //     self.queries.append(
+    //         key.into(),
+    //         self.middleware.build(ResolverLayer {
+    //             func: move |ctx, input, _| {
+    //                 resolver(
+    //                     ctx,
+    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+    //                 )
+    //                 .into_layer_result()
+    //             },
+    //             phantom: PhantomData,
+    //         }),
+    //         <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
+    //             .unwrap(),
+    //     );
+    //     self
+    // }
 
-    #[track_caller]
-    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
-        mut self,
-        key: &'static str,
-        builder: impl Fn(
-            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-        ) -> BuiltProcedureBuilder<TResolver>,
-    ) -> Self
-    where
-        TArg: DeserializeOwned + Type,
-        TResult: AlphaRequestLayer<TResultMarker>,
-        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    {
-        if is_invalid_procedure_name(key) {
-            eprintln!(
-                "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
-                Location::caller(),
-                key
-            );
-            process::exit(1);
-        }
+    // #[track_caller]
+    // pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+    //     mut self,
+    //     key: &'static str,
+    //     builder: impl Fn(
+    //         UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+    //     ) -> BuiltProcedureBuilder<TResolver>,
+    // ) -> Self
+    // where
+    //     TArg: DeserializeOwned + Type,
+    //     TResult: RequestLayer<TResultMarker>,
+    //     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    // {
+    //     if is_invalid_procedure_name(key) {
+    //         eprintln!(
+    //             "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
+    //             Location::caller(),
+    //             key
+    //         );
+    //         process::exit(1);
+    //     }
 
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-        self.mutations.append(
-            key.into(),
-            self.middleware.build(ResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                    .into_layer_result()
-                },
-                phantom: PhantomData,
-            }),
-            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-                .unwrap(),
-        );
-        self
-    }
+    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+    //     self.mutations.append(
+    //         key.into(),
+    //         self.middleware.build(ResolverLayer {
+    //             func: move |ctx, input, _| {
+    //                 resolver(
+    //                     ctx,
+    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+    //                 )
+    //                 .into_layer_result()
+    //             },
+    //             phantom: PhantomData,
+    //         }),
+    //         <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
+    //             .unwrap(),
+    //     );
+    //     self
+    // }
 
-    #[track_caller]
-    pub fn subscription<F, TArg, TResult, TResultMarker>(
-        mut self,
-        key: &'static str,
-        builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
-    ) -> Self
-    where
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        TArg: DeserializeOwned + Type,
-        TResult: AlphaStreamRequestLayer<TResultMarker>,
-    {
-        if is_invalid_procedure_name(key) {
-            eprintln!(
-                "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
-                Location::caller(),
-                key
-            );
-            process::exit(1);
-        }
+    // #[track_caller]
+    // pub fn subscription<F, TArg, TResult, TResultMarker>(
+    //     mut self,
+    //     key: &'static str,
+    //     builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
+    // ) -> Self
+    // where
+    //     F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    //     TArg: DeserializeOwned + Type,
+    //     TResult: AlphaStreamRequestLayer<TResultMarker>,
+    // {
+    //     if is_invalid_procedure_name(key) {
+    //         eprintln!(
+    //             "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
+    //             Location::caller(),
+    //             key
+    //         );
+    //         process::exit(1);
+    //     }
 
-        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-        self.subscriptions.append(
-            key.into(),
-            self.middleware.build(ResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                    .into_layer_result()
-                },
-                phantom: PhantomData,
-            }),
-            <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
-        );
-        self
-    }
+    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+    //     self.subscriptions.append(
+    //         key.into(),
+    //         self.middleware.build(ResolverLayer {
+    //             func: move |ctx, input, _| {
+    //                 resolver(
+    //                     ctx,
+    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+    //                 )
+    //                 .into_layer_result()
+    //             },
+    //             phantom: PhantomData,
+    //         }),
+    //         <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
+    //     );
+    //     self
+    // }
 
     #[track_caller]
     pub fn merge<TNewLayerCtx, TIncomingMiddleware>(

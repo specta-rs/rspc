@@ -15,6 +15,8 @@ use crate::{
 
 use super::AlphaLayer;
 
+// TODO: Remove `LayerResult` from this file
+
 // TODO: Rename
 pub trait Mw<TLayerCtx, TPrevMwMapper>:
     Fn(AlphaMiddlewareBuilder<TLayerCtx, TPrevMwMapper, ()>) -> Self::NewMiddleware
