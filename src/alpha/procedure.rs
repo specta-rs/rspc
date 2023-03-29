@@ -160,22 +160,23 @@ where
             RequestKind::Mutation => &mut ctx.mutations,
         };
 
-        m.append_alpha(
-            key.to_string(),
-            self.1.take().unwrap().build(AlphaResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver
-                        .exec(
-                            ctx,
-                            serde_json::from_value(input)
-                                .map_err(ExecError::DeserializingArgErr)?,
-                        )
-                        .into_layer_result()
-                },
-                phantom: PhantomData,
-            }),
-            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
-        );
+        // m.append_alpha(
+        //     key.to_string(),
+        //     self.1.take().unwrap().build(AlphaResolverLayer {
+        //         func: move |ctx, input, _| {
+        //             resolver
+        //                 .exec(
+        //                     ctx,
+        //                     serde_json::from_value(input)
+        //                         .map_err(ExecError::DeserializingArgErr)?,
+        //                 )
+        //                 .into_layer_result()
+        //         },
+        //         phantom: PhantomData,
+        //     }),
+        //     R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
+        // );
+        todo!();
     }
 }
 
@@ -190,22 +191,23 @@ where
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
-        ctx.subscriptions.append_alpha(
-            key.to_string(),
-            self.1.take().unwrap().build(AlphaResolverLayer {
-                func: move |ctx, input, _| {
-                    resolver
-                        .exec(
-                            ctx,
-                            serde_json::from_value(input)
-                                .map_err(ExecError::DeserializingArgErr)?,
-                        )
-                        .into_layer_result()
-                },
-                phantom: PhantomData,
-            }),
-            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
-        );
+        // ctx.subscriptions.append_alpha(
+        //     key.to_string(),
+        //     self.1.take().unwrap().build(AlphaResolverLayer {
+        //         func: move |ctx, input, _| {
+        //             resolver
+        //                 .exec(
+        //                     ctx,
+        //                     serde_json::from_value(input)
+        //                         .map_err(ExecError::DeserializingArgErr)?,
+        //                 )
+        //                 .into_layer_result()
+        //         },
+        //         phantom: PhantomData,
+        //     }),
+        //     R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
+        // );
+        todo!();
     }
 }
 
