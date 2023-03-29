@@ -83,7 +83,7 @@ where
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     type LayerContext = TNewLayerCtx;
-    type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TLayerCtx, TNewLayerCtx, T, TNewMiddleware>> // TODO
+    type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TLayerCtx, TNewLayerCtx, T, TNewMiddleware>>
     where
         T: Layer<Self::LayerContext>;
 
@@ -91,11 +91,9 @@ where
     where
         T: Layer<Self::LayerContext> + Sync,
     {
-        let func = self.mw.explode();
-
         self.middleware.build(MiddlewareLayer {
-            next: Arc::new(next), // Avoiding `Arc`
-            mw: func, // self.mw.clone(),  // TODO: Avoid `Clone` bound when `build` takes `self`
+            next,
+            mw: self.mw.explode(),
             phantom: PhantomData,
         })
     }
@@ -108,8 +106,7 @@ where
     TMiddleware: Layer<TNewLayerCtx> + 'static,
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
-    next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
-    // mw: TNewMiddleware,
+    next: TMiddleware,
     mw: TNewMiddleware::Fn,
     phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
 }

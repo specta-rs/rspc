@@ -12,7 +12,7 @@ use crate::{
     ExecError,
 };
 
-pub trait MiddlewareLike<TLayerCtx>: Clone {
+pub trait MiddlewareLike<TLayerCtx> {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
