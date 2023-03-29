@@ -293,7 +293,7 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     where
         T: AlphaLayer<Self::LayerCtx>;
 
-    fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: AlphaLayer<Self::LayerCtx>;
 }
@@ -358,7 +358,7 @@ where
     where
         T: AlphaLayer<Self::LayerCtx>;
 
-    fn build<T>(self, next: T) -> Box<dyn AlphaLayer<TMiddleware::Ctx>>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: AlphaLayer<Self::LayerCtx> + Sync,
     {
@@ -524,11 +524,11 @@ where
     where
         T: AlphaLayer<Self::LayerCtx>;
 
-    fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: AlphaLayer<Self::LayerCtx>,
     {
-        Box::new(next)
+        next
     }
 }
 
