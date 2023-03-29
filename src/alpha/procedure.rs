@@ -410,28 +410,25 @@ where
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
     TMarker: Send + Sync + 'static,
 {
-    type Fut<'a> = MiddlewareFutOrSomething<
-        'a,
-        // (), // TODO: I think this is legacy mw state not mw mapper state and that is a problem: <TNewMiddleware::Result as MwV2Result>::MwMapper::State,
-        // TLayerCtx,
-        // TNewLayerCtx,
-        // TNewMiddleware::Fut,
-        // TMiddleware,
-    >;
+    type Fut<'a> =
+        MiddlewareFutOrSomething<'a, TLayerCtx, TNewLayerCtx, TMarker, TNewMiddleware, TMiddleware>;
 
     fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
-        // let handler = (self.mw)(MiddlewareContext {
-        //     state: (),
-        //     ctx,
-        //     input,
-        //     req,
-        //     phantom: PhantomData,
-        // });
+        let (out, state) = <TNewMiddleware::Result as MwV2Result>::MwMapper::map::<serde_json::Value>(
+            serde_json::from_value(input).unwrap(),
+        );
 
-        // // TODO: Avoid taking ownership of `next`
-        // MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next, PinnedOption::None)
+        let fut = self.mw.run_me(
+            ctx,
+            super::middleware::AlphaMiddlewareContext {
+                input: serde_json::to_value(&out).unwrap(),
+                req,
+                state,
+                _priv: (),
+            },
+        );
 
-        todo!();
+        MiddlewareFutOrSomething(PinnedOption::Some(fut), &self.next, PhantomData)
     }
 }
 
@@ -447,22 +444,32 @@ pub(crate) enum PinnedOption<T> {
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
 pub struct MiddlewareFutOrSomething<
     'a,
+    // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
+    TLayerCtx: Send + Sync + 'static,
+    TNewLayerCtx: Send + Sync + 'static,
+    TMarker: Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
+    TMiddleware: AlphaLayer<TNewLayerCtx> + 'static,
     // TState: Clone + Send + Sync + 'static,
     // TLayerCtx: Send + 'static,
     // TNewCtx: Send + 'static,
     // THandlerFut: Future<Output = Result<MiddlewareContext<TLayerCtx, TNewCtx, TState>, crate::Error>>
     //     + Send
     //     + 'static,
-    // TMiddleware: AlphaLayer<TNewCtx> + 'static,
 >(
-    // #[pin] PinnedOption<THandlerFut>,
-    // &'a TMiddleware,
+    #[pin] PinnedOption<TNewMiddleware::Fut>,
+    &'a TMiddleware,
     // #[pin]PinnedOption<TMiddleware::Fut<'a>>,
-    PhantomData<&'a ()>,
+    PhantomData<TNewLayerCtx>,
 );
 
 impl<
         'a,
+        TLayerCtx: Send + Sync + 'static,
+        TNewLayerCtx: Send + Sync + 'static,
+        TMarker: Send + Sync + 'static,
+        TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TMiddleware: AlphaLayer<TNewLayerCtx> + 'static,
         // TState: Clone + Send + Sync + 'static,
         // TLayerCtx: Send + 'static,
         // TNewCtx: Send + 'static,
@@ -470,7 +477,8 @@ impl<
         //     + Send
         //     + 'static,
         // TMiddleware: AlphaLayer<TNewCtx> + 'static,
-    > Future for MiddlewareFutOrSomething<'a>
+    > Future
+    for MiddlewareFutOrSomething<'a, TLayerCtx, TNewLayerCtx, TMarker, TNewMiddleware, TMiddleware>
 // TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware
 {
     type Output = Result<ValueOrStream, ExecError>;
@@ -478,23 +486,35 @@ impl<
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
-        // match this.0.as_mut().project() {
-        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-        //         Poll::Ready(Ok(handler)) => {
-        //             this.0.set(PinnedOption::None);
+        match this.0.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(result) => {
+                    this.0.set(PinnedOption::None);
 
-        //             let fut = this.1.call(handler.ctx, handler.input, handler.req);
-        //             // this.2.set(PinnedOption::Some(fut));
-        //             todo!();
-        //         }
-        //         Poll::Ready(Err(e)) => {
-        //             this.0.set(PinnedOption::None);
-        //             return Poll::Ready(Err(ExecError::ErrResolverError(e)));
-        //         }
-        //         Poll::Pending => return Poll::Pending,
-        //     },
-        //     PinnedOptionProj::None => {}
-        // }
+                    let (ctx, resp) = result.explode();
+
+                    // TODO: handle `resp`
+
+                    // let fut = this.1.call(ctx, handler.input, handler.req);
+                    // this.2.set(PinnedOption::Some(fut));
+                    todo!();
+                }
+
+                // Poll::Ready(Ok(handler)) => {
+                //     this.0.set(PinnedOption::None);
+
+                //     // let fut = this.1.call(handler.ctx, handler.input, handler.req);
+                //     // this.2.set(PinnedOption::Some(fut));
+                //     todo!();
+                // }
+                // Poll::Ready(Err(e)) => {
+                //     this.0.set(PinnedOption::None);
+                //     return Poll::Ready(Err(ExecError::ErrResolverError(e)));
+                // }
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
 
         // match this.2.as_mut().project() {
         //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {

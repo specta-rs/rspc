@@ -15,7 +15,8 @@ pub struct AlphaMiddlewareContext<MState> {
     pub input: Value,
     pub req: RequestContext,
     pub state: MState,
-    _priv: (),
+    // Prevents downstream user constructing type
+    pub(crate) _priv: (),
 }
 
 impl<MState> AlphaMiddlewareContext<MState> {

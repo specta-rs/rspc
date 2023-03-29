@@ -53,6 +53,17 @@ async fn main() {
             })
             .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
         )
+        .procedure(
+            "version4",
+            R.with(|mw, ctx| async move {
+                println!("MW ONE");
+                mw.next(ctx).resp(|result| async move {
+                    println!("MW ONE RESULT: {result:?}");
+                    result
+                })
+            })
+            .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+        )
         .compat()
         .arced();
 

@@ -29,7 +29,7 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
 
     fn run_me(
         &self,
-        ctx: Self::NewCtx,
+        ctx: TLCtx,
         mw: AlphaMiddlewareContext<
             <<Self::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
         >,
@@ -58,7 +58,7 @@ where
 
     fn run_me(
         &self,
-        ctx: Self::NewCtx,
+        ctx: TLCtx,
         mw: AlphaMiddlewareContext<<R::MwMapper as MiddlewareArgMapper>::State>,
     ) -> Self::Fut {
         self(mw, ctx)
