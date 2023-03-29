@@ -274,6 +274,16 @@ use futures::Stream;
 use serde_json::Value;
 
 pub trait AlphaMiddlewareBuilderLike: Send + 'static {
+    // TODO: Newer stuff
+    // type LayerContext: 'static;
+    // type LayerResult<T>: Layer<TCtx>
+    // where
+    //     T: Layer<Self::LayerContext>;
+
+    // fn build<T>(self, next: T) -> Self::LayerResult<T>
+    // where
+    //     T: Layer<Self::LayerContext>;
+
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
@@ -282,25 +292,6 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
     where
         T: AlphaLayer<Self::LayerCtx>;
-
-    // TODO: New stuff
-    type Ret<TRet: Ret>: Ret;
-    type Fut<TRet: Ret, TFut: Fut<TRet>>: Fut<Self::Ret<TRet>>; // TODO: Can this be replaced by `Result::Fut` -> I don't think so but try again
-    type Result<TRet: Ret, TFut: Fut<TRet>, T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>>: Executable<
-        Self::Ctx,
-        Self::IncomingState,
-        Self::Ret<TRet>,
-        Fut = Self::Fut<TRet, TFut>,
-    >;
-
-    fn map<
-        TRet: Ret,
-        TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
-    >(
-        self,
-        t: T,
-    ) -> Self::Result<TRet, TFut, T>;
 }
 
 pub struct MwArgMapperMerger<TPrev, TNext>(PhantomData<(TPrev, TNext)>)
@@ -364,37 +355,6 @@ where
         //     mw: self.mw, // .replace().expect("Can't be built twice!"), // Cleanup error or make this impossible in the type system!
         // })
     }
-
-    type Ret<TRet: Ret> = TRet;
-    type Fut<TRet: Ret, TFut: Fut<TRet>> = Ready<TRet>;
-    type Result<
-        TRet: Ret,
-        TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
-    > = Demo<Self::Ctx, Self::IncomingState, Self::Ret<TRet>>;
-
-    // GOAL: self.middleware(SomeType { mw: self.mw, next }) where SomeType calls `mw` then passes result to `next` then calls `mw.resp` with result
-    fn map<
-        TRet: Ret,
-        TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, Self::IncomingState, TRet, Fut = TFut>,
-    >(
-        self,
-        next: T,
-    ) -> Self::Result<TRet, TFut, T> {
-        // let a = self.mw.into_executable(); // TODO: pass in `next`
-        // let a = self.middleware.map(a);
-
-        todo!();
-    }
-
-    // fn map2() {
-    //     // TODO: `self.mw` on the result of `.map`
-
-    //     // TODO: Then finally `self.middleware` and return it
-    // }
-
-    // TODO: Resolve `t.middleware` then `t.mw`
 }
 
 pub struct AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
@@ -458,31 +418,6 @@ where
         T: AlphaLayer<Self::LayerCtx>,
     {
         Box::new(next)
-    }
-
-    type Ret<TRet: Ret> = TRet;
-    type Fut<TRet: Ret, TFut: Fut<TRet>> = TFut;
-    type Result<
-        TRet: Ret,
-        TFut: Fut<TRet>,
-        T: Executable<
-            Self::LayerCtx,
-            <Self::MwMapper as MiddlewareArgMapper>::State,
-            TRet,
-            Fut = TFut,
-        >,
-    > = T;
-
-    fn map<
-        TRet: Ret,
-        TFut: Fut<TRet>,
-        T: Executable<Self::Ctx, <Self::MwMapper as MiddlewareArgMapper>::State, TRet, Fut = TFut>,
-    >(
-        self,
-        t: T,
-    ) -> Self::Result<TRet, TFut, T> {
-        println!("BUILD BASE"); // TODO: Remove log
-        t
     }
 }
 
