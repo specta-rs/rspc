@@ -179,8 +179,7 @@ where
         builder: impl Fn(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
-    ) -> Self
-    where
+    ) where
         TArg: DeserializeOwned + Type,
         TResult: RequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
@@ -212,7 +211,6 @@ where
             <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
                 .unwrap(),
         );
-        self
     }
 
     // #[track_caller]

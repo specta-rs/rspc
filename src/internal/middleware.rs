@@ -19,7 +19,7 @@ pub trait MiddlewareBuilderLike<TCtx: 'static> {
     where
         T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Self::LayerResult<T>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>;
 }
@@ -50,7 +50,7 @@ where
     where
         T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Self::LayerResult<T>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>,
     {
@@ -87,7 +87,7 @@ where
     where
         T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Self::LayerResult<T>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext> + Sync,
     {
@@ -170,7 +170,7 @@ where
     where
         T: Layer<Self::LayerContext>;
 
-    fn build<T>(&self, next: T) -> Self::LayerResult<T>
+    fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerContext>,
     {
