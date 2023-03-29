@@ -243,32 +243,10 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
     TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
 {
-    type Fut<'a> = ResolverLayerFut<'a, TFut>;
+    type Fut<'a> = TFut;
 
     fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
-        ResolverLayerFut((self.func)(a, b, c), PhantomData)
-    }
-}
-
-// TODO: Does this future need to exist?
-#[pin_project(project = ResolverLayerFutProj)]
-pub struct ResolverLayerFut<
-    'a,
-    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
->(#[pin] TFut, PhantomData<&'a ()>);
-
-impl<'a, TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static> Future
-    for ResolverLayerFut<'a, TFut>
-{
-    type Output = Result<ValueOrStream, ExecError>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this.0.poll(cx) {
-            Poll::Ready(result) => Poll::Ready(result),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-            Poll::Pending => Poll::Pending,
-        }
+        (self.func)(a, b, c)
     }
 }
 
