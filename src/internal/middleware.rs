@@ -131,6 +131,7 @@ where
         TMiddleware,
     >; // TNewMiddleware::Fut<TMiddleware>;
     type Middleware = TMiddleware; // TODO
+    type NewCtx = TNewLayerCtx;
 
     // type Call2Fut = Ready<Result<ValueOrStreamOrFut2<'a, , ExecError>>; // TODO: NoShot<TNewLayerCtx, TMiddleware>;
 
@@ -206,10 +207,11 @@ where
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 // TODO: Document the types and functions so they make sense
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    type Fut<'a>: Future<Output = Result<ValueOrStreamOrFut2<'a, Self::Middleware>, ExecError>>
+    type Fut<'a>: Future<Output = Result<ValueOrStreamOrFut2<'a, Self::Middleware, Self::NewCtx>, ExecError>>
         + Send
         + 'a;
-    type Middleware;
+    type Middleware: Layer<Self::NewCtx> + 'static;
+    type NewCtx: Send + 'static;
 
     // TODO: Remove it unused
     // type Call2Fut: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static;
@@ -221,6 +223,17 @@ pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static
         Self: Sized,
     {
         Box::new(self)
+    }
+}
+
+// TODO: Remove this
+impl Layer<()> for () {
+    type Fut<'a> = Ready<Result<ValueOrStreamOrFut2<'a, (), ()>, ExecError>>;
+    type Middleware = ();
+    type NewCtx = ();
+
+    fn call<'a>(&'a self, a: (), b: Value, c: RequestContext) -> Self::Fut<'a> {
+        unreachable!()
     }
 }
 
@@ -247,7 +260,9 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         Ok(Box::pin(async move {
             match Layer::call(self, a, b, c).await? {
                 ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
-                ValueOrStreamOrFut2::A(mw) => {
+                ValueOrStreamOrFut2::A(mw, ctx, input, req) => {
+                    let fut = mw.call(ctx, input, req).await;
+
                     todo!();
                 }
                 ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
@@ -274,7 +289,7 @@ where
 {
     type Fut<'a> = ResolverLayerFut<'a, TFut>;
     type Middleware = (); // TODO
-                          // type Call2Fut = Ready<Result<ValueOrStreamOrFut2<'static, ()>, ExecError>>; // Unused
+    type NewCtx = ();
 
     fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
         ResolverLayerFut((self.func)(a, b, c), PhantomData)
@@ -290,7 +305,7 @@ pub struct ResolverLayerFut<
 impl<'a, TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static> Future
     for ResolverLayerFut<'a, TFut>
 {
-    type Output = Result<ValueOrStreamOrFut2<'a, ()>, ExecError>;
+    type Output = Result<ValueOrStreamOrFut2<'a, (), ()>, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -344,9 +359,13 @@ pub enum ValueOrStream {
     // TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
 }
 
-pub enum ValueOrStreamOrFut2<'a, TMiddleware> {
+pub enum ValueOrStreamOrFut2<'a, TMiddleware, TNewCtx>
+where
+    TMiddleware: Layer<TNewCtx> + 'static,
+    TNewCtx: 'static,
+{
     Value(Value),
-    A(&'a TMiddleware),
+    A(&'a TMiddleware, TNewCtx, Value, RequestContext),
     // TODO: Take this type in as a generic
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
