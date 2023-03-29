@@ -4,6 +4,7 @@ use serde::de::DeserializeOwned;
 use specta::{Type, TypeDefs};
 
 use crate::{
+    alpha::{AlphaRequestLayer, AlphaStreamRequestLayer},
     alpha_stable::ResolverFunction,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
@@ -183,7 +184,7 @@ where
     ) -> Self
     where
         TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
+        TResult: AlphaRequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
         if is_invalid_procedure_name(key) {
@@ -224,7 +225,7 @@ where
     ) -> Self
     where
         TArg: DeserializeOwned + Type,
-        TResult: RequestLayer<TResultMarker>,
+        TResult: AlphaRequestLayer<TResultMarker>,
         TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     {
         if is_invalid_procedure_name(key) {
@@ -264,7 +265,7 @@ where
     where
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type,
-        TResult: StreamRequestLayer<TResultMarker>,
+        TResult: AlphaStreamRequestLayer<TResultMarker>,
     {
         if is_invalid_procedure_name(key) {
             eprintln!(

@@ -18,14 +18,14 @@ use crate::{
         ProcedureDataType, ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
         ValueOrStream,
     },
-    ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, RequestLayer, SerializeMarker,
-    StreamRequestLayer,
+    ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, SerializeMarker,
 };
 
 use super::{
-    AlphaLayer, AlphaMiddlewareBuilder, AlphaMiddlewareLike, Demo, Executable, Fut, IntoProcedure,
-    IntoProcedureCtx, MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike,
-    RequestKind, RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
+    AlphaLayer, AlphaMiddlewareBuilder, AlphaMiddlewareLike, AlphaRequestLayer,
+    AlphaStreamRequestLayer, Demo, Executable, Fut, IntoProcedure, IntoProcedureCtx,
+    MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike, RequestKind,
+    RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
 };
 
 /// This exists solely to make Rust shut up about unconstrained generic types
@@ -81,7 +81,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -97,7 +97,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -113,7 +113,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
@@ -150,11 +150,11 @@ impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
 where
     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: RequestLayer<R::RequestMarker>,
+    R::Result: AlphaRequestLayer<R::RequestMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
-        let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
+        let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc` by moving ownership to `AlphaResolverLayer`
 
         let m = match self.2.kind() {
             RequestKind::Query => &mut ctx.queries,
@@ -165,19 +165,16 @@ where
         //     key.to_string(),
         //     self.1.take().unwrap().build(AlphaResolverLayer {
         //         func: move |ctx, input, _| {
-        //             resolver
-        //                 .exec(
-        //                     ctx,
-        //                     serde_json::from_value(input)
-        //                         .map_err(ExecError::DeserializingArgErr)?,
-        //                 )
-        //                 .into_layer_result()
+        //             resolver.exec(
+        //                 ctx,
+        //                 serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+        //             )
+        //             // .into_layer_result()
         //         },
         //         phantom: PhantomData,
         //     }),
         //     R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
         // );
-        todo!();
     }
 }
 
@@ -186,7 +183,7 @@ impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
 where
     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: StreamRequestLayer<R::RequestMarker>,
+    R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
@@ -228,7 +225,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -409,12 +406,14 @@ where
     }
 }
 
+// TODO: move into utils file
 #[pin_project(project = PinnedOptionProj)]
 pub(crate) enum PinnedOption<T> {
     Some(#[pin] T),
     None,
 }
 
+// TODO: Rename this type
 // TODO: Cleanup generics on this
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
 pub struct MiddlewareFutOrSomething<

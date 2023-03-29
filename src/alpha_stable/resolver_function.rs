@@ -3,7 +3,11 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{internal::ProcedureDataType, RequestLayer, StreamRequestLayer};
+use crate::{
+    alpha::{AlphaRequestLayer, AlphaStreamRequestLayer},
+    internal::ProcedureDataType,
+    RequestLayer, StreamRequestLayer,
+};
 
 use super::{RequestLayerMarker, StreamLayerMarker};
 
@@ -53,7 +57,7 @@ impl<
     > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
     TArg: DeserializeOwned + Type,
-    TResult: RequestLayer<TResultMarker>,
+    TResult: AlphaRequestLayer<TResultMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;
@@ -77,7 +81,7 @@ impl<
     > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
     TArg: DeserializeOwned + Type,
-    TResult: StreamRequestLayer<TResultMarker>,
+    TResult: AlphaStreamRequestLayer<TResultMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;

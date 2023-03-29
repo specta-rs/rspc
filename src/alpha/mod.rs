@@ -9,6 +9,7 @@ mod middleware_old;
 pub mod mw2; // TODO: `pub use mw2::*;` on this
 mod procedure;
 mod procedure_like;
+mod resolver_result;
 mod router;
 mod router_builder_like;
 mod rspc;
@@ -20,6 +21,7 @@ pub use middleware::*;
 pub use middleware_old::*;
 pub use procedure::*;
 pub use procedure_like::*;
+pub use resolver_result::*;
 pub use router::*;
 pub use router_builder_like::*;
 
@@ -39,7 +41,6 @@ mod tests {
             procedure::AlphaProcedure, AlphaBaseMiddleware, MiddlewareArgMapper, Mw, ProcedureLike,
         },
         internal::ProcedureKind,
-        RequestLayer,
     };
 
     use super::Rspc;

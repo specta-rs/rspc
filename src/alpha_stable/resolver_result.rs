@@ -6,6 +6,8 @@ pub enum RequestKind {
     Mutation,
 }
 
+// TODO: I don't wanna call these markers cause they are runtime not just type level. Rename them.
+
 pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
 
 impl<T> RequestLayerMarker<T> {

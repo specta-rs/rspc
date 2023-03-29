@@ -4,12 +4,13 @@ use specta::TypeDefs;
 
 use crate::{
     internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
-    Config, RequestLayer, Router, RouterBuilder, RouterBuilderLike, StreamRequestLayer,
+    Config, Router, RouterBuilder, RouterBuilderLike,
 };
 
 use super::{
-    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareLike, AlphaRouterBuilderLike,
-    ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareLike, AlphaRequestLayer,
+    AlphaRouterBuilderLike, AlphaStreamRequestLayer, ProcedureList, RequestKind,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
 };
 
 pub struct AlphaRouter<TCtx>
@@ -50,7 +51,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::ResultMarker>,
+        R::Result: AlphaRequestLayer<R::ResultMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -66,7 +67,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::ResultMarker>,
+        R::Result: AlphaRequestLayer<R::ResultMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -82,7 +83,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),
