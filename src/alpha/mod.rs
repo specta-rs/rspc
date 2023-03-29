@@ -6,7 +6,6 @@ mod error;
 mod layer;
 mod middleware;
 mod middleware_old;
-pub mod mw2; // TODO: `pub use mw2::*;` on this
 mod procedure;
 mod procedure_like;
 mod resolver_result;
