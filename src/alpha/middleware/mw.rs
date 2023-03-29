@@ -19,14 +19,7 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Result: MwV2Result<Ctx = Self::NewCtx>;
     type NewCtx: Send + Sync + 'static;
 
-    type Executable: Executable<
-        TLCtx,
-        <<Self::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
-        Value,
-    >;
-
-    // fn into_executable(self) -> Self::Executable;
-
+    // TODO: Rename
     fn run_me(
         &self,
         ctx: TLCtx,
@@ -50,12 +43,6 @@ where
     type Result = R;
     type NewCtx = TLCtx; // TODO: Make this work with context switching
 
-    type Executable = Demo<TLCtx, <R::MwMapper as MiddlewareArgMapper>::State, Value>; // TODO: Custom type here
-
-    // fn into_executable(self) -> Self::Executable {
-    //     todo!();
-    // }
-
     fn run_me(
         &self,
         ctx: TLCtx,
@@ -64,19 +51,3 @@ where
         self(mw, ctx)
     }
 }
-
-// pub struct ExecutableMwV2<TLCtx, TMarker: Send, T: MwV2<TLCtx, TMarker>>(
-//     T,
-//     PhantomData<(TLCtx, TMarker)>,
-// );
-
-// impl<TLCtx, TMarker: Send, T: MwV2<TLCtx, TMarker>>
-//     Executable<TLCtx, <R::MwMapper as MiddlewareArgMapper>::State, R::>
-//     for ExecutableMwV2<TLCtx, TMarker, T>
-// {
-//     type Fut;
-
-//     fn call(&self, ctx: TLCtx, input: Value, req: RequestContext, state: TState) -> Self::Fut {
-//         todo!()
-//     }
-// }
