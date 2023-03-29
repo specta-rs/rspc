@@ -383,9 +383,7 @@ where
 
         Ok(LayerResult::FutureValueOrStream(Box::pin(async move {
             let handler = handler.await?;
-            next.call(handler.ctx, handler.input, handler.req)?
-                .into_value_or_stream()
-                .await
+            next.call(handler.ctx, handler.input, handler.req).await
         })))
     }
 }
@@ -460,11 +458,7 @@ where
                 let handler = handler.await?;
 
                 Ok(
-                    match next
-                        .call(handler.ctx, handler.input, handler.req)?
-                        .into_value_or_stream()
-                        .await?
-                    {
+                    match next.call(handler.ctx, handler.input, handler.req).await? {
                         ValueOrStream::Value(v) => {
                             ValueOrStreamOrFutureStream::Value(f(handler.state, v).await?)
                         }

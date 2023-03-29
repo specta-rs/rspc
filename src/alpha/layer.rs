@@ -11,9 +11,7 @@ use crate::{
 pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
     type Fut<'a>: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a;
 
-    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
-
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError>;
+    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where

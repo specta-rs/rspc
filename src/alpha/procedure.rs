@@ -393,27 +393,18 @@ where
         // TMiddleware,
     >;
 
-    // fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
-    //     // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
+    fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
+        // let handler = (self.mw)(MiddlewareContext {
+        //     state: (),
+        //     ctx,
+        //     input,
+        //     req,
+        //     phantom: PhantomData,
+        // });
 
-    //     let handler = (self.mw)(MiddlewareContext {
-    //         state: (),
-    //         ctx,
-    //         input,
-    //         req,
-    //         phantom: PhantomData,
-    //     });
+        // // TODO: Avoid taking ownership of `next`
+        // MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next, PinnedOption::None)
 
-    //     // TODO: Avoid taking ownership of `next`
-    //     MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next, PinnedOption::None)
-    // }
-
-    fn call(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-    ) -> Result<LayerResult, ExecError> {
         todo!();
     }
 }
@@ -536,33 +527,6 @@ where
     }
 }
 
-// pub struct AlphaResolverLayer<TLayerCtx, T>
-// where
-//     TLayerCtx: Send + Sync + 'static,
-//     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
-//         + Send
-//         + Sync
-//         + 'static,
-// {
-//     pub func: T,
-//     pub phantom: PhantomData<TLayerCtx>,
-// }
-
-// impl<T, TLayerCtx> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
-// where
-//     TLayerCtx: Send + Sync + 'static,
-//     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
-//         + Send
-//         + Sync
-//         + 'static,
-// {
-//     type Fut<'a> = TFut;
-
-//     fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-//         (self.func)(a, b, c)
-//     }
-// }
-
 pub struct AlphaResolverLayer<TLayerCtx, T, TFut>
 where
     TLayerCtx: Send + Sync + 'static,
@@ -581,11 +545,7 @@ where
 {
     type Fut<'a> = TFut;
 
-    fn call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> Result<LayerResult, ExecError> {
-        todo!()
+    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
+        (self.func)(a, b, c)
     }
-
-    // fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
-    //     (self.func)(a, b, c)
-    // }
 }
