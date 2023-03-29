@@ -1,5 +1,6 @@
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::HashMap};
 
+use once_cell::sync::Lazy;
 use serde_json::Value;
 use specta::{DataType, DataTypeFrom};
 
@@ -52,14 +53,15 @@ pub struct Procedure<TCtx> {
 
 pub struct ProcedureStore<TCtx> {
     name: &'static str,
-    pub(crate) store: BTreeMap<String, Procedure<TCtx>>,
+    // TODO: Avoiding `Lazy` cause it's overhead but `ahash` doesn't support `const fn new`
+    pub(crate) store: Lazy<ahash::HashMap<String, Procedure<TCtx>>>,
 }
 
 impl<TCtx> ProcedureStore<TCtx> {
     pub const fn new(name: &'static str) -> Self {
         Self {
             name,
-            store: BTreeMap::new(),
+            store: Lazy::new(|| Default::default()),
         }
     }
 

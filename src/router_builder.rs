@@ -1,5 +1,6 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, process};
 
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use specta::{Type, TypeDefs};
 
@@ -320,7 +321,7 @@ where
 
         // TODO: The `data` field has gotta flow from the root router to the leaf routers so that we don't have to merge user defined types.
 
-        for (key, query) in router.queries.store {
+        for (key, query) in Lazy::into_value(router.queries.store).unwrap().into_iter() {
             // query.ty.key = format!("{}{}", prefix, key);
             match query.exec {
                 EitherLayer::Legacy(exec) => {
@@ -335,7 +336,10 @@ where
             }
         }
 
-        for (key, mutation) in router.mutations.store {
+        for (key, mutation) in Lazy::into_value(router.mutations.store)
+            .unwrap()
+            .into_iter()
+        {
             // mutation.ty.key = format!("{}{}", prefix, key);
             match mutation.exec {
                 EitherLayer::Legacy(exec) => {
@@ -350,7 +354,10 @@ where
             }
         }
 
-        for (key, subscription) in router.subscriptions.store {
+        for (key, subscription) in Lazy::into_value(router.subscriptions.store)
+            .unwrap()
+            .into_iter()
+        {
             // subscription.ty.key = format!("{}{}", prefix, key);
 
             match subscription.exec {
@@ -416,7 +423,7 @@ where
             ..
         } = self;
 
-        for (key, query) in router.queries.store {
+        for (key, query) in Lazy::into_value(router.queries.store).unwrap().into_iter() {
             match query.exec {
                 EitherLayer::Legacy(exec) => {
                     queries.append(
@@ -430,7 +437,10 @@ where
             }
         }
 
-        for (key, mutation) in router.mutations.store {
+        for (key, mutation) in Lazy::into_value(router.mutations.store)
+            .unwrap()
+            .into_iter()
+        {
             match mutation.exec {
                 EitherLayer::Legacy(exec) => {
                     mutations.append(
@@ -444,7 +454,10 @@ where
             }
         }
 
-        for (key, subscription) in router.subscriptions.store {
+        for (key, subscription) in Lazy::into_value(router.subscriptions.store)
+            .unwrap()
+            .into_iter()
+        {
             match subscription.exec {
                 EitherLayer::Legacy(exec) => {
                     subscriptions.append(
@@ -458,7 +471,7 @@ where
             }
         }
 
-        for (name, typ) in router.typ_store {
+        for (name, typ) in router.typ_store.into_iter() {
             typ_store.insert(name, typ);
         }
 

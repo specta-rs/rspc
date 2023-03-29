@@ -110,17 +110,18 @@ where
         self.typ_store.clone()
     }
 
-    pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.queries.store
-    }
+    // TODO: Reenable these
+    // pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+    //     &self.queries.store
+    // }
 
-    pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.mutations.store
-    }
+    // pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+    //     &self.mutations.store
+    // }
 
-    pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.subscriptions.store
-    }
+    // pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+    //     &self.subscriptions.store
+    // }
 
     #[allow(clippy::unwrap_used)] // TODO
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
@@ -140,9 +141,9 @@ where
             )
         );
 
-        let queries_ts = generate_procedures_ts(&config, &self.queries.store);
-        let mutations_ts = generate_procedures_ts(&config, &self.mutations.store);
-        let subscriptions_ts = generate_procedures_ts(&config, &self.subscriptions.store);
+        let queries_ts = generate_procedures_ts(&config, self.queries.store.iter());
+        let mutations_ts = generate_procedures_ts(&config, self.mutations.store.iter());
+        let subscriptions_ts = generate_procedures_ts(&config, self.subscriptions.store.iter());
 
         // TODO: Specta API
         writeln!(
@@ -212,14 +213,13 @@ export type Procedures = {{
 }
 
 // TODO: Move this out into a Specta API
-fn generate_procedures_ts<Ctx>(
+fn generate_procedures_ts<'a, Ctx: 'a>(
     config: &ExportConfiguration,
-    procedures: &BTreeMap<String, Procedure<Ctx>>,
+    procedures: impl ExactSizeIterator<Item = (&'a String, &'a Procedure<Ctx>)>,
 ) -> String {
     match procedures.len() {
         0 => "never".to_string(),
         _ => procedures
-            .iter()
             .map(|(key, operation)| {
                 let input = match &operation.ty.input {
                     DataType::Tuple(def)

@@ -156,7 +156,8 @@ where
         match req.inner {
             RequestInner::Query { path, input } => {
                 match router
-                    .queries()
+                    .queries
+                    .store
                     .get(&path)
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                 {
@@ -213,7 +214,8 @@ where
             }
             RequestInner::Mutation { path, input } => {
                 match router
-                    .mutations()
+                    .mutations
+                    .store
                     .get(&path)
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                 {
@@ -271,7 +273,8 @@ where
             RequestInner::Subscription { path, input } => match sender.subscription() {
                 SubscriptionUpgrade::Supported(mut sender, mut subscriptions) => {
                     match router
-                        .subscriptions()
+                        .subscriptions
+                        .store
                         .get(&path)
                         .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                     {
