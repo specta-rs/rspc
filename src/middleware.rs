@@ -362,7 +362,7 @@ impl<
     > Future
     for MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
 {
-    type Output = Result<ValueOrStreamOrFut2, ExecError>;
+    type Output = Result<ValueOrStreamOrFut2<'a, TMiddleware>, ExecError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -371,7 +371,7 @@ impl<
             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                 Poll::Ready(Ok(handler)) => {
                     this.0.set(PinnedOption::None);
-                    let fut = this.1.call(handler.ctx, handler.input, handler.req); // TODO
+                    // let fut = this.1.call(handler.ctx, handler.input, handler.req); // TODO
 
                     todo!();
 
