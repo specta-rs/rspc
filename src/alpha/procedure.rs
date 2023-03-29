@@ -289,6 +289,10 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type MwMapper: MiddlewareArgMapper;
     type IncomingState: Send + 'static; // TODO: Merge this onto something else or take in as `IncomingMiddleware`?
 
+    type LayerResult<T>: AlphaLayer<Self::Ctx>
+    where
+        T: AlphaLayer<Self::LayerCtx>;
+
     fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
     where
         T: AlphaLayer<Self::LayerCtx>;
@@ -332,18 +336,27 @@ where
     pub(crate) phantom: PhantomData<TMarker>,
 }
 
-impl<TMiddleware, TNewMiddleware, TMarker> AlphaMiddlewareBuilderLike
+impl<TLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaMiddlewareBuilderLike
     for AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>
 where
-    TMiddleware: AlphaMiddlewareBuilderLike,
+    TLayerCtx: Send + Sync + 'static,
     TMarker: Send + 'static,
-    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+    TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
+    // TCtx: Send + Sync + 'static,
+    // TLayerCtx: Send + Sync + 'static,
+    // TNewLayerCtx: Send + Sync + 'static,
+    // TMiddleware: MwV2<TMiddleware::LayerCtx, TMarker> + Send + 'static,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
     type MwMapper =
         MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
     type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
+
+    type LayerResult<T> = TMiddleware::LayerResult<WorkingIsNice<TLayerCtx>> // TODO: AlphaMiddlewareLayer<TMiddleware::LayerCtx, TNewMiddleware::NewCtx, T, TNewMiddleware>>
+    where
+        T: AlphaLayer<Self::LayerCtx>;
 
     fn build<T>(self, next: T) -> Box<dyn AlphaLayer<TMiddleware::Ctx>>
     where
@@ -357,30 +370,124 @@ where
     }
 }
 
-pub struct AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
-where
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
-    TNewMiddleware: AlphaMiddlewareLike,
-{
-    next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
-    mw: TNewMiddleware,
-}
+// TODO: Replace this
+pub struct WorkingIsNice<TFuckOff>(PhantomData<TFuckOff>);
 
-impl<TMiddleware, TNewMiddleware> AlphaLayer<TNewMiddleware::LayerCtx>
-    for AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
-where
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
-    TNewMiddleware: AlphaMiddlewareLike,
-{
+impl<TFuckOff: Send + Sync + 'static> AlphaLayer<TFuckOff> for WorkingIsNice<TFuckOff> {
+    // type Fut<'a> = MiddlewareFutOrSomething<
+    //     'a,
+    //     TNewMiddleware::State,
+    //     TLayerCtx,
+    //     TNewLayerCtx,
+    //     TNewMiddleware::Fut2,
+    //     TMiddleware,
+    // >;
+
+    // fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
+    //     // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
+
+    //     let handler = (self.mw)(MiddlewareContext {
+    //         state: (),
+    //         ctx,
+    //         input,
+    //         req,
+    //         phantom: PhantomData,
+    //     });
+
+    //     // TODO: Avoid taking ownership of `next`
+    //     MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next, PinnedOption::None)
+    // }
+
     fn call(
         &self,
-        ctx: TNewMiddleware::LayerCtx,
+        ctx: TFuckOff,
         input: Value,
         req: RequestContext,
     ) -> Result<LayerResult, ExecError> {
-        self.mw.handle(ctx, input, req, self.next.clone())
+        todo!();
     }
 }
+
+// #[deprecated = "move to new one below"]
+// pub struct AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
+// where
+//     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
+//     // TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,,
+// {
+//     next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
+//     mw: TNewMiddleware,
+// }
+
+// impl<TMiddleware, TNewMiddleware> AlphaLayer<TNewMiddleware::LayerCtx>
+//     for AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
+// where
+//     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
+//     // TNewMiddleware: AlphaMiddlewareLike,
+// {
+//     fn call(
+//         &self,
+//         ctx: TNewMiddleware::LayerCtx,
+//         input: Value,
+//         req: RequestContext,
+//     ) -> Result<LayerResult, ExecError> {
+//         // self.mw.handle(ctx, input, req, self.next.clone())
+//         todo!();
+//     }
+// }
+
+// pub struct AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+// where
+//     TLayerCtx: Send + 'static,
+//     TNewLayerCtx: Send + 'static,
+//     TMiddleware: Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
+//     TNewMiddleware: Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+// {
+//     next: TMiddleware,
+//     mw: TNewMiddleware, // TODO: TNewMiddleware::Fn,
+//     phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
+// }
+
+// impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> AlphaLayer<TNewLayerCtx>
+//     for AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+// where
+//     TLayerCtx: Send + Sync + 'static,
+//     TNewLayerCtx: Send + Sync + 'static,
+//     TMiddleware: Send + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
+//     TNewMiddleware: Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+// {
+//     // type Fut<'a> = MiddlewareFutOrSomething<
+//     //     'a,
+//     //     TNewMiddleware::State,
+//     //     TLayerCtx,
+//     //     TNewLayerCtx,
+//     //     TNewMiddleware::Fut2,
+//     //     TMiddleware,
+//     // >;
+
+//     // fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
+//     //     // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
+
+//     //     let handler = (self.mw)(MiddlewareContext {
+//     //         state: (),
+//     //         ctx,
+//     //         input,
+//     //         req,
+//     //         phantom: PhantomData,
+//     //     });
+
+//     //     // TODO: Avoid taking ownership of `next`
+//     //     MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next, PinnedOption::None)
+//     // }
+
+//     fn call(
+//         &self,
+//         ctx: TLayerCtx,
+//         input: Value,
+//         req: RequestContext,
+//     ) -> Result<LayerResult, ExecError> {
+//         todo!();
+//     }
+// }
 
 pub struct AlphaBaseMiddleware<TCtx>(PhantomData<TCtx>)
 where
@@ -412,6 +519,10 @@ where
     type LayerCtx = TCtx;
     type MwMapper = ();
     type IncomingState = ();
+
+    type LayerResult<T> = T
+    where
+        T: AlphaLayer<Self::LayerCtx>;
 
     fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
     where

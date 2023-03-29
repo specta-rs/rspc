@@ -64,7 +64,10 @@ where
                     <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
                 >,
                 TCtx,
-            ) -> Mw::Fut,
+            ) -> Mw::Fut
+            + Send
+            + Sync
+            + 'static,
     {
         // let mw = builder(AlphaMiddlewareBuilder(PhantomData));
         // AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
