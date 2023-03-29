@@ -16,7 +16,7 @@ const R: Rspc<Ctx> = Rspc::new();
 async fn main() {
     let router = R
         .router()
-        .procedure("version2", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .procedure("version", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .compat()
         .arced();
 

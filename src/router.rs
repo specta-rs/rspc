@@ -42,7 +42,7 @@ pub enum ExecKind {
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
-    TCtx: 'static,
+    TCtx: Send + 'static,
 {
     pub async fn exec(
         &self,
@@ -67,8 +67,7 @@ where
                     kind,
                     path: key.clone(),
                 },
-            )?
-            .into_value_or_stream()
+            )
             .await?
         {
             ValueOrStream::Value(v) => Ok(v),
@@ -95,8 +94,7 @@ where
                     kind: ProcedureKind::Subscription,
                     path: key.clone(),
                 },
-            )?
-            .into_value_or_stream()
+            )
             .await?
         {
             ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),

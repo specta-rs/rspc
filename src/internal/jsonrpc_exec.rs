@@ -159,8 +159,10 @@ where
                     .queries()
                     .get(&path)
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
-                    .and_then(|v| {
-                        v.exec.call(
+                {
+                    Ok(op) => match op
+                        .exec
+                        .call(
                             ctx,
                             input.unwrap_or(Value::Null),
                             RequestContext {
@@ -168,8 +170,8 @@ where
                                 path,
                             },
                         )
-                    }) {
-                    Ok(op) => match op.into_value_or_stream().await {
+                        .await
+                    {
                         Ok(ValueOrStream::Value(v)) => {
                             sender
                                 .send(jsonrpc::Response {
@@ -214,8 +216,10 @@ where
                     .mutations()
                     .get(&path)
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
-                    .and_then(|v| {
-                        v.exec.call(
+                {
+                    Ok(op) => match op
+                        .exec
+                        .call(
                             ctx,
                             input.unwrap_or(Value::Null),
                             RequestContext {
@@ -223,8 +227,8 @@ where
                                 path,
                             },
                         )
-                    }) {
-                    Ok(op) => match op.into_value_or_stream().await {
+                        .await
+                    {
                         Ok(ValueOrStream::Value(v)) => {
                             sender
                                 .send(jsonrpc::Response {
@@ -270,8 +274,10 @@ where
                         .subscriptions()
                         .get(&path)
                         .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
-                        .and_then(|v| {
-                            v.exec.call(
+                    {
+                        Ok(op) => match op
+                            .exec
+                            .call(
                                 ctx,
                                 input.1.unwrap_or(Value::Null),
                                 RequestContext {
@@ -279,8 +285,8 @@ where
                                     path,
                                 },
                             )
-                        }) {
-                        Ok(op) => match op.into_value_or_stream().await {
+                            .await
+                        {
                             Ok(ValueOrStream::Value(_v)) => {
                                 unreachable!();
                             }

@@ -160,29 +160,23 @@ where
             RequestKind::Mutation => &mut ctx.mutations,
         };
 
-        // m.append_alpha(
-        //     key.to_string(),
-        //     self.1.take().unwrap().build(AlphaResolverLayer {
-        //         func: move |ctx, input, _| {
-        //             let fut = resolver.exec(
-        //                 ctx,
-        //                 serde_json::from_value(input)
-        //                     .map_err(ExecError::DeserializingArgErr)
-        //                     .unwrap(), // TODO: Error handling
-        //             );
-
-        //             async move {
-        //                 // let f = fut.await;
-
-        //                 // todo!();
-        //                 fut.into_layer_result()
-        //             }
-        //         },
-        //         phantom: PhantomData,
-        //     }),
-        //     R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
-        // );
-        todo!();
+        m.append_alpha(
+            key.to_string(),
+            self.1.take().unwrap().build(AlphaResolverLayer {
+                func: move |ctx, input, _| {
+                    resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)
+                                .unwrap(), // TODO: Error handling
+                        )
+                        .into_layer_result()
+                },
+                phantom: PhantomData,
+            }),
+            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
+        );
     }
 }
 
