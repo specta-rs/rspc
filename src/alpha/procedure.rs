@@ -122,26 +122,6 @@ impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMi
 where
     TMiddleware: AlphaMiddlewareBuilderLike + Sync,
 {
-    // pub fn with<TNewMiddleware>(
-    //     self,
-    //     builder: impl Fn(
-    //         AlphaMiddlewareBuilder<TMiddleware::LayerCtx, TMiddleware::MwMapper, ()>,
-    //     ) -> TNewMiddleware, // TODO: Remove builder closure
-    // ) -> AlphaProcedure<
-    //     MissingResolver<TNewMiddleware::NewCtx>,
-    //     (),
-    //     AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>,
-    // >
-    // where
-    //     TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TMiddleware::LayerCtx>,
-    // {
-    //     AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
-    //         middleware: self.1,
-    //         mw,
-    //         phantom: PhantomData,
-    //     })
-    // }
-
     pub fn with<TMarker, Mw>(
         self,
         mw: Mw,
@@ -371,7 +351,7 @@ where
         MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
     type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
 
-    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, TNewMiddleware::NewCtx, T, TNewMiddleware, TMarker>>
+    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, T, TNewMiddleware, TMarker>>
     where
         T: AlphaLayer<Self::LayerCtx>;
 
@@ -387,31 +367,28 @@ where
     }
 }
 
-pub struct AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMarker>
+pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + 'static,
-    TNewLayerCtx: Send + 'static,
-    TMiddleware: AlphaLayer<TNewLayerCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
     // TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
     TMarker: Send + Sync + 'static,
 {
     next: TMiddleware,
-    mw: TNewMiddleware, // TODO: TNewMiddleware::Fn,
-    phantom: PhantomData<(TLayerCtx, TNewLayerCtx, TMarker)>,
+    mw: TNewMiddleware,
+    phantom: PhantomData<(TLayerCtx, TMarker)>,
 }
 
-impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaLayer<TLayerCtx>
-    for AlphaMiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware, TMarker>
+impl<TLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaLayer<TLayerCtx>
+    for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + Sync + 'static,
-    TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewLayerCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
     TMarker: Send + Sync + 'static,
 {
-    type Fut<'a> =
-        MiddlewareFutOrSomething<'a, TLayerCtx, TNewLayerCtx, TMarker, TNewMiddleware, TMiddleware>;
+    type Fut<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>;
 
     fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
         let (out, state) = <TNewMiddleware::Result as MwV2Result>::MwMapper::map::<serde_json::Value>(
@@ -428,7 +405,12 @@ where
             },
         );
 
-        MiddlewareFutOrSomething(PinnedOption::Some(fut), &self.next, PhantomData)
+        MiddlewareFutOrSomething(
+            PinnedOption::Some(fut),
+            &self.next,
+            PinnedOption::None,
+            PhantomData,
+        )
     }
 }
 
@@ -446,10 +428,9 @@ pub struct MiddlewareFutOrSomething<
     'a,
     // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
     TLayerCtx: Send + Sync + 'static,
-    TNewLayerCtx: Send + Sync + 'static,
     TMarker: Send + Sync + 'static,
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewLayerCtx> + 'static,
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
     // TState: Clone + Send + Sync + 'static,
     // TLayerCtx: Send + 'static,
     // TNewCtx: Send + 'static,
@@ -459,17 +440,16 @@ pub struct MiddlewareFutOrSomething<
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
     &'a TMiddleware,
-    // #[pin]PinnedOption<TMiddleware::Fut<'a>>,
-    PhantomData<TNewLayerCtx>,
+    #[pin] PinnedOption<TMiddleware::Fut<'a>>,
+    PhantomData<()>,
 );
 
 impl<
         'a,
         TLayerCtx: Send + Sync + 'static,
-        TNewLayerCtx: Send + Sync + 'static,
         TMarker: Send + Sync + 'static,
         TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
-        TMiddleware: AlphaLayer<TNewLayerCtx> + 'static,
+        TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
         // TState: Clone + Send + Sync + 'static,
         // TLayerCtx: Send + 'static,
         // TNewCtx: Send + 'static,
@@ -477,8 +457,7 @@ impl<
         //     + Send
         //     + 'static,
         // TMiddleware: AlphaLayer<TNewCtx> + 'static,
-    > Future
-    for MiddlewareFutOrSomething<'a, TLayerCtx, TNewLayerCtx, TMarker, TNewMiddleware, TMiddleware>
+    > Future for MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>
 // TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware
 {
     type Output = Result<ValueOrStream, ExecError>;
@@ -491,42 +470,29 @@ impl<
                 Poll::Ready(result) => {
                     this.0.set(PinnedOption::None);
 
-                    let (ctx, resp) = result.explode();
-
+                    let (ctx, input, req, resp) = result.explode();
                     // TODO: handle `resp`
 
-                    // let fut = this.1.call(ctx, handler.input, handler.req);
-                    // this.2.set(PinnedOption::Some(fut));
-                    todo!();
+                    let fut = this.1.call(ctx, input, req);
+                    this.2.set(PinnedOption::Some(fut));
                 }
-
-                // Poll::Ready(Ok(handler)) => {
-                //     this.0.set(PinnedOption::None);
-
-                //     // let fut = this.1.call(handler.ctx, handler.input, handler.req);
-                //     // this.2.set(PinnedOption::Some(fut));
-                //     todo!();
-                // }
-                // Poll::Ready(Err(e)) => {
-                //     this.0.set(PinnedOption::None);
-                //     return Poll::Ready(Err(ExecError::ErrResolverError(e)));
-                // }
                 Poll::Pending => return Poll::Pending,
             },
             PinnedOptionProj::None => {}
         }
 
-        // match this.2.as_mut().project() {
-        //     PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-        //         Poll::Ready(result) => {
-        //             this.2.set(PinnedOption::None);
+        match this.2.as_mut().project() {
+            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+                Poll::Ready(result) => {
+                    this.2.set(PinnedOption::None);
 
-        //             return Poll::Ready(result);
-        //         }
-        //         Poll::Pending => return Poll::Pending,
-        //     },
-        //     PinnedOptionProj::None => {}
-        // }
+                    // TODO: Execute `resp` here
+                    return Poll::Ready(result);
+                }
+                Poll::Pending => return Poll::Pending,
+            },
+            PinnedOptionProj::None => {}
+        }
 
         unreachable!()
     }

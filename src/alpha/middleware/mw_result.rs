@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::alpha::MiddlewareArgMapper;
+use crate::{alpha::MiddlewareArgMapper, internal::RequestContext};
 
 use super::{Fut, Ret};
 
@@ -41,7 +41,7 @@ pub trait MwV2Result {
     // TODO: Rename this
     // fn into_executable(self) -> Option<Self::Resp>;
 
-    fn explode(self) -> (Self::Ctx, Option<Self::Resp>);
+    fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>);
 }
 
 pub struct MwResultWithCtx<TLCtx, M, TResp>
@@ -49,6 +49,8 @@ where
     M: MiddlewareArgMapper,
     TResp: Executable2,
 {
+    pub(crate) input: Value,
+    pub(crate) req: RequestContext,
     pub(crate) ctx: Option<TLCtx>,
     pub(crate) resp: Option<TResp>,
     pub(crate) phantom: PhantomData<M>,
@@ -61,6 +63,8 @@ where
 {
     pub fn resp<E: Executable2>(self, handler: E) -> MwResultWithCtx<TLCtx, M, E> {
         MwResultWithCtx {
+            input: self.input,
+            req: self.req,
             ctx: self.ctx,
             resp: Some(handler),
             phantom: PhantomData,
@@ -81,8 +85,8 @@ where
     //     self.resp
     // }
 
-    fn explode(self) -> (Self::Ctx, Option<Self::Resp>) {
-        (self.ctx.unwrap(), self.resp)
+    fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>) {
+        (self.ctx.unwrap(), self.input, self.req, self.resp)
     }
 }
 

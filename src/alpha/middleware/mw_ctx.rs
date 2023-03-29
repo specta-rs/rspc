@@ -25,6 +25,8 @@ impl<MState> AlphaMiddlewareContext<MState> {
         ctx: TNCtx,
     ) -> MwResultWithCtx<TNCtx, MiddlewareArgMapperPassthrough, Executable2Placeholder> {
         MwResultWithCtx {
+            input: self.input,
+            req: self.req,
             ctx: Some(ctx),
             resp: None,
             phantom: PhantomData,
@@ -52,6 +54,8 @@ where
 {
     pub fn next<TNCtx>(self, ctx: TNCtx) -> MwResultWithCtx<TNCtx, M, Executable2Placeholder> {
         MwResultWithCtx {
+            input: self.input,
+            req: self.req,
             ctx: Some(ctx),
             resp: None,
             phantom: PhantomData,

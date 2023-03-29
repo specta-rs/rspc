@@ -16,7 +16,7 @@ use super::{
 
 pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Fut: Future<Output = Self::Result> + Send + 'static;
-    type Result: MwV2Result;
+    type Result: MwV2Result<Ctx = Self::NewCtx>;
     type NewCtx: Send + Sync + 'static;
 
     type Executable: Executable<
@@ -44,7 +44,7 @@ where
         + Send
         + 'static,
     Fu: Future<Output = R> + Send + 'static,
-    R: MwV2Result + Send + 'static,
+    R: MwV2Result<Ctx = TLCtx> + Send + 'static,
 {
     type Fut = Fu;
     type Result = R;
