@@ -150,16 +150,16 @@ where
     }
 
     // TODO: Removing this
-    fn call2(
-        &self,
-        ctx: Box<dyn Any + Send + 'static>,
-        value: Value,
-        req: RequestContext,
-    ) -> Self::Call2Fut {
-        // let fut = self.next.call(*ctx.downcast().unwrap(), value, req);
-        // NoShot(PinnedOption::Some(fut))
-        todo!();
-    }
+    // fn call2(
+    //     &self,
+    //     ctx: Box<dyn Any + Send + 'static>,
+    //     value: Value,
+    //     req: RequestContext,
+    // ) -> Self::Call2Fut {
+    //     // let fut = self.next.call(*ctx.downcast().unwrap(), value, req);
+    //     // NoShot(PinnedOption::Some(fut))
+    //     todo!();
+    // }
 }
 
 pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
@@ -206,18 +206,20 @@ where
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
     type Fut<'a>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'a; // TODO: This may need lifetime back but let's remove it for now
                                                                                        // type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
+
+    // TODO: Remove it unused
     type Call2Fut: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static;
 
     fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
 
-    fn call2(
-        &self,
-        ctx: Box<dyn Any + Send + 'static>,
-        value: Value,
-        req: RequestContext,
-    ) -> Self::Call2Fut {
-        unreachable!(); // TODO: Don't do this
-    }
+    // fn call2(
+    //     &self,
+    //     ctx: Box<dyn Any + Send + 'static>,
+    //     value: Value,
+    //     req: RequestContext,
+    // ) -> Self::Call2Fut {
+    //     unreachable!(); // TODO: Don't do this
+    // }
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
@@ -250,24 +252,24 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
         Ok(Box::pin(async move {
             match Layer::call(self, a, b, c).await? {
                 ValueOrStreamOrFut2::Value(x) => Ok(ValueOrStream::Value(x)),
-                ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
-                    let mut fut = self.call2(ctx, input, req).await?;
+                // ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
+                //     let mut fut = self.call2(ctx, input, req).await?;
 
-                    // TODO: This will keep calling the first middleware (`self`) whenever any middleware wants to call it's own next one
-                    // TODO: The problem with `Self::Fut2` being created on each layer is that by doing so we need `&Middleware` on that specific layer which means cringe `Arc`
-                    // TODO: Finally remove `Arc` from middleware and `Box<dyn Any>` from `ctx`
-                    loop {
-                        match fut {
-                            ValueOrStreamOrFut2::Value(x) => break Ok(ValueOrStream::Value(x)),
-                            ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
-                                fut = self.call2(ctx, input, req).await?;
+                //     // TODO: This will keep calling the first middleware (`self`) whenever any middleware wants to call it's own next one
+                //     // TODO: The problem with `Self::Fut2` being created on each layer is that by doing so we need `&Middleware` on that specific layer which means cringe `Arc`
+                //     // TODO: Finally remove `Arc` from middleware and `Box<dyn Any>` from `ctx`
+                //     loop {
+                //         match fut {
+                //             ValueOrStreamOrFut2::Value(x) => break Ok(ValueOrStream::Value(x)),
+                //             // ValueOrStreamOrFut2::TheSolution(ctx, input, req) => {
+                //             //     fut = self.call2(ctx, input, req).await?;
 
-                                // todo!();
-                            }
-                            ValueOrStreamOrFut2::Stream(x) => break Ok(ValueOrStream::Stream(x)),
-                        }
-                    }
-                }
+                //             //     // todo!();
+                //             // }
+                //             ValueOrStreamOrFut2::Stream(x) => break Ok(ValueOrStream::Stream(x)),
+                //         }
+                //     }
+                // }
                 ValueOrStreamOrFut2::Stream(x) => Ok(ValueOrStream::Stream(x)),
             }
         }))
@@ -363,7 +365,7 @@ pub enum ValueOrStream {
 pub enum ValueOrStreamOrFut2 {
     Value(Value),
     // TODO: Rename this
-    TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
+    // TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
     // TODO: Take this type in as a generic
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }

@@ -375,12 +375,14 @@ impl<
 
                     let ctx: Box<dyn Any + Send + 'static> = Box::new(handler.ctx); // TODO: Add generics so this isn't allocated
 
+                    todo!();
+
                     // TODO
-                    return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
-                        ctx,
-                        handler.input,
-                        handler.req,
-                    )));
+                    // return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
+                    //     ctx,
+                    //     handler.input,
+                    //     handler.req,
+                    // )));
                 }
                 Poll::Ready(Err(e)) => return Poll::Ready(Err(ExecError::ErrResolverError(e))),
                 Poll::Pending => return Poll::Pending,
