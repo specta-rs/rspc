@@ -19,12 +19,12 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     type NewCtx: Send + 'static;
 
     type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>>
-        + Send
-        + 'static;
+        + Send;
     // type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
     //     + Send
     //     + 'static;
 
+    // TODO: Props remove this if we are only using `explode`
     // TODO: Rename `exec`
     fn handle<TMiddleware: Layer<Self::NewCtx>>(
         &self,
@@ -32,8 +32,16 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
         input: Value,
         req: RequestContext,
         // TODO: Avoid `Arc` here
-        next: Arc<TMiddleware>,
+        next: &Arc<TMiddleware>,
     ) -> Self::Fut<TMiddleware>;
+
+    type Fn: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> Self::Fut2 + Clone; // TODO: Use `Executable`
+    type Fut2: Future<
+            Output = Result<MiddlewareContext<TLayerCtx, Self::NewCtx, Self::State>, crate::Error>,
+        > + Send
+        + 'static;
+
+    fn explode(self) -> Self::Fn;
 }
 pub struct MiddlewareContext<TLayerCtx, TNewCtx = TLayerCtx, TState = ()>
 where
@@ -270,7 +278,7 @@ where
     }
 }
 
-impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> MiddlewareLike<TLayerCtx>
+impl<'a, TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> MiddlewareLike<TLayerCtx>
     for Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
 where
     TState: Clone + Send + Sync + 'static,
@@ -293,7 +301,7 @@ where
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
-        next: Arc<TMiddleware>,
+        next: &Arc<TMiddleware>,
     ) -> Self::Fut<TMiddleware> {
         let handler = (self.handler)(MiddlewareContext {
             state: (),
@@ -304,7 +312,14 @@ where
         });
 
         // TODO: Avoid taking ownership of `next`
-        MiddlewareFutOrSomething(PinnedOption::Some(handler), next)
+        MiddlewareFutOrSomething(PinnedOption::Some(handler), next.clone())
+    }
+
+    type Fn = THandlerFunc;
+    type Fut2 = THandlerFut;
+
+    fn explode(self) -> Self::Fn {
+        self.handler
     }
 }
 
@@ -349,6 +364,7 @@ impl<
 
                     let ctx: Box<dyn Any + Send + 'static> = Box::new(handler.ctx); // TODO: Add generics so this isn't allocated
 
+                    // TODO
                     return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
                         ctx,
                         handler.input,
@@ -399,7 +415,6 @@ impl<TNewCtx: Send + 'static, TMiddleware: Layer<TNewCtx> + 'static> Future
                             return Poll::Ready(Ok(ValueOrStreamOrFut2::TheSolution(
                                 ctx, input, req,
                             )));
-                            // todo!();
                         }
                     }
                 }

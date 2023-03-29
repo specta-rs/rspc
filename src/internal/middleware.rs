@@ -11,7 +11,7 @@ use futures::Stream;
 use pin_project::pin_project;
 use serde_json::Value;
 
-use crate::{ExecError, MiddlewareLike, NoShot, PinnedOption};
+use crate::{ExecError, MiddlewareFutOrSomething, MiddlewareLike, NoShot, PinnedOption};
 
 pub trait MiddlewareBuilderLike<TCtx: 'static> {
     type LayerContext: 'static;
@@ -125,7 +125,7 @@ where
     fn call(&self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut {
         // TODO: Don't take ownership of `self.next` to avoid needing it to be `Arc`ed
 
-        self.mw.handle(ctx, input, req, self.next.clone())
+        self.mw.handle(ctx, input, req, &self.next)
     }
 
     fn call2(
@@ -232,6 +232,7 @@ impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
 
                     // TODO: This will keep calling the first middleware (`self`) whenever any middleware wants to call it's own next one
                     // TODO: The problem with `Self::Fut2` being created on each layer is that by doing so we need `&Middleware` on that specific layer which means cringe `Arc`
+                    // TODO: Finally remove `Arc` from middleware and `Box<dyn Any>` from `ctx`
                     loop {
                         match fut {
                             ValueOrStreamOrFut2::Value(x) => break Ok(ValueOrStream::Value(x)),
@@ -335,14 +336,6 @@ pub enum ValueOrStream {
     // TODO: Rename this
     // TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
 }
-
-// // TODO: Deal with this
-// pub enum ValueOrStreamOrThing {
-//     Value(Value),
-//     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
-//     // TODO: Rename this
-//     TheSolution(Box<dyn Any + Send + 'static>, Value, RequestContext),
-// }
 
 pub enum ValueOrStreamOrFut2 {
     Value(Value),
