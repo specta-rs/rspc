@@ -123,6 +123,7 @@ where
     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
 {
     type Fut<'a> = MiddlewareFutOrSomething<
+        'a,
         TNewMiddleware::State,
         TLayerCtx,
         TNewLayerCtx,
@@ -145,9 +146,10 @@ where
         });
 
         // TODO: Avoid taking ownership of `next`
-        MiddlewareFutOrSomething(PinnedOption::Some(handler), self.next.clone())
+        MiddlewareFutOrSomething(PinnedOption::Some(handler), &self.next)
     }
 
+    // TODO: Removing this
     fn call2(
         &self,
         ctx: Box<dyn Any + Send + 'static>,
@@ -202,8 +204,8 @@ where
 // TODO: Rename this so it doesn't conflict with the middleware builder struct
 // TODO: Document the types and functions so they make sense
 pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    type Fut<'a>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static; // TODO: This may need lifetime back but let's remove it for now
-                                                                                            // type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
+    type Fut<'a>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'a; // TODO: This may need lifetime back but let's remove it for now
+                                                                                       // type Fut2: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static;
     type Call2Fut: Future<Output = Result<ValueOrStreamOrFut2, ExecError>> + Send + 'static;
 
     fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;

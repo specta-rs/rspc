@@ -18,22 +18,22 @@ pub trait MiddlewareLike<TLayerCtx>: Clone {
     type State: Clone + Send + Sync + 'static;
     type NewCtx: Send + 'static;
 
-    type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>>
-        + Send;
+    // type Fut<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStreamOrFut2, ExecError>>
+    //     + Send;
     // type Fut2<TMiddleware: Layer<Self::NewCtx>>: Future<Output = Result<ValueOrStream, ExecError>>
     //     + Send
     //     + 'static;
 
     // TODO: Props remove this if we are only using `explode`
     // TODO: Rename `exec`
-    fn handle<TMiddleware: Layer<Self::NewCtx>>(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-        // TODO: Avoid `Arc` here
-        next: &Arc<TMiddleware>,
-    ) -> Self::Fut<TMiddleware>;
+    // fn handle<TMiddleware: Layer<Self::NewCtx>>(
+    //     &self,
+    //     ctx: TLayerCtx,
+    //     input: Value,
+    //     req: RequestContext,
+    //     // TODO: Avoid `Arc` here
+    //     next: &Arc<TMiddleware>,
+    // ) -> Self::Fut<TMiddleware>;
 
     type Fn: Fn(MiddlewareContext<TLayerCtx, TLayerCtx, ()>) -> Self::Fut2 + Send + Sync + 'static; // TODO: Use `Executable`
     type Fut2: Future<
@@ -278,7 +278,7 @@ where
     }
 }
 
-impl<'a, TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> MiddlewareLike<TLayerCtx>
+impl<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut> MiddlewareLike<TLayerCtx>
     for Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
 where
     TState: Clone + Send + Sync + 'static,
@@ -297,28 +297,28 @@ where
     type State = TState;
     type NewCtx = TNewCtx;
     // TODO: Change this back
-    type Fut<TMiddleware: Layer<Self::NewCtx>> =
-        MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
+    // type Fut<TMiddleware: Layer<Self::NewCtx>> =
+    //     MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>;
     // type Fut2<TMiddleware: Layer<Self::NewCtx>> = NoShot<TNewCtx, TMiddleware>;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-        next: &Arc<TMiddleware>,
-    ) -> Self::Fut<TMiddleware> {
-        let handler = (self.handler)(MiddlewareContext {
-            state: (),
-            ctx,
-            input,
-            req,
-            phantom: PhantomData,
-        });
+    // fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+    //     &self,
+    //     ctx: TLayerCtx,
+    //     input: Value,
+    //     req: RequestContext,
+    //     next: &Arc<TMiddleware>,
+    // ) -> Self::Fut<TMiddleware> {
+    //     let handler = (self.handler)(MiddlewareContext {
+    //         state: (),
+    //         ctx,
+    //         input,
+    //         req,
+    //         phantom: PhantomData,
+    //     });
 
-        // TODO: Avoid taking ownership of `next`
-        MiddlewareFutOrSomething(PinnedOption::Some(handler), next.clone())
-    }
+    //     // TODO: Avoid taking ownership of `next`
+    //     MiddlewareFutOrSomething(PinnedOption::Some(handler), next.clone())
+    // }
 
     type Fn = THandlerFunc;
     type Fut2 = THandlerFut;
@@ -337,6 +337,7 @@ pub(crate) enum PinnedOption<T> {
 // TODO: Cleanup generics on this
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
 pub struct MiddlewareFutOrSomething<
+    'a,
     TState: Clone + Send + Sync + 'static,
     TLayerCtx: Send + 'static,
     TNewCtx: Send + 'static,
@@ -346,10 +347,11 @@ pub struct MiddlewareFutOrSomething<
     TMiddleware: Layer<TNewCtx> + 'static,
 >(
     #[pin] pub(crate) PinnedOption<THandlerFut>,
-    pub(crate) Arc<TMiddleware>,
+    pub(crate) &'a Arc<TMiddleware>,
 ); // TODO: Remove `.1`
 
 impl<
+        'a,
         TState: Clone + Send + Sync + 'static,
         TLayerCtx: Send + 'static,
         TNewCtx: Send + 'static,
@@ -357,7 +359,8 @@ impl<
             + Send
             + 'static,
         TMiddleware: Layer<TNewCtx> + 'static,
-    > Future for MiddlewareFutOrSomething<TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
+    > Future
+    for MiddlewareFutOrSomething<'a, TState, TLayerCtx, TNewCtx, THandlerFut, TMiddleware>
 {
     type Output = Result<ValueOrStreamOrFut2, ExecError>;
 
