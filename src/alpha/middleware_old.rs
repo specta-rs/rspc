@@ -8,11 +8,12 @@ use std::future::Future;
 
 use crate::{
     internal::{
-        Layer, LayerResult, ProcedureDataType, RequestContext, ValueOrStream,
-        ValueOrStreamOrFutureStream,
+        LayerResult, ProcedureDataType, RequestContext, ValueOrStream, ValueOrStreamOrFutureStream,
     },
     ExecError, FutOrValue,
 };
+
+use super::AlphaLayer;
 
 // TODO: Rename
 pub trait Mw<TLayerCtx, TPrevMwMapper>:
@@ -82,7 +83,7 @@ pub trait AlphaMiddlewareLike: Clone + Send + Sync + 'static {
     type NewCtx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+    fn handle<TMiddleware: AlphaLayer<Self::NewCtx> + 'static>(
         &self,
         ctx: Self::LayerCtx,
         input: Value,
@@ -359,7 +360,7 @@ where
     type NewCtx = TNewCtx;
     type MwMapper = TMwMapper;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+    fn handle<TMiddleware: AlphaLayer<Self::NewCtx> + 'static>(
         &self,
         ctx: TLayerCtx,
         input: Value,
@@ -430,7 +431,7 @@ where
     type NewCtx = TNewCtx;
     type MwMapper = TMwMapper;
 
-    fn handle<TMiddleware: Layer<Self::NewCtx> + 'static>(
+    fn handle<TMiddleware: AlphaLayer<Self::NewCtx> + 'static>(
         &self,
         ctx: TLayerCtx,
         input: Value,

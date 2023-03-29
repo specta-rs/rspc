@@ -3,6 +3,7 @@
 #![allow(unused)] // TODO: Remove once this stuff has been stabilized
 
 mod error;
+mod layer;
 mod middleware;
 mod middleware_old;
 pub mod mw2; // TODO: `pub use mw2::*;` on this
@@ -14,6 +15,7 @@ mod rspc;
 
 pub use self::rspc::*;
 pub use error::*;
+pub use layer::*;
 pub use middleware::*;
 pub use middleware_old::*;
 pub use procedure::*;

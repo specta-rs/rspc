@@ -6,8 +6,9 @@ use specta::{Type, TypeDefs};
 use crate::{
     alpha_stable::ResolverFunction,
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
+        MiddlewareLayerBuilder, MiddlewareMerger, ProcedureStore, ResolverLayer,
+        UnbuiltProcedureBuilder,
     },
     Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
 };
@@ -320,29 +321,48 @@ where
 
         for (key, query) in router.queries.store {
             // query.ty.key = format!("{}{}", prefix, key);
-            self.queries.append(
-                format!("{}{}", prefix, key),
-                self.middleware.build(query.exec),
-                query.ty,
-            );
+            match query.exec {
+                EitherLayer::Legacy(exec) => {
+                    self.queries.append(
+                        format!("{}{}", prefix, key),
+                        self.middleware.build(exec),
+                        query.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, mutation) in router.mutations.store {
             // mutation.ty.key = format!("{}{}", prefix, key);
-            self.mutations.append(
-                format!("{}{}", prefix, key),
-                self.middleware.build(mutation.exec),
-                mutation.ty,
-            );
+            match mutation.exec {
+                EitherLayer::Legacy(exec) => {
+                    self.mutations.append(
+                        format!("{}{}", prefix, key),
+                        self.middleware.build(exec),
+                        mutation.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, subscription) in router.subscriptions.store {
             // subscription.ty.key = format!("{}{}", prefix, key);
-            self.subscriptions.append(
-                format!("{}{}", prefix, key),
-                self.middleware.build(subscription.exec),
-                subscription.ty,
-            );
+
+            match subscription.exec {
+                EitherLayer::Legacy(exec) => {
+                    self.subscriptions.append(
+                        format!("{}{}", prefix, key),
+                        self.middleware.build(exec),
+                        subscription.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (name, typ) in router.typ_store {
@@ -396,27 +416,45 @@ where
         } = self;
 
         for (key, query) in router.queries.store {
-            queries.append(
-                format!("{}{}", prefix, key),
-                middleware.build(query.exec),
-                query.ty,
-            );
+            match query.exec {
+                EitherLayer::Legacy(exec) => {
+                    queries.append(
+                        format!("{}{}", prefix, key),
+                        middleware.build(exec),
+                        query.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, mutation) in router.mutations.store {
-            mutations.append(
-                format!("{}{}", prefix, key),
-                middleware.build(mutation.exec),
-                mutation.ty,
-            );
+            match mutation.exec {
+                EitherLayer::Legacy(exec) => {
+                    mutations.append(
+                        format!("{}{}", prefix, key),
+                        middleware.build(exec),
+                        mutation.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, subscription) in router.subscriptions.store {
-            subscriptions.append(
-                format!("{}{}", prefix, key),
-                middleware.build(subscription.exec),
-                subscription.ty,
-            );
+            match subscription.exec {
+                EitherLayer::Legacy(exec) => {
+                    subscriptions.append(
+                        format!("{}{}", prefix, key),
+                        middleware.build(exec),
+                        subscription.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (name, typ) in router.typ_store {

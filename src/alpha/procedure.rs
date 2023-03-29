@@ -14,7 +14,7 @@ use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, Layer, LayerResult, MiddlewareLayerBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, LayerResult, MiddlewareLayerBuilder,
         ProcedureDataType, ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder,
     },
     ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, SerializeMarker,
@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::{
-    AlphaMiddlewareBuilder, AlphaMiddlewareLike, Demo, Executable, Fut, IntoProcedure,
+    AlphaLayer, AlphaMiddlewareBuilder, AlphaMiddlewareLike, Demo, Executable, Fut, IntoProcedure,
     IntoProcedureCtx, MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike,
     RequestKind, RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
 };
@@ -160,7 +160,7 @@ where
             RequestKind::Mutation => &mut ctx.mutations,
         };
 
-        m.append(
+        m.append_alpha(
             key.to_string(),
             self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
@@ -190,7 +190,7 @@ where
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
-        ctx.subscriptions.append(
+        ctx.subscriptions.append_alpha(
             key.to_string(),
             self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
@@ -277,9 +277,9 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type MwMapper: MiddlewareArgMapper;
     type IncomingState: Send + 'static; // TODO: Merge this onto something else or take in as `IncomingMiddleware`?
 
-    fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
+    fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
     where
-        T: Layer<Self::LayerCtx>;
+        T: AlphaLayer<Self::LayerCtx>;
 
     // TODO: New stuff
     type Ret<TRet: Ret>: Ret;
@@ -352,9 +352,9 @@ where
         MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
     type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
 
-    fn build<T>(self, next: T) -> Box<dyn Layer<TMiddleware::Ctx>>
+    fn build<T>(self, next: T) -> Box<dyn AlphaLayer<TMiddleware::Ctx>>
     where
-        T: Layer<Self::LayerCtx> + Sync,
+        T: AlphaLayer<Self::LayerCtx> + Sync,
     {
         todo!();
         // self.middleware.build(AlphaMiddlewareLayer {
@@ -397,17 +397,17 @@ where
 
 pub struct AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
 where
-    TMiddleware: Layer<TNewMiddleware::NewCtx>,
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
     TNewMiddleware: AlphaMiddlewareLike,
 {
     next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
     mw: TNewMiddleware,
 }
 
-impl<TMiddleware, TNewMiddleware> Layer<TNewMiddleware::LayerCtx>
+impl<TMiddleware, TNewMiddleware> AlphaLayer<TNewMiddleware::LayerCtx>
     for AlphaMiddlewareLayer<TMiddleware, TNewMiddleware>
 where
-    TMiddleware: Layer<TNewMiddleware::NewCtx>,
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
     TNewMiddleware: AlphaMiddlewareLike,
 {
     fn call(
@@ -451,9 +451,9 @@ where
     type MwMapper = ();
     type IncomingState = ();
 
-    fn build<T>(self, next: T) -> Box<dyn Layer<Self::Ctx>>
+    fn build<T>(self, next: T) -> Box<dyn AlphaLayer<Self::Ctx>>
     where
-        T: Layer<Self::LayerCtx>,
+        T: AlphaLayer<Self::LayerCtx>,
     {
         Box::new(next)
     }
@@ -496,7 +496,7 @@ where
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx> Layer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
+impl<T, TLayerCtx> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<LayerResult, ExecError>
