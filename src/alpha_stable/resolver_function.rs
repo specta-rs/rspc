@@ -6,7 +6,6 @@ use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 use crate::{
     alpha_stable::{AlphaRequestLayer, AlphaStreamRequestLayer},
     internal::ProcedureDataType,
-    RequestLayer, StreamRequestLayer,
 };
 
 use super::{RequestLayerMarker, StreamLayerMarker};

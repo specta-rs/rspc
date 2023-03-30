@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
-use crate::internal::MiddlewareBuilderLike;
-
-use super::{AlphaRouter, IntoProcedure};
+use super::IntoProcedure;
 
 pub(crate) type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedure<TCtx>>)>;
 

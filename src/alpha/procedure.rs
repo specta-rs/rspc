@@ -1,7 +1,5 @@
 use std::{
-    any::type_name,
     borrow::Cow,
-    future::Ready,
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
@@ -10,22 +8,18 @@ use std::{
 
 use pin_project::pin_project;
 use serde::de::DeserializeOwned;
-use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
+use specta::Type;
 
 use crate::{
     alpha::Executable2,
-    internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureDataType,
-        ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder, ValueOrStream,
-    },
-    ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, RequestLayer, SerializeMarker,
-    StreamRequestLayer,
+    internal::{RequestContext, ValueOrStream},
+    ExecError,
 };
 
 use super::{
-    AlphaLayer, AlphaRequestLayer, AlphaStreamRequestLayer, Fut, IntoProcedure, IntoProcedureCtx,
+    AlphaLayer, AlphaRequestLayer, AlphaStreamRequestLayer, IntoProcedure, IntoProcedureCtx,
     MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, ProcedureLike, RequestKind,
-    RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -276,7 +270,6 @@ where
 ///
 use std::future::Future;
 
-use futures::Stream;
 use serde_json::Value;
 
 pub trait AlphaMiddlewareBuilderLike: Send + 'static {
@@ -315,7 +308,7 @@ where
     type State = TNext::State;
 
     fn map<T: serde::Serialize + DeserializeOwned + Type + 'static>(
-        arg: Self::Input<T>,
+        _arg: Self::Input<T>,
     ) -> (Self::Output<T>, Self::State) {
         todo!() // TODO: Is this unreachable?
     }
@@ -445,7 +438,7 @@ impl<
 {
     type Output = Result<ValueOrStream, ExecError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
 
         match this.0.as_mut().project() {

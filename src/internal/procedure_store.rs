@@ -101,8 +101,6 @@ impl<TCtx> ProcedureStore<TCtx> {
         // TODO: move this bound to impl once `alpha` stuff is stable
         TCtx: 'static,
     {
-        use crate::alpha::DynLayer;
-
         #[allow(clippy::panic)]
         if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
             panic!(

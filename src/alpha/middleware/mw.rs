@@ -1,16 +1,8 @@
-use std::{
-    future::{Future, Ready},
-    marker::PhantomData,
-};
+use std::{future::Future, marker::PhantomData};
 
-use serde_json::Value;
+use crate::alpha::MiddlewareArgMapper;
 
-use crate::{
-    alpha::{MiddlewareArgMapper, MiddlewareArgMapperPassthrough},
-    internal::RequestContext,
-};
-
-use super::{AlphaMiddlewareContext, Executable2Placeholder, MwResultWithCtx, MwV2Result};
+use super::{AlphaMiddlewareContext, MwV2Result};
 
 pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Fut: Future<Output = Self::Result> + Send + 'static;

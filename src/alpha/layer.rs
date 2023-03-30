@@ -1,4 +1,4 @@
-use std::{future::Future, marker::PhantomData, pin::Pin};
+use std::{future::Future, pin::Pin};
 
 use serde_json::Value;
 

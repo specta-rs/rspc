@@ -39,6 +39,7 @@ impl CookieJar {
 
     /// Returns a reference to the `Cookie` inside this jar with the name
     /// `name`. If no such cookie exists, returns `None`.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn get(&self, name: &str) -> Option<Cookie<'static>> {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().get(name).cloned() // TODO: `cloned` is cringe avoid it by removing `Mutex`?
@@ -54,6 +55,7 @@ impl CookieJar {
     ///
     /// For accurate `delta` computations, this method should not be called
     /// after calling `remove`.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn add_original(&self, cookie: Cookie<'static>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().add_original(cookie)
@@ -61,6 +63,7 @@ impl CookieJar {
 
     /// Adds `cookie` to this jar. If a cookie with the same name already
     /// exists, it is replaced with `cookie`.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn add(&self, cookie: Cookie<'static>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().add(cookie);
@@ -78,6 +81,7 @@ impl CookieJar {
     ///
     /// Removing a new cookie does not result in a _removal_ cookie unless
     /// there's an original cookie with the same name:
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn remove(&self, cookie: Cookie<'static>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().remove(cookie)
@@ -87,6 +91,7 @@ impl CookieJar {
     /// `remove` in that no delta cookie is created under any condition. Neither
     /// the `delta` nor `iter` methods will return a cookie that is removed
     /// using this method.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn force_remove(&self, cookie: &Cookie<'_>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().force_remove(cookie)
@@ -96,6 +101,7 @@ impl CookieJar {
     /// [`CookieJar::add_original()`], from this `CookieJar`. This undoes any
     /// changes from [`CookieJar::add()`] and [`CookieJar::remove()`]
     /// operations.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn reset_delta(&self) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().reset_delta()
@@ -283,6 +289,7 @@ where
     }
 }
 
+#[allow(clippy::unwrap_used)] // TODO: Remove this
 pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,

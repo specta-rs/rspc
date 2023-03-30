@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 
 use super::{
     middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
-    AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter,
-    AlphaStreamRequestLayer, MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, RequestKind,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, AlphaStreamRequestLayer,
+    MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, RequestKind, RequestLayerMarker,
+    ResolverFunction, StreamLayerMarker,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -19,7 +19,6 @@ pub struct Rspc<
 > where
     TCtx: Send + Sync + 'static,
 {
-    builders: Vec<Box<dyn FnOnce()>>,
     phantom: PhantomData<TCtx>,
 }
 
@@ -30,7 +29,6 @@ where
 {
     pub const fn new() -> Self {
         Self {
-            builders: Vec::new(),
             phantom: PhantomData,
         }
     }

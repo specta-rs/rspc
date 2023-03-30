@@ -4,13 +4,13 @@ use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
-    alpha_stable::{AlphaRequestLayer, AlphaStreamRequestLayer, ResolverFunction},
+    alpha_stable::AlphaStreamRequestLayer,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
         MiddlewareLayerBuilder, MiddlewareMerger, ProcedureDataType, ProcedureStore, ResolverLayer,
         UnbuiltProcedureBuilder,
     },
-    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
+    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router,
 };
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
@@ -122,6 +122,7 @@ where
     }
 }
 
+#[allow(clippy::unwrap_used)] // TODO: Remove this
 impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
 where
     TCtx: Send + Sync + 'static,

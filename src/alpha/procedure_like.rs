@@ -1,8 +1,6 @@
-use crate::{internal::ProcedureKind, RequestLayer, StreamRequestLayer};
-
 use super::{
-    AlphaBaseMiddleware, AlphaMiddlewareBuilderLike, AlphaProcedure, AlphaRequestLayer,
-    AlphaStreamRequestLayer, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    AlphaMiddlewareBuilderLike, AlphaProcedure, AlphaRequestLayer, AlphaStreamRequestLayer,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
 };
 
 /// TODO

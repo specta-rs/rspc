@@ -200,8 +200,8 @@ impl ErrorCode {
 }
 
 #[cfg(feature = "anyhow")]
-impl Into<Error> for anyhow::Error {
-    fn into(self) -> Error {
+impl From<anyhow::Error> for Error {
+    fn from(_value: anyhow::Error) -> Self {
         Error {
             code: ErrorCode::InternalServerError,
             message: "internal server error".to_string(),

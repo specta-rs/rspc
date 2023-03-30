@@ -22,7 +22,7 @@ pub enum UnreachableSender {}
 impl OwnedSender for UnreachableSender {
     type SendFut<'a> = Ready<()>;
 
-    fn send<'a>(&'a mut self, _: jsonrpc::Response) -> Self::SendFut<'a> {
+    fn send(&mut self, _: jsonrpc::Response) -> Self::SendFut<'_> {
         // Fun fact: Cause this method takes `self` and `enum {}` can never be constructed, this function is impossible to run.
         unreachable!()
     }
@@ -86,7 +86,7 @@ where
 pub trait OwnedSender: Send + Sync + 'static {
     type SendFut<'a>: Future<Output = ()> + Send + 'a;
 
-    fn send<'a>(&'a mut self, resp: jsonrpc::Response) -> Self::SendFut<'a>;
+    fn send(&mut self, resp: jsonrpc::Response) -> Self::SendFut<'_>;
 }
 
 pub struct OwnedMpscSender(futures_channel::mpsc::Sender<jsonrpc::Response>);
@@ -94,7 +94,7 @@ pub struct OwnedMpscSender(futures_channel::mpsc::Sender<jsonrpc::Response>);
 impl OwnedSender for OwnedMpscSender {
     type SendFut<'a> = OwnedMpscSenderSendFut<'a>;
 
-    fn send<'a>(&'a mut self, resp: jsonrpc::Response) -> Self::SendFut<'a> {
+    fn send(&mut self, resp: jsonrpc::Response) -> Self::SendFut<'_> {
         OwnedMpscSenderSendFut(&mut self.0, Some(resp))
     }
 }
@@ -131,6 +131,7 @@ impl<'a> Future for OwnedMpscSenderSendFut<'a> {
 }
 
 // This is very intentionally not an `async fn`. It allows the `Send` bound to throw the error here instead of a cryptic `httpz` one.
+#[allow(clippy::manual_async_fn)]
 pub fn handle_json_rpc<'a, TCtx, TMeta>(
     ctx: TCtx,
     req: jsonrpc::Request,
@@ -389,25 +390,22 @@ where
                         .await;
                 }
             },
-            RequestInner::SubscriptionStop { input } => {
-                match sender.subscription() {
-                    SubscriptionUpgrade::Supported(_sender, mut subscriptions) => {
-                        subscriptions.remove(&input).await;
-                    }
-                    SubscriptionUpgrade::Unsupported(sender) => {
-                        sender
-                            .send(jsonrpc::Response {
-                                jsonrpc: "2.0",
-                                id: req.id.clone(),
-                                result: ResponseInner::Error(
-                                    ExecError::UnsupportedMethod("Subscription".to_string()).into(),
-                                ),
-                            })
-                            .await;
-                    }
+            RequestInner::SubscriptionStop { input } => match sender.subscription() {
+                SubscriptionUpgrade::Supported(_sender, mut subscriptions) => {
+                    subscriptions.remove(&input).await;
                 }
-                return;
-            }
+                SubscriptionUpgrade::Unsupported(sender) => {
+                    sender
+                        .send(jsonrpc::Response {
+                            jsonrpc: "2.0",
+                            id: req.id.clone(),
+                            result: ResponseInner::Error(
+                                ExecError::UnsupportedMethod("Subscription".to_string()).into(),
+                            ),
+                        })
+                        .await;
+                }
+            },
         };
     }
 }

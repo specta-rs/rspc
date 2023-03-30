@@ -78,6 +78,7 @@ where
 
             // TODO: Clear subscriptions on page reload also
 
+            #[allow(clippy::single_match)]
             window.on_window_event(move |event| match event {
                 WindowEvent::CloseRequested { .. } => {
                     println!("Closing window"); // TODO

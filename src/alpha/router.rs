@@ -3,7 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
+    internal::{BaseMiddleware, ProcedureStore},
     Config, Router, RouterBuilder, RouterBuilderLike,
 };
 

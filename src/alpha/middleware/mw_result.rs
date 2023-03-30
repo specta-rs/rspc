@@ -39,7 +39,7 @@ pub struct Executable2Placeholder {}
 impl Executable2 for Executable2Placeholder {
     type Fut = Ready<Value>;
 
-    fn call(self, v: Value) -> Self::Fut {
+    fn call(self, _: Value) -> Self::Fut {
         unreachable!();
     }
 }
