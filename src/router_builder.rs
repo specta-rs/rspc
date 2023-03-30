@@ -1,13 +1,13 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, process};
 
 use serde::de::DeserializeOwned;
-use specta::{Type, TypeDefs};
+use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
     alpha_stable::{AlphaRequestLayer, AlphaStreamRequestLayer, ResolverFunction},
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
-        MiddlewareLayerBuilder, MiddlewareMerger, ProcedureStore, ResolverLayer,
+        MiddlewareLayerBuilder, MiddlewareMerger, ProcedureDataType, ProcedureStore, ResolverLayer,
         UnbuiltProcedureBuilder,
     },
     Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
@@ -173,125 +173,123 @@ where
         }
     }
 
-    // #[track_caller]
-    // pub fn query<TResolver, TArg, TResult, TResultMarker>(
-    //     mut self,
-    //     key: &'static str,
-    //     builder: impl Fn(
-    //         UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-    //     ) -> BuiltProcedureBuilder<TResolver>,
-    // ) -> Self
-    // where
-    //     TArg: DeserializeOwned + Type,
-    //     TResult: RequestLayer<TResultMarker>,
-    //     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    // {
-    //     if is_invalid_procedure_name(key) {
-    //         eprintln!(
-    //             "{}: rspc error: attempted to attach a query with the key '{}', however this name is not allowed. ",
-    //             Location::caller(),
-    //             key
-    //         );
-    //         process::exit(1);
-    //     }
+    #[track_caller]
+    pub fn query<TResolver, TArg, TResult, TResultMarker>(
+        mut self,
+        key: &'static str,
+        builder: impl Fn(
+            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+        ) -> BuiltProcedureBuilder<TResolver>,
+    ) -> Self
+    where
+        TArg: DeserializeOwned + Type,
+        TResult: RequestLayer<TResultMarker>,
+        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    {
+        if is_invalid_procedure_name(key) {
+            eprintln!(
+                "{}: rspc error: attempted to attach a query with the key '{}', however this name is not allowed. ",
+                Location::caller(),
+                key
+            );
+            process::exit(1);
+        }
 
-    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-    //     self.queries.append(
-    //         key.into(),
-    //         self.middleware.build(ResolverLayer {
-    //             func: move |ctx, input, _| {
-    //                 resolver(
-    //                     ctx,
-    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-    //                 )
-    //                 .into_layer_result()
-    //             },
-    //             phantom: PhantomData,
-    //         }),
-    //         <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-    //             .unwrap(),
-    //     );
-    //     self
-    // }
+        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        self.queries.append(
+            key.into(),
+            self.middleware.build(ResolverLayer {
+                func: move |ctx, input, _| {
+                    resolver(
+                        ctx,
+                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                    .into_layer_result()
+                },
+                phantom: PhantomData,
+            }),
+            typedef::<TArg, TResult::Result>(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
+        );
+        self
+    }
 
-    // #[track_caller]
-    // pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
-    //     mut self,
-    //     key: &'static str,
-    //     builder: impl Fn(
-    //         UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
-    //     ) -> BuiltProcedureBuilder<TResolver>,
-    // ) -> Self
-    // where
-    //     TArg: DeserializeOwned + Type,
-    //     TResult: RequestLayer<TResultMarker>,
-    //     TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    // {
-    //     if is_invalid_procedure_name(key) {
-    //         eprintln!(
-    //             "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
-    //             Location::caller(),
-    //             key
-    //         );
-    //         process::exit(1);
-    //     }
+    #[track_caller]
+    pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
+        mut self,
+        key: &'static str,
+        builder: impl Fn(
+            UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
+        ) -> BuiltProcedureBuilder<TResolver>,
+    ) -> Self
+    where
+        TArg: DeserializeOwned + Type,
+        TResult: RequestLayer<TResultMarker>,
+        TResolver: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+    {
+        if is_invalid_procedure_name(key) {
+            eprintln!(
+                "{}: rspc error: attempted to attach a mutation with the key '{}', however this name is not allowed. ",
+                Location::caller(),
+                key
+            );
+            process::exit(1);
+        }
 
-    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-    //     self.mutations.append(
-    //         key.into(),
-    //         self.middleware.build(ResolverLayer {
-    //             func: move |ctx, input, _| {
-    //                 resolver(
-    //                     ctx,
-    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-    //                 )
-    //                 .into_layer_result()
-    //             },
-    //             phantom: PhantomData,
-    //         }),
-    //         <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-    //             .unwrap(),
-    //     );
-    //     self
-    // }
+        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        self.mutations.append(
+            key.into(),
+            self.middleware.build(ResolverLayer {
+                func: move |ctx, input, _| {
+                    resolver(
+                        ctx,
+                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                    .into_layer_result()
+                },
+                phantom: PhantomData,
+            }),
+            typedef::<TArg, TResult::Result>(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
+        );
+        self
+    }
 
-    // #[track_caller]
-    // pub fn subscription<F, TArg, TResult, TResultMarker>(
-    //     mut self,
-    //     key: &'static str,
-    //     builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
-    // ) -> Self
-    // where
-    //     F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    //     TArg: DeserializeOwned + Type,
-    //     TResult: AlphaStreamRequestLayer<TResultMarker>,
-    // {
-    //     if is_invalid_procedure_name(key) {
-    //         eprintln!(
-    //             "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
-    //             Location::caller(),
-    //             key
-    //         );
-    //         process::exit(1);
-    //     }
+    #[track_caller]
+    pub fn subscription<F, TArg, TResult, TResultMarker>(
+        mut self,
+        key: &'static str,
+        builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
+    ) -> Self
+    where
+        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        TArg: DeserializeOwned + Type,
+        TResult: AlphaStreamRequestLayer<TResultMarker>,
+    {
+        if is_invalid_procedure_name(key) {
+            eprintln!(
+                "{}: rspc error: attempted to attach a subscription with the key '{}', however this name is not allowed. ",
+                Location::caller(),
+                key
+            );
+            process::exit(1);
+        }
 
-    //     let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
-    //     self.subscriptions.append(
-    //         key.into(),
-    //         self.middleware.build(ResolverLayer {
-    //             func: move |ctx, input, _| {
-    //                 resolver(
-    //                     ctx,
-    //                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-    //                 )
-    //                 .into_layer_result()
-    //             },
-    //             phantom: PhantomData,
-    //         }),
-    //         <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
-    //     );
-    //     self
-    // }
+        let resolver = builder(UnbuiltProcedureBuilder::default()).resolver;
+        self.subscriptions.append(
+            key.into(),
+            self.middleware.build(ResolverLayer {
+                func: move |ctx, input, _| {
+                    resolver(
+                        ctx,
+                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+                    )
+                    .into_layer_result()
+                },
+                phantom: PhantomData,
+            }),
+            typedef::<TArg, TResult::Result>(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
+        );
+        self
+    }
 
     #[track_caller]
     pub fn merge<TNewLayerCtx, TIncomingMiddleware>(
@@ -504,4 +502,28 @@ where
 
         router
     }
+}
+
+// #[deprecated = "Removed in v1.0.0. Is now `<TResolver as ResolverFunction<_>>::typedef`"]
+pub(crate) fn typedef<TArg: Type, TResult: Type>(
+    key: Cow<'static, str>,
+    defs: &mut TypeDefs,
+) -> Result<ProcedureDataType, TsExportError> {
+    Ok(ProcedureDataType {
+        key,
+        input: <TArg as Type>::reference(
+            DefOpts {
+                parent_inline: false,
+                type_map: defs,
+            },
+            &[],
+        )?,
+        result: <TResult as Type>::reference(
+            DefOpts {
+                parent_inline: false,
+                type_map: defs,
+            },
+            &[],
+        )?,
+    })
 }
