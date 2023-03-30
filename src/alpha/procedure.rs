@@ -18,17 +18,15 @@ use crate::{
         BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureDataType,
         ProcedureKind, RequestContext, ResolverLayer, UnbuiltProcedureBuilder, ValueOrStream,
     },
-    ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, SerializeMarker,
+    ExecError, MiddlewareBuilder, MiddlewareContext, MiddlewareLike, RequestLayer, SerializeMarker,
+    StreamRequestLayer,
 };
 
 use super::{
-    AlphaLayer, AlphaMiddlewareBuilder, AlphaMiddlewareLike, AlphaRequestLayer,
-    AlphaStreamRequestLayer, Demo, Executable, Fut, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, MissingResolver, Mw, MwV2, MwV2Result, ProcedureLike, RequestKind,
+    AlphaLayer, AlphaRequestLayer, AlphaStreamRequestLayer, Fut, IntoProcedure, IntoProcedureCtx,
+    MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, ProcedureLike, RequestKind,
     RequestLayerMarker, ResolverFunction, Ret, StreamLayerMarker,
 };
-
-/// This exists solely to make Rust shut up about unconstrained generic types
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
 
@@ -244,33 +242,33 @@ where
         )
     }
 
-    // fn mutation<R, RMarker>(
-    //     mut self,
-    //     builder: R,
-    // ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
-    // where
-    //     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-    //         + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-    //     R::Result: RequestLayer<R::RequestMarker>,
-    // {
-    //     AlphaProcedure::new_from_resolver(
-    //         RequestLayerMarker::new(RequestKind::Query),
-    //         self.1.take().unwrap(),
-    //         builder,
-    //     )
-    // }
+    fn mutation<R, RMarker>(
+        mut self,
+        builder: R,
+    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    where
+        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+        R::Result: AlphaRequestLayer<R::RequestMarker>,
+    {
+        AlphaProcedure::new_from_resolver(
+            RequestLayerMarker::new(RequestKind::Query),
+            self.1.take().unwrap(),
+            builder,
+        )
+    }
 
-    // fn subscription<R, RMarker>(
-    //     mut self,
-    //     builder: R,
-    // ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
-    // where
-    //     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-    //         + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-    //     R::Result: StreamRequestLayer<R::RequestMarker>,
-    // {
-    //     AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
-    // }
+    fn subscription<R, RMarker>(
+        mut self,
+        builder: R,
+    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
+    where
+        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
+    {
+        AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
+    }
 }
 
 ///
@@ -341,10 +339,6 @@ where
     TMarker: Send + Sync + 'static,
     TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
-    // TCtx: Send + Sync + 'static,
-    // TLayerCtx: Send + Sync + 'static,
-    // TNewLayerCtx: Send + Sync + 'static,
-    // TMiddleware: MwV2<TMiddleware::LayerCtx, TMarker> + Send + 'static,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
@@ -371,9 +365,8 @@ where
 pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + 'static,
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
-    // TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
     TMarker: Send + Sync + 'static,
 {
     next: TMiddleware,
@@ -385,8 +378,8 @@ impl<TLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaLayer<TLayerCtx>
     for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware, TMarker>
 where
     TLayerCtx: Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static, // TODO: AlphaLayer<TNewLayerCtx> +
-    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static, // TODO: AlphaMiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> +
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
     TMarker: Send + Sync + 'static,
 {
     type Fut<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>;

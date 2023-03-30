@@ -11,6 +11,11 @@ documentation = "https://docs.rs/rspc/latest/rspc"
 keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [[bench]]
 name = "benchmarks"
 harness = false
@@ -23,7 +28,7 @@ httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
 anyhow = ["dep:anyhow"]
 
-alpha = ["dep:pin-project"]
+alpha = []
 
 # Webservers
 axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
@@ -66,7 +71,7 @@ anyhow = { version = "1", optional = true }
 futures-locks = { git = "https://github.com/oscartbeaumont/futures-locks", rev = "a2e880337e6bfb3140a261932667149607e3ada9", features = ["tokio"] }
 futures-channel = "0.3.27"
 nougat = "0.2.4"
-pin-project = { version = "1.0.12", optional = true } # TODO: Move to `pin-project-lite`
+pin-project = "1.0.12" # TODO: Move to `pin-project-lite`
 
 [dev-dependencies]
 # Tests

@@ -4,8 +4,7 @@ use serde::de::DeserializeOwned;
 use specta::{Type, TypeDefs};
 
 use crate::{
-    alpha::{AlphaRequestLayer, AlphaStreamRequestLayer},
-    alpha_stable::ResolverFunction,
+    alpha_stable::{AlphaRequestLayer, AlphaStreamRequestLayer, ResolverFunction},
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
         MiddlewareLayerBuilder, MiddlewareMerger, ProcedureStore, ResolverLayer,

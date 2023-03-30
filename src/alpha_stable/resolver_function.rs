@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
-    alpha::{AlphaRequestLayer, AlphaStreamRequestLayer},
+    alpha_stable::{AlphaRequestLayer, AlphaStreamRequestLayer},
     internal::ProcedureDataType,
     RequestLayer, StreamRequestLayer,
 };

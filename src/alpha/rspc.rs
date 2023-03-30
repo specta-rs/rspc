@@ -1,24 +1,19 @@
 use std::marker::PhantomData;
 
-use serde::de::DeserializeOwned;
-use specta::Type;
-
-use crate::{
-    internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureKind,
-        UnbuiltProcedureBuilder,
-    },
-    MiddlewareBuilder, MiddlewareLike, RequestLayer, RouterBuilder, StreamRequestLayer,
-};
-
 use super::{
     middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
-    AlphaMiddlewareBuilder, AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder,
-    AlphaMiddlewareLike, AlphaRequestLayer, AlphaRouter, AlphaStreamRequestLayer,
-    MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter,
+    AlphaStreamRequestLayer, MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, RequestKind,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
 };
 
+/// Rspc is a starting point for constructing rspc procedures or routers.
+///
+/// This method supports const contexts so it can be instantiated at the top level as reuse across the whole application.
+///
+/// ```rust
+/// const R: Rspc<()> = Rspc::new();
+/// ```
 pub struct Rspc<
     TCtx = (), // The is the context the current router was initialised with
 > where

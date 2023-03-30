@@ -7,7 +7,6 @@ use crate::{
     ExecError,
 };
 
-// TODO: Rename this so it doesn't conflict with the middleware builder struct
 pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
     type Fut<'a>: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a;
 
@@ -21,7 +20,7 @@ pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 's
     }
 }
 
-// TODO: Does this need lifetime?
+// TODO: Make this an enum so it can be `Value || Stream`?
 pub type FutureValueOrStream<'a> =
     Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a>>;
 
@@ -41,11 +40,6 @@ impl<TLayerCtx: Send + 'static, L: AlphaLayer<TLayerCtx>> DynLayer<TLayerCtx> fo
         b: Value,
         c: RequestContext,
     ) -> Result<FutureValueOrStream<'a>, ExecError> {
-        Ok(Box::pin(async move {
-            match AlphaLayer::call(self, a, b, c).await? {
-                ValueOrStream::Value(x) => Ok(ValueOrStream::Value(x)),
-                ValueOrStream::Stream(x) => Ok(ValueOrStream::Stream(x)),
-            }
-        }))
+        Ok(Box::pin(AlphaLayer::call(self, a, b, c)))
     }
 }

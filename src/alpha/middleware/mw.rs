@@ -10,9 +10,7 @@ use crate::{
     internal::RequestContext,
 };
 
-use super::{
-    AlphaMiddlewareContext, Demo, Executable, Executable2Placeholder, MwResultWithCtx, MwV2Result,
-};
+use super::{AlphaMiddlewareContext, Executable2Placeholder, MwResultWithCtx, MwV2Result};
 
 pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     type Fut: Future<Output = Self::Result> + Send + 'static;
@@ -29,6 +27,7 @@ pub trait MwV2<TLCtx, TMarker: Send>: Send + 'static {
     ) -> Self::Fut;
 }
 
+// TODO: This shouldn't be called a marker cause it's runtime
 pub struct MwV2Marker<A, B>(PhantomData<(A, B)>);
 impl<TLCtx, F, Fu, R> MwV2<TLCtx, MwV2Marker<Fu, R>> for F
 where

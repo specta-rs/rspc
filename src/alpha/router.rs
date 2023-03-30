@@ -8,9 +8,9 @@ use crate::{
 };
 
 use super::{
-    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareLike, AlphaRequestLayer,
-    AlphaRouterBuilderLike, AlphaStreamRequestLayer, ProcedureList, RequestKind,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaRequestLayer, AlphaRouterBuilderLike,
+    AlphaStreamRequestLayer, ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction,
+    StreamLayerMarker,
 };
 
 pub struct AlphaRouter<TCtx>
@@ -44,6 +44,7 @@ where
     //     let r = r.expose();
     //     todo!();
     // }
+
     pub fn query<R, RMarker>(
         self,
         builder: R,
@@ -119,9 +120,7 @@ where
         self
     }
 
-    // TODO: `.merge()` function
-
-    // TODO: Return a Legacy router for now
+    // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
     pub fn compat(self) -> Router<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg

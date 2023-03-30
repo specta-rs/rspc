@@ -1,4 +1,5 @@
 use std::{
+    fmt::Debug,
     future::{Future, Ready},
     marker::PhantomData,
 };
@@ -7,7 +8,17 @@ use serde_json::Value;
 
 use crate::{alpha::MiddlewareArgMapper, internal::RequestContext};
 
-use super::{Fut, Ret};
+pub trait Ret: Debug + Send + Sync + 'static {}
+impl<T: Debug + Send + Sync + 'static> Ret for T {}
+
+pub trait Fut<TRet: Ret>: Future<Output = TRet> + Send + 'static {}
+impl<TRet: Ret, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut {}
+
+pub trait Func<TRet: Ret, TFut: Fut<TRet>>: Fn() -> TFut + Send + Sync + 'static {}
+impl<TRet: Ret, TFut: Fut<TRet>, TFunc: Fn() -> TFut + Send + Sync + 'static> Func<TRet, TFut>
+    for TFunc
+{
+}
 
 pub trait Executable2: Send + Sync + 'static {
     type Fut: Future<Output = Value> + Send;
@@ -37,9 +48,6 @@ pub trait MwV2Result {
     type Ctx;
     type MwMapper: MiddlewareArgMapper;
     type Resp: Executable2;
-
-    // TODO: Rename this
-    // fn into_executable(self) -> Option<Self::Resp>;
 
     fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>);
 }
@@ -80,10 +88,6 @@ where
     type Ctx = TLCtx;
     type MwMapper = M;
     type Resp = TResp;
-
-    // fn into_executable(self) -> Option<Self::Resp> {
-    //     self.resp
-    // }
 
     fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>) {
         (self.ctx.unwrap(), self.input, self.req, self.resp)
