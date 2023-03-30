@@ -110,18 +110,20 @@ where
         self.typ_store.clone()
     }
 
-    // TODO: Reenable these
-    // pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-    //     &self.queries.store
-    // }
+    // TODO: Drop this API in v1
+    pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+        &self.queries.store
+    }
 
-    // pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-    //     &self.mutations.store
-    // }
+    // TODO: Drop this API in v1
+    pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+        &self.mutations.store
+    }
 
-    // pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-    //     &self.subscriptions.store
-    // }
+    // TODO: Drop this API in v1
+    pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+        &self.subscriptions.store
+    }
 
     #[allow(clippy::unwrap_used)] // TODO
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {

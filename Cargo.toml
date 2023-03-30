@@ -67,8 +67,6 @@ futures-locks = { git = "https://github.com/oscartbeaumont/futures-locks", rev =
 futures-channel = "0.3.27"
 nougat = "0.2.4"
 pin-project = { version = "1.0.12", optional = true } # TODO: Move to `pin-project-lite`
-ahash = "0.8.3"
-once_cell = "1.17.1"
 
 [dev-dependencies]
 # Tests
@@ -76,7 +74,7 @@ async-stream = "0.3.4"
 
 # Benchmark
 criterion = { version = "0.4", features = ["async_tokio", "html_reports"] }
-pprof = { version = "0.11.1", features = ["flamegraph", "criterion", "protobuf-codec"] }
+pprof = { version = "0.11.1", features = ["flamegraph", "criterion", "protobuf-codec", "frame-pointer"] }
 tokio = { version = "1.26.0", features = ["macros", "rt-multi-thread"] }
 rspc_legacy = { package = "rspc", version = "0.1.3"}
 
