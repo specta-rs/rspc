@@ -6,20 +6,17 @@ use std::{
     task::{Context, Poll},
 };
 
+use futures::Stream;
 use pin_project::pin_project;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::{
-    alpha::Executable2,
-    internal::{RequestContext, ValueOrStream},
-    ExecError,
-};
+use crate::{alpha::Executable2, internal::RequestContext, ExecError};
 
 use super::{
-    AlphaLayer, AlphaRequestLayer, AlphaStreamRequestLayer, IntoProcedure, IntoProcedureCtx,
+    AlphaLayer, AlphaRequestLayer, FutureMarker, IntoProcedure, IntoProcedureCtx,
     MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, ProcedureLike, RequestKind,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -73,7 +70,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -89,7 +86,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -105,7 +102,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
@@ -149,7 +146,7 @@ impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
 where
     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: AlphaRequestLayer<R::RequestMarker>,
+    R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
@@ -164,14 +161,13 @@ where
             key.to_string(),
             self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
-                    resolver
+                    Ok(resolver
                         .exec(
                             ctx,
                             serde_json::from_value(input)
-                                .map_err(ExecError::DeserializingArgErr)
-                                .unwrap(), // TODO: Error handling
+                                .map_err(ExecError::DeserializingArgErr)?,
                         )
-                        .into_layer_result()
+                        .exec())
                 },
                 phantom: PhantomData,
             }),
@@ -185,29 +181,28 @@ impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
 where
     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
+    R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
-        // ctx.subscriptions.append_alpha(
-        //     key.to_string(),
-        //     self.1.take().unwrap().build(AlphaResolverLayer {
-        //         func: move |ctx, input, _| {
-        //             resolver
-        //                 .exec(
-        //                     ctx,
-        //                     serde_json::from_value(input)
-        //                         .map_err(ExecError::DeserializingArgErr)?,
-        //                 )
-        //                 .into_layer_result()
-        //         },
-        //         phantom: PhantomData,
-        //     }),
-        //     R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
-        // );
-        todo!();
+        ctx.subscriptions.append_alpha(
+            key.to_string(),
+            self.1.take().unwrap().build(AlphaResolverLayer {
+                func: move |ctx, input, _| {
+                    Ok(resolver
+                        .exec(
+                            ctx,
+                            serde_json::from_value(input)
+                                .map_err(ExecError::DeserializingArgErr)?,
+                        )
+                        .exec())
+                },
+                phantom: PhantomData,
+            }),
+            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
+        );
     }
 }
 
@@ -227,7 +222,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -243,7 +238,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -259,7 +254,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
@@ -375,9 +370,14 @@ where
     TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
     TMarker: Send + Sync + 'static,
 {
-    type Fut<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>;
+    type Stream<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>;
 
-    fn call<'a>(&'a self, ctx: TLayerCtx, input: Value, req: RequestContext) -> Self::Fut<'a> {
+    fn call<'a>(
+        &'a self,
+        ctx: TLayerCtx,
+        input: Value,
+        req: RequestContext,
+    ) -> Result<Self::Stream<'a>, ExecError> {
         let (out, state) = <TNewMiddleware::Result as MwV2Result>::MwMapper::map::<serde_json::Value>(
             serde_json::from_value(input).unwrap(),
         );
@@ -392,22 +392,24 @@ where
             },
         );
 
-        MiddlewareFutOrSomething(
+        Ok(MiddlewareFutOrSomething(
             PinnedOption::Some(fut),
             &self.next,
             PinnedOption::None,
             None,
             PinnedOption::None,
-        )
+        ))
     }
 }
 
 // TODO: move into utils file
-#[pin_project(project = PinnedOptionProj)]
+#[pin_project(project = _PinnedOptionProj)]
 pub(crate) enum PinnedOption<T> {
     Some(#[pin] T),
     None,
 }
+
+pub(crate) use _PinnedOptionProj as PinnedOptionProj;
 
 // TODO: Rename this type
 // TODO: Cleanup generics on this
@@ -423,7 +425,7 @@ pub struct MiddlewareFutOrSomething<
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
     &'a TMiddleware,
-    #[pin] PinnedOption<TMiddleware::Fut<'a>>,
+    #[pin] PinnedOption<TMiddleware::Stream<'a>>,
     Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
     #[pin] PinnedOption<<<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
 );
@@ -434,11 +436,11 @@ impl<
         TMarker: Send + Sync + 'static,
         TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
         TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
-    > Future for MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>
+    > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>
 {
-    type Output = Result<ValueOrStream, ExecError>;
+    type Item = Result<Value, ExecError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         match this.0.as_mut().project() {
@@ -449,8 +451,10 @@ impl<
                     let (ctx, input, req, resp) = result.explode();
                     *this.3 = resp;
 
-                    let fut = this.1.call(ctx, input, req);
-                    this.2.set(PinnedOption::Some(fut));
+                    match this.1.call(ctx, input, req) {
+                        Ok(stream) => this.2.set(PinnedOption::Some(stream)),
+                        Err(err) => return Poll::Ready(Some(Err(err))),
+                    }
                 }
                 Poll::Pending => return Poll::Pending,
             },
@@ -458,18 +462,14 @@ impl<
         }
 
         match this.2.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
+            PinnedOptionProj::Some(fut) => match fut.poll_next(cx) {
                 Poll::Ready(result) => {
                     this.2.set(PinnedOption::None);
 
                     match this.3.take() {
                         Some(resp) => {
                             // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
-                            let result = match result.unwrap() {
-                                ValueOrStream::Value(result) => result,
-                                // TODO: Executing `resp` for every value in a stream???
-                                ValueOrStream::Stream(_) => todo!(),
-                            };
+                            let result = result.unwrap().unwrap();
 
                             let fut = resp.call(result);
                             this.4.set(PinnedOption::Some(fut));
@@ -487,7 +487,7 @@ impl<
                 Poll::Ready(result) => {
                     this.4.set(PinnedOption::None);
 
-                    return Poll::Ready(Ok(ValueOrStream::Value(result)));
+                    return Poll::Ready(Some(Ok(result)));
                 }
                 Poll::Pending => return Poll::Pending,
             },
@@ -495,6 +495,13 @@ impl<
         }
 
         unreachable!()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match &self.2 {
+            PinnedOption::Some(stream) => stream.size_hint(),
+            PinnedOption::None => (0, None),
+        }
     }
 }
 
@@ -541,25 +548,30 @@ where
     }
 }
 
-pub struct AlphaResolverLayer<TLayerCtx, T, TFut>
+pub struct AlphaResolverLayer<TLayerCtx, T, S>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
-    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
+    S: Stream<Item = Result<Value, ExecError>> + Send + 'static,
 {
     pub func: T,
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx, TFut> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, TFut>
+impl<T, TLayerCtx, S> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, S>
 where
     TLayerCtx: Send + Sync + 'static,
-    T: Fn(TLayerCtx, Value, RequestContext) -> TFut + Send + Sync + 'static,
-    TFut: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
+    S: Stream<Item = Result<Value, ExecError>> + Send + 'static,
 {
-    type Fut<'a> = TFut;
+    type Stream<'a> = S;
 
-    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a> {
+    fn call<'a>(
+        &'a self,
+        a: TLayerCtx,
+        b: Value,
+        c: RequestContext,
+    ) -> Result<Self::Stream<'a>, ExecError> {
         (self.func)(a, b, c)
     }
 }

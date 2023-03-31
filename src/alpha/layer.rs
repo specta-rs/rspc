@@ -1,16 +1,19 @@
-use std::{future::Future, pin::Pin};
+use std::{future::ready, pin::Pin};
 
+use futures::{stream::once, Stream};
 use serde_json::Value;
 
-use crate::{
-    internal::{RequestContext, ValueOrStream},
-    ExecError,
-};
+use crate::{internal::RequestContext, ExecError};
 
 pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
-    type Fut<'a>: Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a;
+    type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
 
-    fn call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext) -> Self::Fut<'a>;
+    fn call<'a>(
+        &'a self,
+        a: TLayerCtx,
+        b: Value,
+        c: RequestContext,
+    ) -> Result<Self::Stream<'a>, ExecError>;
 
     fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
     where
@@ -20,17 +23,13 @@ pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 's
     }
 }
 
-// TODO: Make this an enum so it can be `Value || Stream`?
+// TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
 pub type FutureValueOrStream<'a> =
-    Pin<Box<dyn Future<Output = Result<ValueOrStream, ExecError>> + Send + 'a>>;
+    Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>;
 
 pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
-    fn dyn_call<'a>(
-        &'a self,
-        a: TLayerCtx,
-        b: Value,
-        c: RequestContext,
-    ) -> Result<FutureValueOrStream<'a>, ExecError>;
+    fn dyn_call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext)
+        -> FutureValueOrStream<'a>;
 }
 
 impl<TLayerCtx: Send + 'static, L: AlphaLayer<TLayerCtx>> DynLayer<TLayerCtx> for L {
@@ -39,7 +38,10 @@ impl<TLayerCtx: Send + 'static, L: AlphaLayer<TLayerCtx>> DynLayer<TLayerCtx> fo
         a: TLayerCtx,
         b: Value,
         c: RequestContext,
-    ) -> Result<FutureValueOrStream<'a>, ExecError> {
-        Ok(Box::pin(AlphaLayer::call(self, a, b, c)))
+    ) -> FutureValueOrStream<'a> {
+        match self.call(a, b, c) {
+            Ok(stream) => Box::pin(stream),
+            Err(err) => Box::pin(once(ready(Err(err)))),
+        }
     }
 }

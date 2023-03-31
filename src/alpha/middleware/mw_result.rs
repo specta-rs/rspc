@@ -45,7 +45,7 @@ impl Executable2 for Executable2Placeholder {
 }
 
 pub trait MwV2Result {
-    type Ctx;
+    type Ctx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;
     type Resp: Executable2;
 
@@ -82,6 +82,7 @@ where
 
 impl<TLCtx, M, TResp> MwV2Result for MwResultWithCtx<TLCtx, M, TResp>
 where
+    TLCtx: Send + Sync + 'static,
     M: MiddlewareArgMapper,
     TResp: Executable2,
 {

@@ -9,8 +9,8 @@ use crate::{
 
 use super::{
     procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaRequestLayer, AlphaRouterBuilderLike,
-    AlphaStreamRequestLayer, ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction,
-    StreamLayerMarker,
+    FutureMarker, ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction,
+    StreamLayerMarker, StreamMarker,
 };
 
 pub struct AlphaRouter<TCtx>
@@ -52,7 +52,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::ResultMarker>,
+        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -68,7 +68,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::ResultMarker>,
+        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -84,7 +84,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),

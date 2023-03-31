@@ -1,5 +1,6 @@
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, future::ready, pin::Pin};
 
+use futures::{stream::once, Stream};
 use serde_json::Value;
 use specta::{DataType, DataTypeFrom};
 
@@ -30,16 +31,20 @@ pub enum EitherLayer<TCtx> {
 }
 
 impl<TCtx: Send + 'static> EitherLayer<TCtx> {
-    pub async fn call(
-        &self,
+    pub async fn call<'a>(
+        &'a self,
         ctx: TCtx,
         input: Value,
         req: RequestContext,
-    ) -> Result<ValueOrStream, ExecError> {
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>, ExecError> {
         match self {
-            Self::Legacy(l) => l.call(ctx, input, req)?.into_value_or_stream().await,
+            // This is 100% going to tank legacy performance and I don't care
+            Self::Legacy(l) => match l.call(ctx, input, req)?.into_value_or_stream().await? {
+                ValueOrStream::Value(v) => Ok(Box::pin(once(ready(Ok(v))))),
+                ValueOrStream::Stream(s) => Ok(Box::pin(s)),
+            },
             #[cfg(feature = "alpha")]
-            Self::Alpha(a) => a.dyn_call(ctx, input, req)?.await,
+            Self::Alpha(a) => Ok(a.dyn_call(ctx, input, req)),
         }
     }
 }
@@ -50,6 +55,7 @@ pub struct Procedure<TCtx> {
     pub(crate) ty: ProcedureDataType,
 }
 
+// TODO: make private
 pub struct ProcedureStore<TCtx> {
     name: &'static str,
     // TODO: A `HashMap` would probs be best but due to const context's that is hard.

@@ -22,6 +22,7 @@ pub enum RequestKind {
 
 // TODO: I don't wanna call these markers cause they are runtime not just type level. Rename them.
 
+#[doc(hidden)]
 pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
 
 impl<T> RequestLayerMarker<T> {
@@ -34,6 +35,7 @@ impl<T> RequestLayerMarker<T> {
     }
 }
 
+#[doc(hidden)]
 pub struct StreamLayerMarker<T>(PhantomData<T>);
 
 impl<T> StreamLayerMarker<T> {

@@ -1,6 +1,6 @@
 //! Alpha API. This is going to be the new API in the `v1.0.0` release.
 //!
-//! WARNING: Anything in this module does not follow semantic versioning until it's released however the API is fairly stable at this point.
+//! WARNING: Anything in this module does not follow semantic versioning until it's released however the API is fairly stable at this poinR.
 //!
 
 mod layer;
@@ -23,19 +23,14 @@ pub use crate::alpha_stable::*;
 
 #[cfg(test)]
 mod tests {
-    use std::{marker::PhantomData, path::PathBuf, time::Duration};
+    use std::{path::PathBuf, time::Duration};
 
     use async_stream::stream;
     use serde::{de::DeserializeOwned, Serialize};
     use specta::Type;
     use tokio::time::sleep;
 
-    use crate::{
-        alpha::{
-            procedure::AlphaProcedure, AlphaBaseMiddleware, MiddlewareArgMapper, ProcedureLike,
-        },
-        internal::ProcedureKind,
-    };
+    use crate::alpha::{MiddlewareArgMapper, MwV2, MwV2Result, ProcedureLike};
 
     use super::Rspc;
 
@@ -44,14 +39,11 @@ mod tests {
 
     #[test]
     fn test_alpha_api() {
-        // TODO: Get Context switching?
-        // TODO: `TMeta` working on a procedure level?
-
         let r = R
             .router()
             .procedure(
                 "todo",
-                t.with(|mw, ctx| async move { mw.next(ctx) })
+                R.with(|mw, ctx| async move { mw.next(ctx) })
                     .query(|ctx, _: ()| {
                         println!("TODO: {:?}", ctx);
                         Ok(())
@@ -59,7 +51,7 @@ mod tests {
             )
             .procedure(
                 "todo2",
-                t.with(|mw, ctx| async move {
+                R.with(|mw, ctx| async move {
                     let msg = format!(
                         "[LOG] req='{:?}' ctx='{:?}' input='{:?}'",
                         mw.req, ctx, mw.input
@@ -86,14 +78,14 @@ mod tests {
             )
             .procedure(
                 "todo3",
-                t.query(|ctx, _: ()| {
+                R.query(|ctx, _: ()| {
                     println!("TODO: {:?}", ctx);
                     Ok(())
                 }),
             )
             .procedure(
                 "demoSubscriptions",
-                t.subscription(|_ctx, _args: ()| {
+                R.subscription(|_ctx, _: ()| {
                     stream! {
                         println!("Client subscribed to 'pings'");
                         for i in 0..5 {
@@ -114,23 +106,22 @@ mod tests {
         const t: Rspc = Rspc::new();
 
         let p = t
-            .with(|mw| {
-                mw.middleware(|mw, _| async move {
-                    let ctx = mw.ctx.clone(); // This clone is so unnessesary but Rust
-                    Ok(mw.with_ctx((ctx, 42))) // Context switch
-                })
-            })
+            .with(|mw, ctx| async move { mw.next((ctx, 42)) })
+            .with(|mw, ctx| async move { mw.next((ctx, 42)) })
+            .with(|mw, ctx| async move { mw.next(ctx) })
             .query(|ctx, _: ()| {
-                let (ctx, num) = ctx; // Typecheck the context switch
+                let ((_, _), _) = ctx; // Typecheck the context switch
                 Ok(())
             });
+    }
+
+    #[test]
+    fn test_init_from_function() {
+        const t: Rspc = Rspc::new();
 
         fn demo() -> impl ProcedureLike<LayerCtx = ((), i32)> {
-            t.with(|mw| {
-                mw.middleware(|mw, _| async move {
-                    let ctx = mw.ctx.clone(); // This clone is so unnessesary but Rust
-                    Ok(mw.with_ctx((ctx, 42))) // Context switch
-                })
+            R.with(|mw, ctx| async move {
+                mw.next((ctx, 42)) // Context switch
             })
         }
 
@@ -141,28 +132,39 @@ mod tests {
         });
     }
 
+    // TODO: Fix this
     #[test]
     fn with_middleware_from_func() {
-        pub fn library<TLayerCtx, TPrevMwMapper>(
-        ) -> impl Mw<TLayerCtx, TPrevMwMapper, NewLayerCtx = (TLayerCtx, i32)>
-        where
-            TLayerCtx: Send + Sync + Clone + 'static,
-            TPrevMwMapper: MiddlewareArgMapper,
-        {
-            |mw| mw.middleware(|mw, _| async move { Ok(mw.map_ctx(|ctx| (ctx, 42))) })
-        }
+        // pub fn library<TLayerCtx, TPrevMwMapper>(
+        // ) -> impl MwV2<TLayerCtx, TPrevMwMapper, NewCtx = (TLayerCtx, i32)>
+        // where
+        //     TLayerCtx: Send + Sync + Clone + 'static,
+        //     TPrevMwMapper: MiddlewareArgMapper,
+        // {
+        //     R.mw(|mw, ctx| async move { Ok(mw.next((ctx, 42))) })
+        // }
 
-        let p = t.with(library()).query(|ctx, _: ()| {
-            println!("TODO: {:?}", ctx);
-            let _ = ctx.0; // Test Rust inference is working
-            Ok(())
-        });
+        // TODO: Clean up the bounds of this before stabilizing this API
+        // pub fn library<TLCtx, TMarker, Mw: MwV2<TLCtx, TMarker>>(
+        // ) -> impl MwV2<TLCtx, TMarker, NewCtx = (Mw::NewCtx, i32)>
+        // where
+        //     TMarker: Send,
+        //     TLCtx: Send + Sync + 'static,
+        // {
+        //     Mw::next(|mw, ctx| async move { mw.next((ctx, 42)) })
+        // }
 
-        let p = t.with(library()).with(library()).query(|ctx, _: ()| {
-            println!("TODO: {:?}", ctx);
-            let ((a, b), c) = ctx; // Test Rust inference is working
-            Ok(())
-        });
+        // let p = R.with(library()).query(|ctx, _: ()| {
+        //     println!("TODO: {:?}", ctx);
+        //     let _ = ctx.0; // Test Rust inference is working
+        //     Ok(())
+        // });
+
+        // let p = R.with(library()).with(library()).query(|ctx, _: ()| {
+        //     println!("TODO: {:?}", ctx);
+        //     let ((a, b), c) = ctx; // Test Rust inference is working
+        //     Ok(())
+        // });
     }
 
     #[test]
@@ -183,14 +185,11 @@ mod tests {
             }
         }
 
-        let p = t
-            .with(|mw| {
-                mw.args::<LibraryArgsMap>()
-                    .middleware(|mw, arg| async move {
-                        println!("{:?}", ()); // TODO: Access args
+        let p = R
+            .with(|mw, ctx| async move {
+                println!("{:?}", ()); // TODO: Access args
 
-                        Ok(mw.map_ctx(|ctx| (ctx, 42)))
-                    })
+                mw.args::<LibraryArgsMap>().next((ctx, 42))
             })
             .query(|ctx, _: ()| {
                 println!("TODO: {:?}", ctx);
@@ -233,30 +232,20 @@ mod tests {
             }
         }
 
-        let p = t
-            .with(|mw| {
-                mw.args::<DoubleTupleMapper>()
-                    .middleware(|mw, (_one, _two)| async move {
-                        println!("{:?}", ()); // TODO: Access args
+        let p = R
+            .with(|mw, ctx| async move {
+                let (_one, _two) = mw.state;
 
-                        Ok(mw.map_ctx(|ctx| (ctx, 42)))
-                    })
+                mw.args::<DoubleTupleMapper>().next(ctx)
             })
-            .with(|mw| {
-                mw.args::<TripleTupleMapper>()
-                    .middleware(|mw, (_one, _two, _three)| async move {
-                        println!("{:?}", ()); // TODO: Access args
+            .with(|mw, ctx| async move {
+                let (_one, _two, _three) = mw.state;
 
-                        Ok(mw.map_ctx(|ctx| ctx))
-                    })
+                mw.args::<TripleTupleMapper>().next(ctx)
             })
-            .query(|ctx, a: i32| {
-                println!("TODO: {:?}", ctx);
-                let _ = ctx.0; // Test Rust inference is working
-                Ok(())
-            });
+            .query(|ctx, a: i32| Ok(()));
 
-        let r = t
+        let r = R
             .router()
             .procedure("demo", p)
             .compat()

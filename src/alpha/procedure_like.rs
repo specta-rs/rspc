@@ -1,6 +1,6 @@
 use super::{
-    AlphaMiddlewareBuilderLike, AlphaProcedure, AlphaRequestLayer, AlphaStreamRequestLayer,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    AlphaMiddlewareBuilderLike, AlphaProcedure, AlphaRequestLayer, FutureMarker,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
 };
 
 /// TODO
@@ -15,7 +15,7 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>;
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>;
 
     fn mutation<R, RMarker>(
         self,
@@ -24,7 +24,7 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>;
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>;
 
     fn subscription<R, RMarker>(
         self,
@@ -33,5 +33,5 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaStreamRequestLayer<R::RequestMarker>;
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>;
 }

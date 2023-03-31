@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use serde_json::Value;
 use specta::{
     ts::{self, datatype, ExportConfiguration, TsExportError},
@@ -16,7 +16,7 @@ use specta::{
 };
 
 use crate::{
-    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext, ValueOrStream},
+    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext},
     Config, ExecError, ExportError,
 };
 
@@ -44,6 +44,7 @@ impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
     TCtx: Send + 'static,
 {
+    // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
     pub async fn exec(
         &self,
         ctx: TCtx,
@@ -56,7 +57,7 @@ where
             ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
         };
 
-        match operations
+        let mut stream = operations
             .get(&key)
             .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
             .exec
@@ -68,21 +69,19 @@ where
                     path: key.clone(),
                 },
             )
-            .await?
-        {
-            ValueOrStream::Value(v) => Ok(v),
-            ValueOrStream::Stream(_) => Err(ExecError::UnsupportedMethod(key)),
-        }
+            .await?;
+
+        stream.next().await.unwrap()
     }
 
+    // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
     pub async fn exec_subscription(
         &self,
         ctx: TCtx,
         key: String,
         input: Option<Value>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
-        match self
-            .subscriptions
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>>, ExecError> {
+        self.subscriptions
             .store
             .get(&key)
             .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
@@ -95,11 +94,7 @@ where
                     path: key.clone(),
                 },
             )
-            .await?
-        {
-            ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),
-            ValueOrStream::Stream(s) => Ok(s),
-        }
+            .await
     }
 
     pub fn arced(self) -> Arc<Self> {

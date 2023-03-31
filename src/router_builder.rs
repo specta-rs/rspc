@@ -4,13 +4,12 @@ use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
-    alpha_stable::AlphaStreamRequestLayer,
     internal::{
         BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
         MiddlewareLayerBuilder, MiddlewareMerger, ProcedureDataType, ProcedureStore, ResolverLayer,
         UnbuiltProcedureBuilder,
     },
-    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router,
+    Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
 };
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
@@ -263,7 +262,7 @@ where
     where
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type,
-        TResult: AlphaStreamRequestLayer<TResultMarker>,
+        TResult: StreamRequestLayer<TResultMarker>,
     {
         if is_invalid_procedure_name(key) {
             eprintln!(

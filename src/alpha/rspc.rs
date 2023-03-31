@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 
 use super::{
     middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
-    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, AlphaStreamRequestLayer,
-    MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, FutureMarker, MiddlewareArgMapper,
+    MissingResolver, MwV2, MwV2Result, RequestKind, RequestLayerMarker, ResolverFunction,
+    StreamLayerMarker, StreamMarker,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -12,6 +12,8 @@ use super::{
 /// This method supports const contexts so it can be instantiated at the top level as reuse across the whole application.
 ///
 /// ```rust
+/// use rspc::alpha::Rspc;
+///
 /// const R: Rspc<()> = Rspc::new();
 /// ```
 pub struct Rspc<
@@ -77,7 +79,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -93,7 +95,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -109,7 +111,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaStreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),
