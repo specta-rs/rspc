@@ -333,7 +333,7 @@ where
 
 pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
-    TLayerCtx: Send + 'static,
+    TLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
     TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
 {

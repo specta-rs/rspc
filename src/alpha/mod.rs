@@ -30,7 +30,7 @@ mod tests {
     use specta::Type;
     use tokio::time::sleep;
 
-    use crate::alpha::{MiddlewareArgMapper, MwV2, MwV2Result, ProcedureLike};
+    use crate::alpha::{arg_mapper_mw, MiddlewareArgMapper, MwV2, ProcedureLike};
 
     use super::Rspc;
 
@@ -103,21 +103,22 @@ mod tests {
 
     #[test]
     fn test_context_switching() {
-        const t: Rspc = Rspc::new();
+        const R: Rspc = Rspc::new();
 
-        let p = t
+        let p = R
             .with(|mw, ctx| async move { mw.next((ctx, 42)) })
             .with(|mw, ctx| async move { mw.next((ctx, 42)) })
             .with(|mw, ctx| async move { mw.next(ctx) })
             .query(|ctx, _: ()| {
-                let ((_, _), _) = ctx; // Typecheck the context switch
+                let ((_, _), _) = ctx; // Assert correct type
+
                 Ok(())
             });
     }
 
     #[test]
     fn test_init_from_function() {
-        const t: Rspc = Rspc::new();
+        const R: Rspc = Rspc::new();
 
         fn demo() -> impl ProcedureLike<LayerCtx = ((), i32)> {
             R.with(|mw, ctx| async move {
@@ -126,45 +127,24 @@ mod tests {
         }
 
         let p = demo().query(|ctx, _: ()| {
-            println!("TODO: {:?}", ctx);
-            let _ = ctx.0; // Test Rust inference is working
+            let (_, _) = ctx; // Assert correct type
             Ok(())
         });
     }
 
-    // TODO: Fix this
     #[test]
     fn with_middleware_from_func() {
-        // pub fn library<TLayerCtx, TPrevMwMapper>(
-        // ) -> impl MwV2<TLayerCtx, TPrevMwMapper, NewCtx = (TLayerCtx, i32)>
-        // where
-        //     TLayerCtx: Send + Sync + Clone + 'static,
-        //     TPrevMwMapper: MiddlewareArgMapper,
-        // {
-        //     R.mw(|mw, ctx| async move { Ok(mw.next((ctx, 42))) })
-        // }
+        pub fn library<TLCtx>() -> impl MwV2<TLCtx, NewCtx = (TLCtx, i32)>
+        where
+            TLCtx: Send + Sync + 'static,
+        {
+            |mw, ctx| async move { mw.next((ctx, 42)) }
+        }
 
-        // TODO: Clean up the bounds of this before stabilizing this API
-        // pub fn library<TLCtx, TMarker, Mw: MwV2<TLCtx, TMarker>>(
-        // ) -> impl MwV2<TLCtx, TMarker, NewCtx = (Mw::NewCtx, i32)>
-        // where
-        //     TMarker: Send,
-        //     TLCtx: Send + Sync + 'static,
-        // {
-        //     Mw::next(|mw, ctx| async move { mw.next((ctx, 42)) })
-        // }
-
-        // let p = R.with(library()).query(|ctx, _: ()| {
-        //     println!("TODO: {:?}", ctx);
-        //     let _ = ctx.0; // Test Rust inference is working
-        //     Ok(())
-        // });
-
-        // let p = R.with(library()).with(library()).query(|ctx, _: ()| {
-        //     println!("TODO: {:?}", ctx);
-        //     let ((a, b), c) = ctx; // Test Rust inference is working
-        //     Ok(())
-        // });
+        let p = R.with(library()).with(library()).query(|ctx, _: ()| {
+            let ((_, _), _) = ctx; // Assert correct type
+            Ok(())
+        });
     }
 
     #[test]
@@ -185,12 +165,15 @@ mod tests {
             }
         }
 
-        let p = R
-            .with(|mw, ctx| async move {
-                println!("{:?}", ()); // TODO: Access args
+        let _p = R
+            .with(arg_mapper_mw::<LibraryArgsMap, _, _, _, _>(
+                |mw, ctx, state| async move {
+                    let _state: i32 = state; // Assert correct type
+                    let _ctx: () = (); // Assert correct type
 
-                mw.args::<LibraryArgsMap>().next((ctx, 42))
-            })
+                    mw.next((ctx, 42))
+                },
+            ))
             .query(|ctx, _: ()| {
                 println!("TODO: {:?}", ctx);
                 let _ = ctx.0; // Test Rust inference is working
@@ -233,19 +216,22 @@ mod tests {
         }
 
         let p = R
-            .with(|mw, ctx| async move {
-                let (_one, _two) = mw.state;
+            .with(arg_mapper_mw::<DoubleTupleMapper, _, _, _, _>(
+                |mw, ctx, state| async move {
+                    let (_, _) = state; // Assert type is correct
+                    mw.next(ctx)
+                },
+            ))
+            .with(arg_mapper_mw::<TripleTupleMapper, _, _, _, _>(
+                |mw, ctx, state| async move {
+                    let (_, _, _) = state; // Assert type is correct
 
-                mw.args::<DoubleTupleMapper>().next(ctx)
-            })
-            .with(|mw, ctx| async move {
-                let (_one, _two, _three) = mw.state;
+                    mw.next(ctx)
+                },
+            ))
+            .query(|_, _: i32| Ok(()));
 
-                mw.args::<TripleTupleMapper>().next(ctx)
-            })
-            .query(|ctx, a: i32| Ok(()));
-
-        let r = R
+        let _r = R
             .router()
             .procedure("demo", p)
             .compat()

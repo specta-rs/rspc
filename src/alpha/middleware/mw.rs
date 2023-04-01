@@ -7,6 +7,8 @@ use super::{AlphaMiddlewareContext, MwV2Result};
 // This must have the `Fn` supertrait, otherwise Rust will fail to infer `TLCtx` in userspace.
 pub trait MwV2<TLCtx>:
     Fn(AlphaMiddlewareContext, TLCtx) -> Self::Fut + Send + Sync + 'static
+where
+    TLCtx: Send + Sync + 'static,
 {
     type Fut: Future<Output = Self::Result> + Send + 'static;
     type Result: MwV2Result<Ctx = Self::NewCtx>;
