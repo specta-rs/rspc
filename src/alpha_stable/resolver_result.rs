@@ -14,10 +14,9 @@ use serde::Serialize;
 use serde_json::Value;
 use specta::Type;
 
-use crate::{
-    alpha::{PinnedOption, PinnedOptionProj},
-    Error, ExecError,
-};
+use crate::{Error, ExecError};
+
+use super::{PinnedOption, PinnedOptionProj};
 
 // Markers
 #[doc(hidden)]

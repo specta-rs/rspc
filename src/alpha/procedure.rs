@@ -16,8 +16,8 @@ use crate::{alpha::Executable2, internal::RequestContext, ExecError};
 use super::{
     AlphaLayer, AlphaRequestLayer, FutureMarker, IntoProcedure, IntoProcedureCtx,
     MiddlewareArgMapper, MiddlewareArgMapperPassthrough, MissingResolver, MwV2, MwV2Result,
-    ProcedureLike, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
-    StreamMarker,
+    PinnedOption, PinnedOptionProj, ProcedureLike, RequestKind, RequestLayerMarker,
+    ResolverFunction, StreamLayerMarker, StreamMarker,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -375,15 +375,6 @@ where
         ))
     }
 }
-
-// TODO: move into utils file
-#[pin_project(project = _PinnedOptionProj)]
-pub(crate) enum PinnedOption<T> {
-    Some(#[pin] T),
-    None,
-}
-
-pub(crate) use _PinnedOptionProj as PinnedOptionProj;
 
 // TODO: Rename this type
 // TODO: Cleanup generics on this

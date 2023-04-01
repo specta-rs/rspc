@@ -7,6 +7,7 @@
 mod resolver_function;
 mod resolver_result;
 
+use pin_project::pin_project;
 pub use resolver_function::*;
 pub use resolver_result::*;
 
@@ -43,3 +44,12 @@ impl<T> StreamLayerMarker<T> {
         Self(Default::default())
     }
 }
+
+// TODO: move into utils file
+#[pin_project(project = _PinnedOptionProj)]
+pub(crate) enum PinnedOption<T> {
+    Some(#[pin] T),
+    None,
+}
+
+pub(crate) use _PinnedOptionProj as PinnedOptionProj;
