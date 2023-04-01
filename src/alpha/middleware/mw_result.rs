@@ -44,6 +44,7 @@ impl Executable2 for Executable2Placeholder {
     }
 }
 
+#[deprecated = "TODO: We probs have to remove this. Sadge!"]
 pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type MwMapper: MiddlewareArgMapper;

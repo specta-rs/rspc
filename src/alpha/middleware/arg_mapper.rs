@@ -1,30 +1,40 @@
+use std::future::Future;
+
 use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 
+use super::{AlphaMiddlewareContext, MwV2, MwV2Result};
+
+/// TODO
 pub trait MiddlewareArgMapper: Send + Sync {
+    /// TODO
+    type State: Send + Sync + 'static;
+
+    /// TODO
     type Input<T>: DeserializeOwned + Type + 'static
     where
         T: DeserializeOwned + Type + 'static;
 
+    /// TODO
     type Output<T>: Serialize
     where
         T: Serialize;
-    type State: Send + 'static;
 
+    /// TODO
     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
         arg: Self::Input<T>,
     ) -> (Self::Output<T>, Self::State);
 }
 
-// TODO: Making this private or put a field on it so it can't be constructed out of the crate
-pub struct MiddlewareArgMapperPassthrough;
+/// TODO
+pub enum MiddlewareArgMapperPassthrough {}
 
 impl MiddlewareArgMapper for MiddlewareArgMapperPassthrough {
+    type State = ();
     type Input<T> = T
     where
         T: DeserializeOwned + Type + 'static;
     type Output<T> = T where T: Serialize;
-    type State = ();
 
     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
         arg: Self::Input<T>,
@@ -33,17 +43,30 @@ impl MiddlewareArgMapper for MiddlewareArgMapperPassthrough {
     }
 }
 
-// TODO: Remove this
-impl MiddlewareArgMapper for () {
-    type State = ();
-    type Output<T> = T where T: Serialize;
-    type Input<T> = T
-    where
-        T: DeserializeOwned + Type + 'static;
+// TODO: This is fairly cringe but will be improved.
+// TODO: Split `TMwMapper` and other generic so this is safe for userspace
+pub fn arg_mapper_mw<TMwMapper, TLCtx, TNCtx, Fu, R>(
+    handler: impl Fn(AlphaMiddlewareContext, TLCtx, TMwMapper::State) -> Fu + Send + Sync + 'static,
+) -> impl MwV2<TLCtx, NewCtx = TNCtx>
+where
+    TMwMapper: MiddlewareArgMapper,
+    TLCtx: Send + Sync + 'static,
+    Fu: Future<Output = R> + Send + Sync + 'static,
+    R: MwV2Result<Ctx = TNCtx> + Send + 'static,
+{
+    // TODO: Make this passthrough to new handler but provide the owned `State` as an arg
+    move |mw, ctx| {
+        let (out, state) =
+            TMwMapper::map::<serde_json::Value>(serde_json::from_value(mw.input).unwrap());
 
-    fn map<T: Serialize + DeserializeOwned + Type + 'static>(
-        arg: Self::Input<T>,
-    ) -> (Self::Output<T>, Self::State) {
-        (arg, ())
+        handler(
+            AlphaMiddlewareContext {
+                input: serde_json::to_value(out).unwrap(), // TODO: Error handling
+                req: mw.req,
+                _priv: (),
+            },
+            ctx,
+            state,
+        )
     }
 }

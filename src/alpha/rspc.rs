@@ -44,31 +44,17 @@ where
         AlphaRouter::new()
     }
 
-    pub fn with<TMarker, Mw>(
+    pub fn with<Mw: MwV2<TCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<
         MissingResolver<Mw::NewCtx>,
         (),
-        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw, TMarker>,
-    >
-    where
-        TMarker: Send + Sync + 'static,
-        Mw: MwV2<TCtx, TMarker>
-            + Fn(
-                AlphaMiddlewareContext<
-                    <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
-                >,
-                TCtx,
-            ) -> Mw::Fut
-            + Send
-            + Sync
-            + 'static,
-    {
+        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw>,
+    > {
         AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
             middleware: AlphaBaseMiddleware::new(),
             mw,
-            phantom: PhantomData,
         })
     }
 

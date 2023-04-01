@@ -15,8 +15,9 @@ use crate::{alpha::Executable2, internal::RequestContext, ExecError};
 
 use super::{
     AlphaLayer, AlphaRequestLayer, FutureMarker, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, MissingResolver, MwV2, MwV2Result, ProcedureLike, RequestKind,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
+    MiddlewareArgMapper, MiddlewareArgMapperPassthrough, MissingResolver, MwV2, MwV2Result,
+    ProcedureLike, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    StreamMarker,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -112,31 +113,14 @@ impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMi
 where
     TMiddleware: AlphaMiddlewareBuilderLike + Sync,
 {
-    pub fn with<TMarker, Mw>(
+    pub fn with<Mw: MwV2<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> AlphaProcedure<
-        MissingResolver<Mw::NewCtx>,
-        (),
-        AlphaMiddlewareLayerBuilder<TMiddleware, Mw, TMarker>,
-    >
-    where
-        TMarker: Send + Sync + 'static,
-        Mw: MwV2<TMiddleware::LayerCtx, TMarker>
-            + Fn(
-                super::middleware::AlphaMiddlewareContext<
-                    <<Mw::Result as MwV2Result>::MwMapper as MiddlewareArgMapper>::State,
-                >,
-                TMiddleware::LayerCtx,
-            ) -> Mw::Fut
-            + Send
-            + Sync
-            + 'static,
+    ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
     {
         AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
             middleware: self.1.expect("Uh oh, stinky"),
             mw,
-            phantom: PhantomData,
         })
     }
 }
@@ -309,24 +293,21 @@ where
     }
 }
 
-pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>
+pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TMarker: Send,
-    TNewMiddleware: MwV2<TMiddleware::LayerCtx, TMarker>,
+    TNewMiddleware: MwV2<TMiddleware::LayerCtx>,
 {
     pub(crate) middleware: TMiddleware,
     pub(crate) mw: TNewMiddleware,
-    pub(crate) phantom: PhantomData<TMarker>,
 }
 
-impl<TLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaMiddlewareBuilderLike
-    for AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TMarker>
+impl<TLayerCtx, TMiddleware, TNewMiddleware> AlphaMiddlewareBuilderLike
+    for AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
-    TMarker: Send + Sync + 'static,
     TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
@@ -334,7 +315,7 @@ where
         MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
     type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
 
-    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, T, TNewMiddleware, TMarker>>
+    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
     where
         T: AlphaLayer<Self::LayerCtx>;
 
@@ -350,27 +331,25 @@ where
     }
 }
 
-pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware, TMarker>
+pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
-    TMarker: Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
 {
     next: TMiddleware,
     mw: TNewMiddleware,
-    phantom: PhantomData<(TLayerCtx, TMarker)>,
+    phantom: PhantomData<TLayerCtx>,
 }
 
-impl<TLayerCtx, TMiddleware, TNewMiddleware, TMarker> AlphaLayer<TLayerCtx>
-    for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware, TMarker>
+impl<TLayerCtx, TMiddleware, TNewMiddleware> AlphaLayer<TLayerCtx>
+    for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
-    TMarker: Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
 {
-    type Stream<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>;
+    type Stream<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
 
     fn call<'a>(
         &'a self,
@@ -378,16 +357,11 @@ where
         input: Value,
         req: RequestContext,
     ) -> Result<Self::Stream<'a>, ExecError> {
-        let (out, state) = <TNewMiddleware::Result as MwV2Result>::MwMapper::map::<serde_json::Value>(
-            serde_json::from_value(input).unwrap(),
-        );
-
         let fut = self.mw.run_me(
             ctx,
             super::middleware::AlphaMiddlewareContext {
-                input: serde_json::to_value(&out).unwrap(),
+                input,
                 req,
-                state,
                 _priv: (),
             },
         );
@@ -419,8 +393,7 @@ pub struct MiddlewareFutOrSomething<
     'a,
     // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
     TLayerCtx: Send + Sync + 'static,
-    TMarker: Send + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
+    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
@@ -433,10 +406,9 @@ pub struct MiddlewareFutOrSomething<
 impl<
         'a,
         TLayerCtx: Send + Sync + 'static,
-        TMarker: Send + Sync + 'static,
-        TNewMiddleware: MwV2<TLayerCtx, TMarker> + Send + Sync + 'static,
+        TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
         TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
-    > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TMarker, TNewMiddleware, TMiddleware>
+    > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>
 {
     type Item = Result<Value, ExecError>;
 
@@ -533,7 +505,7 @@ where
 {
     type Ctx = TCtx;
     type LayerCtx = TCtx;
-    type MwMapper = ();
+    type MwMapper = MiddlewareArgMapperPassthrough;
     type IncomingState = ();
 
     type LayerResult<T> = T

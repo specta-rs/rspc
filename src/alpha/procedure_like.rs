@@ -4,6 +4,7 @@ use super::{
 };
 
 /// TODO
+// TODO: Rename cause this trait is exposed to userspace
 pub trait ProcedureLike {
     type Middleware: AlphaMiddlewareBuilderLike<LayerCtx = Self::LayerCtx>;
     type LayerCtx: Send + Sync + 'static;
