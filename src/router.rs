@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use serde_json::Value;
 use specta::{
     ts::{self, datatype, ExportConfiguration, TsExportError},
@@ -16,7 +16,7 @@ use specta::{
 };
 
 use crate::{
-    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext, ValueOrStream},
+    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext},
     Config, ExecError, ExportError,
 };
 
@@ -42,8 +42,9 @@ pub enum ExecKind {
 
 impl<TCtx, TMeta> Router<TCtx, TMeta>
 where
-    TCtx: 'static,
+    TCtx: Send + 'static,
 {
+    // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
     pub async fn exec(
         &self,
         ctx: TCtx,
@@ -56,7 +57,7 @@ where
             ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
         };
 
-        match operations
+        let mut stream = operations
             .get(&key)
             .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
             .exec
@@ -67,23 +68,20 @@ where
                     kind,
                     path: key.clone(),
                 },
-            )?
-            .into_value_or_stream()
-            .await?
-        {
-            ValueOrStream::Value(v) => Ok(v),
-            ValueOrStream::Stream(_) => Err(ExecError::UnsupportedMethod(key)),
-        }
+            )
+            .await?;
+
+        stream.next().await.unwrap()
     }
 
+    // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
     pub async fn exec_subscription(
         &self,
         ctx: TCtx,
         key: String,
         input: Option<Value>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>, ExecError> {
-        match self
-            .subscriptions
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>>, ExecError> {
+        self.subscriptions
             .store
             .get(&key)
             .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
@@ -95,13 +93,8 @@ where
                     kind: ProcedureKind::Subscription,
                     path: key.clone(),
                 },
-            )?
-            .into_value_or_stream()
-            .await?
-        {
-            ValueOrStream::Value(_) => Err(ExecError::UnsupportedMethod(key)),
-            ValueOrStream::Stream(s) => Ok(s),
-        }
+            )
+            .await
     }
 
     pub fn arced(self) -> Arc<Self> {
@@ -112,14 +105,17 @@ where
         self.typ_store.clone()
     }
 
+    // TODO: Drop this API in v1
     pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.queries.store
     }
 
+    // TODO: Drop this API in v1
     pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.mutations.store
     }
 
+    // TODO: Drop this API in v1
     pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.subscriptions.store
     }
@@ -142,9 +138,9 @@ where
             )
         );
 
-        let queries_ts = generate_procedures_ts(&config, &self.queries.store);
-        let mutations_ts = generate_procedures_ts(&config, &self.mutations.store);
-        let subscriptions_ts = generate_procedures_ts(&config, &self.subscriptions.store);
+        let queries_ts = generate_procedures_ts(&config, self.queries.store.iter());
+        let mutations_ts = generate_procedures_ts(&config, self.mutations.store.iter());
+        let subscriptions_ts = generate_procedures_ts(&config, self.subscriptions.store.iter());
 
         // TODO: Specta API
         writeln!(
@@ -214,14 +210,13 @@ export type Procedures = {{
 }
 
 // TODO: Move this out into a Specta API
-fn generate_procedures_ts<Ctx>(
+fn generate_procedures_ts<'a, Ctx: 'a>(
     config: &ExportConfiguration,
-    procedures: &BTreeMap<String, Procedure<Ctx>>,
+    procedures: impl ExactSizeIterator<Item = (&'a String, &'a Procedure<Ctx>)>,
 ) -> String {
     match procedures.len() {
         0 => "never".to_string(),
         _ => procedures
-            .iter()
             .map(|(key, operation)| {
                 let input = match &operation.ty.input {
                     DataType::Tuple(def)

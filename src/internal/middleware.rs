@@ -209,16 +209,20 @@ pub struct RequestContext {
     pub path: String, // TODO: String slice??
 }
 
+// #[deprecated = "Going to be removed in v1.0.0. The new middleware system removes the need for this."]
 pub enum ValueOrStream {
     Value(Value),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
+// #[deprecated = "Going to be removed in v1.0.0. The new middleware system removes the need for this."]
 pub enum ValueOrStreamOrFutureStream {
     Value(Value),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),
 }
 
+// TODO: Ensure this is removed from the old one
+// #[deprecated = "Going to be removed in v1.0.0. The new middleware system removes the need for this."]
 pub enum LayerResult {
     Future(Pin<Box<dyn Future<Output = Result<Value, ExecError>> + Send>>),
     Stream(Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>),

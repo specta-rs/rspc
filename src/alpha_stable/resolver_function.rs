@@ -3,9 +3,9 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{internal::ProcedureDataType, RequestLayer, StreamRequestLayer};
+use crate::{alpha_stable::AlphaRequestLayer, internal::ProcedureDataType};
 
-use super::{RequestLayerMarker, StreamLayerMarker};
+use super::{FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
 
 pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
     type LayerCtx: Send + Sync + 'static;
@@ -42,6 +42,8 @@ pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
     }
 }
 
+// TODO: Merge the following two impls? They are differentiated by `Type = X` but they have different markers through the rest of the system.
+
 pub struct Marker<A, B, C, D>(PhantomData<(A, B, C, D)>);
 
 impl<
@@ -53,7 +55,7 @@ impl<
     > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
     TArg: DeserializeOwned + Type,
-    TResult: RequestLayer<TResultMarker>,
+    TResult: AlphaRequestLayer<TResultMarker, Type = FutureMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;
@@ -77,7 +79,7 @@ impl<
     > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
     TArg: DeserializeOwned + Type,
-    TResult: StreamRequestLayer<TResultMarker>,
+    TResult: AlphaRequestLayer<TResultMarker, Type = StreamMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;
@@ -96,6 +98,7 @@ pub struct MissingResolver<TLayerCtx> {
     phantom: PhantomData<TLayerCtx>,
 }
 
+// TODO: Remove this and put the `MissingResolver` in phantom data if possible
 impl<TLayerCtx> Default for MissingResolver<TLayerCtx> {
     fn default() -> Self {
         Self {

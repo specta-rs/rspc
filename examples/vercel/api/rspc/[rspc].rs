@@ -16,11 +16,7 @@ async fn main() {
             ))
             .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
             .query("X-Demo-Header", |t| {
-                t(|ctx, _: ()| {
-                    ctx.x_demo_header
-                        .clone()
-                        .unwrap_or_else(|| "No header".to_string())
-                })
+                t(|ctx, _: ()| ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))
             })
             .query("echo", |t| t(|_, v: String| v))
             .query("error", |t| {

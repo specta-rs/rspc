@@ -1,5 +1,6 @@
 //! A standard interface for an async map types. This could probs become it's own crate but we can't offer the `get` method using the stdlib API due to lifetime issues, so idk.
 //! To understand why we use [`nougat`](nougat) I would recommend reading the [blog post](https://sabrinajewson.org/blog/the-better-alternative-to-lifetime-gats#hrtb-supertrait) about the system behind it.
+#![allow(clippy::needless_lifetimes)]
 
 use std::{
     collections::HashMap,

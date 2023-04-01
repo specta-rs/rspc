@@ -3,13 +3,14 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{BaseMiddleware, Procedure, ProcedureKind, ProcedureStore, UnbuiltProcedureBuilder},
-    Config, RequestLayer, Router, RouterBuilder, RouterBuilderLike, StreamRequestLayer,
+    internal::{BaseMiddleware, ProcedureStore},
+    Config, Router, RouterBuilder, RouterBuilderLike,
 };
 
 use super::{
-    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareLike, AlphaRouterBuilderLike,
-    ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaRequestLayer, AlphaRouterBuilderLike,
+    FutureMarker, ProcedureList, RequestKind, RequestLayerMarker, ResolverFunction,
+    StreamLayerMarker, StreamMarker,
 };
 
 pub struct AlphaRouter<TCtx>
@@ -43,6 +44,7 @@ where
     //     let r = r.expose();
     //     todo!();
     // }
+
     pub fn query<R, RMarker>(
         self,
         builder: R,
@@ -50,7 +52,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::ResultMarker>,
+        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -66,7 +68,7 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::ResultMarker>,
+        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -82,7 +84,7 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),
@@ -118,9 +120,7 @@ where
         self
     }
 
-    // TODO: `.merge()` function
-
-    // TODO: Return a Legacy router for now
+    // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
     pub fn compat(self) -> Router<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
