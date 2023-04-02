@@ -2,6 +2,7 @@ import Image from "next/image";
 import { DocsThemeConfig } from "nextra-theme-docs";
 import logoIcon from "./public/logo.png";
 import { useRouter } from "next/router";
+import { Switchers } from "./components/Switchers";
 
 const config: DocsThemeConfig = {
   docsRepositoryBase: "https://github.com/oscartbeaumont/rspc/tree/main/docs",
@@ -103,6 +104,24 @@ const config: DocsThemeConfig = {
   },
   footer: {
     component: <></>,
+  },
+  sidebar: {
+    titleComponent({ title, type }) {
+      if (type === "separator" && title === "switchers") {
+        return <Switchers />;
+      }
+
+      return <>{title}</>;
+    },
+  },
+  // TODO: Remove this once alpha syntax is stable
+  banner: {
+    key: "0.1.4-alpha-release",
+    text: (
+      <a href="https://rspc-git-docs-v2-otbeaumont.vercel.app/" target="_blank">
+        Looking for the Alpha docs? Click here →
+      </a>
+    ),
   },
 };
 

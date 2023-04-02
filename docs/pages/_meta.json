@@ -1,4 +1,8 @@
 {
+  "---": {
+    "type": "separator",
+    "title": "switchers"
+  },
   "index": {},
   "quickstart": {},
   "breaking-changes": {},

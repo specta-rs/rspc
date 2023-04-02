@@ -8,12 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@headlessui/react": "=1.7.10",
+    "@heroicons/react": "^2.0.17",
     "@vercel/og": "^0.5.0",
     "next": "^13.2.4",
     "nextra": "^2.3.0",
     "nextra-theme-docs": "^2.3.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-popper": "^2.3.0"
   },
   "devDependencies": {
     "@rspc/config": "workspace:*",

@@ -6,5 +6,6 @@
   "plugins": {},
   "selection": {},
   "common-errors": {},
-  "specta": {}
+  "specta": {},
+  "request": {}
 }
