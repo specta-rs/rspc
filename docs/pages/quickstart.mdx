@@ -92,9 +92,17 @@ pnpm install @rspc/client @rspc/react
 <IfFramework framework="react">
 
 ```tsx copy filename="src/MyComponent.tsx"
-console.log("React");
+// TODO: Finish example -> show imports
 
-// TODO: Finish this example
+function SomeComponent() {
+  const version = rspc.useQuery(["version"]);
+
+  return (
+    <>
+      <p>{version.data}</p>
+    </>
+  );
+}
 ```
 
 </IfFramework>
@@ -102,9 +110,17 @@ console.log("React");
 <IfFramework framework="solid">
 
 ```tsx copy filename="src/MyComponent.tsx"
-console.log("Solid");
+// TODO: Finish example -> show imports
 
-// TODO: Finish this example
+function SomeComponent() {
+  const version = rspc.useQuery(() => ["version"]);
+
+  return (
+    <>
+      <p>{version.data}</p>
+    </>
+  );
+}
 ```
 
 </IfFramework>
