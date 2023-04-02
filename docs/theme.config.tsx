@@ -104,6 +104,14 @@ const config: DocsThemeConfig = {
   footer: {
     component: <></>,
   },
+  banner: {
+    key: "0.1.4-alpha-release",
+    text: (
+      <a href="https://rspc-git-main-otbeaumont.vercel.app" target="_blank">
+        Looking for the Alpha docs? Click here →
+      </a>
+    ),
+  },
 };
 
 function NavbarIcon(props: {
