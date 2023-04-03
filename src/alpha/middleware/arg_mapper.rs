@@ -45,14 +45,14 @@ impl MiddlewareArgMapper for MiddlewareArgMapperPassthrough {
 
 // TODO: This is fairly cringe but will be improved.
 // TODO: Split `TMwMapper` and other generic so this is safe for userspace
-pub fn arg_mapper_mw<TMwMapper, TLCtx, TNCtx, Fu, R>(
+pub fn arg_mapper_mw<TMwMapper, TLCtx, Fu>(
     handler: impl Fn(AlphaMiddlewareContext, TLCtx, TMwMapper::State) -> Fu + Send + Sync + 'static,
-) -> impl MwV2<TLCtx, NewCtx = TNCtx>
+) -> impl MwV2<TLCtx, NewCtx = <Fu::Output as MwV2Result>::Ctx>
 where
     TMwMapper: MiddlewareArgMapper,
     TLCtx: Send + Sync + 'static,
-    Fu: Future<Output = R> + Send + Sync + 'static,
-    R: MwV2Result<Ctx = TNCtx> + Send + 'static,
+    Fu: Future + Send + Sync + 'static,
+    Fu::Output: MwV2Result + Send + 'static,
 {
     // TODO: Make this passthrough to new handler but provide the owned `State` as an arg
     move |mw, ctx| {

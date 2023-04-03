@@ -1,6 +1,5 @@
 use std::{
     future::{ready, Future, Ready},
-    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -72,27 +71,27 @@ where
 
 #[doc(hidden)]
 pub enum AlphaFutureSerializeMarker {}
-impl<TFut, T> AlphaRequestLayer<AlphaFutureSerializeMarker> for TFut
+impl<TFut> AlphaRequestLayer<AlphaFutureSerializeMarker> for TFut
 where
-    TFut: Future<Output = T> + Send + 'static,
-    T: Serialize + Type + Send + 'static,
+    TFut: Future + Send + 'static,
+    TFut::Output: Serialize + Type + Send + 'static,
 {
-    type Result = T;
-    type Stream = Once<FutureSerializeFuture<TFut, T>>;
+    type Result = TFut::Output;
+    type Stream = Once<FutureSerializeFuture<TFut>>;
     type Type = FutureMarker;
 
     fn exec(self) -> Self::Stream {
-        once(FutureSerializeFuture(self, PhantomData))
+        once(FutureSerializeFuture(self))
     }
 }
 
 #[pin_project(project = FutureSerializeFutureProj)]
-pub struct FutureSerializeFuture<TFut, T>(#[pin] TFut, PhantomData<T>);
+pub struct FutureSerializeFuture<TFut>(#[pin] TFut);
 
-impl<TFut, T> Future for FutureSerializeFuture<TFut, T>
+impl<TFut> Future for FutureSerializeFuture<TFut>
 where
-    TFut: Future<Output = T> + Send + 'static,
-    T: Serialize + Type + Send + 'static,
+    TFut: Future + Send + 'static,
+    TFut::Output: Serialize + Type + Send + 'static,
 {
     type Output = Result<Value, ExecError>;
 
@@ -115,18 +114,18 @@ where
     T: Serialize + Type + Send + 'static,
 {
     type Result = T;
-    type Stream = Once<FutureSerializeResultFuture<TFut, T>>;
+    type Stream = Once<FutureSerializeResultFuture<TFut>>;
     type Type = FutureMarker;
 
     fn exec(self) -> Self::Stream {
-        once(FutureSerializeResultFuture(self, PhantomData))
+        once(FutureSerializeResultFuture(self))
     }
 }
 
 #[pin_project(project = FutureSerializeResultFutureProj)]
-pub struct FutureSerializeResultFuture<TFut, T>(#[pin] TFut, PhantomData<T>);
+pub struct FutureSerializeResultFuture<TFut>(#[pin] TFut);
 
-impl<TFut, T> Future for FutureSerializeResultFuture<TFut, T>
+impl<TFut, T> Future for FutureSerializeResultFuture<TFut>
 where
     TFut: Future<Output = Result<T, Error>> + Send + 'static,
     T: Serialize + Type + Send + 'static,
@@ -149,12 +148,12 @@ where
 
 #[doc(hidden)]
 pub enum AlphaStreamMarker {}
-impl<TStream, T> AlphaRequestLayer<AlphaStreamMarker> for TStream
+impl<TStream> AlphaRequestLayer<AlphaStreamMarker> for TStream
 where
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
+    TStream: Stream + Send + Sync + 'static,
+    TStream::Item: Serialize + Type,
 {
-    type Result = T;
+    type Result = TStream::Item;
     type Stream = MapStream<TStream>;
     type Type = StreamMarker;
 
@@ -167,12 +166,12 @@ where
 
 #[doc(hidden)]
 pub enum AlphaResultStreamMarker {}
-impl<TStream, T> AlphaRequestLayer<AlphaResultStreamMarker> for Result<TStream, Error>
+impl<TStream> AlphaRequestLayer<AlphaResultStreamMarker> for Result<TStream, Error>
 where
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
+    TStream: Stream + Send + Sync + 'static,
+    TStream::Item: Serialize + Type,
 {
-    type Result = T;
+    type Result = TStream::Item;
     type Stream = MapStream<TStream>;
     type Type = StreamMarker;
 
@@ -190,14 +189,14 @@ where
 
 #[doc(hidden)]
 pub enum AlphaFutureStreamMarker {}
-impl<TFut, TStream, T> AlphaRequestLayer<AlphaFutureStreamMarker> for TFut
+impl<TFut> AlphaRequestLayer<AlphaFutureStreamMarker> for TFut
 where
-    TFut: Future<Output = TStream> + Send + 'static,
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
+    TFut: Future + Send + 'static,
+    TFut::Output: Stream + Send + Sync + 'static,
+    <TFut::Output as Stream>::Item: Serialize + Type,
 {
-    type Result = T;
-    type Stream = FutureMapStream<TFut, TStream>;
+    type Result = <TFut::Output as Stream>::Item;
+    type Stream = FutureMapStream<TFut, TFut::Output>;
     type Type = StreamMarker;
 
     fn exec(self) -> Self::Stream {
@@ -213,13 +212,13 @@ where
 
 #[doc(hidden)]
 pub enum AlphaFutureResultStreamMarker {}
-impl<TFut, TStream, T> AlphaRequestLayer<AlphaFutureResultStreamMarker> for TFut
+impl<TFut, TStream> AlphaRequestLayer<AlphaFutureResultStreamMarker> for TFut
 where
     TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
-    TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type,
+    TStream: Stream + Send + Sync + 'static,
+    TStream::Item: Serialize + Type,
 {
-    type Result = T;
+    type Result = TStream::Item;
     type Stream = FutureMapStream<TFut, TStream>;
     type Type = StreamMarker;
 

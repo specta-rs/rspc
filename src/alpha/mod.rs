@@ -166,7 +166,7 @@ mod tests {
         }
 
         let _p = R
-            .with(arg_mapper_mw::<LibraryArgsMap, _, _, _, _>(
+            .with(arg_mapper_mw::<LibraryArgsMap, _, _>(
                 |mw, ctx, state| async move {
                     let _state: i32 = state; // Assert correct type
                     let _ctx: () = (); // Assert correct type
@@ -216,13 +216,13 @@ mod tests {
         }
 
         let p = R
-            .with(arg_mapper_mw::<DoubleTupleMapper, _, _, _, _>(
+            .with(arg_mapper_mw::<DoubleTupleMapper, _, _>(
                 |mw, ctx, state| async move {
                     let (_, _) = state; // Assert type is correct
                     mw.next(ctx)
                 },
             ))
-            .with(arg_mapper_mw::<TripleTupleMapper, _, _, _, _>(
+            .with(arg_mapper_mw::<TripleTupleMapper, _, _>(
                 |mw, ctx, state| async move {
                     let (_, _, _) = state; // Assert type is correct
 
