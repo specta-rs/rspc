@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/solid-query";
 import { FetchTransport, createClient } from "@rspc/client";
 import { createSolidQueryHooks } from "@rspc/solid";
 
