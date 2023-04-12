@@ -1,8 +1,10 @@
 use std::{net::SocketAddr, sync::Arc};
+use api::Ctx;
 use axum::{
     http::{HeaderValue, Method},
     routing::get,
 };
+use rspc::integrations::httpz::Request;
 use tower_http::cors::CorsLayer;
 
 mod api;
@@ -17,10 +19,9 @@ fn router(client: Arc<prisma::PrismaClient>) -> axum::Router {
         .nest(
             "/rspc/:id",
             router
-                .endpoint(move || api::Ctx {
-                    client: Arc::clone(&client),
-                })
-                .axum(),
+                .endpoint(|_: Request| {
+                    Ctx { client }
+                }).axum(),
         )
         .layer(
             CorsLayer::new()
