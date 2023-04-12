@@ -14,7 +14,7 @@ fn router(client: Arc<prisma::PrismaClient>) -> axum::Router {
 
     axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
-        .route(
+        .nest(
             "/rspc/:id",
             router
                 .endpoint(move || api::Ctx {
