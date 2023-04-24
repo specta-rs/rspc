@@ -12,7 +12,7 @@ use crate::{
 // For queries and mutations
 
 pub trait RequestLayer<TMarker> {
-    type Result: Type + 'static;
+    type Result: Type;
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError>;
 }
@@ -20,7 +20,7 @@ pub trait RequestLayer<TMarker> {
 pub enum SerializeMarker {}
 impl<T> RequestLayer<SerializeMarker> for T
 where
-    T: Serialize + Type + 'static,
+    T: Serialize + Type,
 {
     type Result = T;
 
@@ -34,7 +34,7 @@ where
 pub enum ResultMarker {}
 impl<T> RequestLayer<ResultMarker> for Result<T, Error>
 where
-    T: Serialize + Type + 'static,
+    T: Serialize + Type,
 {
     type Result = T;
 
@@ -95,7 +95,7 @@ where
 // For subscriptions
 
 pub trait StreamRequestLayer<TMarker> {
-    type Result: Type + 'static;
+    type Result: Type;
 
     fn into_layer_result(self) -> Result<LayerResult, ExecError>;
 }
@@ -104,7 +104,7 @@ pub enum StreamMarker {}
 impl<TStream, T> StreamRequestLayer<StreamMarker> for TStream
 where
     TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type + 'static,
+    T: Serialize + Type,
 {
     type Result = T;
 
@@ -119,7 +119,7 @@ pub enum ResultStreamMarker {}
 impl<TStream, T> StreamRequestLayer<ResultStreamMarker> for Result<TStream, Error>
 where
     TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type + 'static,
+    T: Serialize + Type,
 {
     type Result = T;
 
@@ -136,7 +136,7 @@ impl<TFut, TStream, T> StreamRequestLayer<FutureStreamMarker> for TFut
 where
     TFut: Future<Output = TStream> + Send + 'static,
     TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type + 'static,
+    T: Serialize + Type,
 {
     type Result = T;
 
@@ -154,7 +154,7 @@ impl<TFut, TStream, T> StreamRequestLayer<FutureResultStreamMarker> for TFut
 where
     TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
     TStream: Stream<Item = T> + Send + Sync + 'static,
-    T: Serialize + Type + 'static,
+    T: Serialize + Type,
 {
     type Result = T;
 
