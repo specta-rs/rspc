@@ -1,21 +1,21 @@
-use std::{net::SocketAddr, sync::Arc};
 use axum::{
     http::{HeaderValue, Method},
     routing::get,
 };
+use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::CorsLayer;
 
 mod api;
-mod utils;
 mod prisma;
+mod utils;
 
 fn router(client: Arc<prisma::PrismaClient>) -> axum::Router {
     let router = api::new().build().arced();
 
     axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
-        .route(
-            "/rspc/:id",
+        .nest(
+            "/rspc",
             router
                 .endpoint(move || api::Ctx {
                     client: Arc::clone(&client),

@@ -1,4 +1,4 @@
-import rspc from "./utils/rspc";
+import { rspc } from "./utils/rspc";
 
 function App() {
   const { data } = rspc.useQuery(["version"]);

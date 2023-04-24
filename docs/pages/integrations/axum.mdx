@@ -27,7 +27,7 @@ let router = rspc::Router::<()>::new()
 
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
-    .route("/rspc/:id", router.endpoint(|| ()).axum())
+    .nest("/rspc", router.endpoint(|| ()).axum())
     .layer(cors);
 ```
 
@@ -48,7 +48,7 @@ let router = rspc::Router::<String>::new()
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
     // We use Axum `Path` extractor. The `rspc::Router` has `TCtx` set to `String` so we return the path string as the context.
-    .route("/rspc/:id", router.endpoint(|Path(path): Path<String>| path).axum())
+    .nest("/rspc", router.endpoint(|req: Request| req.uri().path()).axum())
     .layer(cors);
 ```
 
