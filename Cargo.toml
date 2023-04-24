@@ -28,7 +28,8 @@ httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
 anyhow = ["dep:anyhow"]
 
-alpha = []
+alpha = [] # APIs that are not yet stable
+unstable = [] # APIs where one line of code can blow up your whole app
 
 # Webservers
 axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
@@ -41,7 +42,7 @@ lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
 workers = ["httpz", "httpz/workers", "httpz/ws"]
 vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
-# Specta
+# Specta # TODO: Remove all of these with v1
 uuid = ["specta/uuid"]
 chrono = ["specta/chrono"]
 time = ["specta/time"]

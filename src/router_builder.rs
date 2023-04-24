@@ -13,7 +13,9 @@ use crate::{
 };
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
-pub(crate) fn is_invalid_procedure_name(s: &str) -> bool {
+#[doc(hidden)]
+// #[deprecated = "Removed in v1.0.0. Is now `<TResolver as ResolverFunction<_>>::typedef`"]
+pub fn is_invalid_procedure_name(s: &str) -> bool {
     // TODO: Prevent Typescript reserved keywords
     s.is_empty()
         || s == "ws"
@@ -129,6 +131,36 @@ where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn queries(&mut self) -> &mut ProcedureStore<TCtx> {
+        &mut self.queries
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn mutations(&mut self) -> &mut ProcedureStore<TCtx> {
+        &mut self.mutations
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn subscriptions(&mut self) -> &mut ProcedureStore<TCtx> {
+        &mut self.subscriptions
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn typ_store(&mut self) -> &mut TypeDefs {
+        &mut self.typ_store
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn prev_middleware(&mut self) -> &mut TMiddleware {
+        &mut self.middleware
+    }
+
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
         self.config = config;
@@ -177,7 +209,7 @@ where
     pub fn query<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
@@ -217,7 +249,7 @@ where
     pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
@@ -257,7 +289,7 @@ where
     pub fn subscription<F, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
+        builder: impl FnOnce(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
     ) -> Self
     where
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
@@ -505,7 +537,8 @@ where
 }
 
 // #[deprecated = "Removed in v1.0.0. Is now `<TResolver as ResolverFunction<_>>::typedef`"]
-pub(crate) fn typedef<TArg: Type, TResult: Type>(
+#[doc(hidden)]
+pub fn typedef<TArg: Type, TResult: Type>(
     key: Cow<'static, str>,
     defs: &mut TypeDefs,
 ) -> Result<ProcedureDataType, TsExportError> {

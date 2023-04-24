@@ -51,8 +51,10 @@ impl<TCtx: Send + 'static> EitherLayer<TCtx> {
 
 // TODO: Make private
 pub struct Procedure<TCtx> {
-    pub(crate) exec: EitherLayer<TCtx>,
-    pub(crate) ty: ProcedureDataType,
+    // TODO: make private -> without breaking Spacedrive
+    pub exec: EitherLayer<TCtx>,
+    // TODO: make private -> without breaking Spacedrive
+    pub ty: ProcedureDataType,
 }
 
 // TODO: make private

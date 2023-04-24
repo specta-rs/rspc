@@ -15,6 +15,7 @@ pub use middleware::*;
 pub use procedure_builder::*;
 pub use procedure_store::*;
 
+#[cfg(not(feature = "unstable"))]
 pub use specta;
 
 #[cfg(test)]
