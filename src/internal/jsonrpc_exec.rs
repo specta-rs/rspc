@@ -91,6 +91,12 @@ pub trait OwnedSender: Send + Sync + 'static {
 
 pub struct OwnedMpscSender(futures_channel::mpsc::Sender<jsonrpc::Response>);
 
+impl OwnedMpscSender {
+    pub fn new(chan: futures_channel::mpsc::Sender<jsonrpc::Response>) -> Self {
+        Self(chan)
+    }
+}
+
 impl OwnedSender for OwnedMpscSender {
     type SendFut<'a> = OwnedMpscSenderSendFut<'a>;
 
