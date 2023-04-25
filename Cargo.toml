@@ -69,7 +69,7 @@ tauri = { version = "1.2.4", optional = true }
 tracing = { version = "0.1.37", optional = true }
 worker = { version = "0.0.15", optional = true }
 anyhow = { version = "1", optional = true }
-futures-locks = { git = "https://github.com/oscartbeaumont/futures-locks", rev = "a2e880337e6bfb3140a261932667149607e3ada9", features = ["tokio"] }
+futures-locks = { version = "0.7.1", features = ["tokio"] }
 futures-channel = "0.3.28"
 nougat = "0.2.4"
 pin-project = "1.0.12" # TODO: Move to `pin-project-lite`
