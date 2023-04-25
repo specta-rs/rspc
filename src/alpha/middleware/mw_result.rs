@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::internal::RequestContext;
+use crate::{internal::RequestContext, ExecError};
 
 pub trait Ret: Debug + Send + Sync + 'static {}
 impl<T: Debug + Send + Sync + 'static> Ret for T {}
@@ -48,7 +48,7 @@ pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;
 
-    fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>);
+    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError>;
 }
 
 pub struct MwResultWithCtx<TLCtx, TResp>
@@ -80,8 +80,24 @@ where
     type Ctx = TLCtx;
     type Resp = TResp;
 
-    fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>) {
-        (self.ctx.unwrap(), self.input, self.req, self.resp)
+    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
+        Ok((self.ctx.unwrap(), self.input, self.req, self.resp))
+    }
+}
+
+impl<TLCtx, TResp> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, crate::Error>
+where
+    TLCtx: Send + Sync + 'static,
+    TResp: Executable2,
+{
+    type Ctx = TLCtx;
+    type Resp = TResp;
+
+    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
+        match self {
+            Ok(mw_result) => Ok(mw_result.explode()?),
+            Err(err) => Err(err.into()),
+        }
     }
 }
 

@@ -391,7 +391,7 @@ impl<
                 Poll::Ready(result) => {
                     this.0.set(PinnedOption::None);
 
-                    let (ctx, input, req, resp) = result.explode();
+                    let (ctx, input, req, resp) = result.explode()?;
                     *this.3 = resp;
 
                     match this.1.call(ctx, input, req) {
