@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 use crate::{internal::jsonrpc, ExecError, Router};
 
 use super::{
-    jsonrpc::{RequestId, RequestInner, ResponseInner},
+    jsonrpc::{NewOrOldInput, RequestId, RequestInner, ResponseInner},
     AsyncMap, ProcedureKind, RequestContext,
 };
 
@@ -327,16 +327,18 @@ where
                     }
                 }
             }
-            RequestInner::Subscription {
-                path,
-                input: (id, input),
-            } => match sender.subscription() {
+            RequestInner::Subscription { path, input } => match sender.subscription() {
                 SubscriptionUpgrade::Supported(mut sender, mut subscriptions) => {
+                    let (id, input) = match input {
+                        NewOrOldInput::New(id, input) => (id, input),
+                        NewOrOldInput::Old(input) => (req.id, input),
+                    };
+
                     if matches!(id, RequestId::Null) {
                         sender
                             .send(jsonrpc::Response {
                                 jsonrpc: "2.0",
-                                id: req.id.clone(),
+                                id: id.clone(),
                                 result: ResponseInner::Error(
                                     ExecError::ErrSubscriptionWithNullId.into(),
                                 ),
@@ -346,7 +348,7 @@ where
                         sender
                             .send(jsonrpc::Response {
                                 jsonrpc: "2.0",
-                                id: req.id.clone(),
+                                id: id.clone(),
                                 result: ResponseInner::Error(
                                     ExecError::ErrSubscriptionDuplicateId.into(),
                                 ),
@@ -366,7 +368,7 @@ where
                         sender
                             .send(jsonrpc::Response {
                                 jsonrpc: "2.0",
-                                id: id,
+                                id,
                                 result: ResponseInner::Error(err.into()),
                             })
                             .await;
@@ -452,9 +454,12 @@ where
                         .await;
                 }
             },
-            RequestInner::SubscriptionStop { input } => match sender.subscription() {
+            RequestInner::SubscriptionStop(input) => match sender.subscription() {
                 SubscriptionUpgrade::Supported(_sender, mut subscriptions) => {
-                    subscriptions.remove(&input).await;
+                    subscriptions
+                        // We `unwrap_or` for backwards compatibility with the tRPC style client I had. // TODO: Remove this in the future
+                        .remove(&input.map(|i| i.input).unwrap_or(req.id))
+                        .await;
                 }
                 SubscriptionUpgrade::Unsupported(sender) => {
                     sender
