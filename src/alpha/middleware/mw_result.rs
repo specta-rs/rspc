@@ -1,12 +1,11 @@
 use std::{
     fmt::Debug,
     future::{Future, Ready},
-    marker::PhantomData,
 };
 
 use serde_json::Value;
 
-use crate::{alpha::MiddlewareArgMapper, internal::RequestContext};
+use crate::internal::RequestContext;
 
 pub trait Ret: Debug + Send + Sync + 'static {}
 impl<T: Debug + Send + Sync + 'static> Ret for T {}
@@ -47,48 +46,38 @@ impl Executable2 for Executable2Placeholder {
 #[deprecated = "TODO: We probs have to remove this. Sadge!"]
 pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
-    type MwMapper: MiddlewareArgMapper;
     type Resp: Executable2;
 
     fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>);
 }
 
-pub struct MwResultWithCtx<TLCtx, M, TResp>
+pub struct MwResultWithCtx<TLCtx, TResp>
 where
-    M: MiddlewareArgMapper,
     TResp: Executable2,
 {
     pub(crate) input: Value,
     pub(crate) req: RequestContext,
     pub(crate) ctx: Option<TLCtx>,
     pub(crate) resp: Option<TResp>,
-    pub(crate) phantom: PhantomData<M>,
 }
 
-impl<TLCtx, M, TResp> MwResultWithCtx<TLCtx, M, TResp>
-where
-    M: MiddlewareArgMapper,
-    TResp: Executable2,
-{
-    pub fn resp<E: Executable2>(self, handler: E) -> MwResultWithCtx<TLCtx, M, E> {
+impl<TLCtx, TResp: Executable2> MwResultWithCtx<TLCtx, TResp> {
+    pub fn resp<E: Executable2>(self, handler: E) -> MwResultWithCtx<TLCtx, E> {
         MwResultWithCtx {
             input: self.input,
             req: self.req,
             ctx: self.ctx,
             resp: Some(handler),
-            phantom: PhantomData,
         }
     }
 }
 
-impl<TLCtx, M, TResp> MwV2Result for MwResultWithCtx<TLCtx, M, TResp>
+impl<TLCtx, TResp> MwV2Result for MwResultWithCtx<TLCtx, TResp>
 where
     TLCtx: Send + Sync + 'static,
-    M: MiddlewareArgMapper,
     TResp: Executable2,
 {
     type Ctx = TLCtx;
-    type MwMapper = M;
     type Resp = TResp;
 
     fn explode(self) -> (Self::Ctx, Value, RequestContext, Option<Self::Resp>) {

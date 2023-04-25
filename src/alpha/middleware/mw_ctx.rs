@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use serde_json::Value;
 
-use crate::{alpha::MiddlewareArgMapperPassthrough, internal::RequestContext};
+use crate::internal::RequestContext;
 
 use super::{Executable2Placeholder, MwResultWithCtx};
 
@@ -16,16 +16,12 @@ pub struct AlphaMiddlewareContext {
 }
 
 impl AlphaMiddlewareContext {
-    pub fn next<TNCtx>(
-        self,
-        ctx: TNCtx,
-    ) -> MwResultWithCtx<TNCtx, MiddlewareArgMapperPassthrough, Executable2Placeholder> {
+    pub fn next<TNCtx>(self, ctx: TNCtx) -> MwResultWithCtx<TNCtx, Executable2Placeholder> {
         MwResultWithCtx {
             input: self.input,
             req: self.req,
             ctx: Some(ctx),
             resp: None,
-            phantom: PhantomData,
         }
     }
 }

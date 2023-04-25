@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 
 use super::{
     middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
-    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, FutureMarker, MiddlewareArgMapper,
-    MissingResolver, MwV2, MwV2Result, RequestKind, RequestLayerMarker, ResolverFunction,
-    StreamLayerMarker, StreamMarker,
+    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, FutureMarker, MissingResolver,
+    MwV2, MwV2Result, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    StreamMarker,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -45,6 +45,21 @@ where
     }
 
     pub fn with<Mw: MwV2<TCtx>>(
+        self,
+        mw: Mw,
+    ) -> AlphaProcedure<
+        MissingResolver<Mw::NewCtx>,
+        (),
+        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw>,
+    > {
+        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+            middleware: AlphaBaseMiddleware::new(),
+            mw,
+        })
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn with2<Mw: super::MwV3<TCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<

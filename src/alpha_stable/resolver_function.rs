@@ -3,13 +3,15 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{alpha_stable::AlphaRequestLayer, internal::ProcedureDataType};
+use crate::{
+    alpha::AlphaMiddlewareBuilderLike, alpha_stable::AlphaRequestLayer, internal::ProcedureDataType,
+};
 
 use super::{FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
 
 pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
     type LayerCtx: Send + Sync + 'static;
-    type Arg: DeserializeOwned + Type;
+    type Arg: DeserializeOwned + Type + 'static;
     type RequestMarker;
     type Result;
     type ResultMarker;
@@ -18,13 +20,13 @@ pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 
-    fn typedef(
+    fn typedef<TMiddleware: AlphaMiddlewareBuilderLike>(
         key: Cow<'static, str>,
         defs: &mut TypeDefs,
     ) -> Result<ProcedureDataType, TsExportError> {
         Ok(ProcedureDataType {
             key,
-            input: <Self::Arg as Type>::reference(
+            input: <TMiddleware::Arg<Self::Arg> as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
@@ -54,7 +56,7 @@ impl<
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
-    TArg: DeserializeOwned + Type,
+    TArg: DeserializeOwned + Type + 'static,
     TResult: AlphaRequestLayer<TResultMarker, Type = FutureMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
@@ -78,7 +80,7 @@ impl<
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
-    TArg: DeserializeOwned + Type,
+    TArg: DeserializeOwned + Type + 'static,
     TResult: AlphaRequestLayer<TResultMarker, Type = StreamMarker>,
     TLayerCtx: Send + Sync + 'static,
 {

@@ -21,6 +21,9 @@ pub use router_builder_like::*;
 
 pub use crate::alpha_stable::*;
 
+#[cfg(feature = "unstable")]
+pub mod unstable;
+
 #[cfg(test)]
 mod tests {
     use std::{path::PathBuf, time::Duration};
@@ -30,9 +33,9 @@ mod tests {
     use specta::Type;
     use tokio::time::sleep;
 
-    use crate::alpha::{arg_mapper_mw, MiddlewareArgMapper, MwV2, ProcedureLike};
+    use crate::alpha::{unstable::MwArgMapper, MwV2, ProcedureLike};
 
-    use super::Rspc;
+    use super::{unstable::MwArgMapperMiddleware, Rspc};
 
     #[allow(non_upper_case_globals)]
     const R: Rspc<()> = Rspc::new();
@@ -151,22 +154,21 @@ mod tests {
     fn middleware_args() {
         pub struct LibraryArgsMap;
 
-        impl MiddlewareArgMapper for LibraryArgsMap {
+        impl MwArgMapper for LibraryArgsMap {
             type Input<T> = (T, i32)
             where
                 T: DeserializeOwned + Type + 'static;
-            type Output<T> = T where T: Serialize;
             type State = i32;
 
             fn map<T: Serialize + DeserializeOwned + Type + 'static>(
                 arg: Self::Input<T>,
-            ) -> (Self::Output<T>, Self::State) {
+            ) -> (T, Self::State) {
                 (arg.0, arg.1)
             }
         }
 
         let _p = R
-            .with(arg_mapper_mw::<LibraryArgsMap, _, _, _, _>(
+            .with2(MwArgMapperMiddleware::<LibraryArgsMap>::new().mount(
                 |mw, ctx, state| async move {
                     let _state: i32 = state; // Assert correct type
                     let _ctx: () = (); // Assert correct type
@@ -185,44 +187,42 @@ mod tests {
     fn multiple_middleware_args() {
         pub struct DoubleTupleMapper;
 
-        impl MiddlewareArgMapper for DoubleTupleMapper {
+        impl MwArgMapper for DoubleTupleMapper {
             type Input<T> = (T, Self::State)
             where
                 T: DeserializeOwned + Type + 'static;
-            type Output<T> = T where T: Serialize;
             type State = ((), ());
 
             fn map<T: Serialize + DeserializeOwned + Type + 'static>(
                 arg: Self::Input<T>,
-            ) -> (Self::Output<T>, Self::State) {
+            ) -> (T, Self::State) {
                 (arg.0, ((), ()))
             }
         }
 
         pub struct TripleTupleMapper;
 
-        impl MiddlewareArgMapper for TripleTupleMapper {
+        impl MwArgMapper for TripleTupleMapper {
             type Input<T> = (T, Self::State)
             where
                 T: DeserializeOwned + Type + 'static;
-            type Output<T> = T where T: Serialize;
             type State = ((), (), ());
 
             fn map<T: Serialize + DeserializeOwned + Type + 'static>(
                 arg: Self::Input<T>,
-            ) -> (Self::Output<T>, Self::State) {
+            ) -> (T, Self::State) {
                 (arg.0, ((), (), ()))
             }
         }
 
         let p = R
-            .with(arg_mapper_mw::<DoubleTupleMapper, _, _, _, _>(
+            .with2(MwArgMapperMiddleware::<DoubleTupleMapper>::new().mount(
                 |mw, ctx, state| async move {
                     let (_, _) = state; // Assert type is correct
                     mw.next(ctx)
                 },
             ))
-            .with(arg_mapper_mw::<TripleTupleMapper, _, _, _, _>(
+            .with2(MwArgMapperMiddleware::<TripleTupleMapper>::new().mount(
                 |mw, ctx, state| async move {
                     let (_, _, _) = state; // Assert type is correct
 

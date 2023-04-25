@@ -14,10 +14,9 @@ use specta::Type;
 use crate::{alpha::Executable2, internal::RequestContext, ExecError};
 
 use super::{
-    AlphaLayer, AlphaRequestLayer, FutureMarker, IntoProcedure, IntoProcedureCtx,
-    MiddlewareArgMapper, MiddlewareArgMapperPassthrough, MissingResolver, MwV2, MwV2Result,
-    PinnedOption, PinnedOptionProj, ProcedureLike, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker, StreamMarker,
+    AlphaLayer, AlphaRequestLayer, FutureMarker, IntoProcedure, IntoProcedureCtx, MissingResolver,
+    MwV2, MwV2Result, MwV3, PinnedOption, PinnedOptionProj, ProcedureLike, RequestKind,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -123,6 +122,18 @@ where
             mw,
         })
     }
+
+    #[cfg(feature = "unstable")]
+    pub fn with2<Mw: super::MwV3<TMiddleware::LayerCtx>>(
+        self,
+        mw: Mw,
+    ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
+    {
+        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+            middleware: self.1.expect("Uh oh, stinky"),
+            mw,
+        })
+    }
 }
 
 impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
@@ -155,7 +166,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
+            R::typedef::<TMiddleware>(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
         );
     }
 }
@@ -185,7 +196,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            R::typedef(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
+            R::typedef::<TMiddleware>(key, ctx.ty_store).unwrap(), // TODO: Error handling using `#[track_caller]`
         );
     }
 }
@@ -254,8 +265,7 @@ use serde_json::Value;
 pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
-    type MwMapper: MiddlewareArgMapper;
-    type IncomingState: Send + 'static; // TODO: Merge this onto something else or take in as `IncomingMiddleware`?
+    type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
 
     type LayerResult<T>: AlphaLayer<Self::Ctx>
     where
@@ -266,37 +276,10 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
         T: AlphaLayer<Self::LayerCtx>;
 }
 
-pub struct MwArgMapperMerger<TPrev, TNext>(PhantomData<(TPrev, TNext)>)
-where
-    TPrev: MiddlewareArgMapper,
-    TNext: MiddlewareArgMapper;
-
-impl<TPrev, TNext> MiddlewareArgMapper for MwArgMapperMerger<TPrev, TNext>
-where
-    TPrev: MiddlewareArgMapper,
-    TNext: MiddlewareArgMapper,
-{
-    type Input<T> = TPrev::Input<TNext::Input<T>>
-    where
-        T: DeserializeOwned + Type + 'static;
-
-    type Output<T> = TNext::Output<TPrev::Output<T>>
-    where
-        T: serde::Serialize;
-
-    type State = TNext::State;
-
-    fn map<T: serde::Serialize + DeserializeOwned + Type + 'static>(
-        _arg: Self::Input<T>,
-    ) -> (Self::Output<T>, Self::State) {
-        todo!() // TODO: Is this unreachable?
-    }
-}
-
 pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TNewMiddleware: MwV2<TMiddleware::LayerCtx>,
+    TNewMiddleware: MwV3<TMiddleware::LayerCtx>,
 {
     pub(crate) middleware: TMiddleware,
     pub(crate) mw: TNewMiddleware,
@@ -307,17 +290,14 @@ impl<TLayerCtx, TMiddleware, TNewMiddleware> AlphaMiddlewareBuilderLike
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
-    type MwMapper =
-        MwArgMapperMerger<TMiddleware::MwMapper, <TNewMiddleware::Result as MwV2Result>::MwMapper>;
-    type IncomingState = <TMiddleware::MwMapper as MiddlewareArgMapper>::State;
-
     type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
     where
         T: AlphaLayer<Self::LayerCtx>;
+    type Arg<T: Type + DeserializeOwned + 'static> = TNewMiddleware::Arg<T>;
 
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
@@ -335,7 +315,7 @@ pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
 {
     next: TMiddleware,
     mw: TNewMiddleware,
@@ -347,7 +327,7 @@ impl<TLayerCtx, TMiddleware, TNewMiddleware> AlphaLayer<TLayerCtx>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
 {
     type Stream<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
 
@@ -384,7 +364,7 @@ pub struct MiddlewareFutOrSomething<
     'a,
     // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
     TLayerCtx: Send + Sync + 'static,
-    TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
     TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
@@ -397,7 +377,7 @@ pub struct MiddlewareFutOrSomething<
 impl<
         'a,
         TLayerCtx: Send + Sync + 'static,
-        TNewMiddleware: MwV2<TLayerCtx> + Send + Sync + 'static,
+        TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
         TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
     > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>
 {
@@ -496,12 +476,11 @@ where
 {
     type Ctx = TCtx;
     type LayerCtx = TCtx;
-    type MwMapper = MiddlewareArgMapperPassthrough;
-    type IncomingState = ();
 
     type LayerResult<T> = T
     where
         T: AlphaLayer<Self::LayerCtx>;
+    type Arg<T: Type + DeserializeOwned + 'static> = T;
 
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
