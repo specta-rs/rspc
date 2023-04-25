@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use futures::{SinkExt, StreamExt};
 use futures_channel::mpsc;
 use futures_locks::Mutex;
+use serde_json::Value;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Runtime, WindowEvent,
@@ -104,16 +105,38 @@ where
             let ctx_fn = ctx_fn.clone();
             window.listen("plugin:rspc:transport", move |event| {
                 let reqs = match event.payload() {
-                    Some(v) => match serde_json::from_str::<serde_json::Value>(v).and_then(|v| if v.is_array() {
-                        serde_json::from_value::<Vec<jsonrpc::Request>>(v)
-                    } else {
-                       serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v])
-                    }) {
-                        Ok(v) => v,
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("failed to parse JSON-RPC request: {}", err);
-                            return;
+                    Some(v) => {
+                        let v = match serde_json::from_str::<serde_json::Value>(v) {
+                            Ok(v) => match v {
+                                Value::String(s) => match serde_json::from_str::<serde_json::Value>(&s) {
+                                    Ok(v) => v,
+                                    Err(err) => {
+                                        #[cfg(feature = "tracing")]
+                                        tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                        return;
+                                    }
+                                },
+                                v => v,
+                            },
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                return;
+                            }
+                        };
+
+
+                        match if v.is_array() {
+                            serde_json::from_value::<Vec<jsonrpc::Request>>(v)
+                        } else {
+                           serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v])
+                        } {
+                            Ok(v) => v,
+                            Err(err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                return;
+                            }
                         }
                     },
                     None => {
