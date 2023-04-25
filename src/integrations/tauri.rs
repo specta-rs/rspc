@@ -104,7 +104,7 @@ where
             let ctx_fn = ctx_fn.clone();
             window.listen("plugin:rspc:transport", move |event| {
                 let reqs = match event.payload() {
-                    Some(v) => match serde_json::to_value(v).and_then(|v| if v.is_array() {
+                    Some(v) => match serde_json::from_str::<serde_json::Value>(v).and_then(|v| if v.is_array() {
                         serde_json::from_value::<Vec<jsonrpc::Request>>(v)
                     } else {
                        serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v])
