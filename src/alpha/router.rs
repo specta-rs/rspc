@@ -122,6 +122,11 @@ where
 
     // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
     pub fn compat(self) -> Router<TCtx, ()> {
+        self.compat_with_config(Config::new())
+    }
+
+    // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
+    pub fn compat_with_config(self, config: Config) -> Router<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
@@ -141,7 +146,7 @@ where
         }
 
         Router {
-            config: Config::new(), // TODO: We need to expose this in the new syntax so the user can change it. Can we tak this in at build time not init time?
+            config,
             queries,
             mutations,
             subscriptions,
