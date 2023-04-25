@@ -103,8 +103,12 @@ where
             let router = router.clone();
             let ctx_fn = ctx_fn.clone();
             window.listen("plugin:rspc:transport", move |event| {
-                let req: jsonrpc::Request = match event.payload() {
-                    Some(v) => match serde_json::from_str::<jsonrpc::Request>(v) {
+                let reqs = match event.payload() {
+                    Some(v) => match serde_json::to_value(v).and_then(|v| if v.is_array() {
+                        serde_json::from_value::<Vec<jsonrpc::Request>>(v)
+                    } else {
+                       serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v])
+                    }) {
                         Ok(v) => v,
                         Err(err) => {
                             #[cfg(feature = "tracing")]
@@ -120,21 +124,23 @@ where
                     }
                 };
 
-                let ctx = ctx_fn();
-                let mut resp_tx = resp_tx.clone();
-                let subscriptions = subscriptions.clone();
-                let router = router.clone();
-
-                tokio::spawn(async move {
-                    // When the thread which holds the receiver for `resp_rx` is dropped it will cause this thread to be shutdown.
-                    handle_json_rpc(
-                        ctx,
-                        req,
-                        Cow::Owned(router),
-                        SubscriptionSender(&mut resp_tx, subscriptions),
-                    )
-                    .await;
-                });
+                for req in reqs {
+                    let ctx = ctx_fn();
+                    let mut resp_tx = resp_tx.clone();
+                    let subscriptions = subscriptions.clone();
+                    let router = router.clone();
+    
+                    tokio::spawn(async move {
+                        // When the thread which holds the receiver for `resp_rx` is dropped it will cause this thread to be shutdown.
+                        handle_json_rpc(
+                            ctx,
+                            req,
+                            Cow::Owned(router),
+                            SubscriptionSender(&mut resp_tx, subscriptions),
+                        )
+                        .await;
+                    });
+                }
             });
         })
         .build()
