@@ -9,10 +9,11 @@ This error means the type which you returned from your procedure is not valid. T
 - [`serde::Serialize`](https://docs.rs/serde/latest/serde/trait.Serialize.html)
 - [`specta::Type`](https://docs.rs/specta/latest/specta/trait.Type.html)
 
-To fix this error ensure the custom types which you return from your procedure have the derive macros as shown below or that the type is a [Rust primitive type](https://doc.rust-lang.org/book/ch03-02-data-types.html).
+To fix this error ensure the custom types which you return from your procedure have the derive macros as shown below or that the type is a 
+[Rust primitive type](https://doc.rust-lang.org/book/ch03-02-data-types.html).
 
 ```rs copy filename="src/main.rs"
-use rspc::Type;
+use specta::Type;
 use serde::Serialize; // This requires the 'derive' feature to be enabled.
 
 #[derive(Type, Serialize)]
@@ -59,21 +60,10 @@ type AnotherName = MyStruct;
 
 #### the trait `Type` is not implemented for
 
-This error means that the type which you specified as your argument type is invalid. Ensure the type implements the trait [`specta::Type`](https://docs.rs/specta/latest/specta/trait.Type.html).
+This error means that the type which you specified as your argument type is invalid.
+Ensure the type implements the trait [`specta::Type`](https://docs.rs/specta/latest/specta/trait.Type.html).
 
-This can be done using the `Type` derive macro:
-
-```rs copy filename="src/main.rs"
-use rspc::Type;
-
-#[derive(Type)]
-struct MyStruct {}
-
-#[derive(Type)]
-enum MyStruct {
-    SomeVariant
-}
-```
+See the section on [Specta](./specta) for more information.
 
 #### type mismatch in closure arguments
 
