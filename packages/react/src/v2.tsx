@@ -58,14 +58,20 @@ export interface Context<TProcedures extends ProceduresDef> {
   queryClient: QueryClient;
 }
 
+// TODO: Share with SolidJS hooks if possible?
+export type HooksOpts<P extends ProceduresDef> = {
+  context: React.Context<Context<P>>;
+};
+
 export function createReactQueryHooks<P extends ProceduresDef>(
-  client: AlphaClient<P>
+  client: AlphaClient<P>,
+  opts?: HooksOpts<P>
 ) {
   type TBaseOptions = BaseOptions<P>;
 
   const mapQueryKey: (keyAndInput: KeyAndInput) => KeyAndInput =
     (client as any).mapQueryKey || ((x) => x);
-  const Context = createContext<Context<P>>(undefined!);
+  const Context = opts?.context || createContext<Context<P>>(undefined!);
 
   function useContext() {
     const ctx = _useContext(Context);
