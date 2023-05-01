@@ -93,5 +93,4 @@ members = [
 ]
 
 [patch.crates-io]
-specta = { git = "https://github.com/oscartbeaumont/specta.git", rev = "df67cd18ea7a79819387e4c6a329b0e3929fb79e" }
 httpz = { git = "https://github.com/oscartbeaumont/httpz", rev = "2afc85de7c05b5d7d9b74c5439baf5a952162b15" } # TODO: Move back to crates.io release

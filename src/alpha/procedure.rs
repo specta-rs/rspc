@@ -14,9 +14,10 @@ use specta::Type;
 use crate::{alpha::Executable2, internal::RequestContext, ExecError};
 
 use super::{
-    AlphaLayer, AlphaRequestLayer, FutureMarker, IntoProcedure, IntoProcedureCtx, MissingResolver,
-    MwV2, MwV2Result, MwV3, PinnedOption, PinnedOptionProj, ProcedureLike, RequestKind,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
+    AlphaLayer, AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, FutureMarker, IntoProcedure,
+    IntoProcedureCtx, MissingResolver, MwV2, MwV2Result, MwV3, PinnedOption, PinnedOptionProj,
+    ProcedureLike, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    StreamMarker,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -274,6 +275,10 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: AlphaLayer<Self::LayerCtx>;
+}
+
+impl<M: AlphaMiddlewareBuilderLike> AlphaMiddlewareBuilderLikeCompat for M {
+    type Arg<T: Type + DeserializeOwned + 'static> = M::Arg<T>;
 }
 
 pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>

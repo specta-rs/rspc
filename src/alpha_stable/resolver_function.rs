@@ -3,11 +3,13 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{
-    alpha::AlphaMiddlewareBuilderLike, alpha_stable::AlphaRequestLayer, internal::ProcedureDataType,
-};
+use crate::{alpha_stable::AlphaRequestLayer, internal::ProcedureDataType};
 
 use super::{FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
+
+pub trait AlphaMiddlewareBuilderLikeCompat {
+    type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
+}
 
 pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
     type LayerCtx: Send + Sync + 'static;
@@ -20,7 +22,7 @@ pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 
-    fn typedef<TMiddleware: AlphaMiddlewareBuilderLike>(
+    fn typedef<TMiddleware: AlphaMiddlewareBuilderLikeCompat>(
         key: Cow<'static, str>,
         defs: &mut TypeDefs,
     ) -> Result<ProcedureDataType, TsExportError> {
