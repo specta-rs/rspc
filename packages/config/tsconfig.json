@@ -12,6 +12,7 @@
     "moduleResolution": "node",
     "esModuleInterop": true,
     "importHelpers": true,
+    "skipLibCheck": true,
     "paths": {
       "@rspc/client": ["../client/src"],
       "@rspc/client/full": ["../client/src/full"],

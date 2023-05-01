@@ -219,30 +219,31 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     // }, [queryKey, enabled]);
   }
 
-  return {
-    _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
-    Provider: (props: {
-      children?: JSX.Element;
-      client: Client<TProcedures>;
-      queryClient: QueryClient;
-    }): JSX.Element => {
-      return (
-        <Context.Provider
-          value={{
-            client: props.client,
-            queryClient: props.queryClient,
-          }}
-        >
-          <QueryClientProvider client={props.queryClient}>
-            {props.children as any}
-          </QueryClientProvider>
-        </Context.Provider>
-      ) as any;
-    },
-    useContext,
-    createQuery,
-    // createInfiniteQuery,
-    createMutation,
-    // createSubscription,
-  };
+  // return {
+  //   _rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
+  //   Provider: (props: {
+  //     children?: JSX.Element;
+  //     client: Client<TProcedures>;
+  //     queryClient: QueryClient;
+  //   }): JSX.Element => {
+  //     return (
+  //       <Context.Provider
+  //         value={{
+  //           client: props.client,
+  //           queryClient: props.queryClient,
+  //         }}
+  //       >
+  //         <QueryClientProvider_todo client={props.queryClient}>
+  //           {props.children as any}
+  //         </QueryClientProvider_todo>
+  //       </Context.Provider>
+  //     ) as any;
+  //   },
+  //   useContext,
+  //   createQuery,
+  //   // createInfiniteQuery,
+  //   createMutation,
+  //   // createSubscription,
+  // };
+  return undefined as any; // TODO: Fix
 }
