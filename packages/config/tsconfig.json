@@ -15,7 +15,9 @@
     "paths": {
       "@rspc/client": ["../client/src"],
       "@rspc/client/full": ["../client/src/full"],
+      "@rspc/client/v2": ["../client/src/v2"],
       "@rspc/react": ["../react/src"],
+      "@rspc/react/v2": ["../react/src/v2"],
       "@rspc/solid": ["../solid/src"],
       "@rspc/tauri": ["../tauri/src"]
     }

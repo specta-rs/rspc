@@ -2,11 +2,9 @@ import {
   randomId,
   Transport,
   RSPCError,
-  ProceduresLike,
   inferQueryResult,
   ProceduresDef,
   inferMutationResult,
-  inferProcedures,
   inferSubscriptionResult,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
@@ -14,12 +12,15 @@ import {
   SubscriptionOptions,
 } from "..";
 
+type KeyAndInput = [string] | [string, any];
+
 // TODO
-export class AlphaClient<TProcedures extends ProceduresDef> {
+export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
   private transport: Transport;
   private subscriptionMap = new Map<string, (data: any) => void>();
   private onError?: (err: RSPCError) => void | Promise<void>;
+  private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
 
   constructor(args: ClientArgs) {
     this.transport = args.transport;
@@ -31,17 +32,20 @@ export class AlphaClient<TProcedures extends ProceduresDef> {
     this.onError = args.onError;
   }
 
-  async query<K extends TProcedures["queries"]["key"] & string>(
+  async query<K extends P["queries"]["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+      ...input: _inferProcedureHandlerInput<P, "queries", K>
     ]
-  ): Promise<inferQueryResult<TProcedures, K>> {
+  ): Promise<inferQueryResult<P, K>> {
     try {
+      const keyAndInput2 = this.mapQueryKey
+        ? this.mapQueryKey(keyAndInput as any)
+        : keyAndInput;
       return await this.transport.doRequest(
         "query",
-        keyAndInput[0],
-        keyAndInput[1]
+        keyAndInput2[0],
+        keyAndInput2[1]
       );
     } catch (err) {
       if (this.onError) {
@@ -51,17 +55,20 @@ export class AlphaClient<TProcedures extends ProceduresDef> {
     }
   }
 
-  async mutation<K extends TProcedures["mutations"]["key"] & string>(
+  async mutation<K extends P["mutations"]["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "mutations", K>
+      ...input: _inferProcedureHandlerInput<P, "mutations", K>
     ]
-  ): Promise<inferMutationResult<TProcedures, K>> {
+  ): Promise<inferMutationResult<P, K>> {
     try {
+      const keyAndInput2 = this.mapQueryKey
+        ? this.mapQueryKey(keyAndInput as any)
+        : keyAndInput;
       return await this.transport.doRequest(
         "mutation",
-        keyAndInput[0],
-        keyAndInput[1]
+        keyAndInput2[0],
+        keyAndInput2[1]
       );
     } catch (err) {
       if (this.onError) {
@@ -73,16 +80,17 @@ export class AlphaClient<TProcedures extends ProceduresDef> {
 
   // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
   addSubscription<
-    K extends TProcedures["subscriptions"]["key"] & string,
-    TData = inferSubscriptionResult<TProcedures, K>
+    K extends P["subscriptions"]["key"] & string,
+    TData = inferSubscriptionResult<P, K>
   >(
-    keyAndInput: [
-      K,
-      ..._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
-    ],
+    keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
     opts: SubscriptionOptions<TData>
   ): () => void {
     try {
+      const keyAndInput2 = this.mapQueryKey
+        ? this.mapQueryKey(keyAndInput as any)
+        : keyAndInput;
+
       let subscriptionId = randomId();
       let unsubscribed = false;
 
@@ -97,9 +105,9 @@ export class AlphaClient<TProcedures extends ProceduresDef> {
         }
       };
 
-      this.transport.doRequest("subscription", keyAndInput[0], [
+      this.transport.doRequest("subscription", keyAndInput2[0], [
         subscriptionId,
-        keyAndInput[1],
+        keyAndInput2[1],
       ]);
 
       if (opts.onStarted) opts.onStarted();
@@ -116,5 +124,22 @@ export class AlphaClient<TProcedures extends ProceduresDef> {
 
       return () => {};
     }
+  }
+
+  //   mapQueryKey(keyAndInput: [string, any]) {}
+
+  // TODO: Remove this once middleware system is in place
+  dangerouslyHookIntoInternals<P2 extends ProceduresDef = P>(opts?: {
+    mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
+  }): AlphaClient<P2> {
+    this.mapQueryKey = opts?.mapQueryKey;
+    return this as any;
+  }
+
+  // TODO: Remove this?
+  dangerouslyClone() {
+    const clone = Object.assign({}, this);
+    Object.setPrototypeOf(clone, AlphaClient.prototype);
+    return clone as typeof this;
   }
 }
