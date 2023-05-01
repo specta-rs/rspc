@@ -42,7 +42,7 @@ type KeyAndInput = [string] | [string, any];
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
   rspc?: {
-    client?: Client<TProcedures>;
+    client?: AlphaClient<TProcedures>;
   };
 }
 
@@ -54,7 +54,7 @@ export interface SubscriptionOptions<TOutput> {
 }
 
 export interface Context<TProcedures extends ProceduresDef> {
-  client: Client<TProcedures>;
+  client: AlphaClient<TProcedures>;
   queryClient: QueryClient;
 }
 
@@ -244,7 +244,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       queryClient,
     }: {
       children?: ReactElement;
-      client: Client<P>;
+      client: AlphaClient<P>;
       queryClient: QueryClient;
     }) => (
       <Context.Provider

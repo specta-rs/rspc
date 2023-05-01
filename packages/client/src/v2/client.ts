@@ -126,8 +126,6 @@ export class AlphaClient<P extends ProceduresDef> {
     }
   }
 
-  //   mapQueryKey(keyAndInput: [string, any]) {}
-
   // TODO: Remove this once middleware system is in place
   dangerouslyHookIntoInternals<P2 extends ProceduresDef = P>(opts?: {
     mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
@@ -140,6 +138,9 @@ export class AlphaClient<P extends ProceduresDef> {
   dangerouslyClone() {
     const clone = Object.assign({}, this);
     Object.setPrototypeOf(clone, AlphaClient.prototype);
+    clone.transport = this.transport;
+    clone.onError = this.onError;
+    clone.mapQueryKey = this.mapQueryKey;
     return clone as typeof this;
   }
 }
