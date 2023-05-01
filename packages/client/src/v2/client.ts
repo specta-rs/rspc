@@ -14,7 +14,7 @@ import {
 
 type KeyAndInput = [string] | [string, any];
 
-// TODO
+// TODO: This will replace old client
 export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
   private transport: Transport;
