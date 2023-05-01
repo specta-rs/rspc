@@ -4,9 +4,9 @@
 
 // TODO: Middleware & middleware chaining
 
-import { ProceduresDef, Transport } from "..";
-import { AlphaClient } from "./client";
-export * from "./client";
+import { ProceduresDef, Transport } from ".";
+import { AlphaClient } from "./v2/client";
+export * from "./v2/client";
 
 export function initRspc<P extends ProceduresDef>(transport: Transport) {
   return new AlphaClient<P>({
