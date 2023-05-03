@@ -106,7 +106,7 @@ export class AlphaClient<P extends ProceduresDef> {
       const result = exec(
         {
           id: generateRandomId(),
-          type: "query",
+          type: "mutation",
           input: keyAndInput2[1],
           path: keyAndInput2[0],
           context: opts?.context || {},
