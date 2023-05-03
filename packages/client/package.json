@@ -25,6 +25,16 @@
       "default": "./dist/v2.js"
     }
   },
+  "typesVersions": {
+    "*": {
+      "full": [
+        "dist/full.d.ts"
+      ],
+      "v2": [
+        "dist/v2.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist"
   ],

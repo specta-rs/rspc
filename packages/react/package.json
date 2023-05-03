@@ -20,6 +20,13 @@
       "default": "./dist/v2.js"
     }
   },
+  "typesVersions": {
+    "*": {
+      "v2": [
+        "dist/v2.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist"
   ],
