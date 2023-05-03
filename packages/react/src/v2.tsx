@@ -19,15 +19,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import {
-  Client,
-  ProceduresLike,
-  RSPCError,
-  inferProcedures,
   _inferProcedureHandlerInput,
   inferInfiniteQueries,
   _inferInfiniteQueryProcedureHandlerInput,
   inferInfiniteQueryResult,
-  ProcedureDef,
   inferQueryInput,
   inferQueryResult,
   inferMutationResult,
@@ -35,7 +30,7 @@ import {
   inferSubscriptionResult,
   ProceduresDef,
 } from "@rspc/client";
-import { AlphaClient } from "@rspc/client/v2";
+import { AlphaClient, AlphaRSPCError } from "@rspc/client/v2";
 
 // TODO: Reuse one from client but don't export it in public API
 type KeyAndInput = [string] | [string, any];
@@ -50,7 +45,7 @@ export interface SubscriptionOptions<TOutput> {
   enabled?: boolean;
   onStarted?: () => void;
   onData: (data: TOutput) => void;
-  onError?: (err: RSPCError) => void;
+  onError?: (err: AlphaRSPCError) => void;
 }
 
 export interface Context<TProcedures extends ProceduresDef> {
@@ -94,14 +89,14 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     opts?: Omit<
       UseQueryOptions<
         TQueryFnData,
-        RSPCError,
+        AlphaRSPCError,
         TData,
         [K, inferQueryInput<P, K>]
       >,
       "queryKey" | "queryFn"
     > &
       TBaseOptions
-  ): UseQueryResult<TData, RSPCError> {
+  ): UseQueryResult<TData, AlphaRSPCError> {
     const { rspc, ...rawOpts } = opts ?? {};
     let client = rspc?.client;
     if (!client) {
@@ -125,7 +120,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     opts?: Omit<
       UseInfiniteQueryOptions<
         inferInfiniteQueryResult<P, K>,
-        RSPCError,
+        AlphaRSPCError,
         inferInfiniteQueryResult<P, K>,
         inferInfiniteQueryResult<P, K>,
         [K, inferQueryInput<P, K>]
@@ -133,7 +128,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       "queryKey" | "queryFn"
     > &
       TBaseOptions
-  ): UseInfiniteQueryResult<inferInfiniteQueryResult<P, K>, RSPCError> {
+  ): UseInfiniteQueryResult<inferInfiniteQueryResult<P, K>, AlphaRSPCError> {
     const { rspc, ...rawOpts } = opts ?? {};
     let client = rspc?.client;
     if (!client) {
@@ -156,7 +151,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     key: K | [K],
     opts?: UseMutationOptions<
       inferMutationResult<P, K>,
-      RSPCError,
+      AlphaRSPCError,
       inferMutationInput<P, K> extends never
         ? undefined
         : inferMutationInput<P, K>,
@@ -165,7 +160,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       TBaseOptions
   ): UseMutationResult<
     inferMutationResult<P, K>,
-    RSPCError,
+    AlphaRSPCError,
     inferMutationInput<P, K> extends never
       ? undefined
       : inferMutationInput<P, K>,

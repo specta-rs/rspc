@@ -1,7 +1,4 @@
-import {
-  randomId,
-  Transport,
-  RSPCError,
+import type {
   inferQueryResult,
   ProceduresDef,
   inferMutationResult,
@@ -11,16 +8,21 @@ import {
   ClientArgs,
   SubscriptionOptions,
 } from "..";
+import { randomId, AlphaTransport, AlphaRSPCError } from "../v2";
 
 type KeyAndInput = [string] | [string, any];
+
+type OperationOpts = {
+  signal?: AbortSignal;
+};
 
 // TODO: This will replace old client
 export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
-  private transport: Transport;
+  private transport: AlphaTransport;
   private subscriptionMap = new Map<string, (data: any) => void>();
-  private onError?: (err: RSPCError) => void | Promise<void>;
-  private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
+  private onError?: (err: AlphaRSPCError) => void | Promise<void>;
+  private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput; // TODO: Do something so a single React.context can handle multiple of these
 
   constructor(args: ClientArgs) {
     this.transport = args.transport;
@@ -36,7 +38,8 @@ export class AlphaClient<P extends ProceduresDef> {
     keyAndInput: [
       key: K,
       ...input: _inferProcedureHandlerInput<P, "queries", K>
-    ]
+    ],
+    opts?: OperationOpts
   ): Promise<inferQueryResult<P, K>> {
     try {
       const keyAndInput2 = this.mapQueryKey
@@ -45,11 +48,12 @@ export class AlphaClient<P extends ProceduresDef> {
       return await this.transport.doRequest(
         "query",
         keyAndInput2[0],
-        keyAndInput2[1]
+        keyAndInput2[1],
+        opts?.signal
       );
     } catch (err) {
       if (this.onError) {
-        this.onError(err as RSPCError);
+        this.onError(err as AlphaRSPCError);
       }
       throw err;
     }
@@ -59,7 +63,8 @@ export class AlphaClient<P extends ProceduresDef> {
     keyAndInput: [
       key: K,
       ...input: _inferProcedureHandlerInput<P, "mutations", K>
-    ]
+    ],
+    opts?: OperationOpts
   ): Promise<inferMutationResult<P, K>> {
     try {
       const keyAndInput2 = this.mapQueryKey
@@ -68,16 +73,18 @@ export class AlphaClient<P extends ProceduresDef> {
       return await this.transport.doRequest(
         "mutation",
         keyAndInput2[0],
-        keyAndInput2[1]
+        keyAndInput2[1],
+        opts?.signal
       );
     } catch (err) {
       if (this.onError) {
-        this.onError(err as RSPCError);
+        this.onError(err as AlphaRSPCError);
       }
       throw err;
     }
   }
 
+  // TODO: AbortController's with subscriptions?
   // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
   addSubscription<
     K extends P["subscriptions"]["key"] & string,
@@ -119,7 +126,7 @@ export class AlphaClient<P extends ProceduresDef> {
       };
     } catch (err) {
       if (this.onError) {
-        this.onError(err as RSPCError);
+        this.onError(err as AlphaRSPCError);
       }
 
       return () => {};
@@ -132,15 +139,5 @@ export class AlphaClient<P extends ProceduresDef> {
   }): AlphaClient<P2> {
     this.mapQueryKey = opts?.mapQueryKey;
     return this as any;
-  }
-
-  // TODO: Remove this?
-  dangerouslyClone() {
-    const clone = Object.assign({}, this);
-    Object.setPrototypeOf(clone, AlphaClient.prototype);
-    clone.transport = this.transport;
-    clone.onError = this.onError;
-    clone.mapQueryKey = this.mapQueryKey;
-    return clone as typeof this;
   }
 }
