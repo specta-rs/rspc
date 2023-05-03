@@ -1,4 +1,10 @@
-import { initRspc, httpLink, batchLink, loggerLink } from "@rspc/client/v2";
+import {
+  initRspc,
+  httpLink,
+  batchLink,
+  loggerLink,
+  wsLink,
+} from "@rspc/client/v2";
 import { createReactQueryHooks } from "@rspc/react/v2";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
@@ -28,6 +34,7 @@ const fetchClient = initRspc<Procedures>({
       // }),
     }),
   ],
+  // onError // TODO: Make sure this is still working
 });
 
 const wsQueryClient = new QueryClient();
@@ -35,23 +42,9 @@ const wsClient = initRspc<Procedures>({
   links: [
     loggerLink(),
     batchLink(),
-    // TODO: "ws://localhost:4000/rspc/ws"
-    // wsLink({
-    //   url: "http://localhost:4000/rspc",
-
-    //   // You can override the fetch function if required
-    //   // fetch: (input, init) => fetch(input, { ...init, credentials: "include" }), // Include Cookies for cross-origin requests
-
-    //   // Provide static custom headers
-    //   // headers: {
-    //   //   "x-demo": "abc",
-    //   // },
-
-    //   // Provide dynamic custom headers
-    //   // headers: ({ op }) => ({
-    //   //   "x-procedure-path": op.path,
-    //   // }),
-    // }),
+    wsLink({
+      url: "ws://localhost:4000/rspc/ws",
+    }),
   ],
 });
 

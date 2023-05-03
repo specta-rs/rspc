@@ -5,16 +5,22 @@ import type {
   inferSubscriptionResult,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
-  SubscriptionOptions,
 } from "..";
 import {
-  randomId,
   AlphaRSPCError,
   Link,
   OperationContext,
   Operation,
   LinkResult,
 } from "../v2";
+
+// TODO
+export interface SubscriptionOptions<TOutput> {
+  // onStarted?: () => void;
+  onData: (data: TOutput) => void;
+  // TODO: Probs remove `| Error` here
+  onError?: (err: AlphaRSPCError | Error) => void;
+}
 
 type KeyAndInput = [string] | [string, any];
 
@@ -37,7 +43,6 @@ export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
 export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
   private links: Link[];
-  private subscriptionMap = new Map<string, (data: any) => void>();
   private onError?: (err: AlphaRSPCError) => void | Promise<void>;
   private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput; // TODO: Do something so a single React.context can handle multiple of these
 
@@ -47,7 +52,6 @@ export class AlphaClient<P extends ProceduresDef> {
     }
 
     this.links = args.links;
-    this.subscriptionMap = new Map();
     this.onError = args.onError;
   }
 
@@ -117,53 +121,39 @@ export class AlphaClient<P extends ProceduresDef> {
     }
   }
 
-  // TODO: AbortController's with subscriptions?
-  // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
+  // TODO: Handle resubscribing if the subscription crashes similar to what Tanstack Query does
   addSubscription<
     K extends P["subscriptions"]["key"] & string,
     TData = inferSubscriptionResult<P, K>
   >(
     keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
-    opts: SubscriptionOptions<TData>
+    opts: SubscriptionOptions<TData> & { context: OperationContext }
   ): () => void {
     try {
       const keyAndInput2 = this.mapQueryKey
         ? this.mapQueryKey(keyAndInput as any)
         : keyAndInput;
 
-      let subscriptionId = randomId();
-      let unsubscribed = false;
+      const result = exec(
+        {
+          id: 0,
+          type: "query",
+          input: keyAndInput2[1],
+          path: keyAndInput2[0],
+          context: opts?.context || {},
+        },
+        this.links
+      );
 
-      const cleanup = () => {
-        this.subscriptionMap?.delete(subscriptionId);
-        if (subscriptionId) {
-          // @ts-expect-error // TODO
-          this.transport.doRequest(
-            "subscriptionStop",
-            undefined!,
-            subscriptionId
-          );
-        }
-      };
-
-      // @ts-expect-error // TODO
-      this.transport.doRequest("subscription", keyAndInput2[0], [
-        subscriptionId,
-        keyAndInput2[1],
-      ]);
-
-      if (opts.onStarted) opts.onStarted();
-      this.subscriptionMap?.set(subscriptionId, opts.onData);
-
-      return () => {
-        unsubscribed = true;
-        cleanup();
-      };
+      result.exec(
+        (data) => opts?.onData(data),
+        (err) => opts?.onError?.(err)
+      );
+      return result.abort;
     } catch (err) {
       if (this.onError) {
         this.onError(err as AlphaRSPCError);
       }
-
       return () => {};
     }
   }
