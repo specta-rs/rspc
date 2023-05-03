@@ -27,8 +27,8 @@ import {
   inferQueryResult,
   inferMutationResult,
   inferMutationInput,
-  inferSubscriptionResult,
   ProceduresDef,
+  inferProcedureResult,
 } from "@rspc/client";
 import { AlphaClient, AlphaRSPCError } from "@rspc/client/v2";
 
@@ -181,7 +181,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
 
   function useSubscription<
     K extends P["subscriptions"]["key"] & string,
-    TData = inferSubscriptionResult<P, K>
+    TData = inferProcedureResult<P, "subscriptions", K>
   >(
     keyAndInput: [
       key: K,

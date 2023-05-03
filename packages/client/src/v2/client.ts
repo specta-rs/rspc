@@ -2,9 +2,9 @@ import type {
   inferQueryResult,
   ProceduresDef,
   inferMutationResult,
-  inferSubscriptionResult,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  inferProcedureResult,
 } from "..";
 import {
   AlphaRSPCError,
@@ -127,7 +127,7 @@ export class AlphaClient<P extends ProceduresDef> {
   // TODO: Handle resubscribing if the subscription crashes similar to what Tanstack Query does
   addSubscription<
     K extends P["subscriptions"]["key"] & string,
-    TData = inferSubscriptionResult<P, K>
+    TData = inferProcedureResult<P, "subscriptions", K>
   >(
     keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
     opts: SubscriptionOptions<TData> & { context?: OperationContext }
