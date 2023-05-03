@@ -27,6 +27,7 @@ type KeyAndInput = [string] | [string, any];
 type OperationOpts = {
   signal?: AbortSignal;
   context?: OperationContext;
+  // skipBatch?: boolean; // TODO: Make this work + add this to React
 };
 
 // TODO
@@ -38,6 +39,8 @@ interface ClientArgs {
 export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
   return new AlphaClient<P>(args);
 }
+
+const generateRandomId = () => Math.random().toString(36).slice(2);
 
 // TODO: This will replace old client
 export class AlphaClient<P extends ProceduresDef> {
@@ -69,7 +72,7 @@ export class AlphaClient<P extends ProceduresDef> {
 
       const result = exec(
         {
-          id: 0,
+          id: generateRandomId(),
           type: "query",
           input: keyAndInput2[1],
           path: keyAndInput2[0],
@@ -102,7 +105,7 @@ export class AlphaClient<P extends ProceduresDef> {
 
       const result = exec(
         {
-          id: 0,
+          id: generateRandomId(),
           type: "query",
           input: keyAndInput2[1],
           path: keyAndInput2[0],
@@ -127,7 +130,7 @@ export class AlphaClient<P extends ProceduresDef> {
     TData = inferSubscriptionResult<P, K>
   >(
     keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
-    opts: SubscriptionOptions<TData> & { context: OperationContext }
+    opts: SubscriptionOptions<TData> & { context?: OperationContext }
   ): () => void {
     try {
       const keyAndInput2 = this.mapQueryKey
@@ -136,7 +139,7 @@ export class AlphaClient<P extends ProceduresDef> {
 
       const result = exec(
         {
-          id: 0,
+          id: generateRandomId(),
           type: "subscription",
           input: keyAndInput2[1],
           path: keyAndInput2[0],
@@ -178,7 +181,9 @@ function exec(op: Operation, links: Link[]) {
     },
     abort: () => {},
   };
-  for (const link of links) {
+
+  for (var linkIndex = 0; linkIndex < links.length; linkIndex++) {
+    const link = links[links.length - linkIndex - 1]!;
     const result = link({
       op,
       next: () => prevLinkResult,

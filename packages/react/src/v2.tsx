@@ -45,7 +45,8 @@ export interface SubscriptionOptions<TOutput> {
   enabled?: boolean;
   onStarted?: () => void;
   onData: (data: TOutput) => void;
-  onError?: (err: AlphaRSPCError) => void;
+  // TODO: Not `| Error`
+  onError?: (err: AlphaRSPCError | Error) => void;
 }
 
 export interface Context<TProcedures extends ProceduresDef> {
@@ -193,41 +194,16 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       client = useContext().client;
     }
     const queryKey = hashQueryKey(keyAndInput);
-
     const enabled = opts?.enabled ?? true;
 
     return useEffect(() => {
       if (!enabled) {
         return;
       }
-      let isStopped = false;
-      // @ts-ignore // TODO: Fix this
-      const unsubscribe = client!.addSubscription<K, TData>(
-        keyAndInput as any,
-        {
-          onStarted: () => {
-            if (!isStopped) {
-              opts.onStarted?.();
-            }
-          },
-          // @ts-ignore// TODO: Fix this
-          onData: (data) => {
-            if (!isStopped) {
-              opts.onData(data);
-            }
-          },
-          // @ts-ignore // TODO: Fix this
-          onError: (err) => {
-            if (!isStopped) {
-              opts.onError?.(err);
-            }
-          },
-        }
-      );
-      return () => {
-        isStopped = true;
-        unsubscribe();
-      };
+      return client!.addSubscription<K, TData>(keyAndInput, {
+        onData: opts.onData,
+        onError: opts.onError,
+      });
     }, [queryKey, enabled]);
   }
 

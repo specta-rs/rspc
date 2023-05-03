@@ -15,7 +15,7 @@ export type OperationContext = Record<string, unknown>;
  */
 export interface Operation {
   // TODO: Optional on being a subscription?
-  id: number;
+  id: string; // TODO: Move back to being an int?
 
   type: "query" | "mutation" | "subscription" | "subscriptionStop"; // TODO: Derive this from Rust bindings
   input: unknown;

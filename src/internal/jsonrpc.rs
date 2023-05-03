@@ -27,6 +27,7 @@ impl RequestId {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(specta::Type))]
 pub struct Request {
+    #[serde(default)]
     pub jsonrpc: Option<String>, // This is required in the JsonRPC spec but I make it optional.
     #[serde(default = "RequestId::null")] // Optional is not part of spec but copying tRPC
     pub id: RequestId,

@@ -65,6 +65,7 @@ mod tests {
             super::ProcedureDataType,
             // crate::Procedures, // TODO
             super::jsonrpc::Request,
+            // super::jsonrpc::Response, // TODO
         };
 
         for (_, ty) in tys.into_iter().filter_map(|(sid, v)| v.map(|v| (sid, v))) {

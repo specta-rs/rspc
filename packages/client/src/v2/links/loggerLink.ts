@@ -1,5 +1,7 @@
 import { Link } from "./link";
 
+// TODO: Pretty log output like tRPC's logger link
+
 /**
  * Link for logging operations.
  *
@@ -12,14 +14,25 @@ export function loggerLink(): Link {
       op,
     });
 
+    console.log("REQUEST", op, next);
+
     return {
       exec: (resolve, reject) => {
-        result.exec((data) => {
-          console.log("LOGGER", data); // TODO
-          resolve(data);
-        }, reject);
+        result.exec(
+          (data) => {
+            console.log("RESPONSE", op, data);
+            resolve(data);
+          },
+          (err) => {
+            console.error("RESPONSE ERROR", op, err);
+            reject(err);
+          }
+        );
       },
-      abort: result.abort,
+      abort: () => {
+        console.log("ABORT OP", op);
+        result.abort();
+      },
     };
   };
 }

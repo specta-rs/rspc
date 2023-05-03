@@ -1,4 +1,4 @@
-import { initRspc, httpLink, wsLink } from "@rspc/client/v2";
+import { initRspc, httpBatchLink, wsBatchLink } from "@rspc/client/v2";
 import { createReactQueryHooks } from "@rspc/react/v2";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
@@ -11,7 +11,8 @@ const fetchClient = initRspc<Procedures>({
   links: [
     // loggerLink(),
 
-    httpLink({
+    // You can use `httpLink` if you don't want batching.
+    httpBatchLink({
       url: "http://localhost:4000/rspc",
 
       // You can override the fetch function if required
@@ -23,8 +24,8 @@ const fetchClient = initRspc<Procedures>({
       // },
 
       // Provide dynamic custom headers
-      // headers: ({ op }) => ({
-      //   "x-procedure-path": op.path,
+      // headers: ({ ops }) => ({
+      //   "x-procedure-path": ops.map((op) => op.path).join(","),
       // }),
     }),
   ],
@@ -36,7 +37,8 @@ const wsClient = initRspc<Procedures>({
   links: [
     // loggerLink(),
 
-    wsLink({
+    // You can use `wsLink` if you don't want batching.
+    wsBatchLink({
       url: "ws://localhost:4000/rspc/ws",
     }),
   ],

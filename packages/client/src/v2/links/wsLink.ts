@@ -1,9 +1,6 @@
 import { AlphaRSPCError } from "../error";
-import { Link } from "./link";
+import { Link, Operation } from "./link";
 import { Request as RspcRequest } from "../../bindings";
-
-// TODO: keep this internal and don't export -> is used by `@rspc/react` so avoid that -> subscription management should be done by client.
-export const randomId = () => Math.random().toString(36).slice(2);
 
 const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 
@@ -15,10 +12,7 @@ type WsLinkOpts = {
   WebSocket?: typeof WebSocket;
 };
 
-/**
- * Websocket link for rspc
- */
-export function wsLink(opts: WsLinkOpts): Link {
+function newWsManager(opts: WsLinkOpts) {
   const WebSocket = opts.WebSocket || globalThis.WebSocket.bind(globalThis);
   const activeMap = new Map<
     string,
@@ -94,49 +88,112 @@ export function wsLink(opts: WsLinkOpts): Link {
     }
   };
 
-  return ({ op }) => {
-    const id = randomId();
+  return [
+    activeMap,
+    (data: RspcRequest | RspcRequest[]) =>
+      awaitWebsocketReady().then(() => ws.send(JSON.stringify(data))),
+  ] as const;
+}
 
+/**
+ * Websocket link for rspc
+ */
+export function wsLink(opts: WsLinkOpts): Link {
+  const [activeMap, send] = newWsManager(opts);
+
+  return ({ op }) => {
     // TODO: Get backend to send response if a subscription task crashes so we can unsubscribe from that subscription
     // TODO: If the current WebSocket is closed we should mark them all as finished because the tasks were killed on the server
 
     let finished = false;
     return {
       exec: async (resolve, reject) => {
-        await awaitWebsocketReady();
-
-        activeMap.set(id, {
+        activeMap.set(op.id, {
           resolve,
           reject,
         });
 
-        ws.send(
-          JSON.stringify({
-            id,
-            method: op.type,
-            params: {
-              path: op.path,
-              input: op.input,
-            },
-          })
-        );
+        send({
+          id: op.id,
+          // @ts-expect-error // TODO: Fix this
+          method: op.type,
+          params: {
+            path: op.path,
+            input: op.input,
+          },
+        });
       },
       abort() {
         if (finished) return;
         finished = true;
 
-        activeMap.delete(id);
-
-        awaitWebsocketReady().then(() => {
-          const req: Extract<RspcRequest, { method: "subscriptionStop" }> = {
-            jsonrpc: "2.0",
-            id,
-            method: "subscriptionStop",
-            params: null,
-          };
-
-          ws.send(JSON.stringify(req));
+        activeMap.delete(op.id);
+        send({
+          jsonrpc: "2.0",
+          id: op.id,
+          method: "subscriptionStop",
+          params: null,
         });
+      },
+    };
+  };
+}
+
+/**
+ * Wrapper around wsLink that applies request batching.
+ */
+// TODO: Ability to use context to skip batching on certain operations
+export function wsBatchLink(opts: WsLinkOpts): Link {
+  const [activeMap, send] = newWsManager(opts);
+
+  const batch: RspcRequest[] = [];
+  let batchQueued = false;
+  const queueBatch = () => {
+    if (!batchQueued) {
+      batchQueued = true;
+      setTimeout(() => {
+        send([...batch]);
+        batch.splice(0, batch.length);
+        batchQueued = false;
+      });
+    }
+  };
+
+  return ({ op }) => {
+    // TODO: Get backend to send response if a subscription task crashes so we can unsubscribe from that subscription
+    // TODO: If the current WebSocket is closed we should mark them all as finished because the tasks were killed on the server
+
+    let finished = false;
+    return {
+      exec: async (resolve, reject) => {
+        activeMap.set(op.id, {
+          resolve,
+          reject,
+        });
+
+        // @ts-expect-error // TODO: Fix this
+        batch.push({
+          id: op.id,
+          method: op.type,
+          params: {
+            path: op.path,
+            input: op.input,
+          },
+        });
+        queueBatch();
+      },
+      abort() {
+        if (finished) return;
+        finished = true;
+
+        activeMap.delete(op.id);
+        batch.push({
+          jsonrpc: "2.0",
+          id: op.id,
+          method: "subscriptionStop",
+          params: null,
+        });
+        queueBatch();
       },
     };
   };
