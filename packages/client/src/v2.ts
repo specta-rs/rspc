@@ -7,3 +7,5 @@ export * from "./v2/links/link";
 export * from "./v2/links/httpLink";
 export * from "./v2/links/wsLink";
 export * from "./v2/links/loggerLink";
+
+export { Request as RspcRequest } from "./bindings";
