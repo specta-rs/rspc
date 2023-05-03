@@ -68,8 +68,8 @@ pub enum RequestInner {
 #[cfg_attr(test, derive(specta::Type))]
 #[serde(untagged)]
 pub enum NewOrOldInput {
-    Old(Option<Value>),
     New(RequestId, Option<Value>),
+    Old(Option<Value>),
 }
 
 impl Default for NewOrOldInput {

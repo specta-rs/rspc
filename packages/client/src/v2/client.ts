@@ -137,7 +137,7 @@ export class AlphaClient<P extends ProceduresDef> {
       const result = exec(
         {
           id: 0,
-          type: "query",
+          type: "subscription",
           input: keyAndInput2[1],
           path: keyAndInput2[0],
           context: opts?.context || {},
