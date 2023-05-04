@@ -1,4 +1,4 @@
-export class AlphaRSPCError {
+export class AlphaRSPCError extends Error {
   code: number;
   message: string;
 
