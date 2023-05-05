@@ -64,7 +64,6 @@ impl<R: Runtime> OwnedSender for TauriOwnedSender<R> {
     }
 }
 
-/// We create a window manager for each Tauri window
 struct WindowManager<TCtxFn, TCtx, TMeta>
 where
     TCtx: Send + Sync + 'static,
