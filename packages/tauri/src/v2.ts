@@ -1,5 +1,6 @@
 import { AlphaRSPCError, Link, RspcRequest } from "@rspc/client/v2";
-import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api";
+import { emit, listen } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 
 /**
@@ -78,14 +79,22 @@ export function tauriLink(): Link {
         if (finished) return;
         finished = true;
 
+        const subscribeEventIdx = batch.findIndex((b) => b.id === op.id);
+        if (subscribeEventIdx === -1) {
+          if (op.type === "subscription") {
+            // @ts-expect-error // TODO: Fix this
+            batch.push({
+              id: op.id,
+              method: "subscriptionStop",
+              params: null,
+            });
+            queueBatch();
+          }
+        } else {
+          batch.splice(subscribeEventIdx, subscribeEventIdx);
+        }
+
         activeMap.delete(op.id);
-        batch.push({
-          jsonrpc: "2.0",
-          id: op.id,
-          method: "subscriptionStop",
-          params: null,
-        });
-        queueBatch();
       },
     };
   };

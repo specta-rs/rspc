@@ -127,11 +127,13 @@ export function wsLink(opts: WsLinkOpts): Link {
         if (finished) return;
         finished = true;
 
+        // TODO: We should probs still use dataloader internally to deal with create/delete events due to React strict mode.
         activeMap.delete(op.id);
         send({
-          jsonrpc: "2.0",
           id: op.id,
+          // @ts-expect-error // TODO: Fix this
           method: "subscriptionStop",
+          // @ts-expect-error // TODO: Fix this
           params: null,
         });
       },
@@ -186,14 +188,22 @@ export function wsBatchLink(opts: WsLinkOpts): Link {
         if (finished) return;
         finished = true;
 
+        const subscribeEventIdx = batch.findIndex((b) => b.id === op.id);
+        if (subscribeEventIdx === -1) {
+          if (op.type === "subscription") {
+            // @ts-expect-error // TODO: Fix this
+            batch.push({
+              id: op.id,
+              method: "subscriptionStop",
+              params: null,
+            });
+            queueBatch();
+          }
+        } else {
+          batch.splice(subscribeEventIdx, subscribeEventIdx);
+        }
+
         activeMap.delete(op.id);
-        batch.push({
-          jsonrpc: "2.0",
-          id: op.id,
-          method: "subscriptionStop",
-          params: null,
-        });
-        queueBatch();
       },
     };
   };
