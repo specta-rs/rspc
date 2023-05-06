@@ -409,27 +409,6 @@ impl<
             PinnedOptionProj::None => {}
         }
 
-        match this.2.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll_next(cx) {
-                Poll::Ready(result) => {
-                    this.2.set(PinnedOption::None);
-
-                    match this.3.take() {
-                        Some(resp) => {
-                            // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
-                            let result = result.unwrap().unwrap();
-
-                            let fut = resp.call(result);
-                            this.4.set(PinnedOption::Some(fut));
-                        }
-                        None => return Poll::Ready(result),
-                    }
-                }
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
-
         match this.4.as_mut().project() {
             PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                 Poll::Ready(result) => {
@@ -439,6 +418,27 @@ impl<
                 }
                 Poll::Pending => return Poll::Pending,
             },
+            PinnedOptionProj::None => {}
+        }
+
+        match this.2.as_mut().project() {
+            PinnedOptionProj::Some(fut) => {
+                match fut.poll_next(cx) {
+                    Poll::Ready(result) => {
+                        match this.3.take() {
+                            Some(resp) => {
+                                // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
+                                let result = result.unwrap().unwrap();
+
+                                let fut = resp.call(result);
+                                this.4.set(PinnedOption::Some(fut));
+                            }
+                            None => return Poll::Ready(result),
+                        }
+                    }
+                    Poll::Pending => return Poll::Pending,
+                }
+            }
             PinnedOptionProj::None => {}
         }
 

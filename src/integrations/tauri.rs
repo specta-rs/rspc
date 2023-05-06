@@ -98,8 +98,7 @@ where
         // Shutdown all subscriptions for the previously loaded page is there was one
         if let Some(subscriptions) = windows.get(&window_hash) {
             let mut subscriptions = block_on(subscriptions.lock());
-            for (id, tx) in subscriptions.drain() {
-                println!("CLEANING SUBSCRIPTION {:?}", id); // TODO
+            for (_, tx) in subscriptions.drain() {
                 tx.send(()).ok();
             }
         } else {
@@ -182,8 +181,7 @@ where
         if let Some(rspc_window) = self.windows.lock().unwrap().remove(&window_hash) {
             spawn(async move {
                 let mut subscriptions = rspc_window.lock().await;
-                for (id, tx) in subscriptions.drain() {
-                    println!("CLEANING SUBSCRIPTION {:?}", id); // TODO
+                for (_, tx) in subscriptions.drain() {
                     tx.send(()).ok();
                 }
             });
