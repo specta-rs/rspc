@@ -200,7 +200,7 @@ export function wsBatchLink(opts: WsLinkOpts): Link {
             queueBatch();
           }
         } else {
-          batch.splice(subscribeEventIdx, subscribeEventIdx);
+          batch.splice(subscribeEventIdx, 1);
         }
 
         activeMap.delete(op.id);

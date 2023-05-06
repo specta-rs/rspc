@@ -1,6 +1,5 @@
 import { AlphaRSPCError, Link, RspcRequest } from "@rspc/client/v2";
-import { invoke } from "@tauri-apps/api";
-import { emit, listen } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 
 /**
@@ -41,6 +40,9 @@ export function tauriLink(): Link {
       batchQueued = true;
       setTimeout(() => {
         const currentBatch = [...batch];
+        batch.splice(0, batch.length);
+        batchQueued = false;
+
         (async () => {
           if (!listener) {
             await listener;
@@ -48,9 +50,6 @@ export function tauriLink(): Link {
 
           await appWindow.emit("plugin:rspc:transport", currentBatch);
         })();
-
-        batch.splice(0, batch.length);
-        batchQueued = false;
       });
     }
   };
@@ -91,7 +90,7 @@ export function tauriLink(): Link {
             queueBatch();
           }
         } else {
-          batch.splice(subscribeEventIdx, subscribeEventIdx);
+          batch.splice(subscribeEventIdx, 1);
         }
 
         activeMap.delete(op.id);
