@@ -24,7 +24,8 @@
     "@astrojs/react": "^2.1.1",
     "@astrojs/solid-js": "^2.1.0",
     "@rspc/config": "workspace:*",
-    "@types/react": "^18.2.0"
+    "@types/react": "^18.2.0",
+    "typescript": "^5.0.4"
   },
   "pnpm": {
     "peerDependencyRules": {

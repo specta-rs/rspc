@@ -1,8 +1,8 @@
 import {
-  JSX,
   createContext,
   useContext as _useContext,
   createEffect,
+  JSX,
 } from "solid-js";
 import {
   Client,
@@ -225,7 +225,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       children?: JSX.Element;
       client: Client<TProcedures>;
       queryClient: QueryClient;
-    }): JSX.Element => (
+    }) => (
       <Context.Provider
         value={{
           client: props.client,
