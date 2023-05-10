@@ -6,8 +6,8 @@ import {
 } from "solid-js";
 import {
   Client,
-  inferInfiniteQueries,
-  inferInfiniteQueryResult,
+  // inferInfiniteQueries,
+  // inferInfiniteQueryResult,
   inferMutationInput,
   inferMutationResult,
   inferProcedures,
@@ -26,8 +26,8 @@ import {
   createQuery as __createQuery,
   createInfiniteQuery as __createInfiniteQuery,
   createMutation as __createMutation,
-  CreateInfiniteQueryOptions,
-  CreateInfiniteQueryResult,
+  // CreateInfiniteQueryOptions,
+  // CreateInfiniteQueryResult,
   CreateMutationOptions,
   CreateMutationResult,
   QueryClientProvider,
@@ -225,7 +225,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       children?: JSX.Element;
       client: Client<TProcedures>;
       queryClient: QueryClient;
-    }) => (
+    }): JSX.Element => (
       <Context.Provider
         value={{
           client: props.client,
