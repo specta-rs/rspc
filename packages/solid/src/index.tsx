@@ -3,6 +3,7 @@ import {
   useContext as _useContext,
   createEffect,
   JSX,
+  onCleanup,
 } from "solid-js";
 import {
   Client,
@@ -212,10 +213,10 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
         },
       });
 
-      return () => {
+      onCleanup(() => {
         isStopped = true;
         unsubscribe();
-      };
+      });
     });
   }
 
