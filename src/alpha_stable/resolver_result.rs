@@ -26,7 +26,7 @@ pub enum FutureMarker {}
 
 /// TODO
 // TODO: Rename
-pub trait AlphaRequestLayer<TMarker> {
+pub trait AlphaRequestLayer<TMarker, E> {
     type Result: Type;
     type Stream: Stream<Item = Result<Value, ExecError>> + Send + 'static;
     type Type;
@@ -38,7 +38,7 @@ pub trait AlphaRequestLayer<TMarker> {
 
 #[doc(hidden)]
 pub enum AlphaSerializeMarker {}
-impl<T> AlphaRequestLayer<AlphaSerializeMarker> for T
+impl<T, E> AlphaRequestLayer<AlphaSerializeMarker, E> for T
 where
     T: Serialize + Type,
 {
@@ -55,7 +55,7 @@ where
 
 #[doc(hidden)]
 pub enum AlphaResultMarker {}
-impl<T> AlphaRequestLayer<AlphaResultMarker> for Result<T, Error>
+impl<T, E> AlphaRequestLayer<AlphaResultMarker, E> for Result<T, Error>
 where
     T: Serialize + Type,
 {
@@ -71,8 +71,27 @@ where
 }
 
 #[doc(hidden)]
+#[cfg(feature = "alpha")]
+pub enum AlphaResultMarker2 {}
+impl<T, E> AlphaRequestLayer<AlphaResultMarker, E> for Result<T, crate::alpha::AlphaError>
+where
+    T: Serialize + Type,
+{
+    type Result = T;
+    type Stream = Once<Ready<Result<Value, ExecError>>>;
+    type Type = FutureMarker;
+
+    fn exec(self) -> Self::Stream {
+        once(ready(
+            self.map_err(|err| ExecError::ErrResolverError(err.into()))
+                .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
+        ))
+    }
+}
+
+#[doc(hidden)]
 pub enum AlphaFutureSerializeMarker {}
-impl<TFut, T> AlphaRequestLayer<AlphaFutureSerializeMarker> for TFut
+impl<TFut, T, E> AlphaRequestLayer<AlphaFutureSerializeMarker, E> for TFut
 where
     TFut: Future<Output = T> + Send + 'static,
     T: Serialize + Type + Send + 'static,
@@ -109,7 +128,7 @@ where
 
 #[doc(hidden)]
 pub enum AlphaFutureResultMarker {}
-impl<TFut, T> AlphaRequestLayer<AlphaFutureResultMarker> for TFut
+impl<TFut, T, E> AlphaRequestLayer<AlphaFutureResultMarker, E> for TFut
 where
     TFut: Future<Output = Result<T, Error>> + Send + 'static,
     T: Serialize + Type + Send + 'static,
@@ -149,7 +168,7 @@ where
 
 #[doc(hidden)]
 pub enum AlphaStreamMarker {}
-impl<TStream, T> AlphaRequestLayer<AlphaStreamMarker> for TStream
+impl<TStream, T, E> AlphaRequestLayer<AlphaStreamMarker, E> for TStream
 where
     TStream: Stream<Item = T> + Send + Sync + 'static,
     T: Serialize + Type,
@@ -167,7 +186,7 @@ where
 
 #[doc(hidden)]
 pub enum AlphaResultStreamMarker {}
-impl<TStream, T> AlphaRequestLayer<AlphaResultStreamMarker> for Result<TStream, Error>
+impl<TStream, T, E> AlphaRequestLayer<AlphaResultStreamMarker, E> for Result<TStream, Error>
 where
     TStream: Stream<Item = T> + Send + Sync + 'static,
     T: Serialize + Type,
@@ -190,7 +209,7 @@ where
 
 #[doc(hidden)]
 pub enum AlphaFutureStreamMarker {}
-impl<TFut, TStream, T> AlphaRequestLayer<AlphaFutureStreamMarker> for TFut
+impl<TFut, TStream, T, E> AlphaRequestLayer<AlphaFutureStreamMarker, E> for TFut
 where
     TFut: Future<Output = TStream> + Send + 'static,
     TStream: Stream<Item = T> + Send + Sync + 'static,
@@ -213,7 +232,7 @@ where
 
 #[doc(hidden)]
 pub enum AlphaFutureResultStreamMarker {}
-impl<TFut, TStream, T> AlphaRequestLayer<AlphaFutureResultStreamMarker> for TFut
+impl<TFut, TStream, T, E> AlphaRequestLayer<AlphaFutureResultStreamMarker, E> for TFut
 where
     TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
     TStream: Stream<Item = T> + Send + Sync + 'static,

@@ -85,7 +85,7 @@ where
     }
 }
 
-impl<TLCtx, TResp> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, crate::Error>
+impl<TLCtx, TResp> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, crate::alpha::AlphaError>
 where
     TLCtx: Send + Sync + 'static,
     TResp: Executable2,
@@ -96,7 +96,7 @@ where
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
         match self {
             Ok(mw_result) => Ok(mw_result.explode()?),
-            Err(err) => Err(err.into()),
+            Err(err) => Err(ExecError::ErrResolverError(err.into())),
         }
     }
 }

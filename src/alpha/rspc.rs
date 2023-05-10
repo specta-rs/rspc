@@ -49,6 +49,7 @@ where
         mw: Mw,
     ) -> AlphaProcedure<
         MissingResolver<Mw::NewCtx>,
+        crate::Error,
         (),
         AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw>,
     > {
@@ -64,6 +65,7 @@ where
         mw: Mw,
     ) -> AlphaProcedure<
         MissingResolver<Mw::NewCtx>,
+        crate::Error,
         (),
         AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw>,
     > {
@@ -76,11 +78,11 @@ where
     pub fn query<R, RMarker>(
         self,
         resolver: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    ) -> AlphaProcedure<R, crate::Error, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
+        R: ResolverFunction<RequestLayerMarker<RMarker>, crate::Error, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, crate::Error, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -92,11 +94,11 @@ where
     pub fn mutation<R, RMarker>(
         self,
         resolver: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    ) -> AlphaProcedure<R, crate::Error, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
+        R: ResolverFunction<RequestLayerMarker<RMarker>, crate::Error, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, crate::Error, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -108,16 +110,24 @@ where
     pub fn subscription<R, RMarker>(
         self,
         resolver: R,
-    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    ) -> AlphaProcedure<R, crate::Error, StreamLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
+        R: ResolverFunction<StreamLayerMarker<RMarker>, crate::Error, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, crate::Error, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),
             AlphaBaseMiddleware::new(),
             resolver,
         )
+    }
+
+    // TODO: Put this onto the other thing
+    // TODO: Trait on `E` + add a bunch of error types into Specta
+    pub fn with_error<E>(
+        self,
+    ) -> AlphaProcedure<MissingResolver<TCtx>, E, (), AlphaBaseMiddleware<TCtx>> {
+        todo!();
     }
 }

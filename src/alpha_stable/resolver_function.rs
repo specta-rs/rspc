@@ -11,7 +11,7 @@ pub trait AlphaMiddlewareBuilderLikeCompat {
     type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
 }
 
-pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
+pub trait ResolverFunction<TMarker, E>: Send + Sync + 'static {
     type LayerCtx: Send + Sync + 'static;
     type Arg: DeserializeOwned + Type + 'static;
     type RequestMarker;
@@ -55,11 +55,12 @@ impl<
         TArg,
         TResult,
         TResultMarker,
+        E,
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
+    > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>, E> for F
 where
     TArg: DeserializeOwned + Type + 'static,
-    TResult: AlphaRequestLayer<TResultMarker, Type = FutureMarker>,
+    TResult: AlphaRequestLayer<TResultMarker, E, Type = FutureMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;
@@ -79,11 +80,12 @@ impl<
         TArg,
         TResult,
         TResultMarker,
+        E,
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
+    > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>, E> for F
 where
     TArg: DeserializeOwned + Type + 'static,
-    TResult: AlphaRequestLayer<TResultMarker, Type = StreamMarker>,
+    TResult: AlphaRequestLayer<TResultMarker, E, Type = StreamMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;

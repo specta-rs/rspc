@@ -26,52 +26,54 @@ use super::{
 // TODO: Logical order for these generics cause right now it's random
 // TODO: Rename `RMarker` so cause we use it at runtime making it not really a "Marker" anymore
 // TODO: Use named struct fields
-pub struct AlphaProcedure<R, RMarker, TMiddleware>(
+pub struct AlphaProcedure<R, E, RMarker, TMiddleware>(
     // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
     Option<R>,
     // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
     Option<TMiddleware>,
     RMarker,
+    PhantomData<E>,
 )
 where
     TMiddleware: AlphaMiddlewareBuilderLike;
 
-impl<TMiddleware, R, RMarker> AlphaProcedure<R, RMarker, TMiddleware>
+impl<TMiddleware, R, E, RMarker> AlphaProcedure<R, E, RMarker, TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     pub fn new_from_resolver(k: RMarker, mw: TMiddleware, resolver: R) -> Self {
-        Self(Some(resolver), Some(mw), k)
+        Self(Some(resolver), Some(mw), k, PhantomData)
     }
 }
 
-impl<TCtx, TLayerCtx> AlphaProcedure<MissingResolver<TLayerCtx>, (), AlphaBaseMiddleware<TCtx>>
+impl<TCtx, E, TLayerCtx>
+    AlphaProcedure<MissingResolver<TLayerCtx>, E, (), AlphaBaseMiddleware<TCtx>>
 where
     TCtx: Send + Sync + 'static,
     TLayerCtx: Send + Sync + 'static,
 {
     pub fn new_from_middleware<TMiddleware>(
         mw: TMiddleware,
-    ) -> AlphaProcedure<MissingResolver<TLayerCtx>, (), TMiddleware>
+    ) -> AlphaProcedure<MissingResolver<TLayerCtx>, E, (), TMiddleware>
     where
         TMiddleware: AlphaMiddlewareBuilderLike<Ctx = TCtx>,
     {
-        AlphaProcedure(Some(MissingResolver::default()), Some(mw), ())
+        AlphaProcedure(Some(MissingResolver::default()), Some(mw), (), PhantomData)
     }
 }
 
-impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
+impl<E, TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, E, (), TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     pub fn query<R, RMarker>(
         mut self,
         builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
+    ) -> AlphaProcedure<R, E, RequestLayerMarker<RMarker>, TMiddleware>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+        R: ResolverFunction<RequestLayerMarker<RMarker>, E, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, E, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -83,11 +85,11 @@ where
     pub fn mutation<R, RMarker>(
         mut self,
         builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
+    ) -> AlphaProcedure<R, E, RequestLayerMarker<RMarker>, TMiddleware>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+        R: ResolverFunction<RequestLayerMarker<RMarker>, E, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, E, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -99,25 +101,29 @@ where
     pub fn subscription<R, RMarker>(
         mut self,
         builder: R,
-    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, TMiddleware>
+    ) -> AlphaProcedure<R, E, StreamLayerMarker<RMarker>, TMiddleware>
     where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
+        R: ResolverFunction<StreamLayerMarker<RMarker>, E, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, E, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
 }
 
-impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
+impl<E, TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, E, (), TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike + Sync,
 {
     pub fn with<Mw: MwV2<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
-    {
+    ) -> AlphaProcedure<
+        MissingResolver<Mw::NewCtx>,
+        E,
+        (),
+        AlphaMiddlewareLayerBuilder<TMiddleware, Mw>,
+    > {
         AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
             middleware: self.1.expect("Uh oh, stinky"),
             mw,
@@ -128,8 +134,12 @@ where
     pub fn with2<Mw: super::MwV3<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
-    {
+    ) -> AlphaProcedure<
+        MissingResolver<Mw::NewCtx>,
+        E,
+        (),
+        AlphaMiddlewareLayerBuilder<TMiddleware, Mw>,
+    > {
         AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
             middleware: self.1.expect("Uh oh, stinky"),
             mw,
@@ -137,12 +147,13 @@ where
     }
 }
 
-impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
-    for AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
+impl<R, E, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
+    for AlphaProcedure<R, E, RequestLayerMarker<RMarker>, TMiddleware>
 where
-    R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
+    R: ResolverFunction<RequestLayerMarker<RMarker>, E, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+    R::Result: AlphaRequestLayer<R::RequestMarker, E, Type = FutureMarker>,
+    E: 'static,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
@@ -172,12 +183,13 @@ where
     }
 }
 
-impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
-    for AlphaProcedure<R, StreamLayerMarker<RMarker>, TMiddleware>
+impl<R, E, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
+    for AlphaProcedure<R, E, StreamLayerMarker<RMarker>, TMiddleware>
 where
-    R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
+    R: ResolverFunction<StreamLayerMarker<RMarker>, E, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+    R::Result: AlphaRequestLayer<R::RequestMarker, E, Type = StreamMarker>,
+    E: 'static,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
@@ -203,22 +215,26 @@ where
 }
 
 // TODO: This only works without a resolver. `ProcedureLike` should work on `AlphaProcedure` without it but just without the `.query()` and `.mutate()` functions.
-impl<TMiddleware> ProcedureLike
-    for AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
+impl<E, TMiddleware> ProcedureLike
+    for AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, E, (), TMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     type Middleware = TMiddleware;
     type LayerCtx = TMiddleware::LayerCtx;
+    type Error = E;
 
     fn query<R, RMarker>(
         mut self,
         builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    ) -> AlphaProcedure<R, Self::Error, RequestLayerMarker<RMarker>, Self::Middleware>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R: ResolverFunction<
+                RequestLayerMarker<RMarker>,
+                Self::Error,
+                LayerCtx = TMiddleware::LayerCtx,
+            > + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Self::Error, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -230,11 +246,14 @@ where
     fn mutation<R, RMarker>(
         mut self,
         builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    ) -> AlphaProcedure<R, Self::Error, RequestLayerMarker<RMarker>, Self::Middleware>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R: ResolverFunction<
+                RequestLayerMarker<RMarker>,
+                Self::Error,
+                LayerCtx = TMiddleware::LayerCtx,
+            > + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Self::Error, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -246,11 +265,14 @@ where
     fn subscription<R, RMarker>(
         mut self,
         builder: R,
-    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
+    ) -> AlphaProcedure<R, Self::Error, StreamLayerMarker<RMarker>, Self::Middleware>
     where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
-            + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R: ResolverFunction<
+                StreamLayerMarker<RMarker>,
+                Self::Error,
+                LayerCtx = TMiddleware::LayerCtx,
+            > + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Self::Error, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }

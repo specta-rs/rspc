@@ -1,12 +1,13 @@
 use std::{error, fmt, sync::Arc};
 
 use serde::Serialize;
-use specta::{ts::TsExportError, Type};
+use specta::Type;
 
-use crate::internal::jsonrpc::JsonRPCError;
+use crate::{internal::jsonrpc::JsonRPCError, ErrorCode};
 
 #[derive(thiserror::Error, Debug)]
-pub enum ExecError {
+// #[non_exhaustive] // TODO
+pub enum AlphaExecError {
     #[error("the requested operation '{0}' is not supported by this server")]
     OperationNotFound(String),
     #[error("error deserializing procedure arguments: {0}")]
@@ -21,54 +22,54 @@ pub enum ExecError {
     #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
     UnsupportedMethod(String),
     #[error("resolver threw error")]
-    ErrResolverError(#[from] Error),
+    ErrResolverError(#[from] AlphaError),
     #[error("error creating subscription with null id")]
     ErrSubscriptionWithNullId,
     #[error("error creating subscription with duplicate id")]
     ErrSubscriptionDuplicateId,
 }
 
-impl From<ExecError> for Error {
-    fn from(v: ExecError) -> Error {
+impl From<AlphaExecError> for AlphaError {
+    fn from(v: AlphaExecError) -> AlphaError {
         match v {
-            ExecError::OperationNotFound(_) => Error {
+            AlphaExecError::OperationNotFound(_) => AlphaError {
                 code: ErrorCode::NotFound,
                 message: "the requested operation is not supported by this server".to_string(),
                 cause: None,
             },
-            ExecError::DeserializingArgErr(err) => Error {
+            AlphaExecError::DeserializingArgErr(err) => AlphaError {
                 code: ErrorCode::BadRequest,
                 message: "error deserializing procedure arguments".to_string(),
                 cause: Some(Arc::new(err)),
             },
-            ExecError::SerializingResultErr(err) => Error {
+            AlphaExecError::SerializingResultErr(err) => AlphaError {
                 code: ErrorCode::InternalServerError,
                 message: "error serializing procedure result".to_string(),
                 cause: Some(Arc::new(err)),
             },
             #[cfg(feature = "axum")]
-            ExecError::AxumExtractorError => Error {
+            AlphaExecError::AxumExtractorError => AlphaError {
                 code: ErrorCode::BadRequest,
                 message: "Error running Axum extractors on the HTTP request".into(),
                 cause: None,
             },
-            ExecError::InvalidJsonRpcVersion => Error {
+            AlphaExecError::InvalidJsonRpcVersion => AlphaError {
                 code: ErrorCode::BadRequest,
                 message: "invalid JSON-RPC version".into(),
                 cause: None,
             },
-            ExecError::ErrResolverError(err) => err,
-            ExecError::UnsupportedMethod(_) => Error {
+            AlphaExecError::ErrResolverError(err) => err,
+            AlphaExecError::UnsupportedMethod(_) => AlphaError {
                 code: ErrorCode::BadRequest,
                 message: "unsupported metho".into(),
                 cause: None,
             },
-            ExecError::ErrSubscriptionWithNullId => Error {
+            AlphaExecError::ErrSubscriptionWithNullId => AlphaError {
                 code: ErrorCode::BadRequest,
                 message: "error creating subscription with null request id".into(),
                 cause: None,
             },
-            ExecError::ErrSubscriptionDuplicateId => Error {
+            AlphaExecError::ErrSubscriptionDuplicateId => AlphaError {
                 code: ErrorCode::BadRequest,
                 message: "error creating subscription with duplicate id".into(),
                 cause: None,
@@ -77,32 +78,24 @@ impl From<ExecError> for Error {
     }
 }
 
-impl From<ExecError> for JsonRPCError {
-    fn from(err: ExecError) -> Self {
-        let x: Error = err.into();
+impl From<AlphaExecError> for JsonRPCError {
+    fn from(err: AlphaExecError) -> Self {
+        let x: AlphaError = err.into();
         x.into()
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum ExportError {
-    #[error("IO error exporting bindings: {0}")]
-    IOErr(#[from] std::io::Error),
-    #[error("error exporting typescript bindings: {0}")]
-    TsExportErr(#[from] TsExportError),
-}
-
 #[derive(Debug, Clone, Serialize, Type)]
 #[allow(dead_code)]
-pub struct Error {
+pub struct AlphaError {
     pub(crate) code: ErrorCode,
     pub(crate) message: String,
     #[serde(skip)]
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl From<Error> for JsonRPCError {
-    fn from(err: Error) -> Self {
+impl From<AlphaError> for JsonRPCError {
+    fn from(err: AlphaError) -> Self {
         JsonRPCError {
             code: err.code.to_status_code() as i32,
             message: err.message,
@@ -111,7 +104,7 @@ impl From<Error> for JsonRPCError {
     }
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for AlphaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -121,13 +114,13 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl error::Error for AlphaError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         None
     }
 }
 
-impl Error {
+impl AlphaError {
     pub const fn new(code: ErrorCode, message: String) -> Self {
         Self {
             code,
@@ -148,64 +141,19 @@ impl Error {
     }
 }
 
-/// TODO
-#[derive(Debug, Clone, Serialize, Type, PartialEq, Eq)]
-pub enum ErrorCode {
-    BadRequest,
-    Unauthorized,
-    Forbidden,
-    NotFound,
-    Timeout,
-    Conflict,
-    PreconditionFailed,
-    PayloadTooLarge,
-    MethodNotSupported,
-    ClientClosedRequest,
-    InternalServerError,
-}
-
-impl ErrorCode {
-    pub fn to_status_code(&self) -> u16 {
-        match self {
-            ErrorCode::BadRequest => 400,
-            ErrorCode::Unauthorized => 401,
-            ErrorCode::Forbidden => 403,
-            ErrorCode::NotFound => 404,
-            ErrorCode::Timeout => 408,
-            ErrorCode::Conflict => 409,
-            ErrorCode::PreconditionFailed => 412,
-            ErrorCode::PayloadTooLarge => 413,
-            ErrorCode::MethodNotSupported => 405,
-            ErrorCode::ClientClosedRequest => 499,
-            ErrorCode::InternalServerError => 500,
-        }
-    }
-
-    pub const fn from_status_code(status_code: u16) -> Option<Self> {
-        match status_code {
-            400 => Some(ErrorCode::BadRequest),
-            401 => Some(ErrorCode::Unauthorized),
-            403 => Some(ErrorCode::Forbidden),
-            404 => Some(ErrorCode::NotFound),
-            408 => Some(ErrorCode::Timeout),
-            409 => Some(ErrorCode::Conflict),
-            412 => Some(ErrorCode::PreconditionFailed),
-            413 => Some(ErrorCode::PayloadTooLarge),
-            405 => Some(ErrorCode::MethodNotSupported),
-            499 => Some(ErrorCode::ClientClosedRequest),
-            500 => Some(ErrorCode::InternalServerError),
-            _ => None,
-        }
-    }
-}
-
 #[cfg(feature = "anyhow")]
-impl From<anyhow::Error> for Error {
+impl From<anyhow::Error> for AlphaError {
     fn from(_value: anyhow::Error) -> Self {
-        Error {
+        AlphaError {
             code: ErrorCode::InternalServerError,
             message: "internal server error".to_string(),
             cause: None, // TODO: Make this work
         }
+    }
+}
+
+impl From<AlphaError> for crate::Error {
+    fn from(err: AlphaError) -> Self {
+        crate::Error::new(err.code, err.message)
     }
 }

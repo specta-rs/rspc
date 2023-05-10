@@ -121,6 +121,10 @@ async fn main() {
                     }
                 }),
             )
+            .procedure(
+                "customError",
+                R.with_error::<String>().query(|_, _: ()| todo!()),
+            )
             // TODO: Results being returned from subscriptions
             // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
             //     stream! {

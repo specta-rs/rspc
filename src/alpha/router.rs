@@ -45,53 +45,53 @@ where
     //     todo!();
     // }
 
-    pub fn query<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
-    {
-        AlphaProcedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Query),
-            AlphaBaseMiddleware::new(),
-            builder,
-        )
-    }
+    // pub fn query<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    // where
+    //     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
+    //         + Fn(TCtx, R::Arg) -> R::Result,
+    //     R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
+    // {
+    //     AlphaProcedure::new_from_resolver(
+    //         RequestLayerMarker::new(RequestKind::Query),
+    //         AlphaBaseMiddleware::new(),
+    //         builder,
+    //     )
+    // }
 
-    pub fn mutation<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
-    {
-        AlphaProcedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Mutation),
-            AlphaBaseMiddleware::new(),
-            builder,
-        )
-    }
+    // pub fn mutation<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    // where
+    //     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
+    //         + Fn(TCtx, R::Arg) -> R::Result,
+    //     R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
+    // {
+    //     AlphaProcedure::new_from_resolver(
+    //         RequestLayerMarker::new(RequestKind::Mutation),
+    //         AlphaBaseMiddleware::new(),
+    //         builder,
+    //     )
+    // }
 
-    pub fn subscription<R, RMarker>(
-        self,
-        builder: R,
-    ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
-    {
-        AlphaProcedure::new_from_resolver(
-            StreamLayerMarker::new(),
-            AlphaBaseMiddleware::new(),
-            builder,
-        )
-    }
+    // pub fn subscription<R, RMarker>(
+    //     self,
+    //     builder: R,
+    // ) -> AlphaProcedure<R, E, StreamLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
+    // where
+    //     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
+    //         + Fn(TCtx, R::Arg) -> R::Result,
+    //     R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+    // {
+    //     AlphaProcedure::new_from_resolver(
+    //         StreamLayerMarker::new(),
+    //         AlphaBaseMiddleware::new(),
+    //         builder,
+    //     )
+    // }
 
     pub fn merge(
         mut self,

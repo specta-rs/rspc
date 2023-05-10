@@ -3,6 +3,7 @@
 //! WARNING: Anything in this module does not follow semantic versioning until it's released however the API is fairly stable at this poinR.
 //!
 
+mod error;
 mod layer;
 mod middleware;
 mod procedure;
@@ -12,6 +13,7 @@ mod router_builder_like;
 mod rspc;
 
 pub use self::rspc::*;
+pub use error::*;
 pub use layer::*;
 pub use middleware::*;
 pub use procedure::*;
