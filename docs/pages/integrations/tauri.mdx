@@ -28,6 +28,20 @@ tauri::Builder::default()
     .plugin(rspc::integrations::tauri::plugin(router, || ()))
 ```
 
+With access to the window or app handle:
+
+```rs copy filename="src/main.rs"
+use tauri::Manager;
+
+let router = <Router>::new().build();
+
+tauri::Builder::default()
+    .plugin(rspc::integrations::tauri::plugin_with_ctx(router, |window| {
+      let app_handle = window.app_handle();
+      ()
+    }))
+```
+
 ### Usage on frontend
 
 ```ts copy filename="index.ts"

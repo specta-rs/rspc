@@ -3,6 +3,7 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     future::{ready, Ready},
     hash::{Hash, Hasher},
+    marker::PhantomData,
     sync::{Arc, Mutex},
 };
 
@@ -64,32 +65,36 @@ impl<R: Runtime> OwnedSender for TauriOwnedSender<R> {
     }
 }
 
-struct WindowManager<TCtxFn, TCtx, TMeta>
+struct WindowManager<TCtxFn, TCtx, TMeta, R>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
-    TCtxFn: Fn() -> TCtx + Send + Sync + 'static,
+    R: Runtime + Send + Sync + 'static,
+    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 {
     router: Arc<Router<TCtx, TMeta>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, SubscriptionMap>>,
+    phantom: PhantomData<&'static R>,
 }
 
-impl<TCtxFn, TCtx, TMeta> WindowManager<TCtxFn, TCtx, TMeta>
+impl<TCtxFn, TCtx, TMeta, R> WindowManager<TCtxFn, TCtx, TMeta, R>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
-    TCtxFn: Fn() -> TCtx + Send + Sync + 'static,
+    R: Runtime + Send + Sync + 'static,
+    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx, TMeta>>) -> Arc<Self> {
         Arc::new(Self {
             router,
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
+            phantom: PhantomData,
         })
     }
 
-    pub fn on_page_load<R: Runtime>(self: Arc<Self>, window: Window<R>) {
+    pub fn on_page_load(self: Arc<Self>, window: Window<R>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -157,7 +162,7 @@ where
                     };
 
                     for req in reqs {
-                        let ctx = (self.ctx_fn)();
+                        let ctx = (self.ctx_fn)(window.clone());
                         let router = self.router.clone();
                         let window = window.clone();
 
@@ -173,7 +178,7 @@ where
         }
     }
 
-    pub fn close_requested<R: Runtime>(&self, window: &Window<R>) {
+    pub fn close_requested(&self, window: &Window<R>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -189,11 +194,41 @@ where
     }
 }
 
-pub fn plugin<R: Runtime, TCtx, TMeta>(
+// #[deprecated("Use `plugin_with_ctx` instead")]
+pub fn plugin<R, TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
     ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
+    R: Runtime + Send + Sync + 'static,
+    TCtx: Send + Sync + 'static,
+    TMeta: Send + Sync + 'static,
+{
+    let manager = WindowManager::new(move |_| ctx_fn(), router);
+    Builder::new("rspc")
+        .on_page_load(move |window, _page| {
+            manager.clone().on_page_load(window.clone());
+
+            window.on_window_event({
+                let window = window.clone();
+                let manager = manager.clone();
+                move |event| match event {
+                    WindowEvent::CloseRequested { .. } => {
+                        manager.close_requested(&window);
+                    }
+                    _ => {}
+                }
+            })
+        })
+        .build()
+}
+
+pub fn plugin_with_ctx<R: Runtime, TCtx, TMeta>(
+    router: Arc<Router<TCtx, TMeta>>,
+    ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+) -> TauriPlugin<R>
+where
+    R: Runtime + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
