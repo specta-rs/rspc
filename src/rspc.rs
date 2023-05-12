@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaRequestLayer, FutureMarker, MissingResolver, MwV2,
-        RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
+        jsonrpc::RequestKind, FutureMarker, MissingResolver, MwV2, RequestLayer,
+        RequestLayerMarker, ResolverFunction, SealedRequestLayer, StreamLayerMarker, StreamMarker,
     },
     procedure::AlphaProcedure,
     AlphaBaseMiddleware, AlphaMiddlewareLayerBuilder, AlphaRouter,
@@ -82,7 +82,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -98,7 +99,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -114,7 +116,8 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),

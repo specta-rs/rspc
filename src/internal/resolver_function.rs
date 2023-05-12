@@ -5,7 +5,7 @@ use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::internal::ProcedureDataType;
 
-use super::{AlphaRequestLayer, FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
+use super::{FutureMarker, RequestLayer, RequestLayerMarker, StreamLayerMarker, StreamMarker};
 
 // TODO: private or sealed
 pub trait AlphaMiddlewareBuilderLikeCompat {
@@ -16,6 +16,8 @@ pub trait AlphaMiddlewareBuilderLikeCompat {
 pub trait ResolverFunction<TMarker>: SealedResolverFunction<TMarker> {}
 
 mod private {
+    use crate::internal::SealedRequestLayer;
+
     use super::*;
 
     pub trait SealedResolverFunction<TMarker>: Send + Sync + 'static {
@@ -70,7 +72,8 @@ mod private {
         for F
     where
         TArg: DeserializeOwned + Type + 'static,
-        TResult: AlphaRequestLayer<TResultMarker, Type = FutureMarker>,
+        TResult:
+            RequestLayer<TResultMarker> + SealedRequestLayer<TResultMarker, Type = FutureMarker>,
         TLayerCtx: Send + Sync + 'static,
     {
         type LayerCtx = TLayerCtx;
@@ -96,7 +99,8 @@ mod private {
         for F
     where
         TArg: DeserializeOwned + Type + 'static,
-        TResult: AlphaRequestLayer<TResultMarker, Type = StreamMarker>,
+        TResult:
+            RequestLayer<TResultMarker> + SealedRequestLayer<TResultMarker, Type = StreamMarker>,
         TLayerCtx: Send + Sync + 'static,
     {
         type LayerCtx = TLayerCtx;

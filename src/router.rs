@@ -3,13 +3,15 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{jsonrpc::RequestKind, IntoProcedures, IntoProceduresCtx, ProcedureStore},
+    internal::{
+        jsonrpc::RequestKind, IntoProcedures, IntoProceduresCtx, ProcedureStore, SealedRequestLayer,
+    },
     BuiltRouter, Config,
 };
 
 use super::{
     internal::{
-        AlphaRequestLayer, FutureMarker, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+        FutureMarker, RequestLayer, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
         StreamMarker,
     },
     procedure::AlphaProcedure,
@@ -57,7 +59,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::ResultMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -73,7 +76,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::ResultMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::ResultMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -89,7 +93,8 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),

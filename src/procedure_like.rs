@@ -1,7 +1,7 @@
 use crate::{
     internal::{
-        AlphaRequestLayer, FutureMarker, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
-        StreamMarker,
+        FutureMarker, RequestLayer, RequestLayerMarker, ResolverFunction, SealedRequestLayer,
+        StreamLayerMarker, StreamMarker,
     },
     AlphaMiddlewareBuilderLike, AlphaProcedure,
 };
@@ -19,7 +19,8 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>;
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>;
 
     fn mutation<R, RMarker>(
         self,
@@ -28,7 +29,8 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>;
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>;
 
     fn subscription<R, RMarker>(
         self,
@@ -37,5 +39,6 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>;
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = StreamMarker>;
 }

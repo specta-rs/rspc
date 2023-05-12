@@ -13,10 +13,11 @@ use specta::Type;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, Executable2,
-        FutureMarker, IntoProceduresCtx, Layer, MiddlewareContext, MissingResolver, MwV2,
-        MwV2Result, MwV3, PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker,
-        ResolverFunction, SealedIntoProcedures, SealedLayer, StreamLayerMarker, StreamMarker,
+        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, Executable2, FutureMarker,
+        IntoProceduresCtx, Layer, MiddlewareContext, MissingResolver, MwV2, MwV2Result, MwV3,
+        PinnedOption, PinnedOptionProj, RequestContext, RequestLayer, RequestLayerMarker,
+        ResolverFunction, SealedIntoProcedures, SealedLayer, SealedRequestLayer, StreamLayerMarker,
+        StreamMarker,
     },
     ExecError, ProcedureLike,
 };
@@ -72,7 +73,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -88,7 +90,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
@@ -104,7 +107,8 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
@@ -143,7 +147,8 @@ impl<R, RMarker, TMiddleware> SealedIntoProcedures<TMiddleware::Ctx>
 where
     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+    R::Result:
+        RequestLayer<R::RequestMarker> + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProceduresCtx<'_, TMiddleware::Ctx>) {
@@ -178,7 +183,8 @@ impl<R, RMarker, TMiddleware> SealedIntoProcedures<TMiddleware::Ctx>
 where
     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
     RMarker: 'static,
-    R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+    R::Result:
+        RequestLayer<R::RequestMarker> + SealedRequestLayer<R::RequestMarker, Type = StreamMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProceduresCtx<'_, TMiddleware::Ctx>) {
@@ -219,7 +225,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -235,7 +242,8 @@ where
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
@@ -251,7 +259,8 @@ where
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>
             + Fn(TMiddleware::LayerCtx, R::Arg) -> R::Result,
-        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
     }
