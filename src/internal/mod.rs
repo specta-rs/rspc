@@ -5,7 +5,6 @@
 
 pub mod jsonrpc;
 
-mod into_procedures;
 mod layer;
 mod markers;
 mod middleware;
@@ -15,7 +14,6 @@ mod procedure_store;
 mod resolver_function;
 mod resolver_result;
 
-pub use into_procedures::*;
 pub use layer::*;
 pub(crate) use markers::*;
 pub use middleware::*;

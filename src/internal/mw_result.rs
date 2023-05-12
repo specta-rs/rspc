@@ -45,7 +45,7 @@ impl Executable2 for Executable2Placeholder {
     }
 }
 
-#[deprecated = "TODO: We probs have to remove this. Sadge!"]
+// #[deprecated = "TODO: We probs have to remove this. Sadge!"] // TODO: Deal with this type and seal it
 pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;

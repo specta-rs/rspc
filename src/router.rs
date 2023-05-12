@@ -3,10 +3,8 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{
-        jsonrpc::RequestKind, IntoProcedures, IntoProceduresCtx, ProcedureStore, SealedRequestLayer,
-    },
-    BuiltRouter, Config,
+    internal::{jsonrpc::RequestKind, ProcedureStore, SealedRequestLayer},
+    BuildProceduresCtx, BuiltRouter, Config, IntoProcedureLike,
 };
 
 use super::{
@@ -18,13 +16,11 @@ use super::{
     BaseMiddleware,
 };
 
-type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedures<TCtx>>)>;
-
 pub struct Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
-    procedures: ProcedureList<TCtx>,
+    procedures: Vec<(Cow<'static, str>, Box<dyn IntoProcedureLike<TCtx>>)>,
 }
 
 impl<TCtx> Router<TCtx>
@@ -39,7 +35,11 @@ where
         }
     }
 
-    pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedures<TCtx>) -> Self {
+    pub fn procedure<R, RMarker, TMiddleware>(
+        mut self,
+        key: &'static str,
+        procedure: impl IntoProcedureLike<TCtx>,
+    ) -> Self {
         self.procedures
             .push((Cow::Borrowed(key), Box::new(procedure)));
         self
@@ -165,7 +165,7 @@ where
         let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
 
-        let mut ctx = IntoProceduresCtx {
+        let mut ctx = BuildProceduresCtx {
             ty_store: &mut typ_store,
             queries: &mut queries,
             mutations: &mut mutations,
@@ -174,7 +174,8 @@ where
 
         for (key, mut procedure) in self.procedures.into_iter() {
             // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-            procedure.build(key, &mut ctx);
+            // procedure.build(key, &mut ctx);
+            todo!(); // TODO
         }
 
         let router = BuiltRouter {
