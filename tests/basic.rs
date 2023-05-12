@@ -6,7 +6,7 @@ use specta::Type;
 use tokio::time::sleep;
 
 use rspc::{
-    internal::MwV2,
+    internal::ConstrainedMiddleware,
     unstable::{MwArgMapper, MwArgMapperMiddleware},
     ProcedureLike, Rspc,
 };
@@ -123,7 +123,7 @@ fn test_init_from_function() {
 
 #[test]
 fn with_middleware_from_func() {
-    pub fn library<TLCtx>() -> impl MwV2<TLCtx, NewCtx = (TLCtx, i32)>
+    pub fn library<TLCtx>() -> impl ConstrainedMiddleware<TLCtx, NewCtx = (TLCtx, i32)>
     where
         TLCtx: Send + Sync + 'static,
     {

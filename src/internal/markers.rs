@@ -1,29 +1,29 @@
-use std::marker::PhantomData;
+mod private {
+    use std::marker::PhantomData;
 
-use super::jsonrpc::RequestKind;
+    use crate::internal::jsonrpc::RequestKind;
 
-// TODO: I don't wanna call these markers cause they are runtime not just type level. Rename them.
+    // TODO: I don't wanna call these markers cause they are runtime not just type level. Rename them.
 
-// TODO: Make `pub(crate)`
-#[doc(hidden)]
-pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
+    pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
 
-impl<T> RequestLayerMarker<T> {
-    pub(crate) fn new(kind: RequestKind) -> Self {
-        Self(kind, Default::default())
+    impl<T> RequestLayerMarker<T> {
+        pub(crate) fn new(kind: RequestKind) -> Self {
+            Self(kind, Default::default())
+        }
+
+        pub(crate) fn kind(&self) -> RequestKind {
+            self.0
+        }
     }
 
-    pub(crate) fn kind(&self) -> RequestKind {
-        self.0
-    }
-}
+    pub struct StreamLayerMarker<T>(PhantomData<T>);
 
-// TODO: Make `pub(crate)`
-#[doc(hidden)]
-pub struct StreamLayerMarker<T>(PhantomData<T>);
-
-impl<T> StreamLayerMarker<T> {
-    pub(crate) fn new() -> Self {
-        Self(Default::default())
+    impl<T> StreamLayerMarker<T> {
+        pub(crate) fn new() -> Self {
+            Self(Default::default())
+        }
     }
 }
+
+pub(crate) use private::{RequestLayerMarker, StreamLayerMarker};

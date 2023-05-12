@@ -13,11 +13,11 @@ use specta::Type;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, Executable2, FutureMarker,
-        IntoProceduresCtx, Layer, MiddlewareContext, MissingResolver, MwV2, MwV2Result, MwV3,
-        PinnedOption, PinnedOptionProj, RequestContext, RequestLayer, RequestLayerMarker,
-        ResolverFunction, SealedIntoProcedures, SealedLayer, SealedRequestLayer, StreamLayerMarker,
-        StreamMarker,
+        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, ConstrainedMiddleware, Executable2,
+        FutureMarker, IntoProceduresCtx, Layer, Middleware, MiddlewareContext, MissingResolver,
+        MwV2Result, PinnedOption, PinnedOptionProj, RequestContext, RequestLayer,
+        RequestLayerMarker, ResolverFunction, SealedIntoProcedures, SealedLayer,
+        SealedRequestLayer, StreamLayerMarker, StreamMarker,
     },
     ExecError, ProcedureLike,
 };
@@ -118,7 +118,7 @@ impl<TMiddleware> AlphaProcedure<MissingResolver<TMiddleware::LayerCtx>, (), TMi
 where
     TMiddleware: AlphaMiddlewareBuilderLike + Sync,
 {
-    pub fn with<Mw: MwV2<TMiddleware::LayerCtx>>(
+    pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
@@ -130,7 +130,7 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::MwV3<TMiddleware::LayerCtx>>(
+    pub fn with2<Mw: crate::internal::Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
@@ -294,7 +294,7 @@ impl<M: AlphaMiddlewareBuilderLike> AlphaMiddlewareBuilderLikeCompat for M {
 pub struct AlphaMiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
 where
     TMiddleware: AlphaMiddlewareBuilderLike,
-    TNewMiddleware: MwV3<TMiddleware::LayerCtx>,
+    TNewMiddleware: Middleware<TMiddleware::LayerCtx>,
 {
     pub(crate) middleware: TMiddleware,
     pub(crate) mw: TNewMiddleware,
@@ -305,7 +305,7 @@ impl<TLayerCtx, TMiddleware, TNewMiddleware> AlphaMiddlewareBuilderLike
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: AlphaMiddlewareBuilderLike<LayerCtx = TLayerCtx> + Send + Sync + 'static,
-    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
@@ -330,7 +330,7 @@ pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
 {
     next: TMiddleware,
     mw: TNewMiddleware,
@@ -342,7 +342,7 @@ impl<TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
 {
     type Stream<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
 
@@ -379,7 +379,7 @@ pub struct MiddlewareFutOrSomething<
     'a,
     // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
     TLayerCtx: Send + Sync + 'static,
-    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
     TMiddleware: Layer<TNewMiddleware::NewCtx> + 'static,
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
@@ -392,7 +392,7 @@ pub struct MiddlewareFutOrSomething<
 impl<
         'a,
         TLayerCtx: Send + Sync + 'static,
-        TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
+        TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
         TMiddleware: Layer<TNewMiddleware::NewCtx> + 'static,
     > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>
 {

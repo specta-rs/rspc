@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, FutureMarker, MissingResolver, MwV2, RequestLayer,
+        jsonrpc::RequestKind, ConstrainedMiddleware, FutureMarker, MissingResolver, RequestLayer,
         RequestLayerMarker, ResolverFunction, SealedRequestLayer, StreamLayerMarker, StreamMarker,
     },
     procedure::AlphaProcedure,
@@ -46,7 +46,7 @@ where
         AlphaRouter::new()
     }
 
-    pub fn with<Mw: MwV2<TCtx>>(
+    pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<
@@ -61,7 +61,7 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::MwV3<TCtx>>(
+    pub fn with2<Mw: crate::internal::Middleware<TCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<

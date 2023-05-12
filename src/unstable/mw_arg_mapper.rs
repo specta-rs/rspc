@@ -3,7 +3,7 @@ use std::{future::Future, marker::PhantomData};
 use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 
-use crate::internal::{MiddlewareContext, MwV2Result, MwV3};
+use crate::internal::{Middleware, MiddlewareContext, MwV2Result};
 
 /// TODO
 pub trait MwArgMapper: Send + Sync {
@@ -33,7 +33,7 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
     pub fn mount<TLCtx, TNCtx, Fu, R>(
         &self,
         handler: impl Fn(MiddlewareContext, TLCtx, M::State) -> Fu + Send + Sync + 'static,
-    ) -> impl MwV3<TLCtx, NewCtx = TNCtx>
+    ) -> impl Middleware<TLCtx, NewCtx = TNCtx>
     where
         TLCtx: Send + Sync + 'static,
         Fu: Future<Output = R> + Send + Sync + 'static,
@@ -61,11 +61,13 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
 }
 
 mod private {
+    use crate::internal::SealedMiddleware;
+
     use super::*;
 
     pub struct MiddlewareFnWithTypeMapper<M, F>(pub(super) F, pub(super) PhantomData<M>);
 
-    impl<M, TLCtx, F, Fu, R> MwV3<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
+    impl<M, TLCtx, F, Fu, R> SealedMiddleware<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
     where
         TLCtx: Send + Sync + 'static,
         F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
