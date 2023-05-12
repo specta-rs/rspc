@@ -14,7 +14,16 @@ impl<TCtx> BaseMiddleware<TCtx>
 where
     TCtx: 'static,
 {
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+#[doc(hidden)]
+pub struct MissingResolver<TLayerCtx>(PhantomData<TLayerCtx>);
+
+impl<TLayerCtx> MissingResolver<TLayerCtx> {
+    pub(crate) const fn new() -> Self {
         Self(PhantomData)
     }
 }

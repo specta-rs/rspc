@@ -9,10 +9,10 @@ mod private {
     use crate::internal::ProcedureStore;
 
     pub struct IntoProceduresCtx<'a, TCtx> {
-        pub ty_store: &'a mut TypeDefs,
-        pub queries: &'a mut ProcedureStore<TCtx>,
-        pub mutations: &'a mut ProcedureStore<TCtx>,
-        pub subscriptions: &'a mut ProcedureStore<TCtx>,
+        pub(crate) ty_store: &'a mut TypeDefs,
+        pub(crate) queries: &'a mut ProcedureStore<TCtx>,
+        pub(crate) mutations: &'a mut ProcedureStore<TCtx>,
+        pub(crate) subscriptions: &'a mut ProcedureStore<TCtx>,
     }
 
     pub trait SealedIntoProcedures<TCtx>: 'static {

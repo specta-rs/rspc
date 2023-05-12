@@ -57,7 +57,7 @@ where
     where
         TMiddleware: AlphaMiddlewareBuilderLike<Ctx = TCtx>,
     {
-        AlphaProcedure(Some(MissingResolver::default()), Some(mw), ())
+        AlphaProcedure(Some(MissingResolver::new()), Some(mw), ())
     }
 }
 

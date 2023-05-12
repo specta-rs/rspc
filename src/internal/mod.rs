@@ -22,7 +22,7 @@ pub use markers::*;
 pub use mw::*;
 pub use mw_ctx::*;
 pub use mw_result::*;
-pub use procedure_store::*;
+pub(crate) use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;
 pub(crate) use utils::*;
