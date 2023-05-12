@@ -35,7 +35,7 @@ pub(crate) struct ProcedureStore<TCtx> {
     pub(crate) store: BTreeMap<String, Procedure<TCtx>>,
 }
 
-impl<TCtx> ProcedureStore<TCtx> {
+impl<TCtx: 'static> ProcedureStore<TCtx> {
     pub const fn new(name: &'static str) -> Self {
         Self {
             name,
@@ -43,11 +43,8 @@ impl<TCtx> ProcedureStore<TCtx> {
         }
     }
 
-    pub(crate) fn append<L: Layer<TCtx>>(&mut self, key: String, exec: L, ty: ProcedureDataType)
-    where
-        // TODO: move this bound to impl once `alpha` stuff is stable
-        TCtx: 'static,
-    {
+    pub(crate) fn append<L: Layer<TCtx>>(&mut self, key: String, exec: L, ty: ProcedureDataType) {
+        // TODO: Cleanup this logic and do better router merging
         #[allow(clippy::panic)]
         if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
             panic!(

@@ -26,9 +26,9 @@ mod private {
 
     // Markers
     #[doc(hidden)]
-    pub enum StreamMarker {}
+    pub enum StreamMarkerType {}
     #[doc(hidden)]
-    pub enum FutureMarker {}
+    pub enum FutureMarkerType {}
 
     pub trait SealedRequestLayer<TMarker> {
         type Result: Type;
@@ -43,14 +43,14 @@ mod private {
     // For queries and mutations
 
     #[doc(hidden)]
-    pub enum AlphaSerializeMarker {}
-    impl<T> SealedRequestLayer<AlphaSerializeMarker> for T
+    pub enum SerializeMarker {}
+    impl<T> SealedRequestLayer<SerializeMarker> for T
     where
         T: Serialize + Type,
     {
         type Result = T;
         type Stream = Once<Ready<Result<Value, ExecError>>>;
-        type Type = FutureMarker;
+        type Type = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
             once(ready(
@@ -60,14 +60,14 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum AlphaResultMarker {}
-    impl<T> SealedRequestLayer<AlphaResultMarker> for Result<T, Error>
+    pub enum ResultMarker {}
+    impl<T> SealedRequestLayer<ResultMarker> for Result<T, Error>
     where
         T: Serialize + Type,
     {
         type Result = T;
         type Stream = Once<Ready<Result<Value, ExecError>>>;
-        type Type = FutureMarker;
+        type Type = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
             once(ready(self.map_err(ExecError::ErrResolverError).and_then(
@@ -77,15 +77,15 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum AlphaFutureSerializeMarker {}
-    impl<TFut, T> SealedRequestLayer<AlphaFutureSerializeMarker> for TFut
+    pub enum FutureSerializeMarker {}
+    impl<TFut, T> SealedRequestLayer<FutureSerializeMarker> for TFut
     where
         TFut: Future<Output = T> + Send + 'static,
         T: Serialize + Type + Send + 'static,
     {
         type Result = T;
         type Stream = Once<FutureSerializeFuture<TFut, T>>;
-        type Type = FutureMarker;
+        type Type = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
             once(FutureSerializeFuture(self, PhantomData))
@@ -114,15 +114,15 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum AlphaFutureResultMarker {}
-    impl<TFut, T> SealedRequestLayer<AlphaFutureResultMarker> for TFut
+    pub enum FutureResultMarker {}
+    impl<TFut, T> SealedRequestLayer<FutureResultMarker> for TFut
     where
         TFut: Future<Output = Result<T, Error>> + Send + 'static,
         T: Serialize + Type + Send + 'static,
     {
         type Result = T;
         type Stream = Once<FutureSerializeResultFuture<TFut, T>>;
-        type Type = FutureMarker;
+        type Type = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
             once(FutureSerializeResultFuture(self, PhantomData))
@@ -155,15 +155,15 @@ mod private {
     // For subscriptions
 
     #[doc(hidden)]
-    pub enum AlphaStreamMarker {}
-    impl<TStream, T> SealedRequestLayer<AlphaStreamMarker> for TStream
+    pub enum StreamMarker {}
+    impl<TStream, T> SealedRequestLayer<StreamMarker> for TStream
     where
         TStream: Stream<Item = T> + Send + Sync + 'static,
         T: Serialize + Type,
     {
         type Result = T;
         type Stream = MapStream<TStream>;
-        type Type = StreamMarker;
+        type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
             MapStream(None, PinnedOption::Some(self), |v| {
@@ -173,8 +173,8 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum AlphaResultStreamMarker {}
-    impl<TStream, T> SealedRequestLayer<AlphaResultStreamMarker> for Result<TStream, Error>
+    pub enum ResultStreamMarker {}
+    impl<TStream, T> SealedRequestLayer<ResultStreamMarker> for Result<TStream, Error>
     where
         TStream: Stream<Item = T> + Send + Sync + 'static,
         T: Serialize + Type,
@@ -196,8 +196,8 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum AlphaFutureStreamMarker {}
-    impl<TFut, TStream, T> SealedRequestLayer<AlphaFutureStreamMarker> for TFut
+    pub enum FutureStreamMarker {}
+    impl<TFut, TStream, T> SealedRequestLayer<FutureStreamMarker> for TFut
     where
         TFut: Future<Output = TStream> + Send + 'static,
         TStream: Stream<Item = T> + Send + Sync + 'static,
@@ -219,8 +219,8 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum AlphaFutureResultStreamMarker {}
-    impl<TFut, TStream, T> SealedRequestLayer<AlphaFutureResultStreamMarker> for TFut
+    pub enum FutureResultStreamMarker {}
+    impl<TFut, TStream, T> SealedRequestLayer<FutureResultStreamMarker> for TFut
     where
         TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
         TStream: Stream<Item = T> + Send + Sync + 'static,
@@ -329,4 +329,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{FutureMarker, SealedRequestLayer, StreamMarker};
+pub(crate) use private::{FutureMarkerType, SealedRequestLayer, StreamMarkerType};

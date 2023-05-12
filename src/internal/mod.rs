@@ -1,6 +1,6 @@
 //! Internal types which power rspc. The module provides no guarantee of compatibility between updates, so you should be careful rely on types from it.
 //!
-//! WARNING: Anything in this module does not follow semantic versioning as it's considered an implementation detail.
+//! WARNING: Anything in this module or submodules does not follow semantic versioning as it's considered an implementation detail.
 //!
 
 pub mod jsonrpc;
@@ -14,18 +14,24 @@ mod mw_result;
 mod procedure_store;
 mod resolver_function;
 mod resolver_result;
-mod utils;
 
 pub use into_procedures::*;
 pub use layer::*;
-pub use markers::*;
+pub(crate) use markers::*;
 pub use middleware::*;
 pub use mw_ctx::*;
 pub use mw_result::*;
 pub(crate) use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;
-pub(crate) use utils::*;
+
+#[pin_project::pin_project(project = _PinnedOptionProj)]
+pub(crate) enum PinnedOption<T> {
+    Some(#[pin] T),
+    None,
+}
+
+pub(crate) use _PinnedOptionProj as PinnedOptionProj;
 
 #[cfg(test)]
 mod tests {

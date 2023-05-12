@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+// TODO: Move all this directly onto the router and remove it
+
 /// TODO
 pub struct Config {
     pub(crate) expose_errors: bool,

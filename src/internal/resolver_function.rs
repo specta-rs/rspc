@@ -5,10 +5,12 @@ use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::internal::ProcedureDataType;
 
-use super::{FutureMarker, RequestLayer, RequestLayerMarker, StreamLayerMarker, StreamMarker};
+use super::{
+    FutureMarkerType, RequestLayer, RequestLayerMarker, StreamLayerMarker, StreamMarkerType,
+};
 
 // TODO: private or sealed
-pub trait AlphaMiddlewareBuilderLikeCompat {
+pub trait MiddlewareBuilderLikeCompat {
     type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
 }
 
@@ -31,7 +33,7 @@ mod private {
 
         fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 
-        fn typedef<TMiddleware: AlphaMiddlewareBuilderLikeCompat>(
+        fn typedef<TMiddleware: MiddlewareBuilderLikeCompat>(
             key: Cow<'static, str>,
             defs: &mut TypeDefs,
         ) -> Result<ProcedureDataType, TsExportError> {
@@ -72,8 +74,8 @@ mod private {
         for F
     where
         TArg: DeserializeOwned + Type + 'static,
-        TResult:
-            RequestLayer<TResultMarker> + SealedRequestLayer<TResultMarker, Type = FutureMarker>,
+        TResult: RequestLayer<TResultMarker>
+            + SealedRequestLayer<TResultMarker, Type = FutureMarkerType>,
         TLayerCtx: Send + Sync + 'static,
     {
         type LayerCtx = TLayerCtx;
@@ -99,8 +101,8 @@ mod private {
         for F
     where
         TArg: DeserializeOwned + Type + 'static,
-        TResult:
-            RequestLayer<TResultMarker> + SealedRequestLayer<TResultMarker, Type = StreamMarker>,
+        TResult: RequestLayer<TResultMarker>
+            + SealedRequestLayer<TResultMarker, Type = StreamMarkerType>,
         TLayerCtx: Send + Sync + 'static,
     {
         type LayerCtx = TLayerCtx;
