@@ -3,7 +3,6 @@
 //! Checkout the official docs <https://rspc.dev>
 //!
 #![forbid(unsafe_code)]
-// #![allow(warnings)] // TODO: Remove this
 #![warn(
     clippy::all,
     clippy::cargo,
@@ -15,6 +14,10 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(feature = "unstable")]
+#[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
+pub mod unstable;
+
 mod config;
 mod error;
 mod layer;
@@ -23,7 +26,6 @@ mod old_router;
 mod procedure;
 mod procedure_like;
 mod router;
-mod router_builder;
 mod router_builder_like;
 mod rspc;
 mod selection;
@@ -36,7 +38,6 @@ pub use old_router::*;
 pub use procedure::*;
 pub use procedure_like::*;
 pub use router::*;
-pub use router_builder::*;
 pub use router_builder_like::*;
 pub use rspc::*;
 pub use selection::*;
