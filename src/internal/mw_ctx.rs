@@ -1,19 +1,15 @@
 use serde_json::Value;
 
-use crate::internal::RequestContext;
-
 use super::{Executable2Placeholder, MwResultWithCtx};
 
-// TODO: Deal with ambigious types cause two of them have this same name!
-// TODO: Only hold output and not the whole `M` generic?
-pub struct AlphaMiddlewareContext {
+pub struct MiddlewareContext {
     pub input: Value,
     pub req: RequestContext,
     // Prevents downstream user constructing type
     pub(crate) _priv: (),
 }
 
-impl AlphaMiddlewareContext {
+impl MiddlewareContext {
     pub fn next<TNCtx>(self, ctx: TNCtx) -> MwResultWithCtx<TNCtx, Executable2Placeholder> {
         MwResultWithCtx {
             input: self.input,
@@ -22,4 +18,33 @@ impl AlphaMiddlewareContext {
             resp: None,
         }
     }
+}
+
+/// TODO
+// TODO: Is this a duplicate of any type?
+// TODO: Move into public API cause it might be used in middleware
+#[derive(Debug, Clone)]
+pub enum ProcedureKind {
+    Query,
+    Mutation,
+    Subscription,
+}
+
+impl ProcedureKind {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            ProcedureKind::Query => "query",
+            ProcedureKind::Mutation => "mutation",
+            ProcedureKind::Subscription => "subscription",
+        }
+    }
+}
+
+/// TODO
+// TODO: Maybe rename to `Request` or something else. Also move into Public API cause it might be used in middleware
+#[derive(Debug, Clone)]
+pub struct RequestContext {
+    pub kind: ProcedureKind,
+    pub path: String, // TODO: String slice??
+    pub(crate) _priv: (),
 }

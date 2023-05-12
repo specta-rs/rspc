@@ -1,9 +1,25 @@
-use std::future::Future;
+use std::{future::Future, marker::PhantomData};
 
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use super::{AlphaMiddlewareContext, MwV2Result};
+use super::{MiddlewareContext, MwV2Result};
+
+#[doc(hidden)]
+pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
+where
+    TCtx: 'static;
+
+impl<TCtx> BaseMiddleware<TCtx>
+where
+    TCtx: 'static,
+{
+    pub const fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+// TODO: Cleanup and seal these traits
 
 /// TODO
 ///
@@ -15,14 +31,14 @@ pub trait MwV3<TLCtx>: Send + Sync + 'static {
     type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
 
     // TODO: Rename
-    fn run_me(&self, ctx: TLCtx, mw: AlphaMiddlewareContext) -> Self::Fut;
+    fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut;
 }
 
 /// TODO
 ///
 // This must have the `Fn` supertrait, otherwise Rust will fail to infer `TLCtx` in userspace.
 pub trait MwV2<TLCtx>:
-    MwV3<TLCtx> + Fn(AlphaMiddlewareContext, TLCtx) -> Self::Fut + Send + Sync + 'static
+    MwV3<TLCtx> + Fn(MiddlewareContext, TLCtx) -> Self::Fut + Send + Sync + 'static
 where
     TLCtx: Send + Sync + 'static,
 {
@@ -31,7 +47,7 @@ where
 impl<TLCtx, F, Fu, R> MwV2<TLCtx> for F
 where
     TLCtx: Send + Sync + 'static,
-    F: Fn(AlphaMiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
+    F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
     Fu: Future<Output = R> + Send + 'static,
     R: MwV2Result + Send + 'static,
 {
@@ -40,7 +56,7 @@ where
 impl<TLCtx, F, Fu, R> MwV3<TLCtx> for F
 where
     TLCtx: Send + Sync + 'static,
-    F: Fn(AlphaMiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
+    F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
     Fu: Future<Output = R> + Send + 'static,
     R: MwV2Result + Send + 'static,
 {
@@ -49,7 +65,7 @@ where
     type NewCtx = R::Ctx; // TODO: Make this work with context switching
     type Arg<T: Type + DeserializeOwned + 'static> = T;
 
-    fn run_me(&self, ctx: TLCtx, mw: AlphaMiddlewareContext) -> Self::Fut {
+    fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
         self(mw, ctx)
     }
 }

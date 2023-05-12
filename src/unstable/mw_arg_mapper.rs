@@ -3,7 +3,7 @@ use std::{future::Future, marker::PhantomData};
 use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 
-use crate::internal::{AlphaMiddlewareContext, MwV2Result, MwV3};
+use crate::internal::{MiddlewareContext, MwV2Result, MwV3};
 
 /// TODO
 pub trait MwArgMapper: Send + Sync {
@@ -32,7 +32,7 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
 
     pub fn mount<TLCtx, TNCtx, Fu, R>(
         &self,
-        handler: impl Fn(AlphaMiddlewareContext, TLCtx, M::State) -> Fu + Send + Sync + 'static,
+        handler: impl Fn(MiddlewareContext, TLCtx, M::State) -> Fu + Send + Sync + 'static,
     ) -> impl MwV3<TLCtx, NewCtx = TNCtx>
     where
         TLCtx: Send + Sync + 'static,
@@ -41,12 +41,12 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
     {
         // TODO: Make this passthrough to new handler but provide the owned `State` as an arg
         MiddlewareFnWithTypeMapper(
-            move |mw: AlphaMiddlewareContext, ctx| {
+            move |mw: MiddlewareContext, ctx| {
                 let (out, state) =
                     M::map::<serde_json::Value>(serde_json::from_value(mw.input).unwrap());
 
                 handler(
-                    AlphaMiddlewareContext {
+                    MiddlewareContext {
                         input: serde_json::to_value(out).unwrap(), // TODO: Error handling
                         req: mw.req,
                         _priv: (),
@@ -65,7 +65,7 @@ pub struct MiddlewareFnWithTypeMapper<M, F>(F, PhantomData<M>);
 impl<M, TLCtx, F, Fu, R> MwV3<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
 where
     TLCtx: Send + Sync + 'static,
-    F: Fn(AlphaMiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
+    F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
     Fu: Future<Output = R> + Send + 'static,
     R: MwV2Result + Send + 'static,
     M: MwArgMapper + 'static,
@@ -75,7 +75,7 @@ where
     type NewCtx = R::Ctx; // TODO: Make this work with context switching
     type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
 
-    fn run_me(&self, ctx: TLCtx, mw: AlphaMiddlewareContext) -> Self::Fut {
+    fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
         (self.0)(mw, ctx)
     }
 }

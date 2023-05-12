@@ -13,12 +13,12 @@ use specta::Type;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
-        AlphaRequestLayer, Executable2, FutureMarker, Layer, MissingResolver, MwV2, MwV2Result,
-        MwV3, PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker, ResolverFunction,
-        SealedLayer, StreamLayerMarker, StreamMarker,
+        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, Executable2,
+        FutureMarker, IntoProceduresCtx, Layer, MiddlewareContext, MissingResolver, MwV2,
+        MwV2Result, MwV3, PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker,
+        ResolverFunction, SealedIntoProcedures, SealedLayer, StreamLayerMarker, StreamMarker,
     },
-    ExecError, IntoProcedure, IntoProcedureCtx, ProcedureLike,
+    ExecError, ProcedureLike,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -138,7 +138,7 @@ where
     }
 }
 
-impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
+impl<R, RMarker, TMiddleware> SealedIntoProcedures<TMiddleware::Ctx>
     for AlphaProcedure<R, RequestLayerMarker<RMarker>, TMiddleware>
 where
     R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
@@ -146,7 +146,7 @@ where
     R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
-    fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
+    fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProceduresCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc` by moving ownership to `AlphaResolverLayer`
 
         let m = match self.2.kind() {
@@ -173,7 +173,7 @@ where
     }
 }
 
-impl<R, RMarker, TMiddleware> IntoProcedure<TMiddleware::Ctx>
+impl<R, RMarker, TMiddleware> SealedIntoProcedures<TMiddleware::Ctx>
     for AlphaProcedure<R, StreamLayerMarker<RMarker>, TMiddleware>
 where
     R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TMiddleware::LayerCtx>,
@@ -181,7 +181,7 @@ where
     R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     TMiddleware: AlphaMiddlewareBuilderLike,
 {
-    fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
+    fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProceduresCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
         ctx.subscriptions.append(
@@ -345,7 +345,7 @@ where
     ) -> Result<Self::Stream<'a>, ExecError> {
         let fut = self.mw.run_me(
             ctx,
-            AlphaMiddlewareContext {
+            MiddlewareContext {
                 input,
                 req,
                 _priv: (),

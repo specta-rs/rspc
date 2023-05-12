@@ -3,7 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{jsonrpc::RequestKind, ProcedureStore},
+    internal::{jsonrpc::RequestKind, IntoProcedures, IntoProceduresCtx, ProcedureStore},
     BuiltRouter, Config,
 };
 
@@ -16,7 +16,7 @@ use super::{
     AlphaBaseMiddleware,
 };
 
-type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedure<TCtx>>)>;
+type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedures<TCtx>>)>;
 
 pub struct AlphaRouter<TCtx>
 where
@@ -37,7 +37,7 @@ where
         }
     }
 
-    pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedure<TCtx>) -> Self {
+    pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedures<TCtx>) -> Self {
         self.procedures
             .push((Cow::Borrowed(key), Box::new(procedure)));
         self
@@ -134,7 +134,7 @@ where
         let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
 
-        let mut ctx = IntoProcedureCtx {
+        let mut ctx = IntoProceduresCtx {
             ty_store: &mut typ_store,
             queries: &mut queries,
             mutations: &mut mutations,
@@ -163,7 +163,7 @@ where
         let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
 
-        let mut ctx = IntoProcedureCtx {
+        let mut ctx = IntoProceduresCtx {
             ty_store: &mut typ_store,
             queries: &mut queries,
             mutations: &mut mutations,
@@ -192,15 +192,4 @@ where
 
         router
     }
-}
-
-pub struct IntoProcedureCtx<'a, TCtx> {
-    pub ty_store: &'a mut TypeDefs,
-    pub queries: &'a mut ProcedureStore<TCtx>,
-    pub mutations: &'a mut ProcedureStore<TCtx>,
-    pub subscriptions: &'a mut ProcedureStore<TCtx>,
-}
-
-pub trait IntoProcedure<TCtx>: 'static {
-    fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TCtx>);
 }

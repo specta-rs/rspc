@@ -9,8 +9,8 @@ use crate::{internal::RequestContext, ExecError};
 pub(crate) type FutureValueOrStream<'a> =
     Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>;
 
-/// TODO
-pub trait Layer<TLayerCtx: 'static>: private::SealedLayer<TLayerCtx> {}
+#[doc(hidden)]
+pub trait Layer<TLayerCtx: 'static>: SealedLayer<TLayerCtx> {}
 
 mod private {
     use super::*;
@@ -38,7 +38,7 @@ mod private {
         }
     }
 
-    /// Prevents the end user implementing the `Layer` trait and hides some of the internals
+    /// Prevents the end user implementing the `Layer` trait and hides the internals
     pub trait SealedLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> {
         type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
 

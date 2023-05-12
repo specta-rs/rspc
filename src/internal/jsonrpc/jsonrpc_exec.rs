@@ -178,6 +178,7 @@ where
                             RequestContext {
                                 kind: ProcedureKind::Query,
                                 path,
+                                _priv: (),
                             },
                         );
 
@@ -245,6 +246,7 @@ where
                             RequestContext {
                                 kind: ProcedureKind::Mutation,
                                 path,
+                                _priv: (),
                             },
                         );
 
@@ -360,6 +362,7 @@ where
                             RequestContext {
                                 kind: ProcedureKind::Query,
                                 path,
+                                _priv: (),
                             },
                         );
 
