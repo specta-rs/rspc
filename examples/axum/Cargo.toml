@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../", features = ["axum", "alpha"] }
+rspc = { path = "../../", features = ["axum"] }
 tokio = { version = "1.27.0", features = ["full"] }
 async-stream = "0.3.4"
 axum = { version = "0.6.12", features = ["ws"] }

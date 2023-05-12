@@ -28,7 +28,6 @@ httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
 anyhow = ["dep:anyhow"]
 
-alpha = [] # APIs that are not yet stable
 unstable = [] # APIs where one line of code can blow up your whole app
 
 # Webservers
@@ -42,23 +41,8 @@ lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
 workers = ["httpz", "httpz/workers", "httpz/ws"]
 vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
-# Specta # TODO: Remove all of these with v1
-uuid = ["specta/uuid"]
-chrono = ["specta/chrono"]
-time = ["specta/time"]
-bigdecimal = ["specta/bigdecimal"]
-rust_decimal = ["specta/rust_decimal"]
-indexmap = ["specta/indexmap"]
-ipnetwork = ["specta/ipnetwork"]
-mac_address = ["specta/mac_address"]
-bit-vec = ["specta/bit-vec"]
-bson = ["specta/bson"]
-uhlc = ["specta/uhlc"]
-bytesize = ["specta/bytesize"]
-glam = ["specta/glam"]
-
 [dependencies]
-specta = { version = "1.0.2", features = ["serde", "typescript", "tokio"] }
+specta = { version = "1.0.4", features = ["serde", "typescript", "tokio"] }
 httpz = { version = "0.0.4", optional = true } # TODO: Move back to crates.io release
 serde = { version = "1.0.159", features = ["derive"] }
 serde_json = "1.0.95"

@@ -11,7 +11,7 @@ use pin_project::pin_project;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::{alpha::Executable2, internal::RequestContext, ExecError};
+use crate::{internal::RequestContext, ExecError, Executable2};
 
 use super::{
     AlphaLayer, AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, FutureMarker, IntoProcedure,
@@ -153,7 +153,7 @@ where
             RequestKind::Mutation => &mut ctx.mutations,
         };
 
-        m.append_alpha(
+        m.append(
             key.to_string(),
             self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {
@@ -183,7 +183,7 @@ where
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TMiddleware::Ctx>) {
         let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc`?
 
-        ctx.subscriptions.append_alpha(
+        ctx.subscriptions.append(
             key.to_string(),
             self.1.take().unwrap().build(AlphaResolverLayer {
                 func: move |ctx, input, _| {

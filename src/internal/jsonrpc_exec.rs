@@ -169,33 +169,14 @@ where
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                 {
                     Ok(op) => {
-                        let mut stream = match op
-                            .exec
-                            .call(
-                                ctx,
-                                input.unwrap_or(Value::Null),
-                                RequestContext {
-                                    kind: ProcedureKind::Query,
-                                    path,
-                                },
-                            )
-                            .await
-                        {
-                            Ok(s) => s,
-                            Err(err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Error executing operation: {:?}", err);
-
-                                sender
-                                    .send(jsonrpc::Response {
-                                        jsonrpc: "2.0",
-                                        id: req.id,
-                                        result: ResponseInner::Error(err.into()),
-                                    })
-                                    .await;
-                                return;
-                            }
-                        };
+                        let mut stream = op.exec.dyn_call(
+                            ctx,
+                            input.unwrap_or(Value::Null),
+                            RequestContext {
+                                kind: ProcedureKind::Query,
+                                path,
+                            },
+                        );
 
                         // // TODO: Middleware could mess with this assumption so think about that.
                         // match stream.size_hint() {
@@ -255,33 +236,14 @@ where
                     .ok_or_else(|| ExecError::OperationNotFound(path.clone()))
                 {
                     Ok(op) => {
-                        let mut stream = match op
-                            .exec
-                            .call(
-                                ctx,
-                                input.unwrap_or(Value::Null),
-                                RequestContext {
-                                    kind: ProcedureKind::Mutation,
-                                    path,
-                                },
-                            )
-                            .await
-                        {
-                            Ok(s) => s,
-                            Err(err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Error executing operation: {:?}", err);
-
-                                sender
-                                    .send(jsonrpc::Response {
-                                        jsonrpc: "2.0",
-                                        id: req.id,
-                                        result: ResponseInner::Error(err.into()),
-                                    })
-                                    .await;
-                                return;
-                            }
-                        };
+                        let mut stream = op.exec.dyn_call(
+                            ctx,
+                            input.unwrap_or(Value::Null),
+                            RequestContext {
+                                kind: ProcedureKind::Mutation,
+                                path,
+                            },
+                        );
 
                         // // TODO: Middleware could mess with this assumption so think about that.
                         // match stream.size_hint() {
@@ -389,33 +351,14 @@ where
                             "Fatal rspc error: Rust's borrowing rules have been broken. An `&T` was modified.",
                         );
 
-                        let mut stream = match op
-                            .exec
-                            .call(
-                                ctx,
-                                input.unwrap_or(Value::Null),
-                                RequestContext {
-                                    kind: ProcedureKind::Query,
-                                    path,
-                                },
-                            )
-                            .await
-                        {
-                            Ok(s) => s,
-                            Err(err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Error executing operation: {:?}", err);
-
-                                sender
-                                    .send(jsonrpc::Response {
-                                        jsonrpc: "2.0",
-                                        id: id,
-                                        result: ResponseInner::Error(err.into()),
-                                    })
-                                    .await;
-                                return;
-                            }
-                        };
+                        let mut stream = op.exec.dyn_call(
+                            ctx,
+                            input.unwrap_or(Value::Null),
+                            RequestContext {
+                                kind: ProcedureKind::Query,
+                                path,
+                            },
+                        );
 
                         loop {
                             tokio::select! {

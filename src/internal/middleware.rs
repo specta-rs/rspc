@@ -3,7 +3,7 @@ use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 use futures::Stream;
 use serde_json::Value;
 
-use crate::{ExecError, MiddlewareLike};
+use crate::ExecError;
 
 pub trait MiddlewareBuilderLike<TCtx> {
     type LayerContext: 'static;
@@ -42,71 +42,71 @@ where
     }
 }
 
-pub struct MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
-where
-    TCtx: Send + Sync + 'static,
-    TLayerCtx: Send + Sync + 'static,
-    TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
-    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx>,
-{
-    pub middleware: TMiddleware,
-    pub mw: TNewMiddleware,
-    pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx)>,
-}
+// pub struct MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+// where
+//     TCtx: Send + Sync + 'static,
+//     TLayerCtx: Send + Sync + 'static,
+//     TNewLayerCtx: Send + Sync + 'static,
+//     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+//     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx>,
+// {
+//     pub middleware: TMiddleware,
+//     pub mw: TNewMiddleware,
+//     pub phantom: PhantomData<(TCtx, TLayerCtx, TNewLayerCtx)>,
+// }
 
-impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> MiddlewareBuilderLike<TCtx>
-    for MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
-where
-    TCtx: Send + Sync + 'static,
-    TLayerCtx: Send + Sync + 'static,
-    TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
-    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
-{
-    type LayerContext = TNewLayerCtx;
+// impl<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> MiddlewareBuilderLike<TCtx>
+//     for MiddlewareLayerBuilder<TCtx, TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+// where
+//     TCtx: Send + Sync + 'static,
+//     TLayerCtx: Send + Sync + 'static,
+//     TNewLayerCtx: Send + Sync + 'static,
+//     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
+//     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+// {
+//     type LayerContext = TNewLayerCtx;
 
-    fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
-    where
-        T: Layer<Self::LayerContext> + Sync,
-    {
-        self.middleware.build(MiddlewareLayer {
-            next: Arc::new(next),
-            mw: self.mw.clone(),
-            phantom: PhantomData,
-        })
-    }
-}
+//     fn build<T>(&self, next: T) -> Box<dyn Layer<TCtx>>
+//     where
+//         T: Layer<Self::LayerContext> + Sync,
+//     {
+//         self.middleware.build(MiddlewareLayer {
+//             next: Arc::new(next),
+//             mw: self.mw.clone(),
+//             phantom: PhantomData,
+//         })
+//     }
+// }
 
-pub struct MiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
-where
-    TLayerCtx: Send + 'static,
-    TNewLayerCtx: Send + 'static,
-    TMiddleware: Layer<TNewLayerCtx> + 'static,
-    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
-{
-    next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
-    mw: TNewMiddleware,
-    phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
-}
+// pub struct MiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+// where
+//     TLayerCtx: Send + 'static,
+//     TNewLayerCtx: Send + 'static,
+//     TMiddleware: Layer<TNewLayerCtx> + 'static,
+//     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+// {
+//     next: Arc<TMiddleware>, // TODO: Avoid arcing this if possible
+//     mw: TNewMiddleware,
+//     phantom: PhantomData<(TLayerCtx, TNewLayerCtx)>,
+// }
 
-impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
-    for MiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
-where
-    TLayerCtx: Send + Sync + 'static,
-    TNewLayerCtx: Send + Sync + 'static,
-    TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
-    TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
-{
-    fn call(
-        &self,
-        ctx: TLayerCtx,
-        input: Value,
-        req: RequestContext,
-    ) -> Result<LayerResult, ExecError> {
-        self.mw.handle(ctx, input, req, self.next.clone())
-    }
-}
+// impl<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
+//     for MiddlewareLayer<TLayerCtx, TNewLayerCtx, TMiddleware, TNewMiddleware>
+// where
+//     TLayerCtx: Send + Sync + 'static,
+//     TNewLayerCtx: Send + Sync + 'static,
+//     TMiddleware: Layer<TNewLayerCtx> + Sync + 'static,
+//     TNewMiddleware: MiddlewareLike<TLayerCtx, NewCtx = TNewLayerCtx> + Send + Sync + 'static,
+// {
+//     fn call(
+//         &self,
+//         ctx: TLayerCtx,
+//         input: Value,
+//         req: RequestContext,
+//     ) -> Result<LayerResult, ExecError> {
+//         self.mw.handle(ctx, input, req, self.next.clone())
+//     }
+// }
 
 pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
 where
