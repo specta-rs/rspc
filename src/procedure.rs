@@ -13,9 +13,9 @@ use specta::Type;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaLayer, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
-        AlphaRequestLayer, Executable2, FutureMarker, MissingResolver, MwV2, MwV2Result, MwV3,
-        PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker, ResolverFunction,
+        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
+        AlphaRequestLayer, Executable2, FutureMarker, Layer, MissingResolver, MwV2, MwV2Result,
+        MwV3, PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker, ResolverFunction,
         StreamLayerMarker, StreamMarker,
     },
     ExecError, IntoProcedure, IntoProcedureCtx, ProcedureLike,
@@ -269,13 +269,13 @@ pub trait AlphaMiddlewareBuilderLike: Send + 'static {
     type LayerCtx: Send + Sync + 'static;
     type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
 
-    type LayerResult<T>: AlphaLayer<Self::Ctx>
+    type LayerResult<T>: Layer<Self::Ctx>
     where
-        T: AlphaLayer<Self::LayerCtx>;
+        T: Layer<Self::LayerCtx>;
 
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
-        T: AlphaLayer<Self::LayerCtx>;
+        T: Layer<Self::LayerCtx>;
 }
 
 impl<M: AlphaMiddlewareBuilderLike> AlphaMiddlewareBuilderLikeCompat for M {
@@ -302,12 +302,12 @@ where
     type LayerCtx = TNewMiddleware::NewCtx;
     type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
     where
-        T: AlphaLayer<Self::LayerCtx>;
+        T: Layer<Self::LayerCtx>;
     type Arg<T: Type + DeserializeOwned + 'static> = TNewMiddleware::Arg<T>;
 
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
-        T: AlphaLayer<Self::LayerCtx> + Sync,
+        T: Layer<Self::LayerCtx> + Sync,
     {
         self.middleware.build(AlphaMiddlewareLayer {
             next,
@@ -320,7 +320,7 @@ where
 pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
+    TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
     TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
 {
     next: TMiddleware,
@@ -328,11 +328,11 @@ where
     phantom: PhantomData<TLayerCtx>,
 }
 
-impl<TLayerCtx, TMiddleware, TNewMiddleware> AlphaLayer<TLayerCtx>
+impl<TLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
     for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + Sync + 'static,
+    TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
     TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
 {
     type Stream<'a> = MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
@@ -371,7 +371,7 @@ pub struct MiddlewareFutOrSomething<
     // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
     TLayerCtx: Send + Sync + 'static,
     TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
+    TMiddleware: Layer<TNewMiddleware::NewCtx> + 'static,
 >(
     #[pin] PinnedOption<TNewMiddleware::Fut>,
     &'a TMiddleware,
@@ -384,7 +384,7 @@ impl<
         'a,
         TLayerCtx: Send + Sync + 'static,
         TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
-        TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
+        TMiddleware: Layer<TNewMiddleware::NewCtx> + 'static,
     > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>
 {
     type Item = Result<Value, ExecError>;
@@ -485,12 +485,12 @@ where
 
     type LayerResult<T> = T
     where
-        T: AlphaLayer<Self::LayerCtx>;
+        T: Layer<Self::LayerCtx>;
     type Arg<T: Type + DeserializeOwned + 'static> = T;
 
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
-        T: AlphaLayer<Self::LayerCtx>,
+        T: Layer<Self::LayerCtx>,
     {
         next
     }
@@ -506,7 +506,7 @@ where
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx, S> AlphaLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, S>
+impl<T, TLayerCtx, S> Layer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, S>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,

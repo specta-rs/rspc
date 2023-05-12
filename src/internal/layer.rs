@@ -5,7 +5,11 @@ use serde_json::Value;
 
 use crate::{internal::RequestContext, ExecError};
 
-pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
+// TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
+pub(crate) type FutureValueOrStream<'a> =
+    Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>;
+
+pub trait Layer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 'static {
     type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
 
     fn call<'a>(
@@ -23,16 +27,12 @@ pub trait AlphaLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> + Send + Sync + 's
     }
 }
 
-// TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
-pub type FutureValueOrStream<'a> =
-    Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>;
-
 pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
     fn dyn_call<'a>(&'a self, a: TLayerCtx, b: Value, c: RequestContext)
         -> FutureValueOrStream<'a>;
 }
 
-impl<TLayerCtx: Send + 'static, L: AlphaLayer<TLayerCtx>> DynLayer<TLayerCtx> for L {
+impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
     fn dyn_call<'a>(
         &'a self,
         a: TLayerCtx,

@@ -194,36 +194,7 @@ where
     }
 }
 
-// #[deprecated("Use `plugin_with_ctx` instead")]
-pub fn plugin<R, TCtx, TMeta>(
-    router: Arc<BuiltRouter<TCtx, TMeta>>,
-    ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
-) -> TauriPlugin<R>
-where
-    R: Runtime + Send + Sync + 'static,
-    TCtx: Send + Sync + 'static,
-    TMeta: Send + Sync + 'static,
-{
-    let manager = WindowManager::new(move |_| ctx_fn(), router);
-    Builder::new("rspc")
-        .on_page_load(move |window, _page| {
-            manager.clone().on_page_load(window.clone());
-
-            window.on_window_event({
-                let window = window.clone();
-                let manager = manager.clone();
-                move |event| match event {
-                    WindowEvent::CloseRequested { .. } => {
-                        manager.close_requested(&window);
-                    }
-                    _ => {}
-                }
-            })
-        })
-        .build()
-}
-
-pub fn plugin_with_ctx<R: Runtime, TCtx, TMeta>(
+pub fn plugin<R: Runtime, TCtx, TMeta>(
     router: Arc<BuiltRouter<TCtx, TMeta>>,
     ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>

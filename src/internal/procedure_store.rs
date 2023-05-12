@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 
 use specta::{DataType, DataTypeFrom};
 
-use crate::internal::{AlphaLayer, DynLayer};
+use crate::internal::{DynLayer, Layer};
 
 // TODO: Make all these types internal
 
@@ -42,12 +42,8 @@ impl<TCtx> ProcedureStore<TCtx> {
         }
     }
 
-    pub(crate) fn append<L: AlphaLayer<TCtx>>(
-        &mut self,
-        key: String,
-        exec: L,
-        ty: ProcedureDataType,
-    ) where
+    pub(crate) fn append<L: Layer<TCtx>>(&mut self, key: String, exec: L, ty: ProcedureDataType)
+    where
         // TODO: move this bound to impl once `alpha` stuff is stable
         TCtx: 'static,
     {
