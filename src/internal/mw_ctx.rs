@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use serde_json::Value;
 
 use crate::internal::RequestContext;
@@ -24,11 +22,4 @@ impl AlphaMiddlewareContext {
             resp: None,
         }
     }
-}
-
-#[deprecated = "Maybe remove this type?"]
-pub struct AlphaMiddlewareContext2<M> {
-    input: Value,
-    req: RequestContext,
-    phantom: PhantomData<M>,
 }

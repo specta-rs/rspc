@@ -1,4 +1,4 @@
-use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use futures::Stream;
 use serde_json::Value;

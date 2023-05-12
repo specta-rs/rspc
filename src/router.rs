@@ -126,7 +126,7 @@ where
     //     self
     // }
 
-    // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
+    #[deprecated = "TODO: Remove this"]
     pub fn compat(self) -> BuiltRouter<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
@@ -194,12 +194,6 @@ where
     }
 }
 
-// impl<TCtx: Send + Sync + 'static> AlphaRouterBuilderLike<TCtx> for AlphaRouter<TCtx> {
-//     fn procedures(self) -> ProcedureList<TCtx> {
-//         self.procedures
-//     }
-// }
-
 pub struct IntoProcedureCtx<'a, TCtx> {
     pub ty_store: &'a mut TypeDefs,
     pub queries: &'a mut ProcedureStore<TCtx>,
@@ -210,24 +204,3 @@ pub struct IntoProcedureCtx<'a, TCtx> {
 pub trait IntoProcedure<TCtx>: 'static {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProcedureCtx<'_, TCtx>);
 }
-
-// impl<TCtx> RouterBuilderLike<TCtx> for AlphaRouter<TCtx>
-// where
-//     TCtx: Send + Sync + 'static,
-// {
-//     type Meta = ();
-//     type Middleware = BaseMiddleware<TCtx>;
-
-//     fn expose(self) -> RouterBuilder<TCtx, Self::Meta, Self::Middleware> {
-//         let r = self.compat();
-//         RouterBuilder {
-//             config: Config::default(),
-//             middleware: BaseMiddleware::new(),
-//             queries: r.queries,
-//             mutations: r.mutations,
-//             subscriptions: r.subscriptions,
-//             typ_store: r.typ_store,
-//             phantom: PhantomData,
-//         }
-//     }
-// }

@@ -3,9 +3,8 @@
 //! WARNING: Anything in this module does not follow semantic versioning as it's considered an implementation detail.
 //!
 
-mod async_map;
 pub mod jsonrpc;
-mod jsonrpc_exec;
+
 mod layer;
 mod markers;
 mod middleware;
@@ -18,7 +17,6 @@ mod resolver_function;
 mod resolver_result;
 mod utils;
 
-pub use async_map::*;
 pub use layer::*;
 pub use markers::*;
 pub use middleware::*;

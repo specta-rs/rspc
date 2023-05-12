@@ -4,20 +4,17 @@ use std::{
     io::Write,
     marker::PhantomData,
     path::{Path, PathBuf},
-    pin::Pin,
     sync::Arc,
 };
 
-use futures::{Stream, StreamExt};
-use serde_json::Value;
 use specta::{
     ts::{self, datatype, ExportConfiguration, TsExportError},
     DataType, TypeDefs,
 };
 
 use crate::{
-    internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext},
-    Config, ExecError, ExportError,
+    internal::{Procedure, ProcedureStore},
+    Config, ExportError,
 };
 
 /// TODO
@@ -44,80 +41,80 @@ impl<TCtx, TMeta> BuiltRouter<TCtx, TMeta>
 where
     TCtx: Send + 'static,
 {
-    // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
-    pub async fn exec(
-        &self,
-        ctx: TCtx,
-        kind: ExecKind,
-        key: String,
-        input: Option<Value>,
-    ) -> Result<Value, ExecError> {
-        let (operations, kind) = match kind {
-            ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
-            ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
-        };
+    // // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
+    // pub async fn exec(
+    //     &self,
+    //     ctx: TCtx,
+    //     kind: ExecKind,
+    //     key: String,
+    //     input: Option<Value>,
+    // ) -> Result<Value, ExecError> {
+    //     let (operations, kind) = match kind {
+    //         ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
+    //         ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
+    //     };
 
-        let mut stream = operations
-            .get(&key)
-            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-            .exec
-            .dyn_call(
-                ctx,
-                input.unwrap_or(Value::Null),
-                RequestContext {
-                    kind,
-                    path: key.clone(),
-                },
-            );
+    //     let mut stream = operations
+    //         .get(&key)
+    //         .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+    //         .exec
+    //         .dyn_call(
+    //             ctx,
+    //             input.unwrap_or(Value::Null),
+    //             RequestContext {
+    //                 kind,
+    //                 path: key.clone(),
+    //             },
+    //         );
 
-        stream.next().await.unwrap()
-    }
+    //     stream.next().await.unwrap()
+    // }
 
-    // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
-    pub async fn exec_subscription(
-        &self,
-        ctx: TCtx,
-        key: String,
-        input: Option<Value>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>>, ExecError> {
-        Ok(self
-            .subscriptions
-            .store
-            .get(&key)
-            .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-            .exec
-            .dyn_call(
-                ctx,
-                input.unwrap_or(Value::Null),
-                RequestContext {
-                    kind: ProcedureKind::Subscription,
-                    path: key.clone(),
-                },
-            ))
-    }
+    // // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
+    // pub async fn exec_subscription(
+    //     &self,
+    //     ctx: TCtx,
+    //     key: String,
+    //     input: Option<Value>,
+    // ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>>, ExecError> {
+    //     Ok(self
+    //         .subscriptions
+    //         .store
+    //         .get(&key)
+    //         .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
+    //         .exec
+    //         .dyn_call(
+    //             ctx,
+    //             input.unwrap_or(Value::Null),
+    //             RequestContext {
+    //                 kind: ProcedureKind::Subscription,
+    //                 path: key.clone(),
+    //             },
+    //         ))
+    // }
 
     pub fn arced(self) -> Arc<Self> {
         Arc::new(self)
     }
 
-    pub fn typ_store(&self) -> TypeDefs {
-        self.typ_store.clone()
-    }
+    // pub fn typ_store(&self) -> TypeDefs {
+    //     self.typ_store.clone()
+    // }
 
-    // TODO: Drop this API in v1
-    pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.queries.store
-    }
+    // // TODO: Drop this API in v1
+    // pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+    //     &self.queries.store
+    // }
 
-    // TODO: Drop this API in v1
-    pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.mutations.store
-    }
+    // // TODO: Drop this API in v1
+    // pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+    //     &self.mutations.store
+    // }
 
-    // TODO: Drop this API in v1
-    pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-        &self.subscriptions.store
-    }
+    // // TODO: Drop this API in v1
+    // pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
+    //     &self.subscriptions.store
+    // }
 
     #[allow(clippy::unwrap_used)] // TODO
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
