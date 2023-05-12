@@ -11,7 +11,6 @@ mod middleware;
 mod mw;
 mod mw_ctx;
 mod mw_result;
-mod procedure_builder;
 mod procedure_store;
 mod resolver_function;
 mod resolver_result;
@@ -23,11 +22,10 @@ pub use middleware::*;
 pub use mw::*;
 pub use mw_ctx::*;
 pub use mw_result::*;
-pub use procedure_builder::*;
 pub use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;
-pub use utils::*;
+pub(crate) use utils::*;
 
 #[cfg(test)]
 mod tests {

@@ -16,7 +16,7 @@ use crate::{
         jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
         AlphaRequestLayer, Executable2, FutureMarker, Layer, MissingResolver, MwV2, MwV2Result,
         MwV3, PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker, ResolverFunction,
-        StreamLayerMarker, StreamMarker,
+        SealedLayer, StreamLayerMarker, StreamMarker,
     },
     ExecError, IntoProcedure, IntoProcedureCtx, ProcedureLike,
 };
@@ -328,7 +328,7 @@ where
     phantom: PhantomData<TLayerCtx>,
 }
 
-impl<TLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
+impl<TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
     for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
@@ -506,7 +506,7 @@ where
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx, S> Layer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, S>
+impl<T, TLayerCtx, S> SealedLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, S>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,

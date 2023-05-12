@@ -48,6 +48,7 @@ pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;
 
+    // TODO: Seal this and make it private
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError>;
 }
 
