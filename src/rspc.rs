@@ -1,10 +1,13 @@
 use std::marker::PhantomData;
 
 use crate::{
-    middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
-    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, FutureMarker, MissingResolver,
-    MwV2, MwV2Result, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
-    StreamMarker,
+    internal::{
+        jsonrpc::RequestKind, AlphaRequestLayer, FutureMarker, MissingResolver, RequestLayerMarker,
+        ResolverFunction, StreamLayerMarker, StreamMarker,
+    },
+    middleware::AlphaMiddlewareContext,
+    procedure::AlphaProcedure,
+    AlphaBaseMiddleware, AlphaMiddlewareLayerBuilder, AlphaRouter, MwV2, MwV2Result,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.

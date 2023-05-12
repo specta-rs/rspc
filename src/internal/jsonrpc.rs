@@ -3,6 +3,12 @@ use serde_json::Value;
 
 pub use super::jsonrpc_exec::*;
 
+#[derive(Clone, Copy)]
+pub enum RequestKind {
+    Query,
+    Mutation,
+}
+
 /// TODO
 ///
 /// @internal

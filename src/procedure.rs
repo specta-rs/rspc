@@ -11,13 +11,18 @@ use pin_project::pin_project;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::{internal::RequestContext, ExecError, Executable2};
+use crate::{
+    internal::{jsonrpc::RequestKind, RequestContext},
+    ExecError, Executable2,
+};
 
 use super::{
-    AlphaLayer, AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, FutureMarker, IntoProcedure,
-    IntoProcedureCtx, MissingResolver, MwV2, MwV2Result, MwV3, PinnedOption, PinnedOptionProj,
-    ProcedureLike, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
-    StreamMarker,
+    internal::{
+        AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, FutureMarker, MissingResolver,
+        PinnedOption, PinnedOptionProj, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+        StreamMarker,
+    },
+    AlphaLayer, IntoProcedure, IntoProcedureCtx, MwV2, MwV2Result, MwV3, ProcedureLike,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.

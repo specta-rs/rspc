@@ -3,7 +3,7 @@
 //! Checkout the official docs <https://rspc.dev>
 //!
 #![forbid(unsafe_code)]
-#![allow(warnings)] // TODO: Remove this
+// #![allow(warnings)] // TODO: Remove this
 #![warn(
     clippy::all,
     clippy::cargo,
@@ -43,8 +43,3 @@ pub use selection::*;
 
 pub mod integrations;
 pub mod internal;
-
-// TODO: Remove this
-#[deprecated = "Being removed in `v1.0.0`. This will be in the root of the crate."]
-pub(crate) mod alpha_stable;
-pub use alpha_stable::*;

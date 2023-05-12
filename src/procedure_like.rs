@@ -1,6 +1,9 @@
-use super::{
-    AlphaMiddlewareBuilderLike, AlphaProcedure, AlphaRequestLayer, FutureMarker,
-    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
+use crate::{
+    internal::{
+        AlphaRequestLayer, FutureMarker, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+        StreamMarker,
+    },
+    AlphaMiddlewareBuilderLike, AlphaProcedure,
 };
 
 /// TODO

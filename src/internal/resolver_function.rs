@@ -3,9 +3,9 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{alpha_stable::AlphaRequestLayer, internal::ProcedureDataType};
+use crate::internal::ProcedureDataType;
 
-use super::{FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
+use super::{AlphaRequestLayer, FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
 
 pub trait AlphaMiddlewareBuilderLikeCompat {
     type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
