@@ -6,6 +6,7 @@
 mod async_map;
 pub mod jsonrpc;
 mod jsonrpc_exec;
+mod layer;
 mod markers;
 mod middleware;
 mod mw;
@@ -18,6 +19,7 @@ mod resolver_result;
 mod utils;
 
 pub use async_map::*;
+pub use layer::*;
 pub use markers::*;
 pub use middleware::*;
 pub use mw::*;

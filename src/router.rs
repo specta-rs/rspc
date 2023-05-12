@@ -3,7 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{jsonrpc::RequestKind, BaseMiddleware, ProcedureStore},
+    internal::{jsonrpc::RequestKind, ProcedureStore},
     BuiltRouter, Config,
 };
 
@@ -13,8 +13,10 @@ use super::{
         StreamMarker,
     },
     procedure::AlphaProcedure,
-    AlphaBaseMiddleware, AlphaRouterBuilderLike, ProcedureList,
+    AlphaBaseMiddleware,
 };
+
+type ProcedureList<TCtx> = Vec<(Cow<'static, str>, Box<dyn IntoProcedure<TCtx>>)>;
 
 pub struct AlphaRouter<TCtx>
 where
@@ -96,32 +98,33 @@ where
         )
     }
 
-    pub fn merge(
-        mut self,
-        prefix: &'static str,
-        router: impl AlphaRouterBuilderLike<TCtx>,
-    ) -> Self {
-        // TODO
-        // let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
-        // #[allow(clippy::panic)]
-        // if prefix_valid {
-        //     eprintln!(
-        //         "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
-        //         Location::caller(),
-        //         prefix
-        //     );
-        //     process::exit(1);
-        // }
+    // TODO: Get this working
+    // pub fn merge(
+    //     mut self,
+    //     prefix: &'static str,
+    //     router: impl AlphaRouterBuilderLike<TCtx>,
+    // ) -> Self {
+    //     // TODO
+    //     // let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
+    //     // #[allow(clippy::panic)]
+    //     // if prefix_valid {
+    //     //     eprintln!(
+    //     //         "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
+    //     //         Location::caller(),
+    //     //         prefix
+    //     //     );
+    //     //     process::exit(1);
+    //     // }
 
-        self.procedures.extend(
-            router
-                .procedures()
-                .into_iter()
-                .map(|(key, procedure)| (Cow::Owned(format!("{}{}", prefix, key)), procedure)),
-        );
+    //     self.procedures.extend(
+    //         router
+    //             .procedures()
+    //             .into_iter()
+    //             .map(|(key, procedure)| (Cow::Owned(format!("{}{}", prefix, key)), procedure)),
+    //     );
 
-        self
-    }
+    //     self
+    // }
 
     // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
     pub fn compat(self) -> BuiltRouter<TCtx, ()> {
@@ -191,11 +194,11 @@ where
     }
 }
 
-impl<TCtx: Send + Sync + 'static> AlphaRouterBuilderLike<TCtx> for AlphaRouter<TCtx> {
-    fn procedures(self) -> ProcedureList<TCtx> {
-        self.procedures
-    }
-}
+// impl<TCtx: Send + Sync + 'static> AlphaRouterBuilderLike<TCtx> for AlphaRouter<TCtx> {
+//     fn procedures(self) -> ProcedureList<TCtx> {
+//         self.procedures
+//     }
+// }
 
 pub struct IntoProcedureCtx<'a, TCtx> {
     pub ty_store: &'a mut TypeDefs,

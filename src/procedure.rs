@@ -13,12 +13,12 @@ use specta::Type;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
+        jsonrpc::RequestKind, AlphaLayer, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
         AlphaRequestLayer, Executable2, FutureMarker, MissingResolver, MwV2, MwV2Result, MwV3,
         PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker, ResolverFunction,
         StreamLayerMarker, StreamMarker,
     },
-    AlphaLayer, ExecError, IntoProcedure, IntoProcedureCtx, ProcedureLike,
+    ExecError, IntoProcedure, IntoProcedureCtx, ProcedureLike,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
