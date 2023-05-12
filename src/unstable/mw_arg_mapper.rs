@@ -40,7 +40,7 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
         R: MwV2Result<Ctx = TNCtx> + Send + 'static,
     {
         // TODO: Make this passthrough to new handler but provide the owned `State` as an arg
-        MiddlewareFnWithTypeMapper(
+        private::MiddlewareFnWithTypeMapper(
             move |mw: MiddlewareContext, ctx| {
                 let (out, state) =
                     M::map::<serde_json::Value>(serde_json::from_value(mw.input).unwrap());
@@ -60,22 +60,26 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
     }
 }
 
-pub struct MiddlewareFnWithTypeMapper<M, F>(F, PhantomData<M>);
+mod private {
+    use super::*;
 
-impl<M, TLCtx, F, Fu, R> MwV3<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
-where
-    TLCtx: Send + Sync + 'static,
-    F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
-    Fu: Future<Output = R> + Send + 'static,
-    R: MwV2Result + Send + 'static,
-    M: MwArgMapper + 'static,
-{
-    type Fut = Fu;
-    type Result = R;
-    type NewCtx = R::Ctx; // TODO: Make this work with context switching
-    type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
+    pub struct MiddlewareFnWithTypeMapper<M, F>(pub(super) F, pub(super) PhantomData<M>);
 
-    fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
-        (self.0)(mw, ctx)
+    impl<M, TLCtx, F, Fu, R> MwV3<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
+    where
+        TLCtx: Send + Sync + 'static,
+        F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
+        Fu: Future<Output = R> + Send + 'static,
+        R: MwV2Result + Send + 'static,
+        M: MwArgMapper + 'static,
+    {
+        type Fut = Fu;
+        type Result = R;
+        type NewCtx = R::Ctx; // TODO: Make this work with context switching
+        type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
+
+        fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
+            (self.0)(mw, ctx)
+        }
     }
 }
