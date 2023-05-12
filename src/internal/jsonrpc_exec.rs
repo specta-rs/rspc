@@ -11,7 +11,7 @@ use futures::StreamExt;
 use serde_json::Value;
 use tokio::sync::oneshot;
 
-use crate::{internal::jsonrpc, ExecError, Router};
+use crate::{internal::jsonrpc, BuiltRouter, ExecError};
 
 use super::{
     jsonrpc::{NewOrOldInput, RequestId, RequestInner, ResponseInner},
@@ -141,7 +141,7 @@ impl<'a> Future for OwnedMpscSenderSendFut<'a> {
 pub fn handle_json_rpc<'a, TCtx, TMeta>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    router: Cow<'a, Arc<Router<TCtx, TMeta>>>,
+    router: Cow<'a, Arc<BuiltRouter<TCtx, TMeta>>>,
     sender: impl Sender<'a> + 'a,
 ) -> impl Future<Output = ()> + Send + 'a
 where

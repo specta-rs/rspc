@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use example::{basic, selection, subscriptions};
 
 use axum::{extract::Path, routing::get};
-use rspc::{integrations::httpz::Request, Config, Router};
+use rspc::{integrations::httpz::Request, BuiltRouter, Config};
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]

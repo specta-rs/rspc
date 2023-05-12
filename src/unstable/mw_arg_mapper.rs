@@ -3,7 +3,7 @@ use std::{future::Future, marker::PhantomData};
 use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 
-use crate::{AlphaMiddlewareContext, MwV2Result, MwV3};
+use crate::internal::{AlphaMiddlewareContext, MwV2Result, MwV3};
 
 /// TODO
 pub trait MwArgMapper: Send + Sync {

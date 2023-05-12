@@ -4,7 +4,7 @@ use specta::TypeDefs;
 
 use crate::{
     internal::{jsonrpc::RequestKind, BaseMiddleware, ProcedureStore},
-    Config, Router,
+    BuiltRouter, Config,
 };
 
 use super::{
@@ -124,7 +124,7 @@ where
     }
 
     // #[deprecated = "Being removed on v1.0.0 once the new syntax is stable"]
-    pub fn compat(self) -> Router<TCtx, ()> {
+    pub fn compat(self) -> BuiltRouter<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
@@ -143,7 +143,7 @@ where
             procedure.build(key, &mut ctx);
         }
 
-        Router {
+        BuiltRouter {
             config: Config::new(),
             queries,
             mutations,
@@ -153,7 +153,7 @@ where
         }
     }
 
-    pub fn build(self, config: Config) -> Router<TCtx, ()> {
+    pub fn build(self, config: Config) -> BuiltRouter<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
@@ -172,7 +172,7 @@ where
             procedure.build(key, &mut ctx);
         }
 
-        let router = Router {
+        let router = BuiltRouter {
             config,
             queries,
             mutations,

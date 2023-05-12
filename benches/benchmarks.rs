@@ -5,7 +5,7 @@ use pprof::criterion::{Output, PProfProfiler};
 
 const I: usize = 100;
 
-async fn benchmark_main(r: &Arc<rspc::Router>) {
+async fn benchmark_main(r: &Arc<rspc::BuiltRouter>) {
     use rspc::internal::jsonrpc::*;
     use rspc::internal::*;
 

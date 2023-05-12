@@ -2,11 +2,11 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, AlphaRequestLayer, FutureMarker, MissingResolver, RequestLayerMarker,
-        ResolverFunction, StreamLayerMarker, StreamMarker,
+        jsonrpc::RequestKind, AlphaRequestLayer, FutureMarker, MissingResolver, MwV2,
+        RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
     },
     procedure::AlphaProcedure,
-    AlphaBaseMiddleware, AlphaMiddlewareLayerBuilder, AlphaRouter, MwV2,
+    AlphaBaseMiddleware, AlphaMiddlewareLayerBuilder, AlphaRouter,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -61,7 +61,7 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn with2<Mw: super::MwV3<TCtx>>(
+    pub fn with2<Mw: crate::internal::MwV3<TCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<

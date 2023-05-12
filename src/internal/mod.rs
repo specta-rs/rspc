@@ -8,6 +8,9 @@ pub mod jsonrpc;
 mod jsonrpc_exec;
 mod markers;
 mod middleware;
+mod mw;
+mod mw_ctx;
+mod mw_result;
 mod procedure_builder;
 mod procedure_store;
 mod resolver_function;
@@ -17,14 +20,14 @@ mod utils;
 pub use async_map::*;
 pub use markers::*;
 pub use middleware::*;
+pub use mw::*;
+pub use mw_ctx::*;
+pub use mw_result::*;
 pub use procedure_builder::*;
 pub use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;
 pub use utils::*;
-
-#[cfg(not(feature = "unstable"))]
-pub use specta;
 
 #[cfg(test)]
 mod tests {

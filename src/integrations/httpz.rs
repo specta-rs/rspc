@@ -19,7 +19,7 @@ use crate::{
         jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
         ProcedureKind,
     },
-    Router,
+    BuiltRouter,
 };
 
 pub use super::httpz_extractors::*;
@@ -249,7 +249,7 @@ impl Request {
     }
 }
 
-impl<TCtx> Router<TCtx>
+impl<TCtx> BuiltRouter<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
@@ -297,7 +297,7 @@ pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
     req: httpz::Request,
-    router: &Arc<Router<TCtx>>,
+    router: &Arc<BuiltRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
@@ -456,7 +456,7 @@ where
 pub async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     req: httpz::Request,
-    router: &Arc<Router<TCtx>>,
+    router: &Arc<BuiltRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
@@ -566,7 +566,7 @@ where
 pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     req: httpz::Request,
-    router: Arc<Router<TCtx>>,
+    router: Arc<BuiltRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,

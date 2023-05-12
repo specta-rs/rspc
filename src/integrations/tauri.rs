@@ -20,7 +20,7 @@ use crate::{
     internal::jsonrpc::{
         self, handle_json_rpc, OwnedSender, RequestId, Sender, SubscriptionUpgrade,
     },
-    Router,
+    BuiltRouter,
 };
 
 type SubscriptionMap = Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>;
@@ -72,7 +72,7 @@ where
     R: Runtime + Send + Sync + 'static,
     TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 {
-    router: Arc<Router<TCtx, TMeta>>,
+    router: Arc<BuiltRouter<TCtx, TMeta>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, SubscriptionMap>>,
     phantom: PhantomData<&'static R>,
@@ -85,7 +85,7 @@ where
     R: Runtime + Send + Sync + 'static,
     TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 {
-    pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx, TMeta>>) -> Arc<Self> {
+    pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx, TMeta>>) -> Arc<Self> {
         Arc::new(Self {
             router,
             ctx_fn,
@@ -196,7 +196,7 @@ where
 
 // #[deprecated("Use `plugin_with_ctx` instead")]
 pub fn plugin<R, TCtx, TMeta>(
-    router: Arc<Router<TCtx, TMeta>>,
+    router: Arc<BuiltRouter<TCtx, TMeta>>,
     ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
@@ -224,7 +224,7 @@ where
 }
 
 pub fn plugin_with_ctx<R: Runtime, TCtx, TMeta>(
-    router: Arc<Router<TCtx, TMeta>>,
+    router: Arc<BuiltRouter<TCtx, TMeta>>,
     ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where

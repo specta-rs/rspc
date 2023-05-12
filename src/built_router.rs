@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// TODO
-pub struct Router<TCtx = (), TMeta = ()>
+pub struct BuiltRouter<TCtx = (), TMeta = ()>
 where
     TCtx: 'static,
 {
@@ -40,7 +40,7 @@ pub enum ExecKind {
     Mutation,
 }
 
-impl<TCtx, TMeta> Router<TCtx, TMeta>
+impl<TCtx, TMeta> BuiltRouter<TCtx, TMeta>
 where
     TCtx: Send + 'static,
 {

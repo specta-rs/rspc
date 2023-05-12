@@ -12,17 +12,13 @@ use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::{
-    internal::{jsonrpc::RequestKind, RequestContext},
-    ExecError, Executable2,
-};
-
-use super::{
     internal::{
-        AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, FutureMarker, MissingResolver,
-        PinnedOption, PinnedOptionProj, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
-        StreamMarker,
+        jsonrpc::RequestKind, AlphaMiddlewareBuilderLikeCompat, AlphaMiddlewareContext,
+        AlphaRequestLayer, Executable2, FutureMarker, MissingResolver, MwV2, MwV2Result, MwV3,
+        PinnedOption, PinnedOptionProj, RequestContext, RequestLayerMarker, ResolverFunction,
+        StreamLayerMarker, StreamMarker,
     },
-    AlphaLayer, IntoProcedure, IntoProcedureCtx, MwV2, MwV2Result, MwV3, ProcedureLike,
+    AlphaLayer, ExecError, IntoProcedure, IntoProcedureCtx, ProcedureLike,
 };
 
 // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -130,7 +126,7 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn with2<Mw: super::MwV3<TMiddleware::LayerCtx>>(
+    pub fn with2<Mw: crate::internal::MwV3<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> AlphaProcedure<MissingResolver<Mw::NewCtx>, (), AlphaMiddlewareLayerBuilder<TMiddleware, Mw>>
@@ -349,7 +345,7 @@ where
     ) -> Result<Self::Stream<'a>, ExecError> {
         let fut = self.mw.run_me(
             ctx,
-            super::middleware::AlphaMiddlewareContext {
+            AlphaMiddlewareContext {
                 input,
                 req,
                 _priv: (),
