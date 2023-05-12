@@ -31,10 +31,17 @@ type OperationOpts = {
 };
 
 // TODO
-interface ClientArgs {
-  links: Link[];
+type ClientArgs<TSubClients extends Record<string, AlphaClient<any>> = {}> = {
   onError?: (err: AlphaRSPCError) => void | Promise<void>;
-}
+} & (
+  | {
+      links: Link[];
+      subClients?: TSubClients;
+    }
+  | {
+      dangerously_mapQueryKey?: MapQueryKeyFn;
+    }
+);
 
 export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
   return new AlphaClient<P>(args);
@@ -43,19 +50,78 @@ export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
 const generateRandomId = () => Math.random().toString(36).slice(2);
 
 // TODO: This will replace old client
-export class AlphaClient<P extends ProceduresDef> {
+export class AlphaClient<
+  P extends ProceduresDef,
+  TSubClients extends Record<string, AlphaClient<any>> = {}
+> {
   public _rspc_def: ProceduresDef = undefined!;
-  private links: Link[];
   private onError?: (err: AlphaRSPCError) => void | Promise<void>;
-  private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput; // TODO: Do something so a single React.context can handle multiple of these
+  /** @internal */
+  public _subClients_def: TSubClients = null as any;
+  /** @internal */
+  _procedures_def: P = null as any;
 
-  constructor(args: ClientArgs) {
-    if (args.links.length === 0) {
-      throw new Error("Must provide at least one link");
+  private state:
+    | { subClients: TSubClients; links: Link[] }
+    | { parent: AlphaClient<any>; dangerously_mapQueryKey?: MapQueryKeyFn };
+
+  constructor(args: ClientArgs<TSubClients>) {
+    this.onError = args.onError;
+
+    if ("links" in args) {
+      if (args.links.length === 0) {
+        throw new Error("Must provide at least one link");
+      }
+
+      this.state = {
+        links: args.links,
+        subClients: args.subClients ?? ({} as any),
+      };
+
+      Object.values(args.subClients ?? {}).forEach((client) =>
+        client.setParent(this)
+      );
+    } else {
+      this.state = {
+        parent: null!,
+        dangerously_mapQueryKey: args.dangerously_mapQueryKey,
+      };
+    }
+  }
+
+  _mapKeyAndInput(keyAndInput: KeyAndInput) {
+    if ("dangerously_mapQueryKey" in this.state)
+      return this.state.dangerously_mapQueryKey
+        ? this.state.dangerously_mapQueryKey(keyAndInput)
+        : keyAndInput;
+    else return keyAndInput;
+  }
+
+  private exec(op: Operation) {
+    const links: Link[] =
+      "links" in this.state
+        ? this.state.links
+        : (this.state.parent as any).links;
+
+    let prevLinkResult: LinkResult = {
+      exec: () => {
+        throw new Error(
+          "rspc: no terminating link was attached! Did you forget to add a 'httpLink' or 'wsLink' link?"
+        );
+      },
+      abort: () => {},
+    };
+
+    for (var linkIndex = 0; linkIndex < links.length; linkIndex++) {
+      const link = links[links.length - linkIndex - 1]!;
+      const result = link({
+        op,
+        next: () => prevLinkResult,
+      });
+      prevLinkResult = result;
     }
 
-    this.links = args.links;
-    this.onError = args.onError;
+    return prevLinkResult;
   }
 
   async query<K extends P["queries"]["key"] & string>(
@@ -66,20 +132,16 @@ export class AlphaClient<P extends ProceduresDef> {
     opts?: OperationOpts
   ): Promise<inferQueryResult<P, K>> {
     try {
-      const keyAndInput2 = this.mapQueryKey
-        ? this.mapQueryKey(keyAndInput as any)
-        : keyAndInput;
+      const [path, input] = this._mapKeyAndInput(keyAndInput as any);
 
-      const result = exec(
-        {
-          id: generateRandomId(),
-          type: "query",
-          input: keyAndInput2[1],
-          path: keyAndInput2[0],
-          context: opts?.context || {},
-        },
-        this.links
-      );
+      const result = this.exec({
+        id: generateRandomId(),
+        type: "query",
+        input,
+        path,
+        context: opts?.context || {},
+      });
+
       opts?.signal?.addEventListener("abort", result.abort);
 
       return await new Promise(result.exec);
@@ -99,20 +161,15 @@ export class AlphaClient<P extends ProceduresDef> {
     opts?: OperationOpts
   ): Promise<inferMutationResult<P, K>> {
     try {
-      const keyAndInput2 = this.mapQueryKey
-        ? this.mapQueryKey(keyAndInput as any)
-        : keyAndInput;
+      const [path, input] = this._mapKeyAndInput(keyAndInput as any);
 
-      const result = exec(
-        {
-          id: generateRandomId(),
-          type: "mutation",
-          input: keyAndInput2[1],
-          path: keyAndInput2[0],
-          context: opts?.context || {},
-        },
-        this.links
-      );
+      const result = this.exec({
+        id: generateRandomId(),
+        type: "mutation",
+        input,
+        path,
+        context: opts?.context || {},
+      });
       opts?.signal?.addEventListener("abort", result.abort);
 
       return await new Promise(result.exec);
@@ -133,20 +190,15 @@ export class AlphaClient<P extends ProceduresDef> {
     opts: SubscriptionOptions<TData> & { context?: OperationContext }
   ): () => void {
     try {
-      const keyAndInput2 = this.mapQueryKey
-        ? this.mapQueryKey(keyAndInput as any)
-        : keyAndInput;
+      const [path, input] = this._mapKeyAndInput(keyAndInput as any);
 
-      const result = exec(
-        {
-          id: generateRandomId(),
-          type: "subscription",
-          input: keyAndInput2[1],
-          path: keyAndInput2[0],
-          context: opts?.context || {},
-        },
-        this.links
-      );
+      const result = this.exec({
+        id: generateRandomId(),
+        type: "subscription",
+        input,
+        path,
+        context: opts?.context || {},
+      });
 
       result.exec(
         (data) => opts?.onData(data),
@@ -161,35 +213,100 @@ export class AlphaClient<P extends ProceduresDef> {
     }
   }
 
-  // TODO: Remove this once middleware system is in place
-  dangerouslyHookIntoInternals<P2 extends ProceduresDef = P>(opts?: {
-    mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
-  }): AlphaClient<P2> {
-    this.mapQueryKey = opts?.mapQueryKey;
-    return this as any;
+  subClient<T extends keyof TSubClients>(name: T): TSubClients[T] {
+    if ("parent" in this.state)
+      throw new Error("SubClient cannot have SubClients!");
+
+    return this.state.subClients[name];
+  }
+
+  /**
+   * @internal
+   */
+  setParent(parent: AlphaClient<any, {}>) {
+    if ("subClients" in this.state)
+      throw new Error("root client cannot have parent!");
+    this.state.parent = parent;
   }
 }
 
-function exec(op: Operation, links: Link[]) {
-  if (!links[0]) throw new Error("No links provided");
-
-  let prevLinkResult: LinkResult = {
-    exec: () => {
-      throw new Error(
-        "rspc: no terminating link was attached! Did you forget to add a 'httpLink' or 'wsLink' link?"
-      );
+export function createRspcRoot<P extends ProceduresDef>() {
+  return {
+    createClientBuilder() {
+      return new AlphaClientBuilder<P>();
     },
-    abort: () => {},
+    dangerously_createClientBuilder<P extends ProceduresDef>(
+      args?: AlphaClientBuilderArgs
+    ) {
+      return new AlphaClientBuilder<P>(args);
+    },
   };
+}
 
-  for (var linkIndex = 0; linkIndex < links.length; linkIndex++) {
-    const link = links[links.length - linkIndex - 1]!;
-    const result = link({
-      op,
-      next: () => prevLinkResult,
-    });
-    prevLinkResult = result;
+export function createRspcClient<P extends ProceduresDef>(
+  args: ClientArgs<{}>
+) {
+  return createRspcRoot<P>().createClientBuilder().build(args);
+}
+
+type MapQueryKeyFn = (keyAndInput: KeyAndInput) => KeyAndInput;
+
+interface AlphaClientBuilderArgs {
+  dangerously_mapQueryKey?: MapQueryKeyFn;
+}
+
+type SubClientBuilders = Record<string, AlphaClientBuilder<any, {}>>;
+type SubClientBuildersToClients<T extends SubClientBuilders> = {
+  [K in keyof T]: T[K] extends AlphaClientBuilder<infer P, {}>
+    ? AlphaClient<P, {}>
+    : never;
+};
+
+export class AlphaClientBuilder<
+  P extends ProceduresDef,
+  TSubClients extends SubClientBuilders = {}
+> {
+  private dangerously_mapQueryKey?: MapQueryKeyFn;
+  private subClients: TSubClients = {} as any;
+  /** @internal */
+  _subClients_def: TSubClients = null as any;
+  /** @internal */
+  _procedures_def: P = null as any;
+
+  constructor(args?: AlphaClientBuilderArgs) {
+    this.dangerously_mapQueryKey = args?.dangerously_mapQueryKey;
   }
 
-  return prevLinkResult;
+  addSubClient<
+    TName extends string,
+    TClientBuilder extends AlphaClientBuilder<any, {}>
+  >(
+    name: TName,
+    client: TClientBuilder
+  ): AlphaClientBuilder<
+    P,
+    {
+      [K in keyof TSubClients]: TSubClients[K];
+    } & { [K in TName]: TClientBuilder }
+  > {
+    (this as any).subClients[name] = client;
+    return this as any;
+  }
+
+  build(args: ClientArgs<{}>) {
+    type Clients = SubClientBuildersToClients<TSubClients>;
+    return new AlphaClient<P, { [K in keyof Clients]: Clients[K] }>({
+      ...args,
+      subClients: Object.entries(this.subClients).reduce(
+        (acc, [name, builder]) => ({
+          ...acc,
+          [name]: new AlphaClient({
+            dangerously_mapQueryKey: builder.dangerously_mapQueryKey,
+            links: [],
+          }),
+        }),
+        {} as any
+      ),
+    });
+  }
 }

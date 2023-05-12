@@ -30,7 +30,11 @@ import {
   ProceduresDef,
   inferProcedureResult,
 } from "@rspc/client";
-import { AlphaClient, AlphaRSPCError } from "@rspc/client/v2";
+import {
+  AlphaClient,
+  AlphaClientBuilder,
+  AlphaRSPCError,
+} from "@rspc/client/v2";
 
 // TODO: Reuse one from client but don't export it in public API
 type KeyAndInput = [string] | [string, any];
@@ -59,24 +63,99 @@ export type HooksOpts<P extends ProceduresDef> = {
   context: React.Context<Context<P>>;
 };
 
-export function createReactQueryHooks<P extends ProceduresDef>(
-  client: AlphaClient<P>,
-  opts?: HooksOpts<P>
-) {
-  type TBaseOptions = BaseOptions<P>;
+type Args =
+  | {
+      client: AlphaClient<any>;
+    }
+  | {
+      builder: AlphaClientBuilder<any>;
+    };
 
-  const mapQueryKey: (keyAndInput: KeyAndInput) => KeyAndInput =
-    (client as any).mapQueryKey || ((x) => x);
-  const Context = opts?.context || createContext<Context<P>>(undefined!);
+export function createReactQueryRoot<A extends Args>(_args: A) {
+  type P = A extends { client: AlphaClient<infer P> }
+    ? P
+    : A extends { builder: AlphaClientBuilder<infer P> }
+    ? P
+    : never;
+
+  type BuilderSubClients<T extends AlphaClientBuilder<any>> =
+    T["_subClients_def"];
+  type ClientSubClients<T extends AlphaClient<any>> = T["_subClients_def"];
+
+  type SubClients = (A extends {
+    builder: AlphaClientBuilder<any>;
+  }
+    ? {
+        [K in keyof BuilderSubClients<A["builder"]>]: BuilderSubClients<
+          A["builder"]
+        >[K] extends AlphaClientBuilder<any>
+          ? BuilderSubClients<A["builder"]>[K]["_procedures_def"]
+          : ProceduresDef;
+      }
+    : A extends {
+        client: AlphaClient<any>;
+      }
+    ? {
+        [K in keyof ClientSubClients<A["client"]>]: ClientSubClients<
+          A["client"]
+        >[K] extends AlphaClient<any>
+          ? ClientSubClients<A["client"]>[K]["_procedures_def"]
+          : ProceduresDef;
+      }
+    : {}) &
+    Record<string, ProceduresDef>;
+
+  const Context = createContext<Context<P> | undefined>(undefined);
 
   function useContext() {
     const ctx = _useContext(Context);
-    if (ctx?.queryClient === undefined)
+
+    if (!ctx)
       throw new Error(
         "The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree."
       );
+
     return ctx;
   }
+
+  return {
+    Provider: ({
+      children,
+      client,
+      queryClient,
+    }: {
+      children?: ReactElement;
+      client: AlphaClient<P>;
+      queryClient: QueryClient;
+    }) => (
+      <Context.Provider
+        value={{
+          client,
+          queryClient,
+        }}
+      >
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      </Context.Provider>
+    ),
+    useContext,
+    createHooks: <T extends keyof SubClients>(args?: { subClient?: T }) =>
+      createHooks(() => {
+        const ctx = useContext();
+
+        if (args?.subClient)
+          return {
+            ...ctx,
+            client: ctx.client.subClient(args.subClient),
+          };
+        else return useContext();
+      }),
+  };
+}
+
+function createHooks<P extends ProceduresDef>(useContext: () => Context<P>) {
+  type TBaseOptions = BaseOptions<P>;
 
   function useQuery<
     K extends P["queries"]["key"] & string,
@@ -99,13 +178,12 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       TBaseOptions
   ): UseQueryResult<TData, AlphaRSPCError> {
     const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+
+    const ctx = useContext();
+    const client = rspc?.client ?? ctx.client;
 
     return __useQuery({
-      queryKey: mapQueryKey(keyAndInput as any) as any,
+      queryKey: client._mapKeyAndInput(keyAndInput as any) as any,
       queryFn: async () => {
         return await client!.query(keyAndInput);
       },
@@ -131,13 +209,12 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       TBaseOptions
   ): UseInfiniteQueryResult<inferInfiniteQueryResult<P, K>, AlphaRSPCError> {
     const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+
+    const ctx = useContext();
+    const client = rspc?.client ?? ctx.client;
 
     return __useInfiniteQuery({
-      queryKey: mapQueryKey(keyAndInput as any),
+      queryKey: client._mapKeyAndInput(keyAndInput as any) as any,
       queryFn: async () => {
         throw new Error("TODO"); // TODO: Finish this
       },
@@ -168,10 +245,9 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     TContext
   > {
     const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+
+    const ctx = useContext();
+    const client = rspc?.client ?? ctx.client;
 
     return __useMutation(async (input: any) => {
       const actualKey = Array.isArray(key) ? key[0] : key;
@@ -189,18 +265,16 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     ],
     opts: SubscriptionOptions<TData> & TBaseOptions
   ) {
-    let client = opts?.rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+    const ctx = useContext();
+    const client = opts?.rspc?.client ?? ctx.client;
+
     const queryKey = hashQueryKey(keyAndInput);
     const enabled = opts?.enabled ?? true;
 
     return useEffect(() => {
-      if (!enabled) {
-        return;
-      }
-      return client!.addSubscription<K, TData>(keyAndInput, {
+      if (!enabled) return;
+
+      return client.addSubscription<K, TData>(keyAndInput, {
         onData: opts.onData,
         onError: opts.onError,
       });
@@ -209,30 +283,22 @@ export function createReactQueryHooks<P extends ProceduresDef>(
 
   return {
     _rspc_def: undefined! as P, // This allows inferring the operations type from TS helpers
-    Provider: ({
-      children,
-      client,
-      queryClient,
-    }: {
-      children?: ReactElement;
-      client: AlphaClient<P>;
-      queryClient: QueryClient;
-    }) => (
-      <Context.Provider
-        value={{
-          client,
-          queryClient,
-        }}
-      >
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      </Context.Provider>
-    ),
-    useContext,
     useQuery,
-    // useInfiniteQuery,
+    useInfiniteQuery,
     useMutation,
     useSubscription,
+  };
+}
+
+export function createReactQueryHooks<P extends ProceduresDef>(
+  client: AlphaClient<P>
+) {
+  const { createHooks, ...root } = createReactQueryRoot({
+    client,
+  });
+
+  return {
+    ...root,
+    ...createHooks(),
   };
 }
