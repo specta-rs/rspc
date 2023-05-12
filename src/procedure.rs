@@ -154,7 +154,7 @@ where
     TMiddleware: MiddlewareBuilderLike,
 {
     fn build(&mut self, key: Cow<'static, str>, ctx: &mut IntoProceduresCtx<'_, TMiddleware::Ctx>) {
-        let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc` by moving ownership to `AlphaResolverLayer`
+        let resolver = Arc::new(self.0.take().expect("Called '.build()' multiple times!")); // TODO: Removing `Arc` by moving ownership to `ResolverLayer`
 
         let m = match self.2.kind() {
             RequestKind::Query => &mut ctx.queries,
@@ -163,7 +163,7 @@ where
 
         m.append(
             key.to_string(),
-            self.1.take().unwrap().build(AlphaResolverLayer {
+            self.1.take().unwrap().build(ResolverLayer {
                 func: move |ctx, input, _| {
                     Ok(resolver
                         .exec(
@@ -194,7 +194,7 @@ where
 
         ctx.subscriptions.append(
             key.to_string(),
-            self.1.take().unwrap().build(AlphaResolverLayer {
+            self.1.take().unwrap().build(ResolverLayer {
                 func: move |ctx, input, _| {
                     Ok(resolver
                         .exec(
@@ -211,7 +211,7 @@ where
     }
 }
 
-// TODO: This only works without a resolver. `ProcedureLike` should work on `AlphaProcedure` without it but just without the `.query()` and `.mutate()` functions.
+// TODO: This only works without a resolver. `ProcedureLike` should work on `Procedure` without it but just without the `.query()` and `.mutate()` functions.
 impl<TMiddleware> ProcedureLike
     for Procedure<MissingResolver<TMiddleware::LayerCtx>, (), TMiddleware>
 where
@@ -311,7 +311,7 @@ where
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
-    type LayerResult<T> = TMiddleware::LayerResult<AlphaMiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
+    type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
     where
         T: Layer<Self::LayerCtx>;
     type Arg<T: Type + DeserializeOwned + 'static> = TNewMiddleware::Arg<T>;
@@ -320,7 +320,7 @@ where
     where
         T: Layer<Self::LayerCtx> + Sync,
     {
-        self.middleware.build(AlphaMiddlewareLayer {
+        self.middleware.build(MiddlewareLayer {
             next,
             mw: self.mw,
             phantom: PhantomData,
@@ -328,7 +328,7 @@ where
     }
 }
 
-pub struct AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
+pub struct MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
@@ -340,7 +340,7 @@ where
 }
 
 impl<TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
-    for AlphaMiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
+    for MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
@@ -507,7 +507,7 @@ where
     }
 }
 
-pub struct AlphaResolverLayer<TLayerCtx, T, S>
+pub struct ResolverLayer<TLayerCtx, T, S>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
@@ -517,7 +517,7 @@ where
     pub phantom: PhantomData<TLayerCtx>,
 }
 
-impl<T, TLayerCtx, S> SealedLayer<TLayerCtx> for AlphaResolverLayer<TLayerCtx, T, S>
+impl<T, TLayerCtx, S> SealedLayer<TLayerCtx> for ResolverLayer<TLayerCtx, T, S>
 where
     TLayerCtx: Send + Sync + 'static,
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
