@@ -4,10 +4,11 @@
 //!
 
 pub mod jsonrpc;
+pub mod middleware;
+pub mod procedure;
 
 mod layer;
 mod markers;
-mod middleware;
 mod mw_ctx;
 mod mw_result;
 mod procedure_store;
@@ -16,7 +17,6 @@ mod resolver_result;
 
 pub use layer::*;
 pub(crate) use markers::*;
-pub use middleware::*;
 pub use mw_ctx::*;
 pub use mw_result::*;
 pub(crate) use procedure_store::*;

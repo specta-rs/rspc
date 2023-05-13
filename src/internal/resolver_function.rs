@@ -9,16 +9,11 @@ use super::{
     FutureMarkerType, RequestLayer, RequestLayerMarker, StreamLayerMarker, StreamMarkerType,
 };
 
-// TODO: private or sealed
-pub trait MiddlewareBuilderLikeCompat {
-    type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
-}
-
 #[doc(hidden)]
 pub trait ResolverFunction<TMarker>: SealedResolverFunction<TMarker> {}
 
 mod private {
-    use crate::internal::SealedRequestLayer;
+    use crate::internal::{middleware::MiddlewareBuilder, SealedRequestLayer};
 
     use super::*;
 
@@ -33,7 +28,7 @@ mod private {
 
         fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 
-        fn typedef<TMiddleware: MiddlewareBuilderLikeCompat>(
+        fn typedef<TMiddleware: MiddlewareBuilder>(
             key: Cow<'static, str>,
             defs: &mut TypeDefs,
         ) -> Result<ProcedureDataType, TsExportError> {

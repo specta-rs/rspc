@@ -21,7 +21,6 @@ pub mod unstable;
 mod built_router;
 mod config;
 mod error;
-mod procedure;
 mod procedure_like;
 mod router;
 mod rspc;
@@ -30,8 +29,7 @@ mod selection;
 pub use built_router::*;
 pub use config::*;
 pub use error::*;
-pub use procedure::*;
-pub use procedure_like::*;
+pub use procedure_like::*; // TODO: Move into procedure
 pub use router::*;
 pub use rspc::*;
 pub use selection::*;

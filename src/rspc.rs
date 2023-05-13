@@ -2,12 +2,15 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind, ConstrainedMiddleware, FutureMarkerType, MissingResolver,
-        RequestLayer, RequestLayerMarker, ResolverFunction, SealedRequestLayer, StreamLayerMarker,
-        StreamMarkerType,
+        jsonrpc::RequestKind,
+        middleware::{
+            BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, MissingResolver,
+        },
+        procedure::Procedure,
+        FutureMarkerType, RequestLayer, RequestLayerMarker, ResolverFunction, SealedRequestLayer,
+        StreamLayerMarker, StreamMarkerType,
     },
-    procedure::Procedure,
-    BaseMiddleware, MiddlewareLayerBuilder, Router,
+    Router,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -59,7 +62,7 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::Middleware<TCtx>>(
+    pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver<Mw::NewCtx>, (), MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>

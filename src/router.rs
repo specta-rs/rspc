@@ -3,17 +3,14 @@ use std::{borrow::Cow, marker::PhantomData};
 use specta::TypeDefs;
 
 use crate::{
-    internal::{jsonrpc::RequestKind, ProcedureStore, SealedRequestLayer},
-    BuildProceduresCtx, BuiltRouter, Config, IntoProcedureLike,
-};
-
-use super::{
     internal::{
-        FutureMarkerType, RequestLayer, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
-        StreamMarkerType,
+        jsonrpc::RequestKind,
+        middleware::BaseMiddleware,
+        procedure::{BuildProceduresCtx, IntoProcedureLike, Procedure},
+        FutureMarkerType, ProcedureStore, RequestLayer, RequestLayerMarker, ResolverFunction,
+        SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
     },
-    procedure::Procedure,
-    BaseMiddleware,
+    BuiltRouter, Config,
 };
 
 pub struct Router<TCtx>

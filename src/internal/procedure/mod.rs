@@ -1,7 +1,7 @@
 //! TODO: Docs
 
-mod dump;
+mod procedure;
 mod procedure_like;
 
-pub use dump::*;
+pub use procedure::*;
 pub use procedure_like::*;

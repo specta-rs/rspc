@@ -1,15 +1,14 @@
-use crate::{
-    internal::{
-        FutureMarkerType, RequestLayer, RequestLayerMarker, ResolverFunction, SealedRequestLayer,
-        StreamLayerMarker, StreamMarkerType,
-    },
-    MiddlewareBuilderLike, Procedure,
+use crate::internal::{
+    middleware::MiddlewareBuilder, procedure::Procedure, FutureMarkerType, RequestLayer,
+    RequestLayerMarker, ResolverFunction, SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
 };
+
+// TODO: Seal and move into `internal/procedure`
 
 /// TODO
 // TODO: Rename cause this trait is exposed to userspace
 pub trait ProcedureLike {
-    type Middleware: MiddlewareBuilderLike<LayerCtx = Self::LayerCtx>;
+    type Middleware: MiddlewareBuilder<LayerCtx = Self::LayerCtx>;
     type LayerCtx: Send + Sync + 'static;
 
     fn query<R, RMarker>(

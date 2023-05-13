@@ -1,14 +1,14 @@
-mod private {
-    use std::marker::PhantomData;
+// mod private {
+//     use std::marker::PhantomData;
 
-    #[doc(hidden)]
-    pub struct MissingResolver<TLayerCtx>(PhantomData<TLayerCtx>);
+//     #[doc(hidden)]
+//     pub struct MissingResolver<TLayerCtx>(PhantomData<TLayerCtx>);
 
-    impl<TLayerCtx> MissingResolver<TLayerCtx> {
-        pub(crate) const fn new() -> Self {
-            Self(PhantomData)
-        }
-    }
-}
+//     impl<TLayerCtx> MissingResolver<TLayerCtx> {
+//         pub(crate) const fn new() -> Self {
+//             Self(PhantomData)
+//         }
+//     }
+// }
 
-pub(crate) use private::MissingResolver;
+// pub(crate) use private::MissingResolver;

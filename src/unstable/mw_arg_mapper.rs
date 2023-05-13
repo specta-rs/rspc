@@ -3,7 +3,8 @@ use std::{future::Future, marker::PhantomData};
 use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 
-use crate::internal::{Middleware, MiddlewareContext, MwV2Result};
+// TODO: This should be possible without `internal` API's
+use crate::internal::{middleware::Middleware, MiddlewareContext, MwV2Result};
 
 /// TODO
 pub trait MwArgMapper: Send + Sync {
@@ -61,7 +62,7 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
 }
 
 mod private {
-    use crate::internal::SealedMiddleware;
+    use crate::internal::middleware::SealedMiddleware;
 
     use super::*;
 
