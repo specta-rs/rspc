@@ -32,11 +32,7 @@ where
         }
     }
 
-    pub fn procedure<R, RMarker, TMiddleware>(
-        mut self,
-        key: &'static str,
-        procedure: impl IntoProcedureLike<TCtx>,
-    ) -> Self {
+    pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedureLike<TCtx>) -> Self {
         self.procedures
             .push((Cow::Borrowed(key), Box::new(procedure)));
         self
@@ -48,53 +44,6 @@ where
     //     let r = r.expose();
     //     todo!();
     // }
-
-    pub fn query<R, RMarker>(
-        self,
-        builder: R,
-    ) -> Procedure<R, RequestLayerMarker<RMarker>, BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::ResultMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Query),
-            BaseMiddleware::new(),
-            builder,
-        )
-    }
-
-    pub fn mutation<R, RMarker>(
-        self,
-        builder: R,
-    ) -> Procedure<R, RequestLayerMarker<RMarker>, BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::ResultMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Mutation),
-            BaseMiddleware::new(),
-            builder,
-        )
-    }
-
-    pub fn subscription<R, RMarker>(
-        self,
-        builder: R,
-    ) -> Procedure<R, StreamLayerMarker<RMarker>, BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
-    {
-        Procedure::new_from_resolver(StreamLayerMarker::new(), BaseMiddleware::new(), builder)
-    }
 
     // TODO: Get this working
     // pub fn merge(
@@ -171,8 +120,7 @@ where
 
         for (key, mut procedure) in self.procedures.into_iter() {
             // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-            // procedure.build(key, &mut ctx);
-            todo!(); // TODO
+            procedure.build(key, &mut ctx);
         }
 
         let router = CompiledRouter {

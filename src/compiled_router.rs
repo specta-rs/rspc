@@ -13,7 +13,7 @@ use specta::{
 };
 
 use crate::{
-    internal::{Procedure, ProcedureStore},
+    internal::{ProcedureStore, ProcedureTodo},
     Config, ExportError,
 };
 
@@ -203,7 +203,7 @@ export type Procedures = {{
 // TODO: Move this out into a Specta API
 fn generate_procedures_ts<'a, Ctx: 'a>(
     config: &ExportConfiguration,
-    procedures: impl ExactSizeIterator<Item = (&'a String, &'a Procedure<Ctx>)>,
+    procedures: impl ExactSizeIterator<Item = (&'a String, &'a ProcedureTodo<Ctx>)>,
 ) -> String {
     match procedures.len() {
         0 => "never".to_string(),

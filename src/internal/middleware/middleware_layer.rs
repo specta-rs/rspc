@@ -11,8 +11,9 @@ mod private {
 
     use crate::{
         internal::{
-            middleware::Middleware, Executable2, Layer, MiddlewareContext, MwV2Result,
-            PinnedOption, PinnedOptionProj, RequestContext, SealedLayer,
+            middleware::Middleware,
+            middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
+            Layer, PinnedOption, PinnedOptionProj, SealedLayer,
         },
         ExecError,
     };

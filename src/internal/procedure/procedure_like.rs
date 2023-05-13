@@ -1,11 +1,14 @@
-// TODO: Rename
 #[doc(hidden)]
-pub trait IntoProcedureLike<TCtx>: private::SealedIntoProcedureLike<TCtx> + 'static {}
+pub trait IntoProcedureLike<TCtx>: private::SealedIntoProcedureLike<TCtx> {}
 
 mod private {
+    use std::borrow::Cow;
+
     use specta::TypeDefs;
 
-    use crate::internal::{ProcedureKind, ProcedureStore};
+    use crate::internal::{middleware::ProcedureKind, ProcedureStore};
+
+    use super::IntoProcedureLike;
 
     pub struct BuildProceduresCtx<'a, TCtx> {
         pub(crate) ty_store: &'a mut TypeDefs,
@@ -24,19 +27,17 @@ mod private {
         }
     }
 
-    pub trait SealedIntoProcedureLike<TCtx> {
+    pub trait SealedIntoProcedureLike<TCtx>: 'static {
         // build takes `&self` but it's safe to assume it will only be run once. It can't take `self` due to dyn Trait restrictions.
         // Due to this prefer `Option::take` instead of `Arc::new` in this method!
-        // fn build(&self, ctx: BuildProceduresCtx);
+        fn build<'a, 'b>(
+            &'b mut self,
+            key: Cow<'static, str>,
+            ctx: &'b mut BuildProceduresCtx<'a, TCtx>,
+        );
     }
 
-    // impl<R, RMarker, TMiddleware, TCtx> SealedIntoProcedureLike<TCtx>
-    //     for Procedure<R, RMarker, TMiddleware>
-    // {
-    //     // fn build(&self, ctx: BuildProceduresCtx) {
-    //     //     todo!(); // TODO
-    //     // }
-    // }
+    impl<TCtx, T: SealedIntoProcedureLike<TCtx> + 'static> IntoProcedureLike<TCtx> for T {}
 }
 
-pub(crate) use private::BuildProceduresCtx;
+pub(crate) use private::{BuildProceduresCtx, SealedIntoProcedureLike};

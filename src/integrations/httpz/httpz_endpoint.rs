@@ -15,7 +15,7 @@ use std::{
 use crate::{
     internal::{
         jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
-        ProcedureKind,
+        middleware::ProcedureKind,
     },
     CompiledRouter,
 };

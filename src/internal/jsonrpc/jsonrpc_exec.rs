@@ -12,7 +12,10 @@ use serde_json::Value;
 use tokio::sync::oneshot;
 
 use crate::{
-    internal::{jsonrpc, ProcedureKind, RequestContext},
+    internal::{
+        jsonrpc,
+        middleware::{ProcedureKind, RequestContext},
+    },
     CompiledRouter, ExecError,
 };
 

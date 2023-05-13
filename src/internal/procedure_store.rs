@@ -20,14 +20,15 @@ mod private {
         pub result: DataType,
     }
 
-    pub struct Procedure<TCtx> {
+    // TODO: Rename this
+    pub struct ProcedureTodo<TCtx> {
         pub(crate) exec: Box<dyn DynLayer<TCtx>>,
         pub(crate) ty: ProcedureDataType,
     }
 
     pub struct ProcedureStore<TCtx> {
         pub(crate) name: &'static str,
-        pub(crate) store: BTreeMap<String, Procedure<TCtx>>,
+        pub(crate) store: BTreeMap<String, ProcedureTodo<TCtx>>,
     }
 
     impl<TCtx: 'static> ProcedureStore<TCtx> {
@@ -60,7 +61,7 @@ mod private {
 
             self.store.insert(
                 key,
-                Procedure {
+                ProcedureTodo {
                     exec: exec.erase(),
                     ty,
                 },
@@ -69,4 +70,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{Procedure, ProcedureDataType, ProcedureStore};
+pub(crate) use private::{ProcedureDataType, ProcedureStore, ProcedureTodo};

@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{internal::RequestContext, ExecError};
+use crate::{internal::middleware::RequestContext, ExecError};
 
 // TODO: Cleanup and seal these traits
 

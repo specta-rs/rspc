@@ -4,7 +4,10 @@ use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 
 // TODO: This should be possible without `internal` API's
-use crate::internal::{middleware::Middleware, MiddlewareContext, MwV2Result};
+use crate::internal::{
+    middleware::Middleware,
+    middleware::{MiddlewareContext, MwV2Result},
+};
 
 /// A trait for modifying a procedures argument type.
 ///

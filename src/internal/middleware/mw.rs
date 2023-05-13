@@ -3,7 +3,7 @@ use std::future::Future;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::internal::{MiddlewareContext, MwV2Result};
+use crate::internal::middleware::{MiddlewareContext, MwV2Result};
 
 /// TODO
 ///

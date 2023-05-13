@@ -1,15 +1,18 @@
 mod private {
+    use std::{borrow::Cow, marker::PhantomData};
+
     use crate::{
         internal::{
             jsonrpc::RequestKind,
             middleware::{
                 BaseMiddleware, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
-                MissingResolver,
+                MissingResolver, ProcedureKind, ResolverLayer,
             },
-            FutureMarkerType, RequestLayer, RequestLayerMarker, ResolverFunction,
-            SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
+            procedure::{BuildProceduresCtx, SealedIntoProcedureLike},
+            FutureMarkerType, ProcedureMarkerKind, RequestLayer, RequestLayerMarker,
+            ResolverFunction, SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
         },
-        ProcedureLike,
+        ExecError, ProcedureLike,
     };
 
     // TODO: `.with` but only support BEFORE resolver is set by the user.
@@ -220,6 +223,51 @@ mod private {
                 + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
         {
             Procedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
+        }
+    }
+
+    impl<R, RMarker, TMiddleware> SealedIntoProcedureLike<TMiddleware::Ctx>
+        for Procedure<R, RMarker, TMiddleware>
+    where
+        R: ResolverFunction<RMarker, LayerCtx = TMiddleware::LayerCtx>,
+        RMarker: ProcedureMarkerKind,
+        R::Result: RequestLayer<R::RequestMarker>,
+        TMiddleware: MiddlewareBuilder,
+    {
+        fn build<'a, 'b>(
+            &'b mut self,
+            key: Cow<'static, str>,
+            ctx: &'b mut BuildProceduresCtx<'a, TMiddleware::Ctx>,
+        ) {
+            let resolver = self
+                .0
+                .take()
+                .expect("Called 'IntoProcedureLike.build()' multiple times!");
+
+            let m = match self.2.kind() {
+                ProcedureKind::Query => &mut ctx.queries,
+                ProcedureKind::Mutation => &mut ctx.mutations,
+                ProcedureKind::Subscription => &mut ctx.subscriptions,
+            };
+
+            let key_str = key.to_string();
+            let type_def = R::typedef::<TMiddleware>(key, ctx.ty_store).unwrap(); // TODO: Error handling using `#[track_caller]`
+            m.append(
+                key_str,
+                self.1.take().unwrap().build(ResolverLayer {
+                    func: move |ctx, input, _| {
+                        Ok(resolver
+                            .exec(
+                                ctx,
+                                serde_json::from_value(input)
+                                    .map_err(ExecError::DeserializingArgErr)?,
+                            )
+                            .exec())
+                    },
+                    phantom: PhantomData,
+                }),
+                type_def,
+            );
         }
     }
 }

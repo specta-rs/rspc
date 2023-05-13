@@ -1,4 +1,4 @@
-//! Some work in progress API that is not typesafe.
+//! Some work in progress API that are not typesafe.
 //!
 //! WARNING: This module does not follow semver so may change at any time and can also break rspc's typesafe guarantees if not used correctly.
 

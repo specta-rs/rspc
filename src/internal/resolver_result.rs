@@ -19,7 +19,7 @@ use crate::{Error, ExecError};
 use super::{PinnedOption, PinnedOptionProj};
 
 #[doc(hidden)]
-pub trait RequestLayer<TMarker> {}
+pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 
 mod private {
     use super::*;

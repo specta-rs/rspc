@@ -1,12 +1,11 @@
 mod private {
     use std::marker::PhantomData;
 
-    use crate::internal::{jsonrpc::RequestKind, ProcedureKind};
+    use crate::internal::{jsonrpc::RequestKind, middleware::ProcedureKind};
 
     // TODO: I don't wanna call these markers cause they are runtime not just type level. Rename them.
 
-    // TODO: Rename
-    pub trait NotAMarker: 'static {
+    pub trait ProcedureMarkerKind: 'static {
         fn kind(&self) -> ProcedureKind;
     }
 
@@ -18,7 +17,7 @@ mod private {
         }
     }
 
-    impl<T: 'static> NotAMarker for RequestLayerMarker<T> {
+    impl<T: 'static> ProcedureMarkerKind for RequestLayerMarker<T> {
         fn kind(&self) -> ProcedureKind {
             match self.0 {
                 RequestKind::Query => ProcedureKind::Query,
@@ -35,11 +34,11 @@ mod private {
         }
     }
 
-    impl<T: 'static> NotAMarker for StreamLayerMarker<T> {
+    impl<T: 'static> ProcedureMarkerKind for StreamLayerMarker<T> {
         fn kind(&self) -> ProcedureKind {
             ProcedureKind::Subscription
         }
     }
 }
 
-pub(crate) use private::{NotAMarker, RequestLayerMarker, StreamLayerMarker};
+pub(crate) use private::{ProcedureMarkerKind, RequestLayerMarker, StreamLayerMarker};

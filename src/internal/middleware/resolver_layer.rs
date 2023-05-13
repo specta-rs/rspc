@@ -5,7 +5,7 @@ mod private {
     use serde_json::Value;
 
     use crate::{
-        internal::{RequestContext, SealedLayer},
+        internal::{middleware::RequestContext, SealedLayer},
         ExecError,
     };
 
