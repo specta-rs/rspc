@@ -1,9 +1,11 @@
 //! The future of this code in unsure. It will probs be removed or refactored once we support more than just Axum because all of the feature gating is bad.
 
-use super::httpz::{CookieJar, Request};
+use super::{CookieJar, Request};
 use crate::ExecError;
 
 use std::marker::PhantomData;
+
+// TODO: Cleanup and seal these traits
 
 // TODO: Add an example to the repo of using the new cringe Axum extractors but put lots of warnings about how it's highly discouraged
 

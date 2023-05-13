@@ -13,7 +13,7 @@ use tokio::sync::oneshot;
 
 use crate::{
     internal::{jsonrpc, ProcedureKind, RequestContext},
-    BuiltRouter, ExecError,
+    CompiledRouter, ExecError,
 };
 
 use super::{
@@ -144,7 +144,7 @@ impl<'a> Future for OwnedMpscSenderSendFut<'a> {
 pub fn handle_json_rpc<'a, TCtx, TMeta>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    router: Cow<'a, Arc<BuiltRouter<TCtx, TMeta>>>,
+    router: Cow<'a, Arc<CompiledRouter<TCtx, TMeta>>>,
     sender: impl Sender<'a> + 'a,
 ) -> impl Future<Output = ()> + Send + 'a
 where

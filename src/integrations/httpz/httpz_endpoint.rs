@@ -1,8 +1,7 @@
 use futures::{SinkExt, StreamExt};
 use futures_channel::mpsc;
 use httpz::{
-    axum::axum::extract::FromRequestParts,
-    http::{self, Method, Response, StatusCode},
+    http::{Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
     Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
 };
@@ -10,7 +9,6 @@ use serde_json::Value;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    mem,
     sync::{Arc, Mutex},
 };
 
@@ -19,237 +17,12 @@ use crate::{
         jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
         ProcedureKind,
     },
-    BuiltRouter,
+    CompiledRouter,
 };
 
-pub use super::httpz_extractors::*;
-pub use httpz::cookie::Cookie;
+use super::*;
 
-/// TODO
-///
-// TODO: Can `Rc<RefCell<T>>` be used so I don't need to await a borrow and use Tokio specific API's???
-// TODO: The `Mutex` will block. This isn't great, work to remove it. The Tokio `Mutex` makes everything annoyingly async so I don't use it.
-#[derive(Debug, Clone)]
-pub struct CookieJar(Arc<Mutex<httpz::cookie::CookieJar>>);
-
-impl CookieJar {
-    pub(super) fn new(cookies: Arc<Mutex<httpz::cookie::CookieJar>>) -> Self {
-        Self(cookies)
-    }
-
-    /// Returns a reference to the `Cookie` inside this jar with the name
-    /// `name`. If no such cookie exists, returns `None`.
-    #[allow(clippy::panic)] // TODO: Remove this
-    pub fn get(&self, name: &str) -> Option<Cookie<'static>> {
-        #[allow(clippy::unwrap_used)] // TODO
-        self.0.lock().unwrap().get(name).cloned() // TODO: `cloned` is cringe avoid it by removing `Mutex`?
-    }
-
-    /// Adds an "original" `cookie` to this jar. If an original cookie with the
-    /// same name already exists, it is replaced with `cookie`. Cookies added
-    /// with `add` take precedence and are not replaced by this method.
-    ///
-    /// Adding an original cookie does not affect the [delta](#method.delta)
-    /// computation. This method is intended to be used to seed the cookie jar
-    /// with cookies received from a client's HTTP message.
-    ///
-    /// For accurate `delta` computations, this method should not be called
-    /// after calling `remove`.
-    #[allow(clippy::panic)] // TODO: Remove this
-    pub fn add_original(&self, cookie: Cookie<'static>) {
-        #[allow(clippy::unwrap_used)] // TODO
-        self.0.lock().unwrap().add_original(cookie)
-    }
-
-    /// Adds `cookie` to this jar. If a cookie with the same name already
-    /// exists, it is replaced with `cookie`.
-    #[allow(clippy::panic)] // TODO: Remove this
-    pub fn add(&self, cookie: Cookie<'static>) {
-        #[allow(clippy::unwrap_used)] // TODO
-        self.0.lock().unwrap().add(cookie);
-    }
-
-    /// Removes `cookie` from this jar. If an _original_ cookie with the same
-    /// name as `cookie` is present in the jar, a _removal_ cookie will be
-    /// present in the `delta` computation. To properly generate the removal
-    /// cookie, `cookie` must contain the same `path` and `domain` as the cookie
-    /// that was initially set.
-    ///
-    /// A "removal" cookie is a cookie that has the same name as the original
-    /// cookie but has an empty value, a max-age of 0, and an expiration date
-    /// far in the past. See also [`Cookie::make_removal()`].
-    ///
-    /// Removing a new cookie does not result in a _removal_ cookie unless
-    /// there's an original cookie with the same name:
-    #[allow(clippy::panic)] // TODO: Remove this
-    pub fn remove(&self, cookie: Cookie<'static>) {
-        #[allow(clippy::unwrap_used)] // TODO
-        self.0.lock().unwrap().remove(cookie)
-    }
-
-    /// Removes `cookie` from this jar completely. This method differs from
-    /// `remove` in that no delta cookie is created under any condition. Neither
-    /// the `delta` nor `iter` methods will return a cookie that is removed
-    /// using this method.
-    #[allow(clippy::panic)] // TODO: Remove this
-    pub fn force_remove(&self, cookie: &Cookie<'_>) {
-        #[allow(clippy::unwrap_used)] // TODO
-        self.0.lock().unwrap().force_remove(cookie)
-    }
-
-    /// Removes all delta cookies, i.e. all cookies not added via
-    /// [`CookieJar::add_original()`], from this `CookieJar`. This undoes any
-    /// changes from [`CookieJar::add()`] and [`CookieJar::remove()`]
-    /// operations.
-    #[allow(clippy::panic)] // TODO: Remove this
-    pub fn reset_delta(&self) {
-        #[allow(clippy::unwrap_used)] // TODO
-        self.0.lock().unwrap().reset_delta()
-    }
-
-    // /// Returns an iterator over cookies that represent the changes to this jar
-    // /// over time. These cookies can be rendered directly as `Set-Cookie` header
-    // /// values to affect the changes made to this jar on the client.
-    // pub fn delta(&self) -> Delta {
-    //     self.0.lock().unwrap().delta()
-    // }
-
-    // /// Returns an iterator over all of the cookies present in this jar.
-    // pub fn iter(&self) -> Iter {
-    //     self.0.lock().unwrap().iter()
-    // }
-
-    // /// Returns a read-only `PrivateJar` with `self` as its parent jar using the
-    // /// key `key` to verify/decrypt cookies retrieved from the child jar. Any
-    // /// retrievals from the child jar will be made from the parent jar.
-    // #[cfg(feature = "private")]
-    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "private")))]
-    // pub fn private<'a>(&'a self, key: &Key) -> PrivateJar<&'a Self> {
-    //     PrivateJar::new(self, key)
-    // }
-
-    // /// Returns a read/write `PrivateJar` with `self` as its parent jar using
-    // /// the key `key` to sign/encrypt and verify/decrypt cookies added/retrieved
-    // /// from the child jar.
-    // ///
-    // /// Any modifications to the child jar will be reflected on the parent jar,
-    // /// and any retrievals from the child jar will be made from the parent jar.
-    // #[cfg(feature = "private")]
-    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "private")))]
-    // pub fn private_mut<'a>(&'a mut self, key: &Key) -> PrivateJar<&'a mut Self> {
-    //     PrivateJar::new(self, key)
-    // }
-
-    // /// Returns a read-only `SignedJar` with `self` as its parent jar using the
-    // /// key `key` to verify cookies retrieved from the child jar. Any retrievals
-    // /// from the child jar will be made from the parent jar.
-    // #[cfg(feature = "signed")]
-    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "signed")))]
-    // pub fn signed<'a>(&'a self, key: &Key) -> SignedJar<&'a Self> {
-    //     SignedJar::new(self, key)
-    // }
-
-    // /// Returns a read/write `SignedJar` with `self` as its parent jar using the
-    // /// key `key` to sign/verify cookies added/retrieved from the child jar.
-    // ///
-    // /// Any modifications to the child jar will be reflected on the parent jar,
-    // /// and any retrievals from the child jar will be made from the parent jar.
-    // #[cfg(feature = "signed")]
-    // #[cfg_attr(all(nightly, doc), doc(cfg(feature = "signed")))]
-    // pub fn signed_mut<'a>(&'a mut self, key: &Key) -> SignedJar<&'a mut Self> {
-    //     SignedJar::new(self, key)
-    // }
-}
-
-/// TODO
-///
-/// This wraps [httpz::Request] removing any methods that are not safe with rspc such as `body`, `into_parts` and replacing the cookie handling API.
-///
-#[derive(Debug)]
-pub struct Request(httpz::Request, Option<CookieJar>);
-
-impl Request {
-    pub(crate) fn new(req: httpz::Request, cookies: Option<CookieJar>) -> Self {
-        Self(req, cookies)
-    }
-
-    /// Get the uri of the request.
-    pub fn uri(&self) -> &httpz::http::Uri {
-        self.0.uri()
-    }
-
-    /// Get the version of the request.
-    pub fn version(&self) -> httpz::http::Version {
-        self.0.version()
-    }
-
-    /// Get the method of the request.
-    pub fn method(&self) -> &httpz::http::Method {
-        self.0.method()
-    }
-
-    /// Get the headers of the request.
-    pub fn headers(&self) -> &httpz::http::HeaderMap {
-        self.0.headers()
-    }
-
-    /// Get the headers of the request.
-    pub fn headers_mut(&mut self) -> &mut httpz::http::HeaderMap {
-        self.0.headers_mut()
-    }
-
-    /// TODO
-    pub fn cookies(&mut self) -> Option<CookieJar> {
-        // TODO: This take means a `None` response could be because it was already used or because it's a websocket. This is a confusing DX and needs fixing.
-
-        mem::replace(&mut self.1, None)
-    }
-
-    /// query_pairs returns an iterator of the query parameters.
-    pub fn query_pairs(&self) -> Option<httpz::form_urlencoded::Parse<'_>> {
-        self.0.query_pairs()
-    }
-
-    /// TODO
-    pub fn server(&self) -> httpz::Server {
-        self.0.server()
-    }
-
-    /// Get the extensions of the request.
-    pub fn extensions(&self) -> &http::Extensions {
-        self.0.extensions()
-    }
-
-    /// Get the extensions of the request.
-    pub fn extensions_mut(&mut self) -> &mut http::Extensions {
-        self.0.extensions_mut()
-    }
-
-    /// This methods allows using Axum extractors.
-    /// This was previously supported but in Axum 0.6 it's not typesafe anymore so we are going to remove this API.
-    // TODO: Remove this API once rspc's official cookie API is more stabilised.
-    #[cfg(feature = "axum")]
-    pub fn deprecated_extract<E, S>(&mut self) -> Option<Result<E, E::Rejection>>
-    where
-        E: FromRequestParts<S>,
-        S: Clone + Send + Sync + 'static,
-    {
-        let parts = self.0.parts_mut();
-
-        let state = parts
-            .extensions
-            .remove::<httpz::axum::axum::extract::State<S>>()?;
-
-        // This is bad but it's a temporary API so I don't care.
-        Some(futures::executor::block_on(async {
-            let resp = <E as FromRequestParts<S>>::from_request_parts(parts, &state.0).await;
-            parts.extensions.insert(state);
-            resp
-        }))
-    }
-}
-
-impl<TCtx> BuiltRouter<TCtx>
+impl<TCtx> CompiledRouter<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
@@ -293,11 +66,11 @@ where
 }
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
-pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
+async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
     req: httpz::Request,
-    router: &Arc<BuiltRouter<TCtx>>,
+    router: &Arc<CompiledRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
@@ -453,10 +226,10 @@ where
 }
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
-pub async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
+async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     req: httpz::Request,
-    router: &Arc<BuiltRouter<TCtx>>,
+    router: &Arc<CompiledRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
@@ -563,10 +336,10 @@ where
     }
 }
 
-pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
+fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     req: httpz::Request,
-    router: Arc<BuiltRouter<TCtx>>,
+    router: Arc<CompiledRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,

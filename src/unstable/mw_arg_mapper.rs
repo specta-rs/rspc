@@ -6,24 +6,33 @@ use specta::Type;
 // TODO: This should be possible without `internal` API's
 use crate::internal::{middleware::Middleware, MiddlewareContext, MwV2Result};
 
-/// TODO
+/// A trait for modifying a procedures argument type.
+///
+/// This trait primarily exists to workaround Rust's lack of generic closures.
+///
+/// To explain it more say you had `{ library_id: Uuid, data: T }` as your input from the frontend.
+/// Your `Self::State` would be `Uuid` and your `Self::Output<T>` would be `T`.
+/// This way `Self::State` can be passed into the middleware closure "erasing" the generic `T`.
+///
+/// This is very powerful for multi-tenant applications but also breaks all rspc typesafe guarantees.
 pub trait MwArgMapper: Send + Sync {
-    /// TODO
+    /// the output of the mapper for consumption in your middleware.
     type State: Send + Sync + 'static;
 
-    /// TODO
+    /// the output of the mapper to be passed on to the following procedure.
     ///
-    /// This is not typesafe. If you get it wrong it will runtime panic!
-    type Input<T>: DeserializeOwned + Type + 'static
+    /// WARNING: This is not typesafe. If you get it wrong it will runtime panic!
+    type Output<T>: DeserializeOwned + Type + 'static
     where
         T: DeserializeOwned + Type + 'static;
 
-    /// TODO
+    /// Apply the mapping to the input argument.
     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
-        arg: Self::Input<T>,
+        arg: Self::Output<T>,
     ) -> (T, Self::State);
 }
 
+/// A middleware that allows you to modify the input arguments of a procedure.
 pub struct MwArgMapperMiddleware<M: MwArgMapper>(PhantomData<M>);
 
 impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
@@ -79,7 +88,7 @@ mod private {
         type Fut = Fu;
         type Result = R;
         type NewCtx = R::Ctx; // TODO: Make this work with context switching
-        type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
+        type Arg<T: Type + DeserializeOwned + 'static> = M::Output<T>;
 
         fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
             (self.0)(mw, ctx)

@@ -20,7 +20,7 @@ use crate::{
 // TODO: Completely remove this file
 
 /// TODO
-pub struct BuiltRouter<TCtx = (), TMeta = ()>
+pub struct CompiledRouter<TCtx = (), TMeta = ()>
 where
     TCtx: 'static,
 {
@@ -32,14 +32,7 @@ where
     pub(crate) phantom: PhantomData<TMeta>,
 }
 
-// TODO: Move this out of this file
-// TODO: Rename??
-pub enum ExecKind {
-    Query,
-    Mutation,
-}
-
-impl<TCtx, TMeta> BuiltRouter<TCtx, TMeta>
+impl<TCtx, TMeta> CompiledRouter<TCtx, TMeta>
 where
     TCtx: Send + 'static,
 {

@@ -10,7 +10,7 @@ use crate::{
         FutureMarkerType, ProcedureStore, RequestLayer, RequestLayerMarker, ResolverFunction,
         SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
     },
-    BuiltRouter, Config,
+    CompiledRouter, Config,
 };
 
 pub struct Router<TCtx>
@@ -155,7 +155,7 @@ where
     // }
 
     // TODO: Change the return type and clean this whole system up
-    pub fn build(self, config: Config) -> BuiltRouter<TCtx, ()> {
+    pub fn build(self, config: Config) -> CompiledRouter<TCtx, ()> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
@@ -175,7 +175,7 @@ where
             todo!(); // TODO
         }
 
-        let router = BuiltRouter {
+        let router = CompiledRouter {
             config,
             queries,
             mutations,

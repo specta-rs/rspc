@@ -1,3 +1,5 @@
+//! Access rspc via the Tauri IPC bridge.
+
 use std::{
     borrow::Cow,
     collections::{hash_map::DefaultHasher, HashMap},
@@ -20,7 +22,7 @@ use crate::{
     internal::jsonrpc::{
         self, handle_json_rpc, OwnedSender, RequestId, Sender, SubscriptionUpgrade,
     },
-    BuiltRouter,
+    CompiledRouter,
 };
 
 type SubscriptionMap = Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>;
@@ -72,7 +74,7 @@ where
     R: Runtime + Send + Sync + 'static,
     TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 {
-    router: Arc<BuiltRouter<TCtx, TMeta>>,
+    router: Arc<CompiledRouter<TCtx, TMeta>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, SubscriptionMap>>,
     phantom: PhantomData<&'static R>,
@@ -85,7 +87,7 @@ where
     R: Runtime + Send + Sync + 'static,
     TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 {
-    pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx, TMeta>>) -> Arc<Self> {
+    pub fn new(ctx_fn: TCtxFn, router: Arc<CompiledRouter<TCtx, TMeta>>) -> Arc<Self> {
         Arc::new(Self {
             router,
             ctx_fn,
@@ -195,7 +197,7 @@ where
 }
 
 pub fn plugin<R: Runtime, TCtx, TMeta>(
-    router: Arc<BuiltRouter<TCtx, TMeta>>,
+    router: Arc<CompiledRouter<TCtx, TMeta>>,
     ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where

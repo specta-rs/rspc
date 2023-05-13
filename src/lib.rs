@@ -18,7 +18,7 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub mod unstable;
 
-mod built_router;
+mod compiled_router;
 mod config;
 mod error;
 mod procedure_like;
@@ -26,7 +26,7 @@ mod router;
 mod rspc;
 mod selection;
 
-pub use built_router::*;
+pub use compiled_router::*;
 pub use config::*;
 pub use error::*;
 pub use procedure_like::*; // TODO: Move into procedure

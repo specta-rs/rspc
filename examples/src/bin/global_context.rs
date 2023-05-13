@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use rspc::{BuiltRouter, Config};
+use rspc::{CompiledRouter, Config};
 
 #[derive(Clone)]
 pub struct MyCtx {
