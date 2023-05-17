@@ -16,6 +16,11 @@ categories = ["web-programming", "asynchronous"]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[[test]]
+name = "tests"
+path = "tests/tauri/tauri_test.rs"
+harness = false
+
 [[bench]]
 name = "benchmarks"
 harness = false
@@ -62,6 +67,7 @@ tokio = { version = "1", default-features = false, features = ["rt"], optional =
 # Tests
 async-stream = "0.3.4"
 tokio = { version = "1.27.0", features = ["macros", "rt-multi-thread"] }
+tauri = { version = "1.2.4", features = ["api-all"] }
 
 # Benchmark
 criterion = { version = "0.4", features = ["async_tokio", "html_reports"] }

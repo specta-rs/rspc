@@ -26,12 +26,12 @@ mod router;
 mod rspc;
 mod selection;
 
+pub use crate::rspc::*;
 pub use compiled_router::*;
 pub use config::*;
 pub use error::*;
 pub use procedure_like::*; // TODO: Move into procedure
 pub use router::*;
-pub use rspc::*;
 pub use selection::*;
 
 pub mod integrations;

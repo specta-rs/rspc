@@ -4,7 +4,6 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     future::{ready, Ready},
     hash::{Hash, Hasher},
-    marker::PhantomData,
     sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -21,16 +20,16 @@ use crate::{
     CompiledRouter,
 };
 
-struct WindowManager<TCtxFn, TCtx, R>
+// TODO: Move to https://tauri.app/v1/guides/features/plugin/#advanced -> This should help with avoiding cloning on shared state?
+
+struct WindowManager<TCtxFn, TCtx>
 where
     TCtx: Send + Sync + 'static,
-    R: Runtime + Send + Sync + 'static,
-    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
     executor: Executor<TCtx, TokioRuntime>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, Arc<Mutex<SubscriptionMap<TokioRuntime>>>>>,
-    phantom: PhantomData<R>,
 }
 
 struct TauriSubscriptionManager<R: Runtime> {
@@ -71,22 +70,20 @@ impl<R: Runtime> SubscriptionManager<TokioRuntime> for TauriSubscriptionManager<
     }
 }
 
-impl<TCtxFn, TCtx, R> WindowManager<TCtxFn, TCtx, R>
+impl<TCtxFn, TCtx> WindowManager<TCtxFn, TCtx>
 where
     TCtx: Clone + Send + Sync + 'static,
-    R: Runtime + Send + Sync + 'static,
-    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<CompiledRouter<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
             executor: Executor::new(router),
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
-            phantom: PhantomData,
         })
     }
 
-    pub fn on_page_load(self: Arc<Self>, window: Window<R>) {
+    pub fn on_page_load(self: Arc<Self>, window: Window<tauri::Wry>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -186,7 +183,7 @@ where
         }
     }
 
-    pub fn close_requested(&self, window: &Window<R>) {
+    pub fn close_requested(&self, window: &Window<tauri::Wry>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -202,12 +199,11 @@ where
     }
 }
 
-pub fn plugin<R: Runtime, TCtx>(
+pub fn plugin<TCtx>(
     router: Arc<CompiledRouter<TCtx>>,
-    ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
-) -> TauriPlugin<R>
+    ctx_fn: impl Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+) -> TauriPlugin<tauri::Wry>
 where
-    R: Runtime + Send + Sync + 'static,
     TCtx: Clone + Send + Sync + 'static,
 {
     let manager = WindowManager::new(ctx_fn, router);
