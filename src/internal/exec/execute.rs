@@ -61,7 +61,7 @@ mod private {
     ///
     // This means a thread is only spawned by us for subscriptions and by the caller for requests.
     // If `execute` was async it would *usually* be spawned by the caller but if it were a subscription it would then be spawned again by us.
-    pub enum ExecutorResponse<'a> {
+    pub enum ExecutorResult<'a> {
         FutureResponse(ExecRequestFut<'a>),
         Response(Response),
         None,
@@ -112,13 +112,13 @@ mod private {
             let mut resps = Vec::with_capacity(reqs.len());
             for req in reqs {
                 match self.execute(ctx.clone(), req, subscriptions.clone()) {
-                    ExecutorResponse::FutureResponse(fut) => {
+                    ExecutorResult::FutureResponse(fut) => {
                         futs.push(fut);
                     }
-                    ExecutorResponse::Response(resp) => {
+                    ExecutorResult::Response(resp) => {
                         resps.push(resp);
                     }
-                    ExecutorResponse::None => {}
+                    ExecutorResult::None => {}
                 }
             }
 
@@ -136,7 +136,7 @@ mod private {
             ctx: TCtx,
             req: Request,
             subscription_manager: Option<M>,
-        ) -> ExecutorResponse<'_> {
+        ) -> ExecutorResult<'_> {
             // TODO
             // #[cfg(feature = "tracing")]
             // tracing::debug!(
@@ -179,7 +179,7 @@ mod private {
                         id,
                         input,
                     ),
-                    None => ExecutorResponse::Response(Response::Response {
+                    None => ExecutorResult::Response(Response::Response {
                         path,
                         result: ValueOrError::Error(ExecError::ErrSubscriptionsNotSupported.into()),
                     }),
@@ -194,7 +194,7 @@ mod private {
                         None => {}
                     }
 
-                    ExecutorResponse::None
+                    ExecutorResult::None
                 }
             }
         }
@@ -206,11 +206,11 @@ mod private {
             req: RequestContext,
             id: Cow<'static, str>,
             input: Option<Value>,
-        ) -> ExecutorResponse<'_> {
+        ) -> ExecutorResult<'_> {
             let mut subscriptions = subscription_manager.subscriptions();
 
             if subscriptions.contains_key(id.as_ref()) {
-                return ExecutorResponse::Response(Response::Response {
+                return ExecutorResult::Response(Response::Response {
                     path: req.path,
                     result: ValueOrError::Error(ExecError::ErrSubscriptionDuplicateId.into()),
                 });
@@ -219,7 +219,7 @@ mod private {
             match self.router.subscriptions.store.get(req.path.as_ref()) {
                 Some(_) => {}
                 None => {
-                    return ExecutorResponse::Response(Response::Response {
+                    return ExecutorResult::Response(Response::Response {
                         path: req.path,
                         result: ValueOrError::Error(ExecError::OperationNotFound.into()),
                     })
@@ -295,7 +295,7 @@ mod private {
                 }
             }
 
-            ExecutorResponse::None
+            ExecutorResult::None
         }
     }
 
@@ -310,19 +310,19 @@ mod private {
             procedures: &'a ProcedureStore<TCtx>,
             req: RequestContext,
             input: Option<Value>,
-        ) -> ExecutorResponse {
+        ) -> ExecutorResult {
             match procedures.store.get(req.path.as_ref()) {
                 Some(procedure) => {
                     let path = req.path.clone();
 
-                    ExecutorResponse::FutureResponse(Self(
+                    ExecutorResult::FutureResponse(Self(
                         procedure
                             .exec
                             .dyn_call(ctx, input.unwrap_or(Value::Null), req),
                         Some(path),
                     ))
                 }
-                None => ExecutorResponse::Response(Response::Response {
+                None => ExecutorResult::Response(Response::Response {
                     path: req.path,
                     result: ValueOrError::Error(ExecError::OperationNotFound.into()),
                 }),
@@ -365,10 +365,10 @@ mod private {
 #[cfg(feature = "unstable")]
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub use private::{
-    Executor, ExecutorResponse, NoOpSubscriptionManager, SubscriptionManager, SubscriptionMap,
+    Executor, ExecutorResult, NoOpSubscriptionManager, SubscriptionManager, SubscriptionMap,
 };
 
 #[cfg(not(feature = "unstable"))]
 pub(crate) use private::{
-    Executor, ExecutorResponse, NoOpSubscriptionManager, SubscriptionManager, SubscriptionMap,
+    Executor, ExecutorResult, NoOpSubscriptionManager, SubscriptionManager, SubscriptionMap,
 };

@@ -13,8 +13,8 @@ use std::{
 
 use crate::{
     internal::exec::{
-        self, AsyncRuntime, Executor, ExecutorResponse, NoOpSubscriptionManager,
-        SubscriptionManager, SubscriptionMap, TokioRuntime,
+        self, AsyncRuntime, Executor, ExecutorResult, NoOpSubscriptionManager, SubscriptionManager,
+        SubscriptionMap, TokioRuntime,
     },
     CompiledRouter,
 };
@@ -135,9 +135,9 @@ where
     };
 
     let response = match executor.execute(ctx, request, None as Option<NoOpSubscriptionManager>) {
-        ExecutorResponse::FutureResponse(fut) => fut.await,
-        ExecutorResponse::Response(response) => response,
-        ExecutorResponse::None => unreachable!(
+        ExecutorResult::FutureResponse(fut) => fut.await,
+        ExecutorResult::Response(response) => response,
+        ExecutorResult::None => unreachable!(
             "Executor will only return none for a 'stopSubscription' event which is impossible here"
         ),
     };

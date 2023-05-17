@@ -7,7 +7,7 @@ mod private {
     /// The type of a request to rspc.
     ///
     /// @internal
-    #[derive(Deserialize)]
+    #[derive(Debug, Deserialize)]
     #[cfg_attr(test, derive(specta::Type))]
     #[serde(tag = "method", rename_all = "camelCase")]
     pub enum Request {
@@ -34,7 +34,7 @@ mod private {
     /// An error that can be returned by rspc.
     ///
     /// @internal
-    #[derive(Serialize)]
+    #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
     pub struct ResponseError {
         pub code: i32,
@@ -45,7 +45,7 @@ mod private {
     /// A value that can be a successful result or an error.
     ///
     /// @internal
-    #[derive(Serialize)]
+    #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
     #[serde(tag = "type", rename_all = "camelCase")]
     pub enum ValueOrError {
@@ -58,7 +58,7 @@ mod private {
     /// The type of a response from rspc.
     ///
     /// @internal
-    #[derive(Serialize)]
+    #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
     #[serde(tag = "type", rename_all = "camelCase")]
     pub enum Response {

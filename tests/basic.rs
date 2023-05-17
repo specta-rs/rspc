@@ -1,3 +1,5 @@
+// TODO: Test that a stream can be returned from a query/mutation -> Using trybuild
+
 // use std::{path::PathBuf, time::Duration};
 
 // use async_stream::stream;

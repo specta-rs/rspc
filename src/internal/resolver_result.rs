@@ -181,7 +181,7 @@ mod private {
     {
         type Result = T;
         type Stream = MapStream<TStream>;
-        type Type = StreamMarker;
+        type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
             let (err, stream) = match self {
@@ -205,7 +205,7 @@ mod private {
     {
         type Result = T;
         type Stream = FutureMapStream<TFut, TStream>;
-        type Type = StreamMarker;
+        type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
             FutureMapStream(
@@ -228,7 +228,7 @@ mod private {
     {
         type Result = T;
         type Stream = FutureMapStream<TFut, TStream>;
-        type Type = StreamMarker;
+        type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
             FutureMapStream(
