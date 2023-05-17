@@ -1,14 +1,11 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::borrow::Cow;
 
 use specta::TypeDefs;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind,
-        middleware::BaseMiddleware,
-        procedure::{BuildProceduresCtx, IntoProcedureLike, Procedure},
-        FutureMarkerType, ProcedureStore, RequestLayer, RequestLayerMarker, ResolverFunction,
-        SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
+        procedure::{BuildProceduresCtx, IntoProcedureLike},
+        ProcedureStore,
     },
     CompiledRouter, Config,
 };
@@ -104,7 +101,7 @@ where
     // }
 
     // TODO: Change the return type and clean this whole system up
-    pub fn build(self, config: Config) -> CompiledRouter<TCtx, ()> {
+    pub fn build(self, config: Config) -> CompiledRouter<TCtx> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
@@ -129,7 +126,6 @@ where
             mutations,
             subscriptions,
             typ_store,
-            phantom: PhantomData,
         };
 
         #[cfg(debug_assertions)]

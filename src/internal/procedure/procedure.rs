@@ -3,13 +3,12 @@ mod private {
 
     use crate::{
         internal::{
-            jsonrpc::RequestKind,
             middleware::{
                 BaseMiddleware, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
                 MissingResolver, ProcedureKind, ResolverLayer,
             },
             procedure::{BuildProceduresCtx, SealedIntoProcedureLike},
-            FutureMarkerType, ProcedureMarkerKind, RequestLayer, RequestLayerMarker,
+            FutureMarkerType, ProcedureMarkerKind, RequestKind, RequestLayer, RequestLayerMarker,
             ResolverFunction, SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
         },
         ExecError, ProcedureLike,

@@ -2,13 +2,12 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        jsonrpc::RequestKind,
         middleware::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, MissingResolver,
         },
         procedure::Procedure,
-        FutureMarkerType, RequestLayer, RequestLayerMarker, ResolverFunction, SealedRequestLayer,
-        StreamLayerMarker, StreamMarkerType,
+        FutureMarkerType, RequestKind, RequestLayer, RequestLayerMarker, ResolverFunction,
+        SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
     },
     Router,
 };

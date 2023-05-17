@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use serde_json::Value;
 
 use super::{Executable2Placeholder, MwResultWithCtx};
@@ -45,6 +47,6 @@ impl ProcedureKind {
 #[derive(Debug, Clone)]
 pub struct RequestContext {
     pub kind: ProcedureKind,
-    pub path: String, // TODO: String slice??
+    pub path: Cow<'static, str>,
     pub(crate) _priv: (),
 }

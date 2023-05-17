@@ -1,63 +1,67 @@
-use futures::{SinkExt, StreamExt};
-use futures_channel::mpsc;
+use futures::{stream::SplitSink, SinkExt, StreamExt};
 use httpz::{
     http::{Method, Response, StatusCode},
-    ws::{Message, WebsocketUpgrade},
+    ws::{Message, Websocket, WebsocketUpgrade},
     Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
 };
 use serde_json::Value;
 use std::{
     borrow::Cow,
-    collections::HashMap,
-    sync::{Arc, Mutex},
+    future::{ready, Ready},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use crate::{
-    internal::{
-        jsonrpc::{self, handle_json_rpc, RequestId, SubscriptionSender},
-        middleware::ProcedureKind,
+    internal::exec::{
+        self, AsyncRuntime, Executor, ExecutorResponse, NoOpSubscriptionManager,
+        SubscriptionManager, SubscriptionMap, TokioRuntime,
     },
     CompiledRouter,
 };
 
 use super::*;
 
+// TODO: Make this whole file runtime agnostic once httpz is
+// TODO: Remove all panics lol
+// TODO: Cleanup the code and use more chaining
+
 impl<TCtx> CompiledRouter<TCtx>
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Clone + Send + Sync + 'static,
 {
     pub fn endpoint<TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
         self: Arc<Self>,
         ctx_fn: TCtxFn,
     ) -> Endpoint<impl HttpEndpoint> {
+        let executor = Executor::new(self);
+
+        // TODO: This should be able to call `ctn_fn` prior to the async boundary to avoid cloning it!
+        // TODO: Basically httpz would need to be able to return `Response | Future<Response>` basically how rspc executor works.
+
         GenericEndpoint::new(
             "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
             [Method::GET, Method::POST],
             move |req: httpz::Request| {
                 // TODO: It would be nice if these clones weren't per request.
                 // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
-                let router = self.clone();
+                let executor = executor.clone();
                 let ctx_fn = ctx_fn.clone();
 
                 async move {
                     match (req.method(), &req.uri().path()[1..]) {
                         (&Method::GET, "ws") => {
-                            handle_websocket(ctx_fn, req, router).into_response()
+                            handle_websocket(executor, ctx_fn, req).into_response()
                         }
                         (&Method::GET, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Query, req, &router)
-                                .await
-                                .into_response()
+                            handle_http(executor, ctx_fn, req).await.into_response()
                         }
-                        (&Method::POST, "_batch") => handle_http_batch(ctx_fn, req, &router)
+                        (&Method::POST, "_batch") => handle_http_batch(executor, ctx_fn, req)
                             .await
                             .into_response(),
                         (&Method::POST, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
-                                .await
-                                .into_response()
+                            handle_http(executor, ctx_fn, req).await.into_response()
                         }
-                        _ => unreachable!(),
+                        _ => todo!(),
                     }
                 }
             },
@@ -65,74 +69,55 @@ where
     }
 }
 
-#[allow(clippy::unwrap_used)] // TODO: Remove this
+#[allow(clippy::unwrap_used)] // TODO: Remove all panics lol
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
+    executor: Executor<TCtx, TokioRuntime>,
     ctx_fn: TCtxFn,
-    kind: ProcedureKind,
     req: httpz::Request,
-    router: &Arc<CompiledRouter<TCtx>>,
 ) -> impl HttpResponse
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
-    let procedure_name = match req.server() {
-        #[cfg(feature = "vercel")]
-        httpz::Server::Vercel => req
-            .query_pairs()
-            .and_then(|mut pairs| pairs.find(|e| e.0 == "rspc"))
-            .map(|(_, v)| v.to_string()),
-        _ => Some(req.uri().path()[1..].to_string()), // Has to be allocated because `TCtxFn` takes ownership of `req`
-    }
-    .unwrap();
-
-    let input = match *req.method() {
-        Method::GET => req
-            .query_pairs()
-            .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
-            .map(|v| serde_json::from_str(&v))
-            .unwrap_or(Ok(None as Option<Value>)),
-        Method::POST => (!req.body().is_empty())
-            .then(|| serde_json::from_slice(req.body()))
-            .unwrap_or(Ok(None)),
-        _ => unreachable!(),
-    };
-    let cookies = req.cookies();
-
-    let input = match input {
-        Ok(input) => input,
-        Err(_err) => {
-            #[cfg(feature = "tracing")]
-            tracing::error!(
-                "Error passing parameters to operation '{}' with key '{:?}': {}",
-                kind.to_str(),
-                procedure_name,
-                _err
-            );
-
-            return Ok((
-                Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .header("Content-Type", "application/json")
-                    .body(b"[]".to_vec())?,
-                cookies,
-            ));
+    let path = Cow::Owned(
+        match req.server() {
+            #[cfg(feature = "vercel")]
+            httpz::Server::Vercel => req
+                .query_pairs()
+                .and_then(|mut pairs| pairs.find(|e| e.0 == "rspc"))
+                .map(|(_, v)| v.to_string()),
+            _ => Some(req.uri().path()[1..].to_string()), // Has to be allocated because `TCtxFn` takes ownership of `req`
         }
-    };
-
-    #[cfg(feature = "tracing")]
-    tracing::debug!(
-        "Executing operation '{}' with key '{}' with params {:?}",
-        kind.to_str(),
-        procedure_name,
-        input
+        .unwrap(),
     );
+
+    let cookies = req.cookies();
+    let request = match *req.method() {
+        Method::GET => {
+            let input = req
+                .query_pairs()
+                .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
+                .map(|v| serde_json::from_str(&v))
+                .unwrap_or(Ok(None as Option<Value>))
+                .unwrap();
+
+            exec::Request::Query { path, input }
+        }
+        Method::POST => {
+            let input = (!req.body().is_empty())
+                .then(|| serde_json::from_slice(req.body()))
+                .unwrap_or(Ok(None))
+                .unwrap();
+
+            exec::Request::Mutation { path, input }
+        }
+        _ => todo!(),
+    };
 
     let cookie_jar = Arc::new(Mutex::new(cookies));
     let old_cookies = req.cookies().clone();
-    let ctx = ctx_fn.exec(req, Some(CookieJar::new(cookie_jar.clone())));
 
-    let ctx = match ctx {
+    let ctx = match ctx_fn.exec(req, Some(CookieJar::new(cookie_jar.clone()))) {
         Ok(v) => v,
         Err(_err) => {
             #[cfg(feature = "tracing")]
@@ -149,40 +134,13 @@ where
         }
     };
 
-    let mut response = None as Option<jsonrpc::Response>;
-    handle_json_rpc(
-        ctx,
-        jsonrpc::Request {
-            jsonrpc: None,
-            id: RequestId::Null,
-            inner: match kind {
-                ProcedureKind::Query => jsonrpc::RequestInner::Query {
-                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
-                    input,
-                },
-                ProcedureKind::Mutation => jsonrpc::RequestInner::Mutation {
-                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
-                    input,
-                },
-                ProcedureKind::Subscription => {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Attempted to execute a subscription operation with HTTP");
-
-                    return Ok((
-                        Response::builder()
-                            .status(StatusCode::INTERNAL_SERVER_ERROR)
-                            .header("Content-Type", "application/json")
-                            .body(b"[]".to_vec())?,
-                        // TODO: Props just return `None` here so that we don't allocate or need a clone.
-                        old_cookies, // If cookies were set in the context function they will be lost but it errored so thats probs fine.
-                    ));
-                }
-            },
-        },
-        Cow::Borrowed(router),
-        &mut response,
-    )
-    .await;
+    let response = match executor.execute(ctx, request, None as Option<NoOpSubscriptionManager>) {
+        ExecutorResponse::FutureResponse(fut) => fut.await,
+        ExecutorResponse::Response(response) => response,
+        ExecutorResponse::None => unreachable!(
+            "Executor will only return none for a 'stopSubscription' event which is impossible here"
+        ),
+    };
 
     let cookies = {
         match Arc::try_unwrap(cookie_jar) {
@@ -198,28 +156,20 @@ where
         }
     };
 
-    debug_assert!(response.is_some()); // This would indicate a bug in rspc's jsonrpc_exec code
-    let resp = match response {
-        Some(resp) => match serde_json::to_vec(&resp) {
-            Ok(v) => Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "application/json")
-                .body(v)?,
-            Err(_err) => {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Error serializing response: {}", _err);
-
-                Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .header("Content-Type", "application/json")
-                    .body(b"[]".to_vec())?
-            }
-        },
-        // This case is unreachable but an error is here just incase.
-        None => Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+    let resp = match serde_json::to_vec(&response) {
+        Ok(v) => Response::builder()
+            .status(StatusCode::OK)
             .header("Content-Type", "application/json")
-            .body(b"[]".to_vec())?,
+            .body(v)?,
+        Err(_err) => {
+            #[cfg(feature = "tracing")]
+            tracing::error!("Error serializing response: {}", _err);
+
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .header("Content-Type", "application/json")
+                .body(b"[]".to_vec())?
+        }
     };
 
     Ok((resp, cookies))
@@ -227,61 +177,44 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
 async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
+    executor: Executor<TCtx, TokioRuntime>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
-    router: &Arc<CompiledRouter<TCtx>>,
 ) -> impl HttpResponse
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Clone + Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
     let cookies = req.cookies();
-    match serde_json::from_slice::<Vec<jsonrpc::Request>>(req.body()) {
-        Ok(reqs) => {
+    match serde_json::from_slice::<Vec<exec::Request>>(req.body()) {
+        Ok(requests) => {
             let cookie_jar = Arc::new(Mutex::new(cookies));
             let old_cookies = req.cookies().clone();
 
-            let mut responses = Vec::with_capacity(reqs.len());
-            for op in reqs {
-                // TODO: Make `TCtx` require clone and only run the ctx function once for the whole batch.
-                let ctx = ctx_fn.exec(
-                    req._internal_dangerously_clone(),
-                    Some(CookieJar::new(cookie_jar.clone())),
-                );
+            let ctx = match ctx_fn.exec(req, Some(CookieJar::new(cookie_jar.clone()))) {
+                Ok(v) => v,
+                Err(_err) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Error executing context function: {}", _err);
 
-                let ctx = match ctx {
-                    Ok(v) => v,
-                    Err(_err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Error executing context function: {}", _err);
-
-                        return Ok((
-                            Response::builder()
-                                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                .header("Content-Type", "application/json")
-                                .body(b"[]".to_vec())?,
-                            // TODO: Props just return `None` here so that we don't allocate or need a clone.
-                            old_cookies, // If cookies were set in the context function they will be lost but it errored so thats probs fine.
-                        ));
-                    }
-                };
-
-                // #[cfg(feature = "tracing")]
-                // tracing::debug!(
-                //     "Executing operation '{}' with key '{}' with params {:?}",
-                //     kind.to_str(),
-                //     procedure_name,
-                //     input
-                // );
-
-                // TODO: Probs catch panics so they don't take out the whole batch
-                let mut response = None as Option<jsonrpc::Response>;
-                handle_json_rpc(ctx, op, Cow::Borrowed(router), &mut response).await;
-                debug_assert!(response.is_some()); // This would indicate a bug in rspc's jsonrpc_exec code
-                if let Some(response) = response {
-                    responses.push(response);
+                    return Ok((
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .header("Content-Type", "application/json")
+                            .body(b"[]".to_vec())?,
+                        // TODO: Props just return `None` here so that we don't allocate or need a clone.
+                        old_cookies, // If cookies were set in the context function they will be lost but it errored so thats probs fine.
+                    ));
                 }
-            }
+            };
+
+            let responses = executor
+                .execute_batch(
+                    ctx.clone(),
+                    requests,
+                    None as Option<NoOpSubscriptionManager>,
+                )
+                .await;
 
             let cookies = {
                 match Arc::try_unwrap(cookie_jar) {
@@ -336,18 +269,54 @@ where
     }
 }
 
+pub struct WebsocketSubscriptionManager<R: AsyncRuntime>(
+    Arc<Mutex<SubscriptionMap<R>>>,
+    // TODO: Remove locking from this??
+    // TODO: Don't use tokio so we are runtime agnostic
+    Arc<tokio::sync::Mutex<SplitSink<Box<dyn Websocket + Send>, Message>>>,
+);
+
+impl<R: AsyncRuntime> Clone for WebsocketSubscriptionManager<R> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), self.1.clone())
+    }
+}
+
+impl<'this, R: AsyncRuntime> SubscriptionManager<R> for WebsocketSubscriptionManager<R> {
+    type Map<'a> = MutexGuard<'a, SubscriptionMap<R>>;
+    type SendFut<'a> = Ready<()>; // TODO: We don't use this cause of the `MutexLock` but should fix that at some point.
+
+    fn subscriptions(&mut self) -> Self::Map<'_> {
+        self.0.lock().unwrap()
+    }
+
+    fn send(&mut self, resp: exec::Response) -> Self::SendFut<'_> {
+        match serde_json::to_string(&resp) {
+            Ok(v) => {
+                let m = self.1.clone();
+                R::spawn(async move {
+                    m.lock().await.send(Message::Text(v)).await.unwrap();
+                });
+            }
+            Err(_err) => {
+                #[cfg(feature = "tracing")]
+                tracing::error!("Error serializing websocket message: {}", _err);
+            }
+        }
+
+        ready(())
+    }
+}
+
 fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
+    executor: Executor<TCtx, TokioRuntime>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
-    router: Arc<CompiledRouter<TCtx>>,
 ) -> impl HttpResponse
 where
-    TCtx: Send + Sync + 'static,
+    TCtx: Clone + Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
 {
-    #[cfg(feature = "tracing")]
-    tracing::debug!("Accepting websocket connection");
-
     if !req.server().supports_websockets() {
         #[cfg(feature = "tracing")]
         tracing::debug!("Websocket are not supported on your webserver!");
@@ -356,96 +325,110 @@ where
         return Ok(Response::builder()
             .status(StatusCode::INTERNAL_SERVER_ERROR)
             .body(vec![])?);
+    } else {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Accepting websocket connection");
     }
 
-    let cookies = req.cookies();
+    // TODO: Remove need for `_internal_dangerously_clone`
+    let ctx = match ctx_fn.exec(req._internal_dangerously_clone(), None) {
+        Ok(v) => v,
+        Err(_err) => {
+            #[cfg(feature = "tracing")]
+            tracing::error!("Error executing context function: {}", _err);
+
+            return Ok(Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(vec![])?);
+        }
+    };
+
+    let cookies = req.cookies(); // TODO: Reorder args of next func so cookies goes first
     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
-        let mut subscriptions = HashMap::new();
-        let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
+        let (tx, mut rx) = socket.split(); // TODO: Can httpz do this in a more efficient manner -> It's doing locking internally cause it's agnostic to `Stream`
+        let subscription_manager = WebsocketSubscriptionManager(
+            Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::new())),
+            Arc::new(tokio::sync::Mutex::new(tx)),
+        );
 
-        loop {
-            tokio::select! {
-                biased; // Note: Order is important here
-                msg = rx.next() => {
-                    match socket.send(Message::Text(match serde_json::to_string(&msg) {
-                        Ok(v) => v,
-                        Err(_err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Error serializing websocket message: {}", _err);
-
+        while let Some(msg) = rx.next().await {
+            match msg {
+                Ok(msg) => {
+                    let res = match msg {
+                        Message::Text(text) => serde_json::from_str::<Value>(&text),
+                        Message::Binary(binary) => serde_json::from_slice(&binary),
+                        Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
                             continue;
                         }
-                    })).await {
-                        Ok(_) => {}
-                        Err(_err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Error sending websocket message: {}", _err);
+                        Message::Frame(_) => unreachable!(),
+                    };
 
-                            continue;
-                        }
-                    }
-                }
-                msg = socket.next() => {
-                    match msg {
-                        Some(Ok(msg) )=> {
-                           let res = match msg {
-                                Message::Text(text) => serde_json::from_str::<Value>(&text),
-                                Message::Binary(binary) => serde_json::from_slice(&binary),
-                                Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
-                                    continue;
-                                }
-                                Message::Frame(_) => unreachable!(),
-                            };
+                    match res.and_then(|v| match v.is_array() {
+                        true => serde_json::from_value::<Vec<exec::Request>>(v),
+                        false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
+                    }) {
+                        Ok(reqs) => {
+                            let responses = executor
+                                .execute_batch(
+                                    ctx.clone(),
+                                    reqs,
+                                    Some(subscription_manager.clone()),
+                                )
+                                .await;
 
-                            match res.and_then(|v| match v.is_array() {
-                                    true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
-                                    false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
-                                }) {
-                                Ok(reqs) => {
-                                    for request in reqs {
-                                        let ctx = ctx_fn.exec(req._internal_dangerously_clone(), None);
-                                        handle_json_rpc(match ctx {
-                                            Ok(v) => v,
-                                            Err(_err) => {
-                                                #[cfg(feature = "tracing")]
-                                                tracing::error!("Error executing context function: {}", _err);
-
-                                                continue;
-                                            }
-                                        }, request, Cow::Borrowed(&router), SubscriptionSender(&mut tx, &mut subscriptions)
-                                        ).await;
-                                    }
-                                },
+                            let msg = match serde_json::to_string(&responses) {
+                                Ok(v) => v,
                                 Err(_err) => {
                                     #[cfg(feature = "tracing")]
-                                    tracing::error!("Error parsing websocket message: {}", _err);
-
-                                    // TODO: Send report of error to frontend
+                                    tracing::error!(
+                                        "Error serializing websocket message: {}",
+                                        _err
+                                    );
 
                                     continue;
                                 }
                             };
+
+                            subscription_manager
+                                .1
+                                .lock()
+                                .await
+                                .send(Message::Text(msg))
+                                .await
+                                .map_err(|_err| {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!(
+                                        "Error serializing websocket message: {}",
+                                        _err
+                                    );
+                                })
+                                .ok();
                         }
-                        Some(Err(_err)) => {
+                        Err(_err) => {
                             #[cfg(feature = "tracing")]
-                            tracing::error!("Error in websocket: {}", _err);
+                            tracing::error!("Error parsing websocket message: {}", _err);
 
                             // TODO: Send report of error to frontend
 
                             continue;
-                        },
-                        None => {
-                            #[cfg(feature = "tracing")]
-                            tracing::debug!("Shutting down websocket connection");
-
-                            // TODO: Send report of error to frontend
-
-                            return;
-                        },
-                    }
+                        }
+                    };
                 }
+                Err(_err) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Error in websocket: {}", _err);
+
+                    // TODO: Send report of error to frontend
+
+                    continue;
+                }
+            }
         }
-        }
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Shutting down websocket connection");
+
+        // TODO: Terminate all subscriptions
     })
     .into_response()
 }

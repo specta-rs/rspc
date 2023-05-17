@@ -2,7 +2,6 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::Write,
-    marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -20,7 +19,7 @@ use crate::{
 // TODO: Completely remove this file
 
 /// TODO
-pub struct CompiledRouter<TCtx = (), TMeta = ()>
+pub struct CompiledRouter<TCtx = ()>
 where
     TCtx: 'static,
 {
@@ -29,87 +28,35 @@ where
     pub(crate) mutations: ProcedureStore<TCtx>,
     pub(crate) subscriptions: ProcedureStore<TCtx>,
     pub(crate) typ_store: TypeDefs,
-    pub(crate) phantom: PhantomData<TMeta>,
 }
 
-impl<TCtx, TMeta> CompiledRouter<TCtx, TMeta>
+impl<TCtx> CompiledRouter<TCtx>
 where
     TCtx: Send + 'static,
 {
-    // // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
-    // pub async fn exec(
-    //     &self,
-    //     ctx: TCtx,
-    //     kind: ExecKind,
-    //     key: String,
-    //     input: Option<Value>,
-    // ) -> Result<Value, ExecError> {
-    //     let (operations, kind) = match kind {
-    //         ExecKind::Query => (&self.queries.store, ProcedureKind::Query),
-    //         ExecKind::Mutation => (&self.mutations.store, ProcedureKind::Mutation),
-    //     };
-
-    //     let mut stream = operations
-    //         .get(&key)
-    //         .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-    //         .exec
-    //         .dyn_call(
-    //             ctx,
-    //             input.unwrap_or(Value::Null),
-    //             RequestContext {
-    //                 kind,
-    //                 path: key.clone(),
-    //             },
-    //         );
-
-    //     stream.next().await.unwrap()
-    // }
-
-    // // TODO: Deprecate these in 0.1.3 and move into internal package and merge with `execute_jsonrpc`?
-    // pub async fn exec_subscription(
-    //     &self,
-    //     ctx: TCtx,
-    //     key: String,
-    //     input: Option<Value>,
-    // ) -> Result<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>>, ExecError> {
-    //     Ok(self
-    //         .subscriptions
-    //         .store
-    //         .get(&key)
-    //         .ok_or_else(|| ExecError::OperationNotFound(key.clone()))?
-    //         .exec
-    //         .dyn_call(
-    //             ctx,
-    //             input.unwrap_or(Value::Null),
-    //             RequestContext {
-    //                 kind: ProcedureKind::Subscription,
-    //                 path: key.clone(),
-    //             },
-    //         ))
-    // }
-
     pub fn arced(self) -> Arc<Self> {
         Arc::new(self)
     }
 
-    // pub fn typ_store(&self) -> TypeDefs {
-    //     self.typ_store.clone()
-    // }
+    #[cfg(feature = "unstable")]
+    pub fn typ_store(&self) -> TypeDefs {
+        self.typ_store.clone()
+    }
 
-    // // TODO: Drop this API in v1
-    // pub fn queries(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-    //     &self.queries.store
-    // }
+    #[cfg(feature = "unstable")]
+    pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+        &self.queries.store
+    }
 
-    // // TODO: Drop this API in v1
-    // pub fn mutations(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-    //     &self.mutations.store
-    // }
+    #[cfg(feature = "unstable")]
+    pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+        &self.mutations.store
+    }
 
-    // // TODO: Drop this API in v1
-    // pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
-    //     &self.subscriptions.store
-    // }
+    #[cfg(feature = "unstable")]
+    pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+        &self.subscriptions.store
+    }
 
     #[allow(clippy::unwrap_used)] // TODO
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {

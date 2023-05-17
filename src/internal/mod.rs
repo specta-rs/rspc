@@ -4,7 +4,6 @@
 //!
 
 pub mod exec;
-pub mod jsonrpc;
 pub mod middleware;
 pub mod procedure;
 
@@ -74,8 +73,7 @@ mod tests {
         let tys = collect_datatypes! {
             super::ProcedureDataType,
             // crate::Procedures, // TODO
-            super::jsonrpc::Request,
-            // super::jsonrpc::Response, // TODO
+            // TODO: Export `executor` types and use them on the frontend
         };
 
         for (_, ty) in tys.into_iter().filter_map(|(sid, v)| v.map(|v| (sid, v))) {

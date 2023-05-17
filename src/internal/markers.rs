@@ -1,12 +1,18 @@
 mod private {
     use std::marker::PhantomData;
 
-    use crate::internal::{jsonrpc::RequestKind, middleware::ProcedureKind};
+    use crate::internal::middleware::ProcedureKind;
 
     // TODO: I don't wanna call these markers cause they are runtime not just type level. Rename them.
 
     pub trait ProcedureMarkerKind: 'static {
         fn kind(&self) -> ProcedureKind;
+    }
+
+    #[derive(Clone, Copy)]
+    pub enum RequestKind {
+        Query,
+        Mutation,
     }
 
     pub struct RequestLayerMarker<T>(RequestKind, PhantomData<T>);
@@ -41,4 +47,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{ProcedureMarkerKind, RequestLayerMarker, StreamLayerMarker};
+pub(crate) use private::{ProcedureMarkerKind, RequestKind, RequestLayerMarker, StreamLayerMarker};

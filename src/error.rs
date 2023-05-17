@@ -3,12 +3,15 @@ use std::{error, fmt, sync::Arc};
 use serde::Serialize;
 use specta::{ts::TsExportError, Type};
 
-use crate::internal::jsonrpc::JsonRPCError;
+use crate::internal::exec::ResponseError;
 
+// TODO: Context based `ExecError`. Always include the `path` of the procedure on it.
+// TODO: Cleanup this
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum ExecError {
-    #[error("the requested operation '{0}' is not supported by this server")]
-    OperationNotFound(String),
+    #[error("the requested operation is not supported by this server")]
+    OperationNotFound,
     #[error("error deserializing procedure arguments: {0}")]
     DeserializingArgErr(serde_json::Error),
     #[error("error serializing procedure result: {0}")]
@@ -16,22 +19,26 @@ pub enum ExecError {
     #[cfg(feature = "axum")]
     #[error("error in axum extractor")]
     AxumExtractorError,
-    #[error("invalid JSON-RPC version")]
-    InvalidJsonRpcVersion,
-    #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
-    UnsupportedMethod(String),
+    // #[error("invalid JSON-RPC version")]
+    // InvalidJsonRpcVersion,
+    // #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
+    // UnsupportedMethod(String),
     #[error("resolver threw error")]
     ErrResolverError(#[from] Error),
     #[error("error creating subscription with null id")]
     ErrSubscriptionWithNullId,
     #[error("error creating subscription with duplicate id")]
     ErrSubscriptionDuplicateId,
+    #[error("error the current transport does not support subscriptions")]
+    ErrSubscriptionsNotSupported,
+    #[error("error a procedure returned an empty stream")]
+    ErrStreamEmpty,
 }
 
 impl From<ExecError> for Error {
     fn from(v: ExecError) -> Error {
         match v {
-            ExecError::OperationNotFound(_) => Error {
+            ExecError::OperationNotFound => Error {
                 code: ErrorCode::NotFound,
                 message: "the requested operation is not supported by this server".to_string(),
                 cause: None,
@@ -52,17 +59,13 @@ impl From<ExecError> for Error {
                 message: "Error running Axum extractors on the HTTP request".into(),
                 cause: None,
             },
-            ExecError::InvalidJsonRpcVersion => Error {
-                code: ErrorCode::BadRequest,
-                message: "invalid JSON-RPC version".into(),
-                cause: None,
-            },
+            // ExecError::InvalidJsonRpcVersion => Error {
+            //     code: ErrorCode::BadRequest,
+            //     message: "invalid JSON-RPC version".into(),
+            //     cause: None,
+            // },
             ExecError::ErrResolverError(err) => err,
-            ExecError::UnsupportedMethod(_) => Error {
-                code: ErrorCode::BadRequest,
-                message: "unsupported metho".into(),
-                cause: None,
-            },
+
             ExecError::ErrSubscriptionWithNullId => Error {
                 code: ErrorCode::BadRequest,
                 message: "error creating subscription with null request id".into(),
@@ -73,14 +76,36 @@ impl From<ExecError> for Error {
                 message: "error creating subscription with duplicate id".into(),
                 cause: None,
             },
+            ExecError::ErrSubscriptionsNotSupported => Error {
+                code: ErrorCode::BadRequest,
+                message: "error the current transport does not support subscriptions".into(),
+                cause: None,
+            },
+            ExecError::ErrStreamEmpty => Error {
+                code: ErrorCode::InternalServerError,
+                message: "error a procedure returned an empty stream".into(),
+                cause: None,
+            },
         }
     }
 }
 
-impl From<ExecError> for JsonRPCError {
+// impl From<ExecError> for JsonRPCError {
+//     fn from(err: ExecError) -> Self {
+//         let x: Error = err.into();
+//         x.into()
+//     }
+// }
+
+impl From<ExecError> for ResponseError {
     fn from(err: ExecError) -> Self {
-        let x: Error = err.into();
-        x.into()
+        // TODO: Clean this up when doing typesafe errors
+        Self {
+            code: 500,
+            // TODO: Don't expose the error to the frontend by default
+            message: err.to_string(),
+            data: None,
+        }
     }
 }
 
@@ -101,15 +126,15 @@ pub struct Error {
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl From<Error> for JsonRPCError {
-    fn from(err: Error) -> Self {
-        JsonRPCError {
-            code: err.code.to_status_code() as i32,
-            message: err.message,
-            data: None,
-        }
-    }
-}
+// impl From<Error> for JsonRPCError {
+//     fn from(err: Error) -> Self {
+//         JsonRPCError {
+//             code: err.code.to_status_code() as i32,
+//             message: err.message,
+//             data: None,
+//         }
+//     }
+// }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
