@@ -16,8 +16,6 @@ use crate::{
     Config, ExportError,
 };
 
-// TODO: Completely remove this file
-
 /// TODO
 pub struct CompiledRouter<TCtx = ()>
 where
@@ -58,7 +56,8 @@ where
         &self.subscriptions.store
     }
 
-    #[allow(clippy::unwrap_used)] // TODO
+    #[allow(clippy::unwrap_used)] // TODO: Fix dis plz
+    #[cfg(feature = "typescript")]
     pub fn export_ts<TPath: AsRef<Path>>(&self, export_path: TPath) -> Result<(), ExportError> {
         let export_path = PathBuf::from(export_path.as_ref());
         if let Some(export_dir) = export_path.parent() {

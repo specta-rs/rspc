@@ -63,22 +63,22 @@ where
 
         #[cfg(not(debug_assertions))]
         {
-            self.errors = r.errors;
+            self.errors.append(&mut r.errors);
         }
 
         #[cfg(debug_assertions)]
         {
-            self.errors = r
-                .errors
-                .into_iter()
-                .map(|mut err| {
-                    err.name = Cow::Owned(format!("{}.{}", prefix, err.name));
-                    err
-                })
-                .collect();
+            self.errors.extend(&mut r.errors.into_iter().map(|mut err| {
+                err.name = Cow::Owned(format!("{}.{}", prefix, err.name));
+                err
+            }));
         }
 
-        self.procedures.append(&mut r.procedures);
+        self.procedures.extend(
+            r.procedures
+                .into_iter()
+                .map(|(name, p)| (Cow::Owned(format!("{}.{}", prefix, name)), p)),
+        );
 
         self
     }

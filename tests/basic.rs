@@ -1,39 +1,104 @@
-use rspc::{BuildError, BuildResult, Config, Rspc};
+use rspc::{
+    internal::exec::{Executor, Request, TokioRuntime, ValueOrError},
+    BuildResult, Config, Rspc,
+};
+use serde_json::Value;
 
 // TODO: Test that a stream can't be returned from a query/mutation -> Using trybuild
 
+mod utils;
+use utils::*;
+
 const R: Rspc<()> = Rspc::new();
 
-#[test]
-fn test_router_merging() {
-    let r1 = R.router().procedure("a", R.query(|_, _: ()| Ok(())));
-    let r2 = R.router().procedure("b", R.query(|_, _: ()| Ok(())));
-    let r3 = R
+#[tokio::test]
+async fn test_router_merging() {
+    let r = R
         .router()
-        .merge("r1", r1)
-        .merge("r2", r2)
+        .procedure("a", R.query(|_, _: ()| Ok(())))
+        .merge("r1", R.router().procedure("b", R.query(|_, _: ()| Ok(()))))
+        .merge("r2", R.router().procedure("c", R.query(|_, _: ()| Ok(()))))
         .build(Config::new())
-        .unwrap();
+        .unwrap()
+        .arced();
 
-    // TODO: Test the thing works
+    let e = Executor::<_, TokioRuntime>::new(r);
+
+    // Call procedure on primary router
+    assert_resp(
+        &e,
+        Request::Query {
+            path: "a".into(),
+            input: None,
+        },
+        ValueOrError::Value(Value::Null),
+    )
+    .await;
+
+    // Call procedure on subrouter
+    assert_resp(
+        &e,
+        Request::Query {
+            path: "r1.b".into(),
+            input: None,
+        },
+        ValueOrError::Value(Value::Null),
+    )
+    .await;
+
+    // Call procedure on another subrouter
+    assert_resp(
+        &e,
+        Request::Query {
+            path: "r2.c".into(),
+            input: None,
+        },
+        ValueOrError::Value(Value::Null),
+    )
+    .await;
 }
 
 #[test]
-fn test_invalid_router_merging() {
+fn test_invalid_prefix() {
+    const VERY_LONG_NAME: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
     let result = R
         .router()
         .procedure("@@@", R.query(|_, _: ()| Ok(())))
         .procedure("demo.2", R.query(|_, _: ()| Ok(())))
+        .procedure("", R.query(|_, _: ()| Ok(())))
+        .procedure(VERY_LONG_NAME, R.query(|_, _: ()| Ok(())))
+        .merge(
+            "invalid.prefix",
+            R.router().procedure("a", R.query(|_, _: ()| Ok(()))),
+        )
         .build(Config::new());
 
     let errors = match result {
         BuildResult::Err(e) => e,
         BuildResult::Ok(_) => panic!("Expected error"),
     };
-    assert_eq!(errors.len(), 2);
+    assert_eq!(errors.len(), 5);
 
     assert_eq!(errors[0].expose(), ("@@@".into(), "a procedure or router name contains the character '@' which is not allowed. Names must be alphanumeric or have '_' or '-'".into()));
     assert_eq!(errors[1].expose(), ("demo.2".into(), "a procedure or router name contains the character '.' which is not allowed. Names must be alphanumeric or have '_' or '-'".into()));
+    assert_eq!(
+        errors[2].expose(),
+        (
+            "".into(),
+            "a procedure or router name must be more than 1 character and less than 255 characters"
+                .into()
+        )
+    );
+    assert_eq!(
+        errors[3].expose(),
+        (
+            VERY_LONG_NAME.into(),
+            "a procedure or router name must be more than 1 character and less than 255 characters"
+                .into()
+        )
+    );
+    assert_eq!(errors[4].expose(), ("invalid.prefix".into(), "a procedure or router name contains the character '.' which is not allowed. Names must be alphanumeric or have '_' or '-'".into()));
 }
 
 // #[test]

@@ -24,7 +24,9 @@ impl BuildError {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub(crate) enum BuildErrorCause {
-    #[error("a procedure or router name must be less than 255 characters")]
+    #[error(
+        "a procedure or router name must be more than 1 character and less than 255 characters"
+    )]
     InvalidName,
     #[error("a procedure or router name contains the character '{0}' which is not allowed. Names must be alphanumeric or have '_' or '-'")]
     InvalidCharInName(char),

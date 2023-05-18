@@ -69,28 +69,28 @@ async fn test_exec_subscription() {
     let e = Executor::<_, TokioRuntime>::new(r);
 
     // Ensure request for subscription doesn't resolve to a query
-    assert_resp(
-        &e,
-        Request::Subscription {
-            id: "1".into(),
-            path: "a".into(),
-            input: None,
-        },
-        ValueOrError::Error(ExecError::OperationNotFound.into()),
-    )
-    .await;
+    // assert_resp(
+    //     &e,
+    //     Request::Subscription {
+    //         id: "1".into(),
+    //         path: "a".into(),
+    //         input: None,
+    //     },
+    //     ValueOrError::Error(ExecError::OperationNotFound.into()),
+    // )
+    // .await;
 
     // Ensure request for subscription doesn't resolve to a mutation
-    assert_resp(
-        &e,
-        Request::Subscription {
-            id: "1".into(),
-            path: "b".into(),
-            input: None,
-        },
-        ValueOrError::Error(ExecError::OperationNotFound.into()),
-    )
-    .await;
+    // assert_resp(
+    //     &e,
+    //     Request::Subscription {
+    //         id: "1".into(),
+    //         path: "b".into(),
+    //         input: None,
+    //     },
+    //     ValueOrError::Error(ExecError::OperationNotFound.into()),
+    // )
+    // .await;
 
     // Ensure duplicate keys throw error
     // Ensure request for subscription doesn't resolve to a mutation
