@@ -1,7 +1,7 @@
 use async_stream::stream;
 use rspc::{
     internal::exec::{Executor, Request, ResponseError, TokioRuntime, ValueOrError},
-    Config, ExecError, Rspc,
+    ExecError, Rspc,
 };
 use serde_json::Value;
 
@@ -37,7 +37,7 @@ async fn test_exec_query() {
                 async move { input }
             }),
         )
-        .build(Config::new())
+        .build()
         .unwrap()
         .arced();
 

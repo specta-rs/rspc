@@ -27,7 +27,7 @@ harness = false
 
 [features]
 default = ["typescript"]
-tauri = ["dep:tauri", "tokio"]
+tauri = ["dep:tauri", "tokio", "tauri/wry"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
 anyhow = ["dep:anyhow"]

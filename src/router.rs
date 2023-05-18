@@ -8,7 +8,7 @@ use crate::{
         procedure::{BuildProceduresCtx, IntoProcedureLike},
         ProcedureStore,
     },
-    BuildError, BuildResult, CompiledRouter, Config,
+    BuildError, BuildResult, CompiledRouter,
 };
 
 pub struct Router<TCtx>
@@ -83,7 +83,7 @@ where
         self
     }
 
-    pub fn build(self, config: Config) -> BuildResult<TCtx> {
+    pub fn build(self) -> BuildResult<TCtx> {
         if self.errors.len() > 0 {
             return BuildResult::Err(self.errors);
         }
@@ -107,18 +107,11 @@ where
         }
 
         let router = CompiledRouter {
-            config,
             queries,
             mutations,
             subscriptions,
             typ_store,
         };
-
-        #[cfg(debug_assertions)]
-        #[allow(clippy::unwrap_used)]
-        if let Some(export_path) = &router.config.export_bindings_on_build {
-            router.export_ts(export_path).unwrap();
-        }
 
         BuildResult::Ok(router)
     }

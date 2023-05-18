@@ -1,6 +1,6 @@
 use rspc::{
     internal::exec::{Executor, Request, TokioRuntime, ValueOrError},
-    BuildResult, Config, Rspc,
+    BuildResult, Rspc,
 };
 use serde_json::Value;
 
@@ -18,7 +18,7 @@ async fn test_router_merging() {
         .procedure("a", R.query(|_, _: ()| Ok(())))
         .merge("r1", R.router().procedure("b", R.query(|_, _: ()| Ok(()))))
         .merge("r2", R.router().procedure("c", R.query(|_, _: ()| Ok(()))))
-        .build(Config::new())
+        .build()
         .unwrap()
         .arced();
 
@@ -72,7 +72,7 @@ fn test_invalid_prefix() {
             "invalid.prefix",
             R.router().procedure("a", R.query(|_, _: ()| Ok(()))),
         )
-        .build(Config::new());
+        .build();
 
     let errors = match result {
         BuildResult::Err(e) => e,

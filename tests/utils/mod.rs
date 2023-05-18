@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use rspc::internal::exec::{
     Executor, ExecutorResult, NoOpSubscriptionManager, Request, Response, TokioRuntime,
     ValueOrError,

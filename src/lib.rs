@@ -19,7 +19,6 @@
 pub mod unstable;
 
 mod compiled_router;
-mod config;
 mod error;
 mod procedure_like;
 mod router;
@@ -29,7 +28,6 @@ mod selection;
 
 pub use crate::rspc::*;
 pub use compiled_router::*;
-pub use config::*;
 pub use error::*;
 pub use procedure_like::*; // TODO: Move into procedure
 pub use router::*;
