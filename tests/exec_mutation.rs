@@ -38,6 +38,7 @@ async fn test_exec_mutation() {
             }),
         )
         .build(Config::new())
+        .unwrap()
         .arced();
 
     let e = Executor::<_, TokioRuntime>::new(r);

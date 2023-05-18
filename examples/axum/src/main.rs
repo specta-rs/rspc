@@ -6,6 +6,7 @@ use rspc::{integrations::httpz::Request, Config, Rspc};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
+#[derive(Clone)]
 struct Ctx {
     x_demo_header: Option<String>,
 }
@@ -81,6 +82,7 @@ async fn main() {
             .build(Config::new().export_ts_bindings(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
             ))
+            .unwrap()
             .arced(); // This function is a shortcut to wrap the router in an `Arc`.
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!

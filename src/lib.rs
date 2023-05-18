@@ -23,6 +23,7 @@ mod config;
 mod error;
 mod procedure_like;
 mod router;
+mod router_error;
 mod rspc;
 mod selection;
 
@@ -32,6 +33,7 @@ pub use config::*;
 pub use error::*;
 pub use procedure_like::*; // TODO: Move into procedure
 pub use router::*;
+pub use router_error::*;
 pub use selection::*;
 
 pub mod integrations;

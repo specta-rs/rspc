@@ -1,20 +1,40 @@
-// TODO: Test that a stream can be returned from a query/mutation -> Using trybuild
+use rspc::{BuildError, BuildResult, Config, Rspc};
 
-// use std::{path::PathBuf, time::Duration};
+// TODO: Test that a stream can't be returned from a query/mutation -> Using trybuild
 
-// use async_stream::stream;
-// use serde::{de::DeserializeOwned, Serialize};
-// use specta::Type;
-// use tokio::time::sleep;
+const R: Rspc<()> = Rspc::new();
 
-// use rspc::{
-//     internal::ConstrainedMiddleware,
-//     unstable::{MwArgMapper, MwArgMapperMiddleware},
-//     ProcedureLike, Rspc,
-// };
+#[test]
+fn test_router_merging() {
+    let r1 = R.router().procedure("a", R.query(|_, _: ()| Ok(())));
+    let r2 = R.router().procedure("b", R.query(|_, _: ()| Ok(())));
+    let r3 = R
+        .router()
+        .merge("r1", r1)
+        .merge("r2", r2)
+        .build(Config::new())
+        .unwrap();
 
-// #[allow(non_upper_case_globals)]
-// const R: Rspc<()> = Rspc::new();
+    // TODO: Test the thing works
+}
+
+#[test]
+fn test_invalid_router_merging() {
+    let result = R
+        .router()
+        .procedure("@@@", R.query(|_, _: ()| Ok(())))
+        .procedure("demo.2", R.query(|_, _: ()| Ok(())))
+        .build(Config::new());
+
+    let errors = match result {
+        BuildResult::Err(e) => e,
+        BuildResult::Ok(_) => panic!("Expected error"),
+    };
+    assert_eq!(errors.len(), 2);
+
+    assert_eq!(errors[0].expose(), ("@@@".into(), "a procedure or router name contains the character '@' which is not allowed. Names must be alphanumeric or have '_' or '-'".into()));
+    assert_eq!(errors[1].expose(), ("demo.2".into(), "a procedure or router name contains the character '.' which is not allowed. Names must be alphanumeric or have '_' or '-'".into()));
+}
 
 // #[test]
 // fn test_alpha_api() {

@@ -1,13 +1,14 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, panic::Location};
 
 use specta::TypeDefs;
 
 use crate::{
     internal::{
+        is_valid_name,
         procedure::{BuildProceduresCtx, IntoProcedureLike},
         ProcedureStore,
     },
-    CompiledRouter, Config,
+    BuildError, BuildResult, CompiledRouter, Config,
 };
 
 pub struct Router<TCtx>
@@ -15,6 +16,7 @@ where
     TCtx: Send + Sync + 'static,
 {
     procedures: Vec<(Cow<'static, str>, Box<dyn IntoProcedureLike<TCtx>>)>,
+    errors: Vec<BuildError>,
 }
 
 impl<TCtx> Router<TCtx>
@@ -26,82 +28,66 @@ where
     pub(crate) fn new() -> Self {
         Self {
             procedures: Vec::new(),
+            errors: Vec::new(),
         }
     }
 
+    #[track_caller]
     pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedureLike<TCtx>) -> Self {
+        if let Some(cause) = is_valid_name(key) {
+            self.errors.push(BuildError {
+                cause,
+                #[cfg(debug_assertions)]
+                name: Cow::Borrowed(key),
+                #[cfg(debug_assertions)]
+                loc: Location::caller(),
+            });
+        }
+
         self.procedures
             .push((Cow::Borrowed(key), Box::new(procedure)));
         self
     }
 
-    // TODO
-    // pub fn merge(self, prefix: &'static str, r: impl RouterBuilderLike<TCtx>) -> Self {
-    //     // TODO: disallow `.` in prefix
-    //     let r = r.expose();
-    //     todo!();
-    // }
+    #[track_caller]
+    pub fn merge(mut self, prefix: &'static str, mut r: Router<TCtx>) -> Self {
+        if let Some(cause) = is_valid_name(prefix) {
+            self.errors.push(BuildError {
+                cause,
+                #[cfg(debug_assertions)]
+                name: Cow::Borrowed(prefix),
+                #[cfg(debug_assertions)]
+                loc: Location::caller(),
+            });
+        }
 
-    // TODO: Get this working
-    // pub fn merge(
-    //     mut self,
-    //     prefix: &'static str,
-    //     router: impl RouterBuilderLike<TCtx>,
-    // ) -> Self {
-    //     // TODO
-    //     // let (prefix, prefix_valid) = is_invalid_router_prefix(prefix);
-    //     // #[allow(clippy::panic)]
-    //     // if prefix_valid {
-    //     //     eprintln!(
-    //     //         "{}: rspc error: attempted to merge a router with the prefix '{}', however this prefix is not allowed. ",
-    //     //         Location::caller(),
-    //     //         prefix
-    //     //     );
-    //     //     process::exit(1);
-    //     // }
+        #[cfg(not(debug_assertions))]
+        {
+            self.errors = r.errors;
+        }
 
-    //     self.procedures.extend(
-    //         router
-    //             .procedures()
-    //             .into_iter()
-    //             .map(|(key, procedure)| (Cow::Owned(format!("{}{}", prefix, key)), procedure)),
-    //     );
+        #[cfg(debug_assertions)]
+        {
+            self.errors = r
+                .errors
+                .into_iter()
+                .map(|mut err| {
+                    err.name = Cow::Owned(format!("{}.{}", prefix, err.name));
+                    err
+                })
+                .collect();
+        }
 
-    //     self
-    // }
+        self.procedures.append(&mut r.procedures);
 
-    // #[deprecated = "TODO: Remove this"]
-    // pub fn compat(self) -> BuiltRouter<TCtx, ()> {
-    //     // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
-    //     let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
-    //     let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
-    //     let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
-    //     let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
+        self
+    }
 
-    //     let mut ctx = IntoProceduresCtx {
-    //         ty_store: &mut typ_store,
-    //         queries: &mut queries,
-    //         mutations: &mut mutations,
-    //         subscriptions: &mut subscriptions,
-    //     };
+    pub fn build(self, config: Config) -> BuildResult<TCtx> {
+        if self.errors.len() > 0 {
+            return BuildResult::Err(self.errors);
+        }
 
-    //     for (key, mut procedure) in self.procedures.into_iter() {
-    //         // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-    //         procedure.build(key, &mut ctx);
-    //     }
-
-    //     BuiltRouter {
-    //         config: Config::new(),
-    //         queries,
-    //         mutations,
-    //         subscriptions,
-    //         typ_store,
-    //         phantom: PhantomData,
-    //     }
-    // }
-
-    // TODO: Change the return type and clean this whole system up
-    pub fn build(self, config: Config) -> CompiledRouter<TCtx> {
         // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
@@ -134,6 +120,6 @@ where
             router.export_ts(export_path).unwrap();
         }
 
-        router
+        BuildResult::Ok(router)
     }
 }
