@@ -23,7 +23,7 @@ thiserror = "1.0.40"
 walkdir = "2"
 
 [dev-dependencies]
-tempdir = "0.3.7"
+tempfile = "3.4.0"
 cargo = "0.69.1"
 tokio = { version = "1.27.0", features = ["full", "process"] }
 futures = "0.3.28"
