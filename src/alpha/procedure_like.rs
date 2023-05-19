@@ -1,11 +1,10 @@
-use crate::{internal::ProcedureKind, RequestLayer, StreamRequestLayer};
-
 use super::{
-    AlphaBaseMiddleware, AlphaMiddlewareBuilderLike, AlphaProcedure, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    AlphaMiddlewareBuilderLike, AlphaProcedure, AlphaRequestLayer, FutureMarker,
+    RequestLayerMarker, ResolverFunction, StreamLayerMarker, StreamMarker,
 };
 
 /// TODO
+// TODO: Rename cause this trait is exposed to userspace
 pub trait ProcedureLike {
     type Middleware: AlphaMiddlewareBuilderLike<LayerCtx = Self::LayerCtx>;
     type LayerCtx: Send + Sync + 'static;
@@ -17,7 +16,7 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>;
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>;
 
     fn mutation<R, RMarker>(
         self,
@@ -26,7 +25,7 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>;
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>;
 
     fn subscription<R, RMarker>(
         self,
@@ -35,5 +34,5 @@ pub trait ProcedureLike {
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>;
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>;
 }

@@ -13,18 +13,19 @@
     "@rspc/client": "workspace:*",
     "@rspc/react": "workspace:*",
     "@rspc/solid": "workspace:*",
-    "@tanstack/react-query": "^4.26.0",
-    "@tanstack/solid-query": "^4.26.0",
-    "astro": "2.0.17",
+    "@tanstack/react-query": "^4.29.5",
+    "@tanstack/solid-query": "^4.29.5",
+    "astro": "2.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "solid-js": "^1.6.11"
+    "solid-js": "^1.7.3"
   },
   "devDependencies": {
+    "@astrojs/react": "^2.1.1",
+    "@astrojs/solid-js": "^2.1.0",
     "@rspc/config": "workspace:*",
-    "@astrojs/react": "^2.0.2",
-    "@astrojs/solid-js": "^2.0.2",
-    "@types/react": "^18.0.28"
+    "@types/react": "^18.2.0",
+    "typescript": "^5.0.4"
   },
   "pnpm": {
     "peerDependencyRules": {

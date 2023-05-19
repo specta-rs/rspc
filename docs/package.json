@@ -8,20 +8,24 @@
     "start": "next start"
   },
   "dependencies": {
-    "@vercel/og": "^0.3.0",
-    "next": "^13.2.3",
-    "nextra": "^2.2.17",
-    "nextra-theme-docs": "^2.2.17",
+    "@headlessui/react": "^1.7.14",
+    "@heroicons/react": "^2.0.17",
+    "@vercel/og": "^0.5.4",
+    "next": "^13.3.2",
+    "nextra": "^2.4.2",
+    "nextra-theme-docs": "^2.4.2",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-popper": "^2.3.0"
   },
   "devDependencies": {
     "@rspc/config": "workspace:*",
-    "@types/node": "18.14.6",
-    "autoprefixer": "^10.4.13",
-    "postcss": "^8.4.21",
-    "tailwindcss": "^3.2.7",
+    "@types/node": "18.16.3",
+    "@types/react": "^18.2.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.23",
+    "tailwindcss": "^3.3.2",
     "tslib": "^2.5.0",
-    "typescript": "^4.9.5"
+    "typescript": "^5.0.4"
   }
 }

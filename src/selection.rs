@@ -9,8 +9,8 @@ macro_rules! selection {
                 pub use $crate::*;
             }
 
-            #[derive(serde::Serialize, _rspc::Type)]
-            #[specta(inline, crate = "_rspc::internal::specta")]
+            #[derive(serde::Serialize, specta::Type)]
+            #[specta(inline)]
             pub struct Selection<$($n,)*> {
                 $(pub $n: $n),*
             }
@@ -22,14 +22,8 @@ macro_rules! selection {
     ( $s:expr, [{ $($n:ident),+ }] ) => {{
         #[allow(non_camel_case_types)]
         mod selection {
-            // Due to macro expansion order `$crate` can't go in the Specta attribute but when hardcoding `rspc` macro hygiene get's angry.
-            // This hack is to avoid both issues.
-            mod _rspc {
-                pub use $crate::*;
-            }
-
-            #[derive(serde::Serialize, _rspc::Type)]
-            #[specta(inline, crate = "_rspc::internal::specta")]
+            #[derive(serde::Serialize, specta::Type)]
+            #[specta(inline)]
             pub struct Selection<$($n,)*> {
                 $(pub $n: $n,)*
             }
@@ -77,6 +71,6 @@ mod tests {
         let s2 = selection!(users, [{ name, age }]);
         assert_eq!(s2[0].name, "Monty Beaumont".to_string());
         assert_eq!(s2[0].age, 7);
-        assert_eq!(ts_export_ref(&s2), "{ name: string; age: number }[]");
+        assert_eq!(ts_export_ref(&s2), "({ name: string; age: number })[]");
     }
 }

@@ -27,6 +27,7 @@ impl RequestId {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(test, derive(specta::Type))]
 pub struct Request {
+    #[serde(default)]
     pub jsonrpc: Option<String>, // This is required in the JsonRPC spec but I make it optional.
     #[serde(default = "RequestId::null")] // Optional is not part of spec but copying tRPC
     pub id: RequestId,
@@ -43,19 +44,46 @@ pub struct Request {
 pub enum RequestInner {
     Query {
         path: String,
+        #[serde(default)] // TODO: Compatibility
         input: Option<Value>,
     },
     Mutation {
         path: String,
+        #[serde(default)] // TODO: Compatibility
         input: Option<Value>,
     },
     Subscription {
         path: String,
-        input: (RequestId, Option<Value>),
+        // The new system doesn't take an input but the old one does so this is design to make them compatible
+        // TODO: Replace it with the new value
+        #[serde(default)]
+        input: NewOrOldInput,
     },
-    SubscriptionStop {
-        input: RequestId,
-    },
+    // The new system doesn't take an input but the old one does so this is design to make them compatible
+    // TODO: Remove value and `SubscriptionStop` struct in future
+    SubscriptionStop(#[serde(default)] Option<SubscriptionStop>),
+}
+
+// TODO: Remove this in future
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
+#[serde(untagged)]
+pub enum NewOrOldInput {
+    New(RequestId, Option<Value>),
+    Old(Option<Value>),
+}
+
+impl Default for NewOrOldInput {
+    fn default() -> Self {
+        Self::Old(None)
+    }
+}
+
+// TODO: Remove this in future
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[cfg_attr(test, derive(specta::Type))]
+pub struct SubscriptionStop {
+    pub input: RequestId,
 }
 
 #[derive(Debug, Clone, Serialize)] // TODO: Add `specta::Type` when supported

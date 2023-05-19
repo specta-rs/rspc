@@ -15,6 +15,7 @@ Cargo.lock
 
 # Typescript bindings exported by the examples
 bindings.ts
+!examples/bindings.ts
 
 # Node
 node_modules

@@ -39,6 +39,7 @@ impl CookieJar {
 
     /// Returns a reference to the `Cookie` inside this jar with the name
     /// `name`. If no such cookie exists, returns `None`.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn get(&self, name: &str) -> Option<Cookie<'static>> {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().get(name).cloned() // TODO: `cloned` is cringe avoid it by removing `Mutex`?
@@ -54,6 +55,7 @@ impl CookieJar {
     ///
     /// For accurate `delta` computations, this method should not be called
     /// after calling `remove`.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn add_original(&self, cookie: Cookie<'static>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().add_original(cookie)
@@ -61,6 +63,7 @@ impl CookieJar {
 
     /// Adds `cookie` to this jar. If a cookie with the same name already
     /// exists, it is replaced with `cookie`.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn add(&self, cookie: Cookie<'static>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().add(cookie);
@@ -78,6 +81,7 @@ impl CookieJar {
     ///
     /// Removing a new cookie does not result in a _removal_ cookie unless
     /// there's an original cookie with the same name:
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn remove(&self, cookie: Cookie<'static>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().remove(cookie)
@@ -87,6 +91,7 @@ impl CookieJar {
     /// `remove` in that no delta cookie is created under any condition. Neither
     /// the `delta` nor `iter` methods will return a cookie that is removed
     /// using this method.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn force_remove(&self, cookie: &Cookie<'_>) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().force_remove(cookie)
@@ -96,6 +101,7 @@ impl CookieJar {
     /// [`CookieJar::add_original()`], from this `CookieJar`. This undoes any
     /// changes from [`CookieJar::add()`] and [`CookieJar::remove()`]
     /// operations.
+    #[allow(clippy::panic)] // TODO: Remove this
     pub fn reset_delta(&self) {
         #[allow(clippy::unwrap_used)] // TODO
         self.0.lock().unwrap().reset_delta()
@@ -270,6 +276,9 @@ where
                                 .await
                                 .into_response()
                         }
+                        (&Method::POST, "_batch") => handle_http_batch(ctx_fn, req, &router)
+                            .await
+                            .into_response(),
                         (&Method::POST, _) => {
                             handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
                                 .await
@@ -283,6 +292,7 @@ where
     }
 }
 
+#[allow(clippy::unwrap_used)] // TODO: Remove this
 pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
@@ -440,6 +450,117 @@ where
     };
 
     Ok((resp, cookies))
+}
+
+#[allow(clippy::unwrap_used)] // TODO: Remove this
+pub async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
+    ctx_fn: TCtxFn,
+    req: httpz::Request,
+    router: &Arc<Router<TCtx>>,
+) -> impl HttpResponse
+where
+    TCtx: Send + Sync + 'static,
+    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+{
+    let cookies = req.cookies();
+    match serde_json::from_slice::<Vec<jsonrpc::Request>>(req.body()) {
+        Ok(reqs) => {
+            let cookie_jar = Arc::new(Mutex::new(cookies));
+            let old_cookies = req.cookies().clone();
+
+            let mut responses = Vec::with_capacity(reqs.len());
+            for op in reqs {
+                // TODO: Make `TCtx` require clone and only run the ctx function once for the whole batch.
+                let ctx = ctx_fn.exec(
+                    req._internal_dangerously_clone(),
+                    Some(CookieJar::new(cookie_jar.clone())),
+                );
+
+                let ctx = match ctx {
+                    Ok(v) => v,
+                    Err(_err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error executing context function: {}", _err);
+
+                        return Ok((
+                            Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .header("Content-Type", "application/json")
+                                .body(b"[]".to_vec())?,
+                            // TODO: Props just return `None` here so that we don't allocate or need a clone.
+                            old_cookies, // If cookies were set in the context function they will be lost but it errored so thats probs fine.
+                        ));
+                    }
+                };
+
+                // #[cfg(feature = "tracing")]
+                // tracing::debug!(
+                //     "Executing operation '{}' with key '{}' with params {:?}",
+                //     kind.to_str(),
+                //     procedure_name,
+                //     input
+                // );
+
+                // TODO: Probs catch panics so they don't take out the whole batch
+                let mut response = None as Option<jsonrpc::Response>;
+                handle_json_rpc(ctx, op, Cow::Borrowed(router), &mut response).await;
+                debug_assert!(response.is_some()); // This would indicate a bug in rspc's jsonrpc_exec code
+                if let Some(response) = response {
+                    responses.push(response);
+                }
+            }
+
+            let cookies = {
+                match Arc::try_unwrap(cookie_jar) {
+                    Ok(cookies) => cookies.into_inner().unwrap(),
+                    Err(cookie_jar) => {
+                        #[cfg(all(feature = "tracing", feature = "warning", debug_assertions))]
+                        tracing::warn!("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
+                        #[cfg(all(not(feature = "tracing"), feature = "warning", debug_assertions))]
+                        println("Your application continued to hold a reference to the `CookieJar` after returning from your resolver. This forced rspc to clone it, but this most likely indicates a potential bug in your system.");
+
+                        cookie_jar.lock().unwrap().clone()
+                    }
+                }
+            };
+
+            match serde_json::to_vec(&responses) {
+                Ok(v) => Ok((
+                    Response::builder()
+                        .status(StatusCode::OK)
+                        .header("Content-Type", "application/json")
+                        .body(v)?,
+                    cookies,
+                )),
+                Err(_err) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Error serializing batch request: {}", _err);
+
+                    Ok((
+                        Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .header("Content-Type", "application/json")
+                            .body(b"[]".to_vec())?,
+                        cookies,
+                    ))
+                }
+            }
+        }
+        Err(_err) => {
+            #[cfg(feature = "tracing")]
+            tracing::error!("Error deserializing batch request: {}", _err);
+
+            println!("Error deserializing batch request: {}", _err); // TODO
+
+            Ok((
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "application/json")
+                    .body(b"[]".to_vec())?,
+                cookies,
+            ))
+        }
+    }
 }
 
 pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(

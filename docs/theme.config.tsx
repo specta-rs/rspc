@@ -1,7 +1,8 @@
 import Image from "next/image";
-import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
+import { DocsThemeConfig } from "nextra-theme-docs";
 import logoIcon from "./public/logo.png";
 import { useRouter } from "next/router";
+import { Switchers } from "./components/Switchers";
 
 const config: DocsThemeConfig = {
   docsRepositoryBase: "https://github.com/oscartbeaumont/rspc/tree/main/docs",
@@ -97,11 +98,21 @@ const config: DocsThemeConfig = {
       </>
     ),
   },
+  // DO NOT REMOVE or search will be broken. This is a workaround for https://github.com/shuding/nextra/issues/1213
   search: {
-    component: <></>, // TODO: Algolia doc search
+    loading: "Loading...",
   },
   footer: {
     component: <></>,
+  },
+  sidebar: {
+    titleComponent({ title, type }) {
+      if (type === "separator" && title === "switchers") {
+        return <Switchers />;
+      }
+
+      return <>{title}</>;
+    },
   },
 };
 

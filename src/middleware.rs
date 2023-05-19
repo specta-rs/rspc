@@ -83,27 +83,6 @@ where
     }
 }
 
-#[cfg(feature = "alpha")] // TODO: Stablise
-impl<TLayerCtx, TNewCtx, TState> MiddlewareContext<TLayerCtx, TNewCtx, TState>
-where
-    TLayerCtx: Send,
-    TNewCtx: Send,
-    TState: Send,
-{
-    pub fn map_arg(
-        self,
-        // arg: impl FnOnce(TLayerCtx) -> TNewCtx,
-    ) -> MiddlewareContext<TLayerCtx, TNewCtx, TState> {
-        MiddlewareContext {
-            state: self.state,
-            input: self.input,
-            ctx: self.ctx,
-            req: self.req,
-            phantom: PhantomData,
-        }
-    }
-}
-
 pub struct Middleware<TState, TLayerCtx, TNewCtx, THandlerFunc, THandlerFut>
 where
     TState: Send,

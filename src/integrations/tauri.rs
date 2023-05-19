@@ -1,140 +1,252 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
-
-use futures::{SinkExt, StreamExt};
-use futures_channel::mpsc;
-use futures_locks::Mutex;
-use tauri::{
-    plugin::{Builder, TauriPlugin},
-    Runtime, WindowEvent,
+use std::{
+    borrow::Cow,
+    collections::{hash_map::DefaultHasher, HashMap},
+    future::{ready, Ready},
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    sync::{Arc, Mutex},
 };
 
+use futures::executor::block_on;
+use serde_json::Value;
+use tauri::{
+    async_runtime::spawn,
+    plugin::{Builder, TauriPlugin},
+    Runtime, Window, WindowEvent,
+};
+use tokio::sync::oneshot;
+
 use crate::{
-    internal::jsonrpc::{self, handle_json_rpc, SubscriptionSender},
+    internal::jsonrpc::{
+        self, handle_json_rpc, OwnedSender, RequestId, Sender, SubscriptionUpgrade,
+    },
     Router,
 };
 
-pub fn plugin<R: Runtime, TCtx, TMeta>(
+type SubscriptionMap = Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>;
+
+pub struct TauriSender<R: Runtime>(Window<R>, SubscriptionMap);
+
+impl<'a, R: Runtime> Sender<'a> for TauriSender<R> {
+    type SendFut = Ready<()>;
+    type SubscriptionMap = SubscriptionMap;
+    type OwnedSender = TauriOwnedSender<R>;
+
+    fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
+        SubscriptionUpgrade::Supported(TauriOwnedSender(self.0.clone()), self.1)
+    }
+
+    fn send(self, resp: jsonrpc::Response) -> Self::SendFut {
+        self.0
+            .emit("plugin:rspc:transport:resp", resp)
+            .map_err(|err| {
+                #[cfg(feature = "tracing")]
+                tracing::error!("failed to emit JSON-RPC response: {}", err);
+            })
+            .ok();
+        ready(())
+    }
+}
+
+pub struct TauriOwnedSender<R: Runtime>(Window<R>);
+
+impl<R: Runtime> OwnedSender for TauriOwnedSender<R> {
+    type SendFut<'a> = Ready<()>;
+
+    fn send(&mut self, resp: jsonrpc::Response) -> Self::SendFut<'_> {
+        self.0
+            .emit("plugin:rspc:transport:resp", resp)
+            .map_err(|err| {
+                #[cfg(feature = "tracing")]
+                tracing::error!("failed to emit JSON-RPC response: {}", err);
+            })
+            .ok();
+        ready(())
+    }
+}
+
+struct WindowManager<TCtxFn, TCtx, TMeta, R>
+where
+    TCtx: Send + Sync + 'static,
+    TMeta: Send + Sync + 'static,
+    R: Runtime + Send + Sync + 'static,
+    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+{
+    router: Arc<Router<TCtx, TMeta>>,
+    ctx_fn: TCtxFn,
+    windows: Mutex<HashMap<u64, SubscriptionMap>>,
+    phantom: PhantomData<&'static R>,
+}
+
+impl<TCtxFn, TCtx, TMeta, R> WindowManager<TCtxFn, TCtx, TMeta, R>
+where
+    TCtx: Send + Sync + 'static,
+    TMeta: Send + Sync + 'static,
+    R: Runtime + Send + Sync + 'static,
+    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+{
+    pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx, TMeta>>) -> Arc<Self> {
+        Arc::new(Self {
+            router,
+            ctx_fn,
+            windows: Mutex::new(HashMap::new()),
+            phantom: PhantomData,
+        })
+    }
+
+    pub fn on_page_load(self: Arc<Self>, window: Window<R>) {
+        let mut hasher = DefaultHasher::new();
+        window.hash(&mut hasher);
+        let window_hash = hasher.finish();
+
+        let mut windows = self.windows.lock().unwrap();
+        // Shutdown all subscriptions for the previously loaded page is there was one
+        if let Some(subscriptions) = windows.get(&window_hash) {
+            let mut subscriptions = block_on(subscriptions.lock());
+            for (_, tx) in subscriptions.drain() {
+                tx.send(()).ok();
+            }
+        } else {
+            let subscriptions = SubscriptionMap::default();
+            windows.insert(window_hash, subscriptions.clone());
+            drop(windows);
+
+            window.listen("plugin:rspc:transport", {
+                let window = window.clone();
+                move |event| {
+                    let reqs = match event.payload() {
+                        Some(v) => {
+                            let v = match serde_json::from_str::<serde_json::Value>(v) {
+                                Ok(v) => match v {
+                                    Value::String(s) => {
+                                        match serde_json::from_str::<serde_json::Value>(&s) {
+                                            Ok(v) => v,
+                                            Err(err) => {
+                                                #[cfg(feature = "tracing")]
+                                                tracing::error!(
+                                                    "failed to parse JSON-RPC request: {}",
+                                                    err
+                                                );
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    v => v,
+                                },
+                                Err(err) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                    return;
+                                }
+                            };
+
+                            match if v.is_array() {
+                                serde_json::from_value::<Vec<jsonrpc::Request>>(v)
+                            } else {
+                                serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v])
+                            } {
+                                Ok(v) => v,
+                                Err(err) => {
+                                    #[cfg(feature = "tracing")]
+                                    tracing::error!("failed to parse JSON-RPC request: {}", err);
+                                    return;
+                                }
+                            }
+                        }
+                        None => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("Tauri event payload is empty");
+
+                            return;
+                        }
+                    };
+
+                    for req in reqs {
+                        let ctx = (self.ctx_fn)(window.clone());
+                        let router = self.router.clone();
+                        let window = window.clone();
+
+                        spawn(handle_json_rpc(
+                            ctx,
+                            req,
+                            Cow::Owned(router),
+                            TauriSender(window, subscriptions.clone()),
+                        ));
+                    }
+                }
+            });
+        }
+    }
+
+    pub fn close_requested(&self, window: &Window<R>) {
+        let mut hasher = DefaultHasher::new();
+        window.hash(&mut hasher);
+        let window_hash = hasher.finish();
+
+        if let Some(rspc_window) = self.windows.lock().unwrap().remove(&window_hash) {
+            spawn(async move {
+                let mut subscriptions = rspc_window.lock().await;
+                for (_, tx) in subscriptions.drain() {
+                    tx.send(()).ok();
+                }
+            });
+        }
+    }
+}
+
+// #[deprecated("Use `plugin_with_ctx` instead")]
+pub fn plugin<R, TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
     ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
-    TCtx: Send + 'static,
+    R: Runtime + Send + Sync + 'static,
+    TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
-    let ctx_fn = Arc::new(ctx_fn);
-    // let active_windows = Arc::new(Mutex::new(HashMap::new()));
+    let manager = WindowManager::new(move |_| ctx_fn(), router);
     Builder::new("rspc")
         .on_page_load(move |window, _page| {
-            let (shutdown_tx, mut shutdown_rx) = mpsc::channel(1);
-            let (resp_tx, mut resp_rx) = mpsc::channel(1024);
-            let subscriptions = Arc::new(Mutex::new(HashMap::new()));
+            manager.clone().on_page_load(window.clone());
 
-            tokio::spawn({
+            window.on_window_event({
                 let window = window.clone();
-                // let shutdown_tx = shutdown_tx.clone();
-                async move {
-                    // {
-                    //     let active_windows = active_windows.lock().await;
-                    //     // The window previously had a page open but given a `page_reload` event has happened to trigger this we can shutdown all it's subscriptions
-                    //     if let Some(shutdown_tx) = active_windows.get(&window.id()) {
-                    //         shutdown_tx
-                    //             .send(())
-                    //             .await
-                    //             .map_err(|_| {
-                    //                 #[cfg(feature = "tracing")]
-                    //                 tracing::error!("failed to emit shutdown signal");
-                    //             })
-                    //             .ok();
-                    //     }
-
-                    //     // Add the current window into the map
-                    //     active_windows.lock().await.insert(window.id(), shutdown_tx); // TODO: If `window.id()` existed this could be a workaround
-                    // }
-
-                    loop {
-                        tokio::select! {
-                            biased;
-                            _ = shutdown_rx.next() => {
-                                println!("SHUTDOWN {:?}", _page.url()); // TODO
-                                break;
-                            }
-                            res = resp_rx.next() => {
-                                if let Some(res) = res {
-                                    window
-                                        .emit("plugin:rspc:transport:resp", res)
-                                        .map_err(|err| {
-                                            #[cfg(feature = "tracing")]
-                                            tracing::error!("failed to emit JSON-RPC response: {}", err);
-                                        })
-                                        .ok();
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
+                let manager = manager.clone();
+                move |event| match event {
+                    WindowEvent::CloseRequested { .. } => {
+                        manager.close_requested(&window);
                     }
+                    _ => {}
                 }
-            });
+            })
+        })
+        .build()
+}
 
-            // TODO: Clear subscriptions on page reload also
+pub fn plugin_with_ctx<R: Runtime, TCtx, TMeta>(
+    router: Arc<Router<TCtx, TMeta>>,
+    ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+) -> TauriPlugin<R>
+where
+    R: Runtime + Send + Sync + 'static,
+    TCtx: Send + Sync + 'static,
+    TMeta: Send + Sync + 'static,
+{
+    let manager = WindowManager::new(ctx_fn, router);
+    Builder::new("rspc")
+        .on_page_load(move |window, _page| {
+            manager.clone().on_page_load(window.clone());
 
-            window.on_window_event(move |event| match event {
-                WindowEvent::CloseRequested { .. } => {
-                    println!("Closing window"); // TODO
-                    let mut shutdown_tx = shutdown_tx.clone();
-                    tokio::spawn(async move {
-                        shutdown_tx
-                            .send(())
-                            .await
-                            .map_err(|_| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("failed to emit shutdown signal");
-                            })
-                            .ok();
-                    });
-                },
-                // WindowEvent::Reload {
-                //     // This would be the same as `WindowEvent::CloseRequested` and would save me needing to keep track of the windows in a map like also shown above
-                // }
-                _ => {}
-            });
-
-            let router = router.clone();
-            let ctx_fn = ctx_fn.clone();
-            window.listen("plugin:rspc:transport", move |event| {
-                let req: jsonrpc::Request = match event.payload() {
-                    Some(v) => match serde_json::from_str::<jsonrpc::Request>(v) {
-                        Ok(v) => v,
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("failed to parse JSON-RPC request: {}", err);
-                            return;
-                        }
-                    },
-                    None => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Tauri event payload is empty");
-
-                        return;
+            window.on_window_event({
+                let window = window.clone();
+                let manager = manager.clone();
+                move |event| match event {
+                    WindowEvent::CloseRequested { .. } => {
+                        manager.close_requested(&window);
                     }
-                };
-
-                let ctx = ctx_fn();
-                let mut resp_tx = resp_tx.clone();
-                let subscriptions = subscriptions.clone();
-                let router = router.clone();
-
-                tokio::spawn(async move {
-                    // When the thread which holds the receiver for `resp_rx` is dropped it will cause this thread to be shutdown.
-                    handle_json_rpc(
-                        ctx,
-                        req,
-                        Cow::Owned(router),
-                        SubscriptionSender(&mut resp_tx, subscriptions),
-                    )
-                    .await;
-                });
-            });
+                    _ => {}
+                }
+            })
         })
         .build()
 }

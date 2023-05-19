@@ -1,5 +1,10 @@
 import "../styles.css";
+import { Provider } from "../components/Switchers";
 
 export default function App({ Component, pageProps }) {
-  return <Component {...pageProps} />;
+  return (
+    <Provider>
+      <Component {...pageProps} />
+    </Provider>
+  );
 }

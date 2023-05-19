@@ -11,13 +11,13 @@ fn router() -> axum::Router {
     axum::Router::new()
         .route("/", get(|| async { "Welcome to your new rspc app!" }))
         .route("/health", get(|| async { "Ok!" }))
-        .route("/rspc/:id", router.endpoint(|| Ctx {}).axum())
+        .next("/rspc", router.endpoint(|| Ctx {}).axum())
 }
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    
+
     let addr = "[::]:9000".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("{} listening on http://{}", env!("CARGO_CRATE_NAME"), addr);
     axum::Server::bind(&addr)

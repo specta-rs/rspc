@@ -1,29 +1,26 @@
 use std::marker::PhantomData;
 
-use serde::de::DeserializeOwned;
-use specta::Type;
-
-use crate::{
-    internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareLayerBuilder, ProcedureKind,
-        UnbuiltProcedureBuilder,
-    },
-    MiddlewareBuilder, MiddlewareLike, RequestLayer, RouterBuilder, StreamRequestLayer,
-};
-
 use super::{
-    procedure::AlphaProcedure, AlphaBaseMiddleware, AlphaMiddlewareBuilder,
-    AlphaMiddlewareBuilderLike, AlphaMiddlewareLayerBuilder, AlphaMiddlewareLike, AlphaRouter,
-    MiddlewareArgMapper, MiddlewareMerger, MissingResolver, RequestKind, RequestLayerMarker,
-    ResolverFunction, StreamLayerMarker,
+    middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
+    AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, FutureMarker, MissingResolver,
+    MwV2, MwV2Result, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    StreamMarker,
 };
 
+/// Rspc is a starting point for constructing rspc procedures or routers.
+///
+/// This method supports const contexts so it can be instantiated at the top level as reuse across the whole application.
+///
+/// ```rust
+/// use rspc::alpha::Rspc;
+///
+/// const R: Rspc<()> = Rspc::new();
+/// ```
 pub struct Rspc<
     TCtx = (), // The is the context the current router was initialised with
 > where
     TCtx: Send + Sync + 'static,
 {
-    builders: Vec<Box<dyn FnOnce()>>,
     phantom: PhantomData<TCtx>,
 }
 
@@ -34,7 +31,6 @@ where
 {
     pub const fn new() -> Self {
         Self {
-            builders: Vec::new(),
             phantom: PhantomData,
         }
     }
@@ -48,19 +44,29 @@ where
         AlphaRouter::new()
     }
 
-    // TODO: Remove the `BaseMiddleware` from this join cause it shouldn't be required
-    pub fn with<TNewMiddleware>(
+    pub fn with<Mw: MwV2<TCtx>>(
         self,
-        builder: impl Fn(AlphaMiddlewareBuilder<TCtx, (), ()>) -> TNewMiddleware, // TODO: Remove builder closure
+        mw: Mw,
     ) -> AlphaProcedure<
-        MissingResolver<TNewMiddleware::NewCtx>,
+        MissingResolver<Mw::NewCtx>,
         (),
-        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, TNewMiddleware>,
-    >
-    where
-        TNewMiddleware: AlphaMiddlewareLike<LayerCtx = TCtx>,
-    {
-        let mw = builder(AlphaMiddlewareBuilder(PhantomData));
+        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw>,
+    > {
+        AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
+            middleware: AlphaBaseMiddleware::new(),
+            mw,
+        })
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn with2<Mw: super::MwV3<TCtx>>(
+        self,
+        mw: Mw,
+    ) -> AlphaProcedure<
+        MissingResolver<Mw::NewCtx>,
+        (),
+        AlphaMiddlewareLayerBuilder<AlphaBaseMiddleware<TCtx>, Mw>,
+    > {
         AlphaProcedure::new_from_middleware(AlphaMiddlewareLayerBuilder {
             middleware: AlphaBaseMiddleware::new(),
             mw,
@@ -69,49 +75,49 @@ where
 
     pub fn query<R, RMarker>(
         self,
-        builder: R,
+        resolver: R,
     ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Query),
             AlphaBaseMiddleware::new(),
-            builder,
+            resolver,
         )
     }
 
     pub fn mutation<R, RMarker>(
         self,
-        builder: R,
+        resolver: R,
     ) -> AlphaProcedure<R, RequestLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = FutureMarker>,
     {
         AlphaProcedure::new_from_resolver(
             RequestLayerMarker::new(RequestKind::Mutation),
             AlphaBaseMiddleware::new(),
-            builder,
+            resolver,
         )
     }
 
     pub fn subscription<R, RMarker>(
         self,
-        builder: R,
+        resolver: R,
     ) -> AlphaProcedure<R, StreamLayerMarker<RMarker>, AlphaBaseMiddleware<TCtx>>
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: StreamRequestLayer<R::RequestMarker>,
+        R::Result: AlphaRequestLayer<R::RequestMarker, Type = StreamMarker>,
     {
         AlphaProcedure::new_from_resolver(
             StreamLayerMarker::new(),
             AlphaBaseMiddleware::new(),
-            builder,
+            resolver,
         )
     }
 }

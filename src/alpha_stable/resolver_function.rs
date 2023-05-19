@@ -3,13 +3,17 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
-use crate::{internal::ProcedureDataType, RequestLayer, StreamRequestLayer};
+use crate::{alpha_stable::AlphaRequestLayer, internal::ProcedureDataType};
 
-use super::{RequestLayerMarker, StreamLayerMarker};
+use super::{FutureMarker, RequestLayerMarker, StreamLayerMarker, StreamMarker};
+
+pub trait AlphaMiddlewareBuilderLikeCompat {
+    type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
+}
 
 pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
     type LayerCtx: Send + Sync + 'static;
-    type Arg: DeserializeOwned + Type;
+    type Arg: DeserializeOwned + Type + 'static;
     type RequestMarker;
     type Result;
     type ResultMarker;
@@ -18,13 +22,13 @@ pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
 
     fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
 
-    fn typedef(
+    fn typedef<TMiddleware: AlphaMiddlewareBuilderLikeCompat>(
         key: Cow<'static, str>,
         defs: &mut TypeDefs,
     ) -> Result<ProcedureDataType, TsExportError> {
         Ok(ProcedureDataType {
             key,
-            input: <Self::Arg as Type>::reference(
+            input: <TMiddleware::Arg<Self::Arg> as Type>::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map: defs,
@@ -42,6 +46,8 @@ pub trait ResolverFunction<TMarker>: Send + Sync + 'static {
     }
 }
 
+// TODO: Merge the following two impls? They are differentiated by `Type = X` but they have different markers through the rest of the system.
+
 pub struct Marker<A, B, C, D>(PhantomData<(A, B, C, D)>);
 
 impl<
@@ -52,8 +58,8 @@ impl<
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     > ResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
-    TArg: DeserializeOwned + Type,
-    TResult: RequestLayer<TResultMarker>,
+    TArg: DeserializeOwned + Type + 'static,
+    TResult: AlphaRequestLayer<TResultMarker, Type = FutureMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;
@@ -76,8 +82,8 @@ impl<
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
     > ResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>> for F
 where
-    TArg: DeserializeOwned + Type,
-    TResult: StreamRequestLayer<TResultMarker>,
+    TArg: DeserializeOwned + Type + 'static,
+    TResult: AlphaRequestLayer<TResultMarker, Type = StreamMarker>,
     TLayerCtx: Send + Sync + 'static,
 {
     type LayerCtx = TLayerCtx;
@@ -96,6 +102,7 @@ pub struct MissingResolver<TLayerCtx> {
     phantom: PhantomData<TLayerCtx>,
 }
 
+// TODO: Remove this and put the `MissingResolver` in phantom data if possible
 impl<TLayerCtx> Default for MissingResolver<TLayerCtx> {
     fn default() -> Self {
         Self {

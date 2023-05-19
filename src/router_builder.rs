@@ -1,19 +1,21 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, process};
 
 use serde::de::DeserializeOwned;
-use specta::{Type, TypeDefs};
+use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::{
-    alpha_stable::ResolverFunction,
     internal::{
-        BaseMiddleware, BuiltProcedureBuilder, MiddlewareBuilderLike, MiddlewareLayerBuilder,
-        MiddlewareMerger, ProcedureStore, ResolverLayer, UnbuiltProcedureBuilder,
+        BaseMiddleware, BuiltProcedureBuilder, EitherLayer, MiddlewareBuilderLike,
+        MiddlewareLayerBuilder, MiddlewareMerger, ProcedureDataType, ProcedureStore, ResolverLayer,
+        UnbuiltProcedureBuilder,
     },
     Config, ExecError, MiddlewareBuilder, MiddlewareLike, RequestLayer, Router, StreamRequestLayer,
 };
 
 // TODO: Storing procedure names as an `ThinVec<Cow<'static, str>>` instead.
-pub(crate) fn is_invalid_procedure_name(s: &str) -> bool {
+#[doc(hidden)]
+// #[deprecated = "Removed in v1.0.0. Is now `<TResolver as ResolverFunction<_>>::typedef`"]
+pub fn is_invalid_procedure_name(s: &str) -> bool {
     // TODO: Prevent Typescript reserved keywords
     s.is_empty()
         || s == "ws"
@@ -121,6 +123,7 @@ where
     }
 }
 
+#[allow(clippy::unwrap_used)] // TODO: Remove this
 impl<TCtx, TLayerCtx, TMeta, TMiddleware> RouterBuilder<TCtx, TMeta, TMiddleware>
 where
     TCtx: Send + Sync + 'static,
@@ -128,6 +131,36 @@ where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn queries(&mut self) -> &mut ProcedureStore<TCtx> {
+        &mut self.queries
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn mutations(&mut self) -> &mut ProcedureStore<TCtx> {
+        &mut self.mutations
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn subscriptions(&mut self) -> &mut ProcedureStore<TCtx> {
+        &mut self.subscriptions
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn typ_store(&mut self) -> &mut TypeDefs {
+        &mut self.typ_store
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "unstable")]
+    pub fn prev_middleware(&mut self) -> &mut TMiddleware {
+        &mut self.middleware
+    }
+
     /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
     pub fn config(mut self, config: Config) -> Self {
         self.config = config;
@@ -176,7 +209,7 @@ where
     pub fn query<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
@@ -207,8 +240,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-                .unwrap(),
+            typedef::<TArg, TResult::Result>(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
         );
         self
     }
@@ -217,7 +249,7 @@ where
     pub fn mutation<TResolver, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(
+        builder: impl FnOnce(
             UnbuiltProcedureBuilder<TLayerCtx, TResolver>,
         ) -> BuiltProcedureBuilder<TResolver>,
     ) -> Self
@@ -248,8 +280,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            <TResolver as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store)
-                .unwrap(),
+            typedef::<TArg, TResult::Result>(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
         );
         self
     }
@@ -258,7 +289,7 @@ where
     pub fn subscription<F, TArg, TResult, TResultMarker>(
         mut self,
         key: &'static str,
-        builder: impl Fn(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
+        builder: impl FnOnce(UnbuiltProcedureBuilder<TLayerCtx, F>) -> BuiltProcedureBuilder<F>,
     ) -> Self
     where
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
@@ -287,7 +318,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            <F as ResolverFunction<_>>::typedef(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
+            typedef::<TArg, TResult::Result>(Cow::Borrowed(key), &mut self.typ_store).unwrap(),
         );
         self
     }
@@ -320,29 +351,48 @@ where
 
         for (key, query) in router.queries.store {
             // query.ty.key = format!("{}{}", prefix, key);
-            self.queries.append(
-                format!("{}{}", prefix, key),
-                self.middleware.build(query.exec),
-                query.ty,
-            );
+            match query.exec {
+                EitherLayer::Legacy(exec) => {
+                    self.queries.append(
+                        format!("{}{}", prefix, key),
+                        self.middleware.build(exec),
+                        query.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, mutation) in router.mutations.store {
             // mutation.ty.key = format!("{}{}", prefix, key);
-            self.mutations.append(
-                format!("{}{}", prefix, key),
-                self.middleware.build(mutation.exec),
-                mutation.ty,
-            );
+            match mutation.exec {
+                EitherLayer::Legacy(exec) => {
+                    self.mutations.append(
+                        format!("{}{}", prefix, key),
+                        self.middleware.build(exec),
+                        mutation.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, subscription) in router.subscriptions.store {
             // subscription.ty.key = format!("{}{}", prefix, key);
-            self.subscriptions.append(
-                format!("{}{}", prefix, key),
-                self.middleware.build(subscription.exec),
-                subscription.ty,
-            );
+
+            match subscription.exec {
+                EitherLayer::Legacy(exec) => {
+                    self.subscriptions.append(
+                        format!("{}{}", prefix, key),
+                        self.middleware.build(exec),
+                        subscription.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (name, typ) in router.typ_store {
@@ -396,30 +446,48 @@ where
         } = self;
 
         for (key, query) in router.queries.store {
-            queries.append(
-                format!("{}{}", prefix, key),
-                middleware.build(query.exec),
-                query.ty,
-            );
+            match query.exec {
+                EitherLayer::Legacy(exec) => {
+                    queries.append(
+                        format!("{}{}", prefix, key),
+                        middleware.build(exec),
+                        query.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, mutation) in router.mutations.store {
-            mutations.append(
-                format!("{}{}", prefix, key),
-                middleware.build(mutation.exec),
-                mutation.ty,
-            );
+            match mutation.exec {
+                EitherLayer::Legacy(exec) => {
+                    mutations.append(
+                        format!("{}{}", prefix, key),
+                        middleware.build(exec),
+                        mutation.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
         for (key, subscription) in router.subscriptions.store {
-            subscriptions.append(
-                format!("{}{}", prefix, key),
-                middleware.build(subscription.exec),
-                subscription.ty,
-            );
+            match subscription.exec {
+                EitherLayer::Legacy(exec) => {
+                    subscriptions.append(
+                        format!("{}{}", prefix, key),
+                        middleware.build(exec),
+                        subscription.ty,
+                    );
+                }
+                #[cfg(feature = "alpha")]
+                EitherLayer::Alpha(_) => todo!(),
+            }
         }
 
-        for (name, typ) in router.typ_store {
+        for (name, typ) in router.typ_store.into_iter() {
             typ_store.insert(name, typ);
         }
 
@@ -466,4 +534,29 @@ where
 
         router
     }
+}
+
+// #[deprecated = "Removed in v1.0.0. Is now `<TResolver as ResolverFunction<_>>::typedef`"]
+#[doc(hidden)]
+pub fn typedef<TArg: Type, TResult: Type>(
+    key: Cow<'static, str>,
+    defs: &mut TypeDefs,
+) -> Result<ProcedureDataType, TsExportError> {
+    Ok(ProcedureDataType {
+        key,
+        input: <TArg as Type>::reference(
+            DefOpts {
+                parent_inline: false,
+                type_map: defs,
+            },
+            &[],
+        )?,
+        result: <TResult as Type>::reference(
+            DefOpts {
+                parent_inline: false,
+                type_map: defs,
+            },
+            &[],
+        )?,
+    })
 }

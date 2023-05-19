@@ -54,7 +54,7 @@ fn main() {
     axum::Router::new()
         // Attach the rspc router to your axum router
         // The closure you provide is used to create a new request context for each request
-        .route("/rspc/:id",
+        .nest("/rspc",
             router
                 .endpoint(move || MyCtx {
                     db: db.clone(),
