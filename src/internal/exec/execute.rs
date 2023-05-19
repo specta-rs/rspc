@@ -185,13 +185,10 @@ mod private {
                     }),
                 },
                 Request::SubscriptionStop { id } => {
-                    match subscription_manager {
-                        Some(mut subscriptions) => {
-                            if let Some(task) = subscriptions.subscriptions().remove(id.as_ref()) {
-                                R::cancel_task(task);
-                            }
+                    if let Some(mut subscriptions) = subscription_manager {
+                        if let Some(task) = subscriptions.subscriptions().remove(id.as_ref()) {
+                            R::cancel_task(task);
                         }
-                        None => {}
                     }
 
                     ExecutorResult::None
@@ -262,7 +259,7 @@ mod private {
                     loop {
                         while let Some(result) = stream.next().await {
                             let (Ok(result) | Err(result)) = result
-                                .map(|v| ValueOrError::Value(v))
+                                .map(ValueOrError::Value)
                                 .map_err(|err| ValueOrError::Error(err.into()));
 
                             subscription_manager.send(Response::Event {

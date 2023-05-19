@@ -26,7 +26,7 @@ pub fn mount() -> Router<()> {
         "asyncPings",
         R.subscription(|_ctx, _args: ()| async move {
             stream! {
-                for i in 0..5 {
+                for _ in 0..5 {
                     yield Ok("ping".to_string());
                     sleep(Duration::from_secs(1)).await;
                 }
@@ -35,7 +35,7 @@ pub fn mount() -> Router<()> {
     )
     .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
         stream! {
-            for i in 0..5 {
+            for _ in 0..5 {
                 yield Ok("ping".to_string());
                 sleep(Duration::from_secs(1)).await;
             }

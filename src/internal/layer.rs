@@ -18,21 +18,11 @@ mod private {
     use super::*;
 
     pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
-        fn dyn_call<'a>(
-            &'a self,
-            a: TLayerCtx,
-            b: Value,
-            c: RequestContext,
-        ) -> FutureValueOrStream<'a>;
+        fn dyn_call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> FutureValueOrStream<'_>;
     }
 
     impl<TLayerCtx: Send + 'static, L: Layer<TLayerCtx>> DynLayer<TLayerCtx> for L {
-        fn dyn_call<'a>(
-            &'a self,
-            a: TLayerCtx,
-            b: Value,
-            c: RequestContext,
-        ) -> FutureValueOrStream<'a> {
+        fn dyn_call(&self, a: TLayerCtx, b: Value, c: RequestContext) -> FutureValueOrStream<'_> {
             match self.call(a, b, c) {
                 Ok(stream) => Box::pin(stream),
                 Err(err) => Box::pin(once(ready(Err(err)))),
@@ -44,12 +34,12 @@ mod private {
     pub trait SealedLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> {
         type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
 
-        fn call<'a>(
-            &'a self,
+        fn call(
+            &self,
             a: TLayerCtx,
             b: Value,
             c: RequestContext,
-        ) -> Result<Self::Stream<'a>, ExecError>;
+        ) -> Result<Self::Stream<'_>, ExecError>;
 
         fn erase(self) -> Box<dyn DynLayer<TLayerCtx>>
         where

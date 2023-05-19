@@ -39,12 +39,12 @@ mod private {
     {
         type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
 
-        fn call<'a>(
-            &'a self,
+        fn call(
+            &self,
             ctx: TLayerCtx,
             input: Value,
             req: RequestContext,
-        ) -> Result<Self::Stream<'a>, ExecError> {
+        ) -> Result<Self::Stream<'_>, ExecError> {
             let fut = self.mw.run_me(
                 ctx,
                 MiddlewareContext {

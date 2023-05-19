@@ -70,7 +70,7 @@ mod private {
         {
             Procedure::new_from_resolver(
                 RequestLayerMarker::new(RequestKind::Query),
-                self.1.take().unwrap(),
+                self.1.take().expect("error building query"),
                 builder,
             )
         }
@@ -87,7 +87,7 @@ mod private {
         {
             Procedure::new_from_resolver(
                 RequestLayerMarker::new(RequestKind::Mutation),
-                self.1.take().unwrap(),
+                self.1.take().expect("error building mutation"),
                 builder,
             )
         }
@@ -102,7 +102,11 @@ mod private {
             R::Result: RequestLayer<R::RequestMarker>
                 + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
         {
-            Procedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
+            Procedure::new_from_resolver(
+                StreamLayerMarker::new(),
+                self.1.take().expect("error building subscription"),
+                builder,
+            )
         }
     }
 
@@ -189,7 +193,7 @@ mod private {
         {
             Procedure::new_from_resolver(
                 RequestLayerMarker::new(RequestKind::Query),
-                self.1.take().unwrap(),
+                self.1.take().expect("rspc: error building query"),
                 builder,
             )
         }
@@ -206,7 +210,7 @@ mod private {
         {
             Procedure::new_from_resolver(
                 RequestLayerMarker::new(RequestKind::Query),
-                self.1.take().unwrap(),
+                self.1.take().expect("rspc: error building mutation"),
                 builder,
             )
         }
@@ -221,7 +225,11 @@ mod private {
             R::Result: RequestLayer<R::RequestMarker>
                 + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
         {
-            Procedure::new_from_resolver(StreamLayerMarker::new(), self.1.take().unwrap(), builder)
+            Procedure::new_from_resolver(
+                StreamLayerMarker::new(),
+                self.1.take().expect("rspc: error building subscription"),
+                builder,
+            )
         }
     }
 
@@ -233,10 +241,10 @@ mod private {
         R::Result: RequestLayer<R::RequestMarker>,
         TMiddleware: MiddlewareBuilder,
     {
-        fn build<'a, 'b>(
+        fn build<'b>(
             &'b mut self,
             key: Cow<'static, str>,
-            ctx: &'b mut BuildProceduresCtx<'a, TMiddleware::Ctx>,
+            ctx: &'b mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
         ) {
             let resolver = self
                 .0
@@ -250,21 +258,25 @@ mod private {
             };
 
             let key_str = key.to_string();
-            let type_def = R::typedef::<TMiddleware>(key, ctx.ty_store).unwrap(); // TODO: Error handling using `#[track_caller]`
+            let type_def =
+                R::typedef::<TMiddleware>(key, ctx.ty_store).expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
             m.append(
                 key_str,
-                self.1.take().unwrap().build(ResolverLayer {
-                    func: move |ctx, input, _| {
-                        Ok(resolver
-                            .exec(
-                                ctx,
-                                serde_json::from_value(input)
-                                    .map_err(ExecError::DeserializingArgErr)?,
-                            )
-                            .exec())
-                    },
-                    phantom: PhantomData,
-                }),
+                self.1
+                    .take()
+                    .expect("rspc: procedure was built twice. This is a fatal error.")
+                    .build(ResolverLayer {
+                        func: move |ctx, input, _| {
+                            Ok(resolver
+                                .exec(
+                                    ctx,
+                                    serde_json::from_value(input)
+                                        .map_err(ExecError::DeserializingArgErr)?,
+                                )
+                                .exec())
+                        },
+                        phantom: PhantomData,
+                    }),
                 type_def,
             );
         }

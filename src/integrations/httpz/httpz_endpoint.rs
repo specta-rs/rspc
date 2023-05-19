@@ -282,7 +282,7 @@ impl<R: AsyncRuntime> Clone for WebsocketSubscriptionManager<R> {
     }
 }
 
-impl<'this, R: AsyncRuntime> SubscriptionManager<R> for WebsocketSubscriptionManager<R> {
+impl<R: AsyncRuntime> SubscriptionManager<R> for WebsocketSubscriptionManager<R> {
     type Map<'a> = MutexGuard<'a, SubscriptionMap<R>>;
     type SendFut<'a> = Ready<()>; // TODO: We don't use this cause of the `MutexLock` but should fix that at some point.
 
@@ -344,7 +344,7 @@ where
     };
 
     let cookies = req.cookies(); // TODO: Reorder args of next func so cookies goes first
-    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
+    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |_, socket| async move {
         let (tx, mut rx) = socket.split(); // TODO: Can httpz do this in a more efficient manner -> It's doing locking internally cause it's agnostic to `Stream`
         let subscription_manager = WebsocketSubscriptionManager(
             Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::new())),

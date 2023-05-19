@@ -3,5 +3,5 @@
 mod procedure;
 mod procedure_like;
 
-pub use procedure::*;
+pub(crate) use procedure::*;
 pub use procedure_like::*;

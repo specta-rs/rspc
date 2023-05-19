@@ -24,7 +24,7 @@ pub struct ExportConfig {
 }
 
 impl ExportConfig {
-    pub fn new<'b>(export_path: impl Into<PathBuf>) -> ExportConfig {
+    pub fn new(export_path: impl Into<PathBuf>) -> ExportConfig {
         ExportConfig {
             export_path: export_path.into(),
             header: Cow::Borrowed(""),

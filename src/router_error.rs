@@ -60,7 +60,7 @@ impl<TCtx: 'static> BuildResult<TCtx> {
 
                     for error in &errors {
                         eprintln!("Error at '{}' with procedure '{}':", error.loc, error.name);
-                        eprintln!("\t error: {}\n", error.cause.to_string());
+                        eprintln!("\t error: {}\n", error.cause);
                     }
                 }
 

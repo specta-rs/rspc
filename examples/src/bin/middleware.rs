@@ -15,11 +15,11 @@ pub struct User {
     name: String,
 }
 
-async fn db_get_user_from_session(_session_id: &str) -> User {
-    User {
-        name: "Monty Beaumont".to_string(),
-    }
-}
+// async fn db_get_user_from_session(_session_id: &str) -> User {
+//     User {
+//         name: "Monty Beaumont".to_string(),
+//     }
+// }
 
 #[derive(Debug, Clone)]
 #[allow(unused)]

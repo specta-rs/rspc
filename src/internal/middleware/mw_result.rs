@@ -84,7 +84,12 @@ where
     type Resp = TResp;
 
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
-        Ok((self.ctx.unwrap(), self.input, self.req, self.resp))
+        Ok((
+            self.ctx.expect("error exploding mw result"),
+            self.input,
+            self.req,
+            self.resp,
+        ))
     }
 }
 

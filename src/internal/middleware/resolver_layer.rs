@@ -27,12 +27,12 @@ mod private {
     {
         type Stream<'a> = S;
 
-        fn call<'a>(
-            &'a self,
+        fn call(
+            &self,
             a: TLayerCtx,
             b: Value,
             c: RequestContext,
-        ) -> Result<Self::Stream<'a>, ExecError> {
+        ) -> Result<Self::Stream<'_>, ExecError> {
             (self.func)(a, b, c)
         }
     }

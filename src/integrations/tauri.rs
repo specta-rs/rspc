@@ -214,11 +214,10 @@ where
             window.on_window_event({
                 let window = window.clone();
                 let manager = manager.clone();
-                move |event| match event {
-                    WindowEvent::CloseRequested { .. } => {
+                move |event| {
+                    if let WindowEvent::CloseRequested { .. } = event {
                         manager.close_requested(&window);
                     }
-                    _ => {}
                 }
             })
         })

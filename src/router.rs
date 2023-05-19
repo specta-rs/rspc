@@ -50,6 +50,7 @@ where
     }
 
     #[track_caller]
+    #[allow(unused_mut)]
     pub fn merge(mut self, prefix: &'static str, mut r: Router<TCtx>) -> Self {
         if let Some(cause) = is_valid_name(prefix) {
             self.errors.push(BuildError {
@@ -84,7 +85,7 @@ where
     }
 
     pub fn build(self) -> BuildResult<TCtx> {
-        if self.errors.len() > 0 {
+        if !self.errors.is_empty() {
             return BuildResult::Err(self.errors);
         }
 

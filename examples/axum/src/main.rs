@@ -22,7 +22,6 @@ async fn main() {
                 "X-Demo-Header",
                 R.query(|ctx, _: ()| {
                     ctx.x_demo_header
-                        .clone()
                         .unwrap_or_else(|| "No header".to_string())
                 }),
             )

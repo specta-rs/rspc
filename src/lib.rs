@@ -12,6 +12,7 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )]
+#![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(feature = "unstable")]

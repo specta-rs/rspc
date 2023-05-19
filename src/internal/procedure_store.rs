@@ -73,7 +73,7 @@ mod private {
 use crate::BuildErrorCause;
 
 pub(crate) fn is_valid_name(name: &str) -> Option<BuildErrorCause> {
-    if name.len() == 0 || name.len() > 255 {
+    if name.is_empty() || name.len() > 255 {
         return Some(BuildErrorCause::InvalidName);
     }
 
@@ -83,7 +83,7 @@ pub(crate) fn is_valid_name(name: &str) -> Option<BuildErrorCause> {
         }
     }
 
-    return None;
+    None
 }
 
 pub(crate) use private::{ProcedureDataType, ProcedureStore, ProcedureTodo};

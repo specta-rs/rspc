@@ -49,6 +49,7 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
     ) -> impl Middleware<TLCtx, NewCtx = TNCtx>
     where
         TLCtx: Send + Sync + 'static,
+        TNCtx: Send + Sync + 'static,
         Fu: Future<Output = R> + Send + Sync + 'static,
         R: MwV2Result<Ctx = TNCtx> + Send + 'static,
     {
