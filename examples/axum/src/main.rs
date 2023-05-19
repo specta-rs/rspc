@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
 use axum::routing::get;
-use rspc::{integrations::httpz::Request, Config, Rspc};
+use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -69,21 +69,24 @@ async fn main() {
                     }
                 }),
             )
-            // TODO: Results being returned from subscriptions
-            // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
-            //     stream! {
-            //         for i in 0..5 {
-            //             yield Ok("ping".to_string());
-            //             sleep(Duration::from_secs(1)).await;
-            //         }
-            //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            //     }
-            // }))
-            .build(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ))
+            .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
+                stream! {
+                    for _ in 0..5 {
+                        yield Ok("ping".to_string());
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
+                }
+            }))
+            .build()
             .unwrap()
             .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+
+    router
+        .export_ts(ExportConfig::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        ))
+        .unwrap();
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()

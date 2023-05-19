@@ -17,6 +17,7 @@ pub struct BuildError {
 impl BuildError {
     /// DO NOT USE IT, it's for unit testing only and may change without a major version bump.
     #[doc(hidden)]
+    #[cfg(debug_assertions)]
     pub fn expose(&self) -> (String, String) {
         (self.name.to_string(), self.cause.to_string())
     }

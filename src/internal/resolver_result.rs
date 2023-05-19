@@ -196,6 +196,24 @@ mod private {
     }
 
     #[doc(hidden)]
+    pub enum StreamResultMarker {}
+    impl<TStream, T> SealedRequestLayer<StreamResultMarker> for TStream
+    where
+        TStream: Stream<Item = Result<T, Error>> + Send + Sync + 'static,
+        T: Serialize + Type,
+    {
+        type Result = T;
+        type Stream = MapStream<TStream>;
+        type Type = StreamMarkerType;
+
+        fn exec(self) -> Self::Stream {
+            MapStream(None, PinnedOption::Some(self), |v| {
+                serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+            })
+        }
+    }
+
+    #[doc(hidden)]
     pub enum FutureStreamMarker {}
     impl<TFut, TStream, T> SealedRequestLayer<FutureStreamMarker> for TFut
     where
@@ -236,6 +254,29 @@ mod private {
                 PinnedOption::Some(self),
                 PinnedOption::None,
                 |s| s.map_err(ExecError::ErrResolverError),
+                |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            )
+        }
+    }
+
+    #[doc(hidden)]
+    pub enum FutureStreamResultMarker {}
+    impl<TFut, TStream, T> SealedRequestLayer<FutureStreamResultMarker> for TFut
+    where
+        TFut: Future<Output = TStream> + Send + 'static,
+        TStream: Stream<Item = Result<T, Error>> + Send + Sync + 'static,
+        T: Serialize + Type,
+    {
+        type Result = T;
+        type Stream = FutureMapStream<TFut, TStream>;
+        type Type = StreamMarkerType;
+
+        fn exec(self) -> Self::Stream {
+            FutureMapStream(
+                None,
+                PinnedOption::Some(self),
+                PinnedOption::None,
+                |s| Ok(s),
                 |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
             )
         }
