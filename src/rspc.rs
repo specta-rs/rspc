@@ -52,7 +52,7 @@ where
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Mw::NewCtx>, (), MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
+    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, ()>
     {
         Procedure::new_from_middleware(MiddlewareLayerBuilder {
             middleware: BaseMiddleware::new(),
@@ -64,7 +64,7 @@ where
     pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Mw::NewCtx>, (), MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
+    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, ()>
     {
         Procedure::new_from_middleware(MiddlewareLayerBuilder {
             middleware: BaseMiddleware::new(),
@@ -75,7 +75,7 @@ where
     pub fn query<R, RMarker>(
         self,
         resolver: R,
-    ) -> Procedure<R, RequestLayerMarker<RMarker>, BaseMiddleware<TCtx>>
+    ) -> Procedure<R, BaseMiddleware<TCtx>, RequestLayerMarker<RMarker>>
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
@@ -92,7 +92,7 @@ where
     pub fn mutation<R, RMarker>(
         self,
         resolver: R,
-    ) -> Procedure<R, RequestLayerMarker<RMarker>, BaseMiddleware<TCtx>>
+    ) -> Procedure<R, BaseMiddleware<TCtx>, RequestLayerMarker<RMarker>>
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,
@@ -109,7 +109,7 @@ where
     pub fn subscription<R, RMarker>(
         self,
         resolver: R,
-    ) -> Procedure<R, StreamLayerMarker<RMarker>, BaseMiddleware<TCtx>>
+    ) -> Procedure<R, BaseMiddleware<TCtx>, StreamLayerMarker<RMarker>>
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
             + Fn(TCtx, R::Arg) -> R::Result,

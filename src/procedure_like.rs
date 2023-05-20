@@ -14,7 +14,7 @@ pub trait ProcedureLike {
     fn query<R, RMarker>(
         self,
         builder: R,
-    ) -> Procedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    ) -> Procedure<R, Self::Middleware, RequestLayerMarker<RMarker>>
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
@@ -24,7 +24,7 @@ pub trait ProcedureLike {
     fn mutation<R, RMarker>(
         self,
         builder: R,
-    ) -> Procedure<R, RequestLayerMarker<RMarker>, Self::Middleware>
+    ) -> Procedure<R, Self::Middleware, RequestLayerMarker<RMarker>>
     where
         R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
@@ -34,7 +34,7 @@ pub trait ProcedureLike {
     fn subscription<R, RMarker>(
         self,
         builder: R,
-    ) -> Procedure<R, StreamLayerMarker<RMarker>, Self::Middleware>
+    ) -> Procedure<R, Self::Middleware, StreamLayerMarker<RMarker>>
     where
         R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = Self::LayerCtx>
             + Fn(Self::LayerCtx, R::Arg) -> R::Result,
