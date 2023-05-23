@@ -191,16 +191,17 @@ export type Procedures = {{
             }
         }
 
-        for (_, typ) in types {
+        for (_, typ) in &types {
             writeln!(
                 file,
                 "\n{}",
                 ts::export_datatype(
                     &config,
-                    &match typ {
+                    match typ {
                         Some(v) => v,
                         None => unreachable!(),
                     },
+                    &types
                 )?
             )?;
         }
