@@ -138,9 +138,12 @@ where
             )
         );
 
-        let queries_ts = generate_procedures_ts(&config, self.queries.store.iter());
-        let mutations_ts = generate_procedures_ts(&config, self.mutations.store.iter());
-        let subscriptions_ts = generate_procedures_ts(&config, self.subscriptions.store.iter());
+        let queries_ts =
+            generate_procedures_ts(&config, self.queries.store.iter(), &self.typ_store());
+        let mutations_ts =
+            generate_procedures_ts(&config, self.mutations.store.iter(), &self.typ_store());
+        let subscriptions_ts =
+            generate_procedures_ts(&config, self.subscriptions.store.iter(), &self.typ_store());
 
         // TODO: Specta API
         writeln!(
@@ -214,6 +217,7 @@ export type Procedures = {{
 fn generate_procedures_ts<'a, Ctx: 'a>(
     config: &ExportConfiguration,
     procedures: impl ExactSizeIterator<Item = (&'a String, &'a Procedure<Ctx>)>,
+    type_store: &TypeDefs,
 ) -> String {
     match procedures.len() {
         0 => "never".to_string(),
@@ -227,10 +231,10 @@ fn generate_procedures_ts<'a, Ctx: 'a>(
                         "never".into()
                     }
                     #[allow(clippy::unwrap_used)] // TODO
-                    ty => datatype(config, ty).unwrap(),
+                    ty => datatype(config, ty, type_store).unwrap(),
                 };
                 #[allow(clippy::unwrap_used)] // TODO
-                let result_ts = datatype(config, &operation.ty.result).unwrap();
+                let result_ts = datatype(config, &operation.ty.result, type_store).unwrap();
 
                 // TODO: Specta API
                 format!(
