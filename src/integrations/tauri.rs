@@ -12,7 +12,7 @@ use serde_json::Value;
 use tauri::{
     async_runtime::spawn,
     plugin::{Builder, TauriPlugin},
-    Runtime, Window, WindowEvent,
+    Window, WindowEvent, Wry,
 };
 use tokio::sync::oneshot;
 
@@ -25,12 +25,12 @@ use crate::{
 
 type SubscriptionMap = Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>;
 
-pub struct TauriSender<R: Runtime>(Window<R>, SubscriptionMap);
+pub struct TauriSender(Window<Wry>, SubscriptionMap);
 
-impl<'a, R: Runtime> Sender<'a> for TauriSender<R> {
+impl<'a> Sender<'a> for TauriSender {
     type SendFut = Ready<()>;
     type SubscriptionMap = SubscriptionMap;
-    type OwnedSender = TauriOwnedSender<R>;
+    type OwnedSender = TauriOwnedSender;
 
     fn subscription(self) -> SubscriptionUpgrade<'a, Self> {
         SubscriptionUpgrade::Supported(TauriOwnedSender(self.0.clone()), self.1)
@@ -48,9 +48,9 @@ impl<'a, R: Runtime> Sender<'a> for TauriSender<R> {
     }
 }
 
-pub struct TauriOwnedSender<R: Runtime>(Window<R>);
+pub struct TauriOwnedSender(Window<Wry>);
 
-impl<R: Runtime> OwnedSender for TauriOwnedSender<R> {
+impl OwnedSender for TauriOwnedSender {
     type SendFut<'a> = Ready<()>;
 
     fn send(&mut self, resp: jsonrpc::Response) -> Self::SendFut<'_> {
@@ -65,36 +65,32 @@ impl<R: Runtime> OwnedSender for TauriOwnedSender<R> {
     }
 }
 
-struct WindowManager<TCtxFn, TCtx, TMeta, R>
+struct WindowManager<TCtxFn, TCtx, TMeta>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
-    R: Runtime + Send + Sync + 'static,
-    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(Window<Wry>) -> TCtx + Send + Sync + 'static,
 {
     router: Arc<Router<TCtx, TMeta>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, SubscriptionMap>>,
-    phantom: PhantomData<&'static R>,
 }
 
-impl<TCtxFn, TCtx, TMeta, R> WindowManager<TCtxFn, TCtx, TMeta, R>
+impl<TCtxFn, TCtx, TMeta> WindowManager<TCtxFn, TCtx, TMeta>
 where
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
-    R: Runtime + Send + Sync + 'static,
-    TCtxFn: Fn(Window<R>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(Window<Wry>) -> TCtx + Send + Sync + 'static,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx, TMeta>>) -> Arc<Self> {
         Arc::new(Self {
             router,
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
-            phantom: PhantomData,
         })
     }
 
-    pub fn on_page_load(self: Arc<Self>, window: Window<R>) {
+    pub fn on_page_load(self: Arc<Self>, window: Window<Wry>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -178,7 +174,7 @@ where
         }
     }
 
-    pub fn close_requested(&self, window: &Window<R>) {
+    pub fn close_requested(&self, window: &Window<Wry>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -195,12 +191,11 @@ where
 }
 
 // #[deprecated("Use `plugin_with_ctx` instead")]
-pub fn plugin<R, TCtx, TMeta>(
+pub fn plugin<TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
     ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
-) -> TauriPlugin<R>
+) -> TauriPlugin<Wry>
 where
-    R: Runtime + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
@@ -223,12 +218,11 @@ where
         .build()
 }
 
-pub fn plugin_with_ctx<R: Runtime, TCtx, TMeta>(
+pub fn plugin_with_ctx<TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
-    ctx_fn: impl Fn(Window<R>) -> TCtx + Send + Sync + 'static,
-) -> TauriPlugin<R>
+    ctx_fn: impl Fn(Window<Wry>) -> TCtx + Send + Sync + 'static,
+) -> TauriPlugin<Wry>
 where
-    R: Runtime + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
     TMeta: Send + Sync + 'static,
 {
