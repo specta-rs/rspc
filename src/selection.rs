@@ -71,6 +71,6 @@ mod tests {
         let s2 = selection!(users, [{ name, age }]);
         assert_eq!(s2[0].name, "Monty Beaumont".to_string());
         assert_eq!(s2[0].age, 7);
-        assert_eq!(ts_export_ref(&s2), "({ name: string; age: number })[]");
+        assert_eq!(ts_export_ref(&s2), "{ name: string; age: number }[]");
     }
 }
