@@ -4,7 +4,6 @@ import del from "rollup-plugin-delete";
 import typescript from "rollup-plugin-typescript2";
 import dtsRaw from "rollup-plugin-dts";
 import { visualizer } from "rollup-plugin-visualizer";
-import externals from "rollup-plugin-node-externals";
 // @ts-expect-error no typedefs exist for this plugin
 import multiInput from "rollup-plugin-multi-input";
 
@@ -37,11 +36,6 @@ export function buildConfig(input: string | string[]): RollupOptions[] {
           del({
             targets: "./dist/*.{js,mjs}",
           }),
-        externals({
-          deps: true,
-          devDeps: true,
-          peerDeps: true,
-        }),
         typescript({
           abortOnError: !isWatchMode,
         }),

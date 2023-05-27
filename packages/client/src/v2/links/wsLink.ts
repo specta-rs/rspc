@@ -115,7 +115,6 @@ export function wsLink(opts: WsLinkOpts): Link {
 
         send({
           id: op.id,
-          // @ts-expect-error // TODO: Fix this
           method: op.type,
           params: {
             path: op.path,
@@ -131,9 +130,7 @@ export function wsLink(opts: WsLinkOpts): Link {
         activeMap.delete(op.id);
         send({
           id: op.id,
-          // @ts-expect-error // TODO: Fix this
           method: "subscriptionStop",
-          // @ts-expect-error // TODO: Fix this
           params: null,
         });
       },
@@ -173,7 +170,6 @@ export function wsBatchLink(opts: WsLinkOpts): Link {
           reject,
         });
 
-        // @ts-expect-error // TODO: Fix this
         batch.push({
           id: op.id,
           method: op.type,
@@ -191,7 +187,6 @@ export function wsBatchLink(opts: WsLinkOpts): Link {
         const subscribeEventIdx = batch.findIndex((b) => b.id === op.id);
         if (subscribeEventIdx === -1) {
           if (op.type === "subscription") {
-            // @ts-expect-error // TODO: Fix this
             batch.push({
               id: op.id,
               method: "subscriptionStop",

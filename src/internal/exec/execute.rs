@@ -96,6 +96,8 @@ mod private {
         /// WARNING: The response to a batch WILL NOT match the order of the requests in the batch.
         /// This is done for performance reasons and isn't something a proper client should need.
         /// All non responses will be ignored so the response may not be the same length as the request.
+        ///
+        /// WARNING: This function will change from `Vec<Response>` to `Stream<Response>` in the future to support
         pub async fn execute_batch<M>(
             &self,
             ctx: TCtx,

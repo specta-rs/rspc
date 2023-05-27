@@ -63,7 +63,6 @@ export function tauriLink(): Link {
           reject,
         });
 
-        // @ts-expect-error // TODO: Fix this
         batch.push({
           id: op.id,
           method: op.type,
@@ -81,7 +80,6 @@ export function tauriLink(): Link {
         const subscribeEventIdx = batch.findIndex((b) => b.id === op.id);
         if (subscribeEventIdx === -1) {
           if (op.type === "subscription") {
-            // @ts-expect-error // TODO: Fix this
             batch.push({
               id: op.id,
               method: "subscriptionStop",
