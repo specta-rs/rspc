@@ -194,15 +194,15 @@ export type Procedures = {{
             }
         }
 
-        for (_, typ) in &types {
+        for (_, (sid, _)) in map {
             writeln!(
                 file,
                 "\n{}",
                 ts::export_datatype(
                     &config,
-                    match typ {
-                        Some(v) => v,
-                        None => unreachable!(),
+                    match types.get(sid) {
+                        Some(Some(v)) => v,
+                        _ => unreachable!(),
                     },
                     &types
                 )?
