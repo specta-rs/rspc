@@ -1,7 +1,7 @@
 import { RSPCError } from "../error";
-import { Link, Operation } from "./link";
+import { Link } from "./link";
 import { Request as RspcRequest, Response as RspcResponse } from "../bindings";
-import { fireResponse, hashOperation, hashedQueryKey } from "../internal";
+import { fireResponse } from "../internal";
 
 const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 

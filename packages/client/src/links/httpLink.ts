@@ -1,4 +1,4 @@
-import { ValueOrError } from "..";
+import { ValueOrError, Response as RspcResponse } from "..";
 import { RSPCError } from "../error";
 import { BatchedItem, fireResponse } from "../internal";
 import { Link, Operation } from "./link";
@@ -74,10 +74,22 @@ export function httpLink(opts: HttpLinkOpts): Link {
 
   if ("batch" in opts) {
     const doFetchBatched = async (batch: BatchedItem[]) => {
-      const body = await doFetch<ValueOrError[]>(fetchFn, opts.url + "_batch", {
+      let idCounter = 0;
+      const map = new Map<number, BatchedItem>();
+
+      const body = await doFetch<RspcResponse[]>(fetchFn, opts.url + "_batch", {
         method: "POST",
         headers: generateHeaders(opts, { ops: batch.map((b) => b.op) }),
-        body: JSON.stringify(batch.map((b) => b.op)),
+        body: JSON.stringify(
+          batch.map((item) => {
+            let id = idCounter++;
+            map.set(id, item);
+            const {
+              op: { context, ...op },
+            } = item;
+            return { id, ...op };
+          })
+        ),
         // We don't handle the abort signal for a batch so a single req doesn't kill entire batch.
       });
       if (body === undefined) {
@@ -92,8 +104,7 @@ export function httpLink(opts: HttpLinkOpts): Link {
         return;
       }
 
-      if (body.length !== batch.length) {
-        // TODO: Send proper resp error to every item in batch
+      if (body.length !== map.size) {
         console.error("rspc: batch response length mismatch!");
         for (const item of batch) {
           item?.reject(new RSPCError(500, "batch response length mismatch!"));
@@ -101,8 +112,8 @@ export function httpLink(opts: HttpLinkOpts): Link {
         return;
       }
 
-      for (const [i, item] of body.entries()) {
-        const batchItem = batch[i]!;
+      for (const item of body) {
+        const batchItem = map.get(item.id)!;
 
         if (batchItem.abort.signal?.aborted) {
           continue;
@@ -125,7 +136,7 @@ export function httpLink(opts: HttpLinkOpts): Link {
         if (!batchQueued) {
           batchQueued = true;
           setTimeout(() => {
-            doFetchBatched([...batch]); // TODO
+            doFetchBatched(batch);
             batch.splice(0, batch.length);
             batchQueued = false;
           });

@@ -227,7 +227,8 @@ where
                 }
             };
 
-            match serde_json::to_vec(&responses.append(&mut fut_responses.collect().await)) {
+            responses.append(&mut fut_responses.collect().await);
+            match serde_json::to_vec(&responses) {
                 Ok(v) => Ok((
                     Response::builder()
                         .status(StatusCode::OK)
