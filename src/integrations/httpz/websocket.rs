@@ -12,13 +12,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::internal::{
-    exec::{
-        self, AsyncRuntime, Batcher, Connection, ExecRequestFut, Executor, OwnedStream,
-        TokioRuntime,
-    },
-    PinnedOption, PinnedOptionProj,
-};
+use crate::internal::exec::{self, AsyncRuntime, Batcher, Connection, Executor, TokioRuntime};
 
 use super::TCtxFunc;
 

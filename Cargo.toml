@@ -81,6 +81,7 @@ members = [
     "./examples",
     "./examples/axum",
     "./examples/vercel",
+    "./examples/tauri/src-tauri"
 ]
 
 [patch.crates-io]

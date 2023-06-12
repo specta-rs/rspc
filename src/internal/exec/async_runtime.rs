@@ -1,7 +1,7 @@
 use std::{future::Future, time::Instant};
 
 /// TODO
-pub trait AsyncRuntime: 'static {
+pub trait AsyncRuntime: Sync + Send + 'static {
     /// TODO
     type TaskHandle: Send + 'static;
 

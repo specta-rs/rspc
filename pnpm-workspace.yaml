@@ -4,3 +4,4 @@ packages:
  - examples/astro
  - examples/nextjs
  - examples/vercel
+ - examples/tauri

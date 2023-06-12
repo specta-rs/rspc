@@ -173,7 +173,7 @@ pub fn plugin<TCtx>(
 where
     TCtx: Clone + Send + Sync + 'static,
 {
-    let manager = WindowManager::new(ctx_fn, router);
+    let manager = WindowManager::new::<_, _, TokioRuntime>(ctx_fn, router);
     Builder::new("rspc")
         .on_page_load(move |window, _page| {
             manager.clone().on_page_load(window.clone());

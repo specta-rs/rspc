@@ -20,6 +20,7 @@
     "react": "pnpm --filter @rspc/react -- ",
     "solid": "pnpm --filter @rspc/solid -- ",
     "tauri": "pnpm --filter @rspc/tauri -- ",
+    "tauri-example": "pnpm --filter @rspc/tauri-example -- ",
     "set-package-versions": "node .github/scripts/setPackageVersions.js"
   },
   "engines": {
