@@ -83,6 +83,10 @@ pub(crate) fn is_valid_name(name: &str) -> Option<BuildErrorCause> {
         }
     }
 
+    if name == "rspc" || name == "_batch" {
+        return Some(BuildErrorCause::ReservedName(name.to_string()));
+    }
+
     None
 }
 

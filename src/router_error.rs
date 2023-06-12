@@ -31,6 +31,10 @@ pub(crate) enum BuildErrorCause {
     InvalidName,
     #[error("a procedure or router name contains the character '{0}' which is not allowed. Names must be alphanumeric or have '_' or '-'")]
     InvalidCharInName(char),
+    #[error(
+        "a procedure or router name is using the name '{0}' which is reserved for internal use."
+    )]
+    ReservedName(String),
 }
 
 /// TODO
