@@ -1,5 +1,4 @@
 import { RSPCError } from "..";
-import { Request as RspcRequest } from "..";
 
 /**
  * A map of data that can be used by links to store metadata about the current operation.

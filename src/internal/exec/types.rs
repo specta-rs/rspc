@@ -14,6 +14,7 @@ mod private {
         Query {
             /// A unique ID used to identify the request
             /// It is the client's responsibility to ensure that this ID is unique.
+            /// When using the HTTP Link this will always be `0`.
             id: u32,
             path: Cow<'static, str>,
             input: Option<Value>,
@@ -21,6 +22,7 @@ mod private {
         Mutation {
             /// A unique ID used to identify the request
             /// It is the client's responsibility to ensure that this ID is unique.
+            /// When using the HTTP Link this will always be `0`.
             id: u32,
             path: Cow<'static, str>,
             input: Option<Value>,

@@ -135,9 +135,9 @@ where
             ExecutorResult::FutureResponse(fut) => fut.await,
             ExecutorResult::Response(response) => response,
             ExecutorResult::None => unreachable!(
-            "Executor will only return none for a 'stopSubscription' event which is impossible here"
-        ),
-        };
+                "Executor will only return none for a 'stopSubscription' event which is impossible here"
+            ),
+        }.result;
 
     let cookies = {
         match Arc::try_unwrap(cookie_jar) {

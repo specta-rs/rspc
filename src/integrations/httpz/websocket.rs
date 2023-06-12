@@ -1,4 +1,4 @@
-use futures::{ready, stream::SplitSink, Sink, SinkExt, Stream, StreamExt};
+use futures::{Sink, Stream};
 use httpz::{
     http::{Response, StatusCode},
     ws::{Message, Websocket, WebsocketUpgrade},
@@ -7,23 +7,15 @@ use httpz::{
 use pin_project::pin_project;
 use serde_json::Value;
 use std::{
-    borrow::Cow,
     future::Future,
     pin::Pin,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-    task::{Context, Poll, Waker},
-    time::{Duration, Instant},
+    task::{Context, Poll},
 };
-use streamunordered::{FinishedStream, StreamUnordered, StreamYield};
 
 use crate::internal::{
     exec::{
-        self, AsyncRuntime, Batcher, Connection, ExecRequestFut, Executor, ExecutorResult,
-        GenericSubscriptionManager, OwnedStream, SubscriptionManager, SubscriptionMap,
-        TokioRuntime, TrustMeBro,
+        self, AsyncRuntime, Batcher, Connection, ExecRequestFut, Executor, OwnedStream,
+        TokioRuntime,
     },
     PinnedOption, PinnedOptionProj,
 };
@@ -73,49 +65,6 @@ where
 }
 
 /// TODO
-#[pin_project(project = PlzNameThisEnumProj)]
-pub(crate) enum PlzNameThisEnum<TCtx: 'static> {
-    OwnedStream(#[pin] OwnedStream<TCtx>),
-    ExecRequestFut(#[pin] PinnedOption<ExecRequestFut>),
-}
-
-impl<TCtx: 'static> Stream for PlzNameThisEnum<TCtx> {
-    type Item = exec::Response;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.project() {
-            PlzNameThisEnumProj::OwnedStream(s) => {
-                let s = s.project();
-                match s.reference.poll_next(cx) {
-                    Poll::Ready(v) => Poll::Ready(v.map(|r| match r {
-                        Ok(v) => exec::Response {
-                            id: *s.id,
-                            result: exec::ValueOrError::Value(v),
-                        },
-                        Err(err) => exec::Response {
-                            id: *s.id,
-                            result: exec::ValueOrError::Error(err.into()),
-                        },
-                    })),
-                    Poll::Pending => Poll::Pending,
-                }
-            }
-            PlzNameThisEnumProj::ExecRequestFut(mut s) => match s.as_mut().project() {
-                PinnedOptionProj::Some(ss) => match ss.poll(cx) {
-                    Poll::Ready(v) => {
-                        s.set(PinnedOption::None);
-                        // this.set(None);
-                        Poll::Ready(Some(v))
-                    }
-                    Poll::Pending => Poll::Pending,
-                },
-                PinnedOptionProj::None => Poll::Ready(None),
-            },
-        }
-    }
-}
-
-/// TODO
 #[pin_project(project = SubscriptionThreadProj)]
 pub(super) struct WebsocketTask<R: AsyncRuntime, TCtx: Clone + Send + 'static> {
     #[pin]
@@ -144,91 +93,122 @@ impl<R: AsyncRuntime, TCtx: Clone + Send + 'static> Future for WebsocketTask<R, 
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.as_mut().project();
-        loop {
+        let mut is_pending = false;
+
+        while !is_pending {
             // TODO: Terminate when asked to by subscription manager
 
-            if let Some(json) = ready!(this.batch.as_mut().poll_next(cx))
-                .expect("rspc: batcher stream ended unexpectedly")
-            {
-                *this.tx_queue = Some(Message::Text(json))
+            if this.tx_queue.is_none() {
+                match this.batch.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(Some(json))) => *this.tx_queue = Some(Message::Text(json)),
+                    Poll::Ready(Some(None)) => {}
+                    Poll::Ready(None) => panic!("rspc: batcher stream ended unexpectedly"),
+                    Poll::Pending => is_pending = true,
+                };
             }
 
             if let Some(_) = this.tx_queue {
-                ready!(this.socket.as_mut().poll_ready(cx)).unwrap(); // TODO: Error handling
+                match this.socket.as_mut().poll_ready(cx) {
+                    Poll::Ready(Ok(())) => {}
+                    Poll::Ready(Err(err)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error waiting for websocket to be ready: {}", err);
+                    }
+                    Poll::Pending => is_pending = true,
+                }
 
-                let item = this.tx_queue.take().expect("rspc unreachable");
-                println!("YEET {:?}", item); // TODO
-                this.socket.as_mut().start_send(item).unwrap(); // TODO: Error handling
+                let item = this
+                    .tx_queue
+                    .take()
+                    // We check it is Some every poll but defer taking it from the `Option` until the socket is ready
+                    .expect("rspc unreachable as we just checked this is `Option::Some`");
+
+                if let Err(err) = this.socket.as_mut().start_send(item) {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Error sending message to websocket: {}", err);
+                }
             }
 
-            ready!(this.socket.as_mut().poll_flush(cx)).unwrap(); // TODO: Error handling
+            match this.socket.as_mut().poll_flush(cx) {
+                Poll::Ready(Ok(())) => {}
+                Poll::Ready(Err(err)) => {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Error flushing message to websocket: {}", err);
+                }
+                Poll::Pending => is_pending = true,
+            };
 
-            match this.socket.as_mut().poll_next(cx) {
-                Poll::Ready(Some(Ok(msg))) => {
-                    println!("INCOMING MSG {:?}", msg); // TODO
+            loop {
+                match this.socket.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(Ok(msg))) => {
+                        let res = match msg {
+                            Message::Text(text) => serde_json::from_str::<Value>(&text),
+                            Message::Binary(binary) => serde_json::from_slice(&binary),
+                            Message::Ping(_) | Message::Pong(_) => continue,
+                            Message::Close(_) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::debug!("Shutting down websocket connection");
+                                // TODO: Terminate all subscriptions
+                                // TODO: Tell frontend all subscriptions were terminated
 
-                    let res = match msg {
-                        Message::Text(text) => serde_json::from_str::<Value>(&text),
-                        Message::Binary(binary) => serde_json::from_slice(&binary),
-                        Message::Ping(_) | Message::Pong(_) => continue,
-                        Message::Close(_) => {
-                            // TODO: Terminate all subscriptions
-                            // TODO: Tell frontend all subscriptions were terminated
+                                return Poll::Ready(());
+                            }
+                            Message::Frame(_) => unreachable!(),
+                        };
 
-                            println!("SHUTDOWN"); // TODO
+                        match res.and_then(|v| match v.is_array() {
+                            true => serde_json::from_value::<Vec<exec::Request>>(v),
+                            false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
+                        }) {
+                            Ok(reqs) => {
+                                this.batch.as_mut().append(&mut this.conn.exec(reqs));
+                            }
+                            Err(_err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Error parsing websocket message: {}", _err);
 
-                            return Poll::Ready(());
-                        }
-                        Message::Frame(_) => unreachable!(),
-                    };
-
-                    println!("REQS {:?}", res);
-
-                    match res.and_then(|v| match v.is_array() {
-                        true => serde_json::from_value::<Vec<exec::Request>>(v),
-                        false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
-                    }) {
-                        Ok(reqs) => {
-                            this.batch.as_mut().append(&mut this.conn.exec(reqs));
-                        }
-                        Err(_err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Error parsing websocket message: {}", _err);
-
-                            println!("ERR {:?}", _err); // TODO
-
-                            // TODO: Send report of error to frontend
-
-                            continue;
+                                // TODO: Send report of error to frontend
+                            }
                         }
                     }
+                    Poll::Ready(Some(Err(_err))) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Error reading from websocket connection: {:?}", _err);
+
+                        // TODO: Send report of error to frontend
+                    }
+                    Poll::Ready(None) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Shutting down websocket connection");
+
+                        // TODO: Terminate all subscriptions
+                        // TODO: Tell frontend all subscriptions were terminated
+
+                        return Poll::Ready(());
+                    }
+                    Poll::Pending => {
+                        is_pending = true;
+                        break;
+                    }
                 }
-                Poll::Ready(Some(Err(_err))) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::debug!("Error reading from websocket connection: {:?}", _err);
-
-                    println!("ERR"); // TODO
-
-                    continue;
-                }
-                Poll::Ready(None) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::debug!("Shutting down websocket connection");
-
-                    // TODO: Terminate all subscriptions
-                    // TODO: Tell frontend all subscriptions were terminated
-
-                    println!("SHUTDOWN"); // TODO
-                    return Poll::Ready(());
-                }
-                Poll::Pending => return Poll::Pending,
             }
 
-            if let Some(batch) = ready!(this.conn.as_mut().poll_next(cx))
-                .expect("rspc: connection stream ended unexpectedly")
-            {
-                this.batch.as_mut().insert(batch);
+            loop {
+                match this.conn.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(batch)) => {
+                        if let Some(batch) = batch {
+                            this.batch.as_mut().insert(batch);
+                        }
+                    }
+                    Poll::Ready(None) => unreachable!(),
+                    Poll::Pending => {
+                        is_pending = true;
+                        break;
+                    }
+                }
             }
         }
+
+        Poll::Pending
     }
 }

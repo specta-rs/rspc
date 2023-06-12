@@ -109,18 +109,9 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       client = useContext().client;
     }
 
-    console.log(
-      "BRUH AB",
-      client,
-      mapQueryKey(keyAndInput as any) as any,
-      rawOpts
-    ); // TODO
     return __useQuery({
       queryKey: mapQueryKey(keyAndInput as any) as any,
-      queryFn: () => {
-        console.log("BRUH B");
-        return client!.query(keyAndInput);
-      },
+      queryFn: () => client!.query(keyAndInput),
       ...rawOpts,
     });
   }

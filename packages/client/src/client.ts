@@ -5,7 +5,6 @@ import {
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
   inferProcedureResult,
-  generateRandomId,
 } from ".";
 import { RSPCError, Link, OperationContext, Operation, LinkResult } from ".";
 
@@ -58,14 +57,10 @@ export class AlphaClient<P extends ProceduresDef> {
     ],
     opts?: OperationOpts
   ): Promise<inferQueryResult<P, K>> {
-    console.log("BRUH"); // TODO
-
     try {
       const keyAndInput2 = this.mapQueryKey
         ? this.mapQueryKey(keyAndInput as any)
         : keyAndInput;
-
-      console.log("IN CLIENT", keyAndInput2);
 
       const result = exec(
         {

@@ -1,9 +1,4 @@
-import {
-  Operation,
-  RSPCError,
-  Response as RspcResponse,
-  ValueOrError,
-} from ".";
+import { Operation, RSPCError, ValueOrError } from ".";
 
 export type BatchedItem = {
   op: Operation;
@@ -12,8 +7,16 @@ export type BatchedItem = {
   abort: AbortController;
 };
 
-export async function fireResponse(resp: ValueOrError, i: BatchedItem) {
-  if (i.abort.signal?.aborted) {
+export async function fireResponse(
+  resp: ValueOrError,
+  i:
+    | BatchedItem
+    | {
+        resolve: (result: any) => void;
+        reject: (error: Error | RSPCError) => void;
+      }
+) {
+  if ("abort" in i && i.abort.signal?.aborted) {
     return;
   }
 
@@ -27,21 +30,8 @@ export async function fireResponse(resp: ValueOrError, i: BatchedItem) {
   }
 }
 
-// TODO: --- CLEANUP BELOW
-
-export type MapKey = ["path" | "id", string];
-
-export const toMapId = (op: Operation | RspcResponse) =>
-  // @ts-expect-error // TODO: Fix this
-  ("id" in op ? ["id", op.id] : ["path", op.path]) satisfies MapKey;
-
-// export const toMapId = (op: Operation | RspcResponse) =>
-//   "id" in op
-//     ? ["id", op.id].join(",")
-//     : ["path", op.path, JSON.stringify("TODO: ARG")].join(",");
-
 // Copied from: https://github.com/jonschlinkert/is-plain-object
-export function isPlainObject(o: any): o is Object {
+function isPlainObject(o: any): o is Object {
   if (!hasObjectPrototype(o)) {
     return false;
   }
@@ -72,7 +62,7 @@ function hasObjectPrototype(o: any): boolean {
 }
 
 // This is copied from the React Query `hashQueryKey` function.
-export function hashOperation(queryKey: Operation): string {
+export function hashOperation(queryKey: Omit<Operation, "context">): string {
   return JSON.stringify(queryKey, (_, val) =>
     isPlainObject(val)
       ? Object.keys(val)
@@ -85,12 +75,10 @@ export function hashOperation(queryKey: Operation): string {
   );
 }
 
-export const generateRandomId = () => Math.random().toString(36).slice(2); // TODO: Remove and use incremental counter
+export function hashedQueryKey(queryKey: Omit<Operation, "context">) {
+  const s = hashOperation(queryKey);
 
-function hashedQueryKey() {
-  // TSH = (s) => {
-  //   for (var i = 0, h = 9; i < s.length; )
-  //     h = Math.imul(h ^ s.charCodeAt(i++), 9 ** 9);
-  //   return h ^ (h >>> 9);
-  // };
+  for (var i = 0, h = 9; i < s.length; )
+    h = Math.imul(h ^ s.charCodeAt(i++), 9 ** 9);
+  return h ^ (h >>> 9);
 }

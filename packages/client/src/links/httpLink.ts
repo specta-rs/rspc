@@ -28,7 +28,7 @@ type HttpLinkOpts = {
        */
       headers?: HTTPHeaders | ((opts: { ops: Operation[] }) => HTTPHeaders);
       /**
-       * Batch multiple rspc queries into a single HTTP request
+       * Batch multiple rspc queries into a single HTTP request. Disabled by default.
        *
        * NOTE: This is great for performance but may be problematic if your using HTTP caching.
        */
@@ -50,8 +50,6 @@ export function httpLink(opts: HttpLinkOpts): Link {
     opts.AbortController || globalThis.AbortController.bind(globalThis);
 
   if (!opts.url.endsWith("/")) opts.url += "/";
-
-  const activeReqs = new Map<string, BatchedItem[]>(); // TODO: Deduplicate fetches by queryKey hash
 
   let dispatch: (op: BatchedItem) => void = (item: BatchedItem) => {
     const [url, init] = requestParams(opts, item);
@@ -150,19 +148,6 @@ export function httpLink(opts: HttpLinkOpts): Link {
           );
           return;
         }
-        // else if (op.method === "subscriptionStop") {
-        //   reject(
-        //     new Error(
-        //       `Unsubscribing failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
-        //     )
-        //   );
-        //   return;
-        // }
-
-        const hash = "todo";
-        console.log("H", hash);
-
-        // if (activeReqs.get())
 
         dispatch({
           op,

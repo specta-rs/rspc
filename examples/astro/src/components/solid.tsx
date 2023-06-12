@@ -33,30 +33,11 @@ const fetchQueryClient = new QueryClient();
 //   );
 // }
 
-// function App() {
-//   return null;
-//   // {/* <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}> */}
-//   // {/*   <Example /> */}
-//   // {/* </rspc.Provider> */}
-// }
-
-// export default App;
-
-export default () => (
-  <QueryClientProvider client={fetchQueryClient}>
-    <PLzWork />
-  </QueryClientProvider>
-);
-
-function PLzWork() {
-  console.log("SOLID INIT");
-  const x = createQuery({
-    queryKey: () => ["demo"],
-    queryFn: () => {
-      console.log("FIRE");
-      return "plz work";
-    },
-  });
-
-  return <h1>Hello Solid {x.data}</h1>;
+function App() {
+  return null;
+  // {/* <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}> */}
+  // {/*   <Example /> */}
+  // {/* </rspc.Provider> */}
 }
+
+export default App;

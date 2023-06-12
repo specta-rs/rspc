@@ -23,7 +23,7 @@ pub enum ExecError {
     // InvalidJsonRpcVersion,
     // #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
     // UnsupportedMethod(String),
-    #[error("resolver threw error")]
+    #[error("{}", .0.message)]
     ErrResolverError(#[from] Error),
     #[error("error creating subscription with null id")]
     ErrSubscriptionWithNullId,

@@ -9,16 +9,56 @@ use std::{
 };
 use streamunordered::{StreamUnordered, StreamYield};
 
-use crate::{
-    integrations::httpz::PlzNameThisEnum,
-    internal::{exec, PinnedOption, PinnedOptionProj},
-};
+use crate::internal::{exec, PinnedOption, PinnedOptionProj};
 
 use super::{
-    AsyncRuntime, Executor, GenericSubscriptionManager, Request, Response, SubscriptionMap,
+    AsyncRuntime, ExecRequestFut, Executor, GenericSubscriptionManager, OwnedStream, Request,
+    Response, SubscriptionMap,
 };
 
 // TODO: Seal this shit up tight
+
+/// TODO
+#[pin_project(project = PlzNameThisEnumProj)]
+enum StreamOrFut<TCtx: 'static> {
+    OwnedStream(#[pin] OwnedStream<TCtx>),
+    ExecRequestFut(#[pin] PinnedOption<ExecRequestFut>),
+}
+
+impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
+    type Item = exec::Response;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.project() {
+            PlzNameThisEnumProj::OwnedStream(s) => {
+                let s = s.project();
+                match s.reference.poll_next(cx) {
+                    Poll::Ready(v) => Poll::Ready(v.map(|r| match r {
+                        Ok(v) => exec::Response {
+                            id: *s.id,
+                            result: exec::ValueOrError::Value(v),
+                        },
+                        Err(err) => exec::Response {
+                            id: *s.id,
+                            result: exec::ValueOrError::Error(err.into()),
+                        },
+                    })),
+                    Poll::Pending => Poll::Pending,
+                }
+            }
+            PlzNameThisEnumProj::ExecRequestFut(mut s) => match s.as_mut().project() {
+                PinnedOptionProj::Some(ss) => match ss.poll(cx) {
+                    Poll::Ready(v) => {
+                        s.set(PinnedOption::None);
+                        Poll::Ready(Some(v))
+                    }
+                    Poll::Pending => Poll::Pending,
+                },
+                PinnedOptionProj::None => Poll::Ready(None),
+            },
+        }
+    }
+}
 
 /// TODO
 #[pin_project(project = ConnectionProj)]
@@ -31,7 +71,7 @@ where
     executor: Executor<TCtx, R>,
     map: SubscriptionMap<R>,
     #[pin]
-    streams: StreamUnordered<PlzNameThisEnum<TCtx>>,
+    streams: StreamUnordered<StreamOrFut<TCtx>>,
 }
 
 impl<R, TCtx> Connection<R, TCtx>
@@ -58,12 +98,12 @@ where
             .executor
             .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
                 self.streams
-                    .insert(PlzNameThisEnum::ExecRequestFut(PinnedOption::Some(fut)));
+                    .insert(StreamOrFut::ExecRequestFut(PinnedOption::Some(fut)));
             });
 
         if let Some(queued) = manager.expect("rspc unreachable").queued {
             for s in queued {
-                self.streams.insert(PlzNameThisEnum::OwnedStream(s));
+                self.streams.insert(StreamOrFut::OwnedStream(s));
             }
         }
 
@@ -80,12 +120,13 @@ where
     // This could *technically* be the `Option` forced by `Stream` but that would go against the semantic meaning of it.
     type Item = Option<exec::Response>;
 
+    // WARNING: The caller must call this in a loop until they receive a `Poll::Pending` event
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.as_mut().project();
         // TODO: Terminate when asked to by subscription manager
 
         match ready!(this.streams.as_mut().poll_next(cx)) {
-            Some((a, b)) => match a {
+            Some((a, _)) => match a {
                 StreamYield::Item(resp) => Poll::Ready(Some(Some(resp))),
                 StreamYield::Finished(f) => {
                     f.remove(this.streams.as_mut());
@@ -96,7 +137,7 @@ where
                 }
             },
             // If no streams, fall asleep until a new subscription is queued
-            None => return Poll::Pending,
+            None => Poll::Pending,
         }
     }
 }
@@ -164,7 +205,7 @@ impl<R: AsyncRuntime> Stream for Batcher<R> {
                         Poll::Ready(Some(None))
                     }
                 }
-                Poll::Pending => Poll::Ready(Some(None)),
+                Poll::Pending => Poll::Pending,
             },
             PinnedOptionProj::None => Poll::Ready(Some(None)),
         }

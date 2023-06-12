@@ -1,12 +1,10 @@
-import { initRspc, httpLink } from "@rspc/client";
+import { initRspc, httpLink, wsLink } from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-// import { QueryClient, QueryClientProvider } from "@rspc/react";
 import React, { useState } from "react";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import type { Procedures } from "../../../bindings";
-import { useQuery } from "@tanstack/react-query";
 
 const fetchQueryClient = new QueryClient();
 const fetchClient = initRspc<Procedures>({
@@ -37,14 +35,15 @@ const fetchClient = initRspc<Procedures>({
 });
 
 const wsQueryClient = new QueryClient();
-// const wsClient = initRspc<Procedures>({
-//   links: [
-//     // loggerLink(),
-//     // wsLink({
-//     //   url: "ws://localhost:4000/rspc/ws",
-//     // }),
-//   ],
-// });
+const wsClient = initRspc<Procedures>({
+  links: [
+    // loggerLink(),
+
+    wsLink({
+      url: "ws://localhost:4000/rspc/ws",
+    }),
+  ],
+});
 
 // TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
 // TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
@@ -110,31 +109,17 @@ export default function App() {
       >
         <h1>React</h1>
         <QueryClientProvider client={fetchQueryClient}>
-          <WhyNoWorky />
           {/* TODO: rspc.Provider implies fetchClient??? */}
           <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
             <Example name="Fetch Transport" />
           </rspc.Provider>
         </QueryClientProvider>
-        {/* <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
+        <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />
           </QueryClientProvider>
-        </rspc.Provider> */}
+        </rspc.Provider>
       </div>
     </React.StrictMode>
   );
-}
-
-function WhyNoWorky() {
-  console.log("RENDERAAAA");
-  useQuery({
-    queryKey: ["mf"],
-    queryFn: () => {
-      console.log("PLZ WORK");
-      return "bruh";
-    },
-  });
-
-  return null;
 }
