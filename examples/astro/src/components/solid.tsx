@@ -2,12 +2,16 @@
 
 // import { createClient, FetchTransport } from "@rspc/client";
 // import { createSolidQueryHooks } from "@rspc/solid";
-// import { QueryClient } from "@tanstack/solid-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  createQuery,
+} from "@tanstack/solid-query";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 // import { Procedures } from "../../../bindings";
 
-// const fetchQueryClient = new QueryClient();
+const fetchQueryClient = new QueryClient();
 // const fetchClient = createClient<Procedures>({
 //   transport: new FetchTransport("http://localhost:4000/rspc"),
 // });
@@ -38,4 +42,21 @@
 
 // export default App;
 
-export default () => null;
+export default () => (
+  <QueryClientProvider client={fetchQueryClient}>
+    <PLzWork />
+  </QueryClientProvider>
+);
+
+function PLzWork() {
+  console.log("SOLID INIT");
+  const x = createQuery({
+    queryKey: () => ["demo"],
+    queryFn: () => {
+      console.log("FIRE");
+      return "plz work";
+    },
+  });
+
+  return <h1>Hello Solid {x.data}</h1>;
+}

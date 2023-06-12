@@ -13,6 +13,8 @@ mod procedure_store;
 mod resolver_function;
 mod resolver_result;
 
+use std::pin::Pin;
+
 pub use layer::*;
 pub(crate) use markers::*;
 pub(crate) use procedure_store::*;
@@ -25,6 +27,19 @@ pub(crate) enum PinnedOption<T> {
     None,
 }
 
+// // Let's pretend this isn't using an implementation detail of pin project
+// impl<'pin, T> PinnedOptionProj<'pin, T> {
+//     pub fn map<U, F>(self, f: F) -> Option<U>
+//     where
+//         F: FnOnce(Pin<&mut T>) -> U,
+//     {
+//         match self {
+//             PinnedOptionProj::Some(x) => Some(f(x)),
+//             PinnedOptionProj::None => None,
+//         }
+//     }
+// }
+
 pub(crate) use _PinnedOptionProj as PinnedOptionProj;
 
 #[cfg(test)]
@@ -32,6 +47,8 @@ mod tests {
     use std::{fs::File, io::Write, path::PathBuf};
 
     use specta::{ts::export_datatype, DefOpts, Type, TypeDefs};
+
+    use crate::internal::exec;
 
     macro_rules! collect_datatypes {
         ($( $i:path ),* $(,)? ) => {{
@@ -73,7 +90,8 @@ mod tests {
         let tys = collect_datatypes! {
             super::ProcedureDataType,
             // crate::Procedures, // TODO
-            // TODO: Export `executor` types and use them on the frontend
+            exec::Request,
+            exec::Response,
         };
 
         for (_, ty) in tys.into_iter().filter_map(|(sid, v)| v.map(|v| (sid, v))) {

@@ -1,8 +1,8 @@
 //! Access rspc via the Tauri IPC bridge.
 
 use std::{
+    borrow::Cow,
     collections::{hash_map::DefaultHasher, HashMap},
-    future::{ready, Ready},
     hash::{Hash, Hasher},
     sync::{Arc, Mutex, MutexGuard},
 };
@@ -15,65 +15,30 @@ use tauri::{
 
 use crate::{
     internal::exec::{
-        self, AsyncRuntime, Executor, SubscriptionManager, SubscriptionMap, TokioRuntime,
+        self, AsyncRuntime, Executor, OwnedStream, SubscriptionManager, SubscriptionMap,
+        TokioRuntime,
     },
     CompiledRouter,
 };
 
 // TODO: Move to https://tauri.app/v1/guides/features/plugin/#advanced -> This should help with avoiding cloning on shared state?
 
-struct WindowManager<TCtxFn, TCtx>
+struct WindowManager<TCtxFn, TCtx, R>
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+    R: AsyncRuntime,
 {
-    executor: Executor<TCtx, TokioRuntime>,
+    executor: Executor<TCtx, R>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, Arc<Mutex<SubscriptionMap<TokioRuntime>>>>>,
 }
 
-struct TauriSubscriptionManager<R: Runtime> {
-    subscriptions: Arc<Mutex<SubscriptionMap<TokioRuntime>>>,
-    window: tauri::Window<R>,
-}
-
-impl<R: Runtime> Clone for TauriSubscriptionManager<R> {
-    fn clone(&self) -> Self {
-        Self {
-            subscriptions: self.subscriptions.clone(),
-            window: self.window.clone(),
-        }
-    }
-}
-
-impl<R: Runtime> SubscriptionManager<TokioRuntime> for TauriSubscriptionManager<R> {
-    type Map<'a> = MutexGuard<'a, SubscriptionMap<TokioRuntime>>;
-    type SendFut<'a> = Ready<()>;
-
-    fn subscriptions(&mut self) -> Self::Map<'_> {
-        self.subscriptions.lock().unwrap()
-    }
-
-    fn send(&mut self, resp: exec::Response) -> Self::SendFut<'_> {
-        self.window
-            .emit(
-                "plugin:rspc:transport:resp",
-                serde_json::to_string(&resp).unwrap(),
-            )
-            .map_err(|err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("failed to emit JSON-RPC response: {}", err);
-            })
-            .ok();
-
-        ready(())
-    }
-}
-
-impl<TCtxFn, TCtx> WindowManager<TCtxFn, TCtx>
+impl<TCtxFn, TCtx, R> WindowManager<TCtxFn, TCtx, R>
 where
     TCtx: Clone + Send + Sync + 'static,
     TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+    R: AsyncRuntime,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<CompiledRouter<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
@@ -155,28 +120,30 @@ where
                     let subscriptions = subscriptions.clone();
                     let executor = self.executor.clone();
 
+                    // TODO: Remove spawn and queue instead?
                     TokioRuntime::spawn(async move {
-                        let result = executor
-                            .execute_batch(
-                                ctx,
-                                reqs,
-                                Some(TauriSubscriptionManager {
-                                    subscriptions,
-                                    window: window.clone(),
-                                }),
-                            )
-                            .await;
+                        todo!();
+                        // let result = executor
+                        //     .execute_batch(
+                        //         ctx,
+                        //         reqs,
+                        //         &mut Some(TauriSubscriptionManager {
+                        //             subscriptions,
+                        //             window: window.clone(),
+                        //         }),
+                        //     )
+                        //     .await;
 
-                        window
-                            .emit(
-                                "plugin:rspc:transport:resp",
-                                serde_json::to_string(&result).unwrap(),
-                            )
-                            .map_err(|err| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("failed to emit JSON-RPC response: {}", err);
-                            })
-                            .ok();
+                        // window
+                        //     .emit(
+                        //         "plugin:rspc:transport:resp",
+                        //         serde_json::to_string(&result).unwrap(),
+                        //     )
+                        //     .map_err(|err| {
+                        //         #[cfg(feature = "tracing")]
+                        //         tracing::error!("failed to emit JSON-RPC response: {}", err);
+                        //     })
+                        //     .ok();
                     });
                 }
             });

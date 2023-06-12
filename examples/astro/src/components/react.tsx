@@ -1,29 +1,55 @@
-import { createClient, FetchTransport, WebsocketTransport } from "@rspc/client";
+import { initRspc, httpLink } from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+// import { QueryClient, QueryClientProvider } from "@rspc/react";
 import React, { useState } from "react";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import type { Procedures } from "../../../bindings";
+import { useQuery } from "@tanstack/react-query";
 
-export const rspc = createReactQueryHooks<Procedures>();
+const fetchQueryClient = new QueryClient();
+const fetchClient = initRspc<Procedures>({
+  links: [
+    // loggerLink(),
 
-export const fetchQueryClient = new QueryClient();
-const fetchClient = createClient<Procedures>({
-  transport: new FetchTransport("http://localhost:4000/rspc"),
+    httpLink({
+      url: "http://[::]:4000/rspc",
+
+      // You can enable batching -> This is generally a good idea unless your doing HTTP caching
+      // batch: true,
+
+      // You can override the fetch function if required
+      // fetch: (input, init) => fetch(input, { ...init, credentials: "include" }), // Include Cookies for cross-origin requests
+
+      // Provide static custom headers
+      // headers: {
+      //   "x-demo": "abc",
+      // },
+
+      // Provide dynamic custom headers
+      // headers: ({ op }) => ({
+      //   "x-procedure-path": op.path,
+      // }),
+    }),
+  ],
+  // onError // TODO: Make sure this is still working
 });
 
-// Custom fetch parameters
-// const fetchClient = createClient<Procedures>({
-//   transport: new FetchTransport("http://localhost:4000/rspc", (input, init) =>
-//     fetch(input, { ...init, credentials: "include" }) // Include Cookies for cross-origin requests
-//   ),
+const wsQueryClient = new QueryClient();
+// const wsClient = initRspc<Procedures>({
+//   links: [
+//     // loggerLink(),
+//     // wsLink({
+//     //   url: "ws://localhost:4000/rspc/ws",
+//     // }),
+//   ],
 // });
 
-export const wsQueryClient = new QueryClient();
-const wsClient = createClient<Procedures>({
-  transport: new WebsocketTransport("ws://localhost:4000/rspc/ws"),
-});
+// TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
+// TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
+export const rspc = createReactQueryHooks<Procedures>(fetchClient);
+// export const rspc2 = createReactQueryHooks<Procedures>(wsClient);
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
@@ -83,17 +109,32 @@ export default function App() {
         }}
       >
         <h1>React</h1>
-        <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
+        <QueryClientProvider client={fetchQueryClient}>
+          <WhyNoWorky />
+          {/* TODO: rspc.Provider implies fetchClient??? */}
           <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
             <Example name="Fetch Transport" />
           </rspc.Provider>
         </QueryClientProvider>
-        <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
+        {/* <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />
           </QueryClientProvider>
-        </rspc.Provider>
+        </rspc.Provider> */}
       </div>
     </React.StrictMode>
   );
+}
+
+function WhyNoWorky() {
+  console.log("RENDERAAAA");
+  useQuery({
+    queryKey: ["mf"],
+    queryFn: () => {
+      console.log("PLZ WORK");
+      return "bruh";
+    },
+  });
+
+  return null;
 }

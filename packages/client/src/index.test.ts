@@ -99,3 +99,5 @@ test("Websocket Client", async () => {
   //   }, 5000);
   //   expect(onData).toHaveBeenCalledTimes(2);
 });
+
+// TODO: Test with and without batching

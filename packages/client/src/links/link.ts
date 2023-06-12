@@ -1,4 +1,5 @@
-import { AlphaRSPCError } from "../error";
+import { RSPCError } from "..";
+import { Request as RspcRequest } from "..";
 
 /**
  * A map of data that can be used by links to store metadata about the current operation.
@@ -13,15 +14,12 @@ export type OperationContext = Record<string, unknown>;
  *
  * @internal
  */
-export interface Operation {
-  // TODO: Optional on being a subscription?
-  id: string; // TODO: Move back to being an int?
-
-  type: "query" | "mutation" | "subscription" | "subscriptionStop"; // TODO: Derive this from Rust bindings
-  input: unknown;
+export type Operation = {
+  method: "query" | "mutation" | "subscription";
   path: string;
+  input: any | null;
   context: OperationContext;
-}
+};
 
 /**
  * TODO
@@ -31,7 +29,7 @@ export interface Operation {
 export type LinkResult = {
   exec: (
     resolve: (result: any) => void,
-    reject: (error: Error | AlphaRSPCError) => void
+    reject: (error: Error | RSPCError) => void
   ) => void;
   abort: () => void;
 };

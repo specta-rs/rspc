@@ -60,9 +60,11 @@ async fn main() {
                 R.subscription(|_, _: ()| {
                     println!("Client subscribed to 'pings'");
                     stream! {
+                        yield "start".to_string();
+
                         for i in 0..5 {
                             println!("Sending ping {}", i);
-                            yield "ping".to_string();
+                            yield i.to_string();
                             sleep(Duration::from_secs(1)).await;
                         }
                     }

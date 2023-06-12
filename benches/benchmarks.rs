@@ -14,7 +14,7 @@ async fn benchmark_main(e: &Executor<(), TokioRuntime>) {
                 path: Cow::Borrowed("demo"),
                 input: None,
             },
-            None as Option<NoOpSubscriptionManager>,
+            &mut (None as Option<NoOpSubscriptionManager>),
         ) {
             ExecutorResult::FutureResponse(fut) => fut.await,
             ExecutorResult::Response(resp) => resp,

@@ -1,25 +1,21 @@
-use futures::{stream::SplitSink, SinkExt, StreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use httpz::{
     http::{Method, Response, StatusCode},
-    ws::{Message, Websocket, WebsocketUpgrade},
     Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
 };
+
 use serde_json::Value;
 use std::{
     borrow::Cow,
-    future::{ready, Ready},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 use crate::{
-    internal::exec::{
-        self, AsyncRuntime, Executor, ExecutorResult, NoOpSubscriptionManager, SubscriptionManager,
-        SubscriptionMap, TokioRuntime,
-    },
+    internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager, TokioRuntime},
     CompiledRouter,
 };
 
-use super::*;
+use super::{handle_websocket, CookieJar, TCtxFunc};
 
 // TODO: Make this whole file runtime agnostic once httpz is
 // TODO: Remove all panics lol
@@ -101,7 +97,7 @@ where
                 .unwrap_or(Ok(None as Option<Value>))
                 .unwrap();
 
-            exec::Request::Query { path, input }
+            exec::Request::Query { id: 0, path, input }
         }
         Method::POST => {
             let input = (!req.body().is_empty())
@@ -109,7 +105,7 @@ where
                 .unwrap_or(Ok(None))
                 .unwrap();
 
-            exec::Request::Mutation { path, input }
+            exec::Request::Mutation { id: 0, path, input }
         }
         _ => todo!(),
     };
@@ -134,13 +130,14 @@ where
         }
     };
 
-    let response = match executor.execute(ctx, request, None as Option<NoOpSubscriptionManager>) {
-        ExecutorResult::FutureResponse(fut) => fut.await,
-        ExecutorResult::Response(response) => response,
-        ExecutorResult::None => unreachable!(
+    let response =
+        match executor.execute(ctx, request, &mut (None as Option<NoOpSubscriptionManager>)) {
+            ExecutorResult::FutureResponse(fut) => fut.await,
+            ExecutorResult::Response(response) => response,
+            ExecutorResult::None => unreachable!(
             "Executor will only return none for a 'stopSubscription' event which is impossible here"
         ),
-    };
+        };
 
     let cookies = {
         match Arc::try_unwrap(cookie_jar) {
@@ -208,13 +205,13 @@ where
                 }
             };
 
-            let responses = executor
-                .execute_batch(
-                    ctx.clone(),
-                    requests,
-                    None as Option<NoOpSubscriptionManager>,
-                )
-                .await;
+            let fut_responses = FuturesUnordered::new();
+            let mut responses = executor.execute_batch(
+                &ctx,
+                requests,
+                &mut (None as Option<NoOpSubscriptionManager>),
+                |fut| fut_responses.push(fut),
+            );
 
             let cookies = {
                 match Arc::try_unwrap(cookie_jar) {
@@ -230,7 +227,7 @@ where
                 }
             };
 
-            match serde_json::to_vec(&responses) {
+            match serde_json::to_vec(&responses.append(&mut fut_responses.collect().await)) {
                 Ok(v) => Ok((
                     Response::builder()
                         .status(StatusCode::OK)
@@ -267,168 +264,4 @@ where
             ))
         }
     }
-}
-
-pub struct WebsocketSubscriptionManager<R: AsyncRuntime>(
-    Arc<Mutex<SubscriptionMap<R>>>,
-    // TODO: Remove locking from this??
-    // TODO: Don't use tokio so we are runtime agnostic
-    Arc<tokio::sync::Mutex<SplitSink<Box<dyn Websocket + Send>, Message>>>,
-);
-
-impl<R: AsyncRuntime> Clone for WebsocketSubscriptionManager<R> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone(), self.1.clone())
-    }
-}
-
-impl<R: AsyncRuntime> SubscriptionManager<R> for WebsocketSubscriptionManager<R> {
-    type Map<'a> = MutexGuard<'a, SubscriptionMap<R>>;
-    type SendFut<'a> = Ready<()>; // TODO: We don't use this cause of the `MutexLock` but should fix that at some point.
-
-    fn subscriptions(&mut self) -> Self::Map<'_> {
-        self.0.lock().unwrap()
-    }
-
-    fn send(&mut self, resp: exec::Response) -> Self::SendFut<'_> {
-        match serde_json::to_string(&resp) {
-            Ok(v) => {
-                let m = self.1.clone();
-                R::spawn(async move {
-                    m.lock().await.send(Message::Text(v)).await.unwrap();
-                });
-            }
-            Err(_err) => {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Error serializing websocket message: {}", _err);
-            }
-        }
-
-        ready(())
-    }
-}
-
-fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx, TokioRuntime>,
-    ctx_fn: TCtxFn,
-    req: httpz::Request,
-) -> impl HttpResponse
-where
-    TCtx: Clone + Send + Sync + 'static,
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-{
-    if !req.server().supports_websockets() {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("Websocket are not supported on your webserver!");
-
-        // TODO: Make this error be picked up on the frontend and expose it with a logical name
-        return Ok(Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
-            .body(vec![])?);
-    } else {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("Accepting websocket connection");
-    }
-
-    // TODO: Remove need for `_internal_dangerously_clone`
-    let ctx = match ctx_fn.exec(req._internal_dangerously_clone(), None) {
-        Ok(v) => v,
-        Err(_err) => {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error executing context function: {}", _err);
-
-            return Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(vec![])?);
-        }
-    };
-
-    let cookies = req.cookies(); // TODO: Reorder args of next func so cookies goes first
-    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |_, socket| async move {
-        let (tx, mut rx) = socket.split(); // TODO: Can httpz do this in a more efficient manner -> It's doing locking internally cause it's agnostic to `Stream`
-        let subscription_manager = WebsocketSubscriptionManager(
-            Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::new())),
-            Arc::new(tokio::sync::Mutex::new(tx)),
-        );
-
-        while let Some(msg) = rx.next().await {
-            match msg {
-                Ok(msg) => {
-                    let res = match msg {
-                        Message::Text(text) => serde_json::from_str::<Value>(&text),
-                        Message::Binary(binary) => serde_json::from_slice(&binary),
-                        Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
-                            continue;
-                        }
-                        Message::Frame(_) => unreachable!(),
-                    };
-
-                    match res.and_then(|v| match v.is_array() {
-                        true => serde_json::from_value::<Vec<exec::Request>>(v),
-                        false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
-                    }) {
-                        Ok(reqs) => {
-                            let responses = executor
-                                .execute_batch(
-                                    ctx.clone(),
-                                    reqs,
-                                    Some(subscription_manager.clone()),
-                                )
-                                .await;
-
-                            let msg = match serde_json::to_string(&responses) {
-                                Ok(v) => v,
-                                Err(_err) => {
-                                    #[cfg(feature = "tracing")]
-                                    tracing::error!(
-                                        "Error serializing websocket message: {}",
-                                        _err
-                                    );
-
-                                    continue;
-                                }
-                            };
-
-                            subscription_manager
-                                .1
-                                .lock()
-                                .await
-                                .send(Message::Text(msg))
-                                .await
-                                .map_err(|_err| {
-                                    #[cfg(feature = "tracing")]
-                                    tracing::error!(
-                                        "Error serializing websocket message: {}",
-                                        _err
-                                    );
-                                })
-                                .ok();
-                        }
-                        Err(_err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Error parsing websocket message: {}", _err);
-
-                            // TODO: Send report of error to frontend
-
-                            continue;
-                        }
-                    };
-                }
-                Err(_err) => {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Error in websocket: {}", _err);
-
-                    // TODO: Send report of error to frontend
-
-                    continue;
-                }
-            }
-        }
-
-        #[cfg(feature = "tracing")]
-        tracing::debug!("Shutting down websocket connection");
-
-        // TODO: Terminate all subscriptions
-    })
-    .into_response()
 }

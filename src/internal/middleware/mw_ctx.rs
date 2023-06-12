@@ -46,6 +46,7 @@ impl ProcedureKind {
 // TODO: Maybe rename to `Request` or something else. Also move into Public API cause it might be used in middleware
 #[derive(Debug, Clone)]
 pub struct RequestContext {
+    pub id: u32,
     pub kind: ProcedureKind,
     pub path: Cow<'static, str>,
     pub(crate) _priv: (),

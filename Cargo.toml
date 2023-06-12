@@ -62,6 +62,7 @@ tracing = { version = "0.1.37", default-features = false, optional = true }
 worker = { version = "0.0.15", default-features = false, optional = true }
 anyhow = { version = "1", default-features = false, optional = true }
 tokio = { version = "1", default-features = false, features = ["rt"], optional = true }
+streamunordered = "0.5.2"
 
 [dev-dependencies]
 # Tests

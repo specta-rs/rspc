@@ -12,22 +12,28 @@ mod private {
     #[serde(tag = "method", rename_all = "camelCase")]
     pub enum Request {
         Query {
+            /// A unique ID used to identify the request
+            /// It is the client's responsibility to ensure that this ID is unique.
+            id: u32,
             path: Cow<'static, str>,
             input: Option<Value>,
         },
         Mutation {
+            /// A unique ID used to identify the request
+            /// It is the client's responsibility to ensure that this ID is unique.
+            id: u32,
             path: Cow<'static, str>,
             input: Option<Value>,
         },
         Subscription {
-            /// The ID of the subscription. This is used to identify the subscription.
+            /// A unique ID used to identify the request
             /// It is the client's responsibility to ensure that this ID is unique.
-            id: Cow<'static, str>,
+            id: u32,
             path: Cow<'static, str>,
             input: Option<Value>,
         },
         SubscriptionStop {
-            id: Cow<'static, str>,
+            id: u32,
         },
     }
 
@@ -47,7 +53,7 @@ mod private {
     /// @internal
     #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
-    #[serde(tag = "type", rename_all = "camelCase")]
+    #[serde(tag = "type", content = "value", rename_all = "camelCase")]
     pub enum ValueOrError {
         /// The result of a successful operation.
         Value(Value),
@@ -60,18 +66,11 @@ mod private {
     /// @internal
     #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
-    #[serde(tag = "type", rename_all = "camelCase")]
-    pub enum Response {
-        // Result of a [Request::Query] or [Request::Mutation].
-        Response {
-            path: Cow<'static, str>,
-            result: ValueOrError,
-        },
-        // Message emitted by of an active [Request::Subscription].
-        Event {
-            id: Cow<'static, str>,
-            result: ValueOrError,
-        },
+    #[serde(rename_all = "camelCase")]
+    pub struct Response {
+        pub id: u32,
+        #[serde(flatten)]
+        pub result: ValueOrError,
     }
 }
 

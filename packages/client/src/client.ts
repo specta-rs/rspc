@@ -1,138 +1,189 @@
-// TODO: Redo this entire system when links are introduced
 import {
-  RSPCError,
-  ProceduresLike,
   inferQueryResult,
   ProceduresDef,
   inferMutationResult,
-  inferProcedures,
-  inferSubscriptionResult,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  inferProcedureResult,
+  generateRandomId,
 } from ".";
-import { randomId, Transport } from "./transport";
+import { RSPCError, Link, OperationContext, Operation, LinkResult } from ".";
 
 // TODO
 export interface SubscriptionOptions<TOutput> {
-  onStarted?: () => void;
+  // onStarted?: () => void;
   onData: (data: TOutput) => void;
-  onError?: (err: RSPCError) => void;
+  // TODO: Probs remove `| Error` here
+  onError?: (err: RSPCError | Error) => void;
 }
 
+type KeyAndInput = [string] | [string, any];
+
+type OperationOpts = {
+  signal?: AbortSignal;
+  context?: OperationContext;
+  // skipBatch?: boolean; // TODO: Make this work + add this to React
+};
+
 // TODO
-export interface ClientArgs {
-  transport: Transport;
+interface ClientArgs {
+  links: Link[];
   onError?: (err: RSPCError) => void | Promise<void>;
 }
 
-// TODO
-export function createClient<TProcedures extends ProceduresLike>(
-  args: ClientArgs
-): Client<inferProcedures<TProcedures>> {
-  return new Client(args);
+export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
+  return new AlphaClient<P>(args);
 }
 
-// TODO
-export class Client<TProcedures extends ProceduresDef> {
+// TODO: This will replace old client
+export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
-  private transport: Transport;
-  private subscriptionMap = new Map<string, (data: any) => void>();
+  private links: Link[];
   private onError?: (err: RSPCError) => void | Promise<void>;
+  private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput; // TODO: Do something so a single React.context can handle multiple of these
 
   constructor(args: ClientArgs) {
-    this.transport = args.transport;
-    this.transport.clientSubscriptionCallback = (id, value) => {
-      const func = this.subscriptionMap?.get(id);
-      if (func !== undefined) func(value);
-    };
-    this.subscriptionMap = new Map();
+    if (args.links.length === 0) {
+      throw new Error("Must provide at least one link");
+    }
+
+    this.links = args.links;
     this.onError = args.onError;
   }
 
-  async query<K extends TProcedures["queries"]["key"] & string>(
+  async query<K extends P["queries"]["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
-    ]
-  ): Promise<inferQueryResult<TProcedures, K>> {
-    try {
-      return await this.transport.doRequest(
-        "query",
-        keyAndInput[0],
-        keyAndInput[1]
-      );
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      throw err;
-    }
-  }
-
-  async mutation<K extends TProcedures["mutations"]["key"] & string>(
-    keyAndInput: [
-      key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "mutations", K>
-    ]
-  ): Promise<inferMutationResult<TProcedures, K>> {
-    try {
-      return await this.transport.doRequest(
-        "mutation",
-        keyAndInput[0],
-        keyAndInput[1]
-      );
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      throw err;
-    }
-  }
-
-  // TODO: Redesign this, i'm sure it probably has race conditions but it works for now
-  addSubscription<
-    K extends TProcedures["subscriptions"]["key"] & string,
-    TData = inferSubscriptionResult<TProcedures, K>
-  >(
-    keyAndInput: [
-      K,
-      ..._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+      ...input: _inferProcedureHandlerInput<P, "queries", K>
     ],
-    opts: SubscriptionOptions<TData>
+    opts?: OperationOpts
+  ): Promise<inferQueryResult<P, K>> {
+    console.log("BRUH"); // TODO
+
+    try {
+      const keyAndInput2 = this.mapQueryKey
+        ? this.mapQueryKey(keyAndInput as any)
+        : keyAndInput;
+
+      console.log("IN CLIENT", keyAndInput2);
+
+      const result = exec(
+        {
+          method: "query",
+          input: keyAndInput2[1],
+          path: keyAndInput2[0],
+          context: opts?.context || {},
+        },
+        this.links
+      );
+      opts?.signal?.addEventListener("abort", result.abort);
+
+      return await new Promise(result.exec);
+    } catch (err) {
+      if (this.onError) {
+        this.onError(err as RSPCError);
+      }
+      throw err;
+    }
+  }
+
+  async mutation<K extends P["mutations"]["key"] & string>(
+    keyAndInput: [
+      key: K,
+      ...input: _inferProcedureHandlerInput<P, "mutations", K>
+    ],
+    opts?: OperationOpts
+  ): Promise<inferMutationResult<P, K>> {
+    try {
+      const keyAndInput2 = this.mapQueryKey
+        ? this.mapQueryKey(keyAndInput as any)
+        : keyAndInput;
+
+      const result = exec(
+        {
+          method: "mutation",
+          input: keyAndInput2[1],
+          path: keyAndInput2[0],
+          context: opts?.context || {},
+        },
+        this.links
+      );
+      opts?.signal?.addEventListener("abort", result.abort);
+
+      return await new Promise(result.exec);
+    } catch (err) {
+      if (this.onError) {
+        this.onError(err as RSPCError);
+      }
+      throw err;
+    }
+  }
+
+  // TODO: Handle resubscribing if the subscription crashes similar to what Tanstack Query does
+  addSubscription<
+    K extends P["subscriptions"]["key"] & string,
+    TData = inferProcedureResult<P, "subscriptions", K>
+  >(
+    keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
+    opts: SubscriptionOptions<TData> & { context?: OperationContext }
   ): () => void {
     try {
-      let subscriptionId = randomId();
-      let unsubscribed = false;
+      const keyAndInput2 = this.mapQueryKey
+        ? this.mapQueryKey(keyAndInput as any)
+        : keyAndInput;
 
-      const cleanup = () => {
-        this.subscriptionMap?.delete(subscriptionId);
-        if (subscriptionId) {
-          this.transport.doRequest(
-            "subscriptionStop",
-            undefined!,
-            subscriptionId
-          );
-        }
-      };
+      const result = exec(
+        {
+          method: "subscription",
+          input: keyAndInput2[1],
+          path: keyAndInput2[0],
+          context: opts?.context || {},
+        },
+        this.links
+      );
 
-      this.transport.doRequest("subscription", keyAndInput[0], [
-        subscriptionId,
-        keyAndInput[1],
-      ]);
-
-      if (opts.onStarted) opts.onStarted();
-      this.subscriptionMap?.set(subscriptionId, opts.onData);
-
-      return () => {
-        unsubscribed = true;
-        cleanup();
-      };
+      result.exec(
+        (data) => opts?.onData(data),
+        (err) => opts?.onError?.(err)
+      );
+      return result.abort;
     } catch (err) {
       if (this.onError) {
         this.onError(err as RSPCError);
       }
-
       return () => {};
     }
   }
+
+  // TODO: Remove this once middleware system is in place
+  dangerouslyHookIntoInternals<P2 extends ProceduresDef = P>(opts?: {
+    mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
+  }): AlphaClient<P2> {
+    this.mapQueryKey = opts?.mapQueryKey;
+    return this as any;
+  }
+}
+
+function exec(op: Operation, links: Link[]) {
+  if (!links[0]) throw new Error("No links provided");
+
+  let prevLinkResult: LinkResult = {
+    exec: () => {
+      throw new Error(
+        "rspc: no terminating link was attached! Did you forget to add a 'httpLink' or 'wsLink' link?"
+      );
+    },
+    abort: () => {},
+  };
+
+  for (var linkIndex = 0; linkIndex < links.length; linkIndex++) {
+    const link = links[links.length - linkIndex - 1]!;
+    const result = link({
+      op,
+      next: () => prevLinkResult,
+    });
+    prevLinkResult = result;
+  }
+
+  return prevLinkResult;
 }

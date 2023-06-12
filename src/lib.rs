@@ -2,7 +2,6 @@
 //!
 //! Checkout the official docs <https://rspc.dev>
 //!
-#![forbid(unsafe_code)]
 #![warn(
     clippy::all,
     clippy::cargo,
