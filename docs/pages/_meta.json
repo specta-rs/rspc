@@ -5,12 +5,10 @@
   },
   "index": {},
   "quickstart": {},
-  "breaking-changes": {},
   "server": "Server",
   "client": "Client",
   "integrations": "Integrations",
   "ecosystem": "Ecosystem",
-  "alpha": "Alpha",
   "brand": {
     "display": "hidden"
   }

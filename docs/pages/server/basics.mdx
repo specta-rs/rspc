@@ -1,0 +1,166 @@
+---
+title: Basics
+---
+
+import { Callout } from "nextra-theme-docs";
+
+# Basics
+
+Getting started with rspc on the server. This guide will take you through all the parts of rspc and explain how they work.
+
+### Router
+
+First start by creating a new router with the default context type (we will touch on this later). A router is a collection of procedures which is a similar to a REST endpoint Eg. `/api/users`.
+
+```rust
+fn router() -> Router {
+    let router = <Router>::new();
+}
+```
+
+Next you will want to export the router's bindings to Typescript so the frontend code can use them. rspc's typesafe works by converting your Rust code into a Typescript declaration file.
+
+```rust
+use rspc::{Rspc, Router};
+
+const R: Rspc<()> = Rspc::new();
+
+fn router() -> Router {
+    let router = R.router().build().unwrap();
+
+    #[cfg(debug_assertions)] // Only export in development builds
+    router
+        .export_ts(ExportConfig::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
+        ))
+        .unwrap();
+
+    router
+}
+
+fn main() {
+   let router = router();
+}
+
+#[cfg(test)]
+mod test {
+    // I recommend doing this as rspc's router can fail to build and this ensures it will be caught by the tests
+    #[test]
+    fn export_bindings() {
+        super::router();
+    }
+}
+```
+
+### Transports
+
+Now that you have a basic router you will want to expose it to the outside world. rspc provides are multiple methods for doing this but I recommend using [Axum](https://github.com/tokio-rs/axum).
+
+```rs
+
+
+```
+
+### Context
+
+A router is cool and all but your application has state such as a database connection you will want to be able to access from your procedures.
+
+```rust
+use my_database_library::DatabaseConn;
+
+#[derive(Clone)] // Clone is generally required
+struct MyCtx { db: DatabaseConn }
+
+fn main() {
+    let router = Router::<MyCtx>::new();
+}
+```
+
+<Callout type="info">
+  The context type must be an immutable reference (`&T`). If your type doesn't satisfy this property you will want to wrap your data (`T`) in an [`Arc<T>`](https://doc.rust-lang.org/std/sync/struct.Arc.html) or an [`Arc<Mutex<T>>`](https://doc.rust-lang.org/std/sync/struct.Mutex.html) depending on if your require mutability (this pattern is known as [interior mutability](https://doc.rust-lang.org/book/ch15-05-interior-mutability.html)).
+</Callout>
+
+#### Request context
+
+rspc deal with context differently than you might expect if your coming from other popular Rust libraries. A new context is created for every incoming request or websocket connection. This may seem weird at first but it allows your context to include both system data such as a database connection and user data such as the users session.
+
+### Procedure
+
+A procedure represents a single operation on the server. Thing of this as a regular REST endpoint Eg. `/users`. It can take in an argument and return a result.
+
+#### Queries
+
+A query is a request for data. It's important it has no [side-effects](<https://en.wikipedia.org/wiki/Side_effect_(computer_science)>) as it's possible for a query to be retried. When using the React or Solid integrations the data will always be refetched periodically.
+
+```rs
+use serde::Deserialize; // This requires the 'derive' feature to be enabled.
+use specta::Type;
+
+#[derive(Deserialize, Type)]
+pub struct MyCustomType {
+
+}
+
+# TODO
+```
+
+#### Mutations
+
+TODO
+
+#### Subscriptions
+
+{/* TODO: Must be enabled the Rust features */}
+
+TODO
+
+### Merging routers
+
+Ok now your starting to build your app but your finding that your file is getting a bit big. It might be time to split up your procedures across multiple routers.
+
+```rs
+# TODO
+```
+
+### Advanced Procedures
+
+#### Custom Types
+
+```rs
+# TODO
+```
+
+#### Error handling
+
+Now we all think our code is perfect,
+
+```rs
+# TODO
+```
+
+#### Custom error types
+
+Look, rspc's error type is cool but what if i'm using my own.
+
+```rs
+# TODO
+```
+
+### Middleware
+
+This is all cool but i'm building a real application. I need to be able to do authentication, authorization, logging and more! This is where the rspc's powerful middleware system comes in.
+
+<Callout>
+  Docs coming soon as the syntax is undergoing breaking changes! <br />
+  If your interesting in using them jump in the Discord!
+</Callout>
+
+### Footguns
+
+#### Capturing context
+
+You should NOT capture variable into your handler function and instead use the request context. Their are exceptions to this rule but you should ideally be able to build the router without a connection to any external resources such as your database.
+
+```rs
+# TODO
+```

@@ -65,7 +65,7 @@ where
 }
 
 impl<TLCtx, TResp: Executable2> MwResultWithCtx<TLCtx, TResp> {
-    pub fn resp<E: Executable2>(self, handler: E) -> MwResultWithCtx<TLCtx, E> {
+    pub fn map<E: Executable2>(self, handler: E) -> MwResultWithCtx<TLCtx, E> {
         MwResultWithCtx {
             input: self.input,
             req: self.req,
