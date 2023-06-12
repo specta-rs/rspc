@@ -11,15 +11,6 @@ type WsLinkOpts = {
    * Add ponyfill for WebSocket
    */
   WebSocket?: typeof WebSocket;
-  /**
-   * Batch multiple rspc queries into a single HTTP request. Enabled by default
-   */
-  batch?:
-    | false
-    | {
-        maxBatchSize?: number; // TODO: Make this work
-        shouldBatch?: (op: Operation) => boolean;
-      };
 };
 
 /**
@@ -27,10 +18,7 @@ type WsLinkOpts = {
  *
  * Note: This link applies request batching by default.
  */
-// TODO: Only batch when the user says
-// TODO: Don't sending request if it's currently being fetched and use the same response
 // TODO: Deal with duplicate subscription id -> Retry -> Make the backend just give it a new ID in the response
-// TODO: Deduplicate requests to the same operation
 // TODO: Reconnect all active subscriptions on connection restart
 export function wsLink(opts: WsLinkOpts): Link {
   const [activeMap, send] = newWsManager(opts);
@@ -42,6 +30,22 @@ export function wsLink(opts: WsLinkOpts): Link {
     if (!batchQueued) {
       batchQueued = true;
       setTimeout(() => {
+        let batches: RspcRequest[][];
+        if (batch.length > 10) {
+          batches = [];
+          let batchIdx = 0;
+          for (let i = 0; i < batch.length; i++) {
+            if (i % 10 === 0) {
+              batches.push([]);
+              batchIdx++;
+            }
+            // @ts-expect-error
+            batches[batchIdx - 1].push(batch[i]);
+          }
+        } else {
+          batches = [batch];
+        }
+
         send([...batch]);
         batch.splice(0, batch.length);
         batchQueued = false;
@@ -58,13 +62,6 @@ export function wsLink(opts: WsLinkOpts): Link {
     let id = idCounter++;
     return {
       exec: async (resolve, reject) => {
-        var start = window.performance.now();
-
-        console.log(hashedQueryKey(op));
-
-        var end = window.performance.now();
-        console.log(`Execution time: ${end - start} ms`);
-
         activeMap.set(id, {
           resolve,
           reject,
@@ -121,8 +118,6 @@ function newWsManager(opts: WsLinkOpts) {
       for (const result of results) {
         const item = activeMap.get(result.id);
 
-        console.log(result.id, item, activeMap.keys()); // TODO
-
         if (!item) {
           console.error(
             `rspc: received event with id '${result.id}' for unknown`
@@ -134,21 +129,6 @@ function newWsManager(opts: WsLinkOpts) {
           resolve: item.resolve,
           reject: item.reject,
         });
-
-        // if (result.result.type === "value") {
-        //   item.resolve(result.result.value);
-        // } else if (result.result.type === "error") {
-        //   item.reject(
-        //     new RSPCError(result.result.value.code, result.result.value.message)
-        //   );
-        // } else {
-        //   console.error(
-        //     `rspc: received response of unknown type for [${id.join(",")}]`
-        //   );
-        // }
-
-        // item.resolve(result.result);
-
         if ("path" in event) activeMap.delete(result.id);
       }
     });
