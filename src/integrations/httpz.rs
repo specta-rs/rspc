@@ -1,7 +1,8 @@
 use futures::{SinkExt, StreamExt};
 use futures_channel::mpsc;
+#[cfg(feature = "axum")]
+use httpz::axum::axum::extract::FromRequestParts;
 use httpz::{
-    axum::axum::extract::FromRequestParts,
     http::{self, Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
     Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
@@ -618,9 +619,15 @@ where
                            let res = match msg {
                                 Message::Text(text) => serde_json::from_str::<Value>(&text),
                                 Message::Binary(binary) => serde_json::from_slice(&binary),
+                                #[cfg(feature = "axum")]
                                 Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
                                     continue;
                                 }
+                                #[cfg(not(feature = "axum"))]
+                                Message::Ping(_) | Message::Pong(_) => {
+                                    continue;
+                                }
+                                #[cfg(feature = "axum")]
                                 Message::Frame(_) => unreachable!(),
                             };
 
