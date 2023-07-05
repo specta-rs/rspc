@@ -1,11 +1,9 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 use serde::de::DeserializeOwned;
-use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
+use specta::Type;
 
-use crate::internal::ProcedureDataType;
-
-use super::{FutureMarkerType, RequestLayer, StreamMarkerType};
+use super::RequestLayer;
 
 #[doc(hidden)]
 pub trait ResolverFunction<TLCtx, TMarker>:

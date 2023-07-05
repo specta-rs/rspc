@@ -19,12 +19,7 @@ mod private {
     };
 
     #[doc(hidden)]
-    pub struct MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
-    where
-        TLayerCtx: Send + Sync + 'static,
-        TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-        TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
-    {
+    pub struct MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware> {
         pub(crate) next: TMiddleware,
         pub(crate) mw: TNewMiddleware,
         pub(crate) phantom: PhantomData<TLayerCtx>,
@@ -54,18 +49,18 @@ mod private {
                 },
             );
 
-            Ok(MiddlewareLayerFuture(
-                PinnedOption::Some(fut),
-                &self.next,
-                PinnedOption::None,
-                None,
-                PinnedOption::None,
-            ))
+            Ok(MiddlewareLayerFuture {
+                a: PinnedOption::Some(fut),
+                b: &self.next,
+                c: PinnedOption::None,
+                d: None,
+                e: PinnedOption::None,
+            })
         }
     }
 
     // TODO: Cleanup generics on this
-    // TODO: Use named fields!!!!!
+    // TODO: Fix potential panic in this
     #[pin_project(project = MiddlewareLayerFutureProj)]
     pub struct MiddlewareLayerFuture<
         'a,
@@ -73,13 +68,16 @@ mod private {
         TLayerCtx: Send + Sync + 'static,
         TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
         TMiddleware: Layer<TNewMiddleware::NewCtx> + 'static,
-    >(
-        #[pin] PinnedOption<TNewMiddleware::Fut>,
-        &'a TMiddleware,
-        #[pin] PinnedOption<TMiddleware::Stream<'a>>,
-        Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
-        #[pin] PinnedOption<<<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
-    );
+    > {
+        #[pin]
+        a: PinnedOption<TNewMiddleware::Fut>,
+        b: &'a TMiddleware,
+        #[pin]
+        c: PinnedOption<TMiddleware::Stream<'a>>,
+        d: Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
+        #[pin]
+        e: PinnedOption<<<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
+    }
 
     impl<
             'a,
@@ -93,16 +91,16 @@ mod private {
         fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             let mut this = self.project();
 
-            match this.0.as_mut().project() {
+            match this.a.as_mut().project() {
                 PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                     Poll::Ready(result) => {
-                        this.0.set(PinnedOption::None);
+                        this.a.set(PinnedOption::None);
 
                         let (ctx, input, req, resp) = result.explode()?;
-                        *this.3 = resp;
+                        *this.d = resp;
 
-                        match this.1.call(ctx, input, req) {
-                            Ok(stream) => this.2.set(PinnedOption::Some(stream)),
+                        match this.b.call(ctx, input, req) {
+                            Ok(stream) => this.c.set(PinnedOption::Some(stream)),
                             Err(err) => return Poll::Ready(Some(Err(err))),
                         }
                     }
@@ -111,10 +109,10 @@ mod private {
                 PinnedOptionProj::None => {}
             }
 
-            match this.4.as_mut().project() {
+            match this.e.as_mut().project() {
                 PinnedOptionProj::Some(fut) => match fut.poll(cx) {
                     Poll::Ready(result) => {
-                        this.4.set(PinnedOption::None);
+                        this.e.set(PinnedOption::None);
 
                         return Poll::Ready(Some(Ok(result)));
                     }
@@ -123,17 +121,17 @@ mod private {
                 PinnedOptionProj::None => {}
             }
 
-            match this.2.as_mut().project() {
+            match this.c.as_mut().project() {
                 PinnedOptionProj::Some(fut) => {
                     match fut.poll_next(cx) {
                         Poll::Ready(result) => {
-                            match this.3.take() {
+                            match this.d.take() {
                                 Some(resp) => {
                                     // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
                                     let result = result.unwrap().unwrap();
 
                                     let fut = resp.call(result);
-                                    this.4.set(PinnedOption::Some(fut));
+                                    this.e.set(PinnedOption::Some(fut));
                                 }
                                 None => return Poll::Ready(result),
                             }
@@ -148,7 +146,7 @@ mod private {
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
-            match &self.2 {
+            match &self.c {
                 PinnedOption::Some(stream) => stream.size_hint(),
                 PinnedOption::None => (0, None),
             }

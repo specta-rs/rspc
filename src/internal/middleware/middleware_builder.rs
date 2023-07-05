@@ -5,6 +5,8 @@ use specta::Type;
 
 use crate::internal::{middleware::Middleware, Layer};
 
+// TODO: Can this be made completely internal?
+#[doc(hidden)]
 pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
 
 mod private {

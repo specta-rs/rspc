@@ -7,7 +7,9 @@ use serde_json::Value;
 
 use crate::{internal::middleware::RequestContext, ExecError};
 
-// TODO: Cleanup and seal these traits
+mod private {
+    // TODO
+}
 
 pub trait Ret: Debug + Send + Sync + 'static {}
 impl<T: Debug + Send + Sync + 'static> Ret for T {}
@@ -15,12 +17,7 @@ impl<T: Debug + Send + Sync + 'static> Ret for T {}
 pub trait Fut<TRet: Ret>: Future<Output = TRet> + Send + 'static {}
 impl<TRet: Ret, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut {}
 
-pub trait Func<TRet: Ret, TFut: Fut<TRet>>: Fn() -> TFut + Send + Sync + 'static {}
-impl<TRet: Ret, TFut: Fut<TRet>, TFunc: Fn() -> TFut + Send + Sync + 'static> Func<TRet, TFut>
-    for TFunc
-{
-}
-
+// TODO: Remove this if possible it's something to do with optional function callback but can we cheat it with two different impls for `.call` based on generic?
 pub trait Executable2: Send + Sync + 'static {
     type Fut: Future<Output = Value> + Send;
 

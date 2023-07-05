@@ -6,24 +6,10 @@ mod private {
 
     use crate::internal::{middleware::SealedMiddlewareBuilder, Layer};
 
-    pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>)
-    where
-        TCtx: 'static;
+    pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>);
 
-    impl<TCtx> Default for BaseMiddleware<TCtx>
-    where
-        TCtx: 'static,
-    {
+    impl<TCtx> Default for BaseMiddleware<TCtx> {
         fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl<TCtx> BaseMiddleware<TCtx>
-    where
-        TCtx: 'static,
-    {
-        pub const fn new() -> Self {
             Self(PhantomData)
         }
     }

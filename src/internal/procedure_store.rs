@@ -1,3 +1,5 @@
+// TODO: Probs unseal a heap of this
+
 mod private {
     use std::{borrow::Cow, collections::BTreeMap};
 
@@ -12,7 +14,7 @@ mod private {
     #[derive(Debug, Clone, DataTypeFrom)]
     #[cfg_attr(test, derive(specta::Type))]
     #[cfg_attr(test, specta(rename = "ProcedureDef"))]
-    pub struct ProcedureDataType {
+    pub(crate) struct ProcedureDataType {
         pub key: Cow<'static, str>,
         #[specta(type = serde_json::Value)]
         pub input: DataType,
@@ -50,7 +52,7 @@ mod private {
     }
 
     // TODO: Rename this
-    pub struct ProcedureTodo<TCtx> {
+    pub(crate) struct ProcedureTodo<TCtx> {
         pub(crate) exec: Box<dyn DynLayer<TCtx>>,
         pub(crate) ty: ProcedureDataType,
     }
@@ -68,7 +70,12 @@ mod private {
             }
         }
 
-        pub fn append<L: Layer<TCtx>>(&mut self, key: String, exec: L, ty: ProcedureDataType) {
+        pub(crate) fn append<L: Layer<TCtx>>(
+            &mut self,
+            key: String,
+            exec: L,
+            ty: ProcedureDataType,
+        ) {
             // TODO: Cleanup this logic and do better router merging
             #[allow(clippy::panic)]
             if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.")

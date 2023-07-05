@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use specta::TypeDefs;
 
-use crate::internal::{middleware::ProcedureKind, ProcedureStore};
+use crate::internal::ProcedureStore;
 
 /// TODO
 pub(crate) struct BuildProceduresCtx<'a, TCtx> {
@@ -12,15 +12,15 @@ pub(crate) struct BuildProceduresCtx<'a, TCtx> {
     pub(crate) subscriptions: &'a mut ProcedureStore<TCtx>,
 }
 
-impl<'a, TCtx> BuildProceduresCtx<'a, TCtx> {
-    pub fn get_mut(&mut self, kind: ProcedureKind) -> &mut ProcedureStore<TCtx> {
-        match kind {
-            ProcedureKind::Query => self.queries,
-            ProcedureKind::Mutation => self.mutations,
-            ProcedureKind::Subscription => self.subscriptions,
-        }
-    }
-}
+// impl<'a, TCtx> BuildProceduresCtx<'a, TCtx> {
+//     pub fn get_mut(&mut self, kind: ProcedureKind) -> &mut ProcedureStore<TCtx> {
+//         match kind {
+//             ProcedureKind::Query => self.queries,
+//             ProcedureKind::Mutation => self.mutations,
+//             ProcedureKind::Subscription => self.subscriptions,
+//         }
+//     }
+// }
 
 /// TODO: This exists for the delayed `build` so router context works with merging.
 pub(crate) trait DynProcedure<TCtx>: 'static {

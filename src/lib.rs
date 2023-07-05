@@ -21,16 +21,12 @@ pub mod unstable;
 mod compiled_router;
 mod error;
 mod router;
-mod router_error;
 mod rspc;
-mod selection;
 
 pub use crate::rspc::*;
 pub use compiled_router::*;
 pub use error::*;
 pub use router::*;
-pub use router_error::*;
-pub use selection::*;
 
 pub mod integrations;
 pub mod internal;

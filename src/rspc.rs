@@ -56,7 +56,7 @@ where
         Procedure::new(
             Some((ProcedureKind::Query, Default::default())),
             Some(MiddlewareLayerBuilder {
-                middleware: BaseMiddleware::new(),
+                middleware: BaseMiddleware::default(),
                 mw,
             }),
         )
@@ -70,7 +70,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Query, resolver.into_marker())),
-            Some(BaseMiddleware::new()),
+            Some(BaseMiddleware::default()),
         )
     }
 
@@ -82,7 +82,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Query, resolver.into_marker())),
-            Some(BaseMiddleware::new()),
+            Some(BaseMiddleware::default()),
         )
     }
 
@@ -94,7 +94,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Query, resolver.into_marker())),
-            Some(BaseMiddleware::new()),
+            Some(BaseMiddleware::default()),
         )
     }
 }
