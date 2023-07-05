@@ -3,11 +3,10 @@ use std::marker::PhantomData;
 use crate::{
     internal::{
         middleware::{
-            BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, MissingResolver,
+            BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
-        procedure::Procedure,
-        FutureMarkerType, RequestKind, RequestLayer, RequestLayerMarker, ResolverFunction,
-        SealedRequestLayer, StreamLayerMarker, StreamMarkerType,
+        procedure::{MissingResolver, Procedure},
+        FutureMarkerType, RequestLayer, ResolverFunction, SealedRequestLayer, StreamMarkerType,
     },
     Router,
 };
@@ -52,70 +51,50 @@ where
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, ()>
+    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
     {
-        Procedure::new_from_middleware(MiddlewareLayerBuilder {
-            middleware: BaseMiddleware::new(),
-            mw,
-        })
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
-        self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, ()>
-    {
-        Procedure::new_from_middleware(MiddlewareLayerBuilder {
-            middleware: BaseMiddleware::new(),
-            mw,
-        })
-    }
-
-    pub fn query<R, RMarker>(
-        self,
-        resolver: R,
-    ) -> Procedure<R, BaseMiddleware<TCtx>, RequestLayerMarker<RMarker>>
-    where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
-        R::Result: RequestLayer<R::RequestMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Query),
-            BaseMiddleware::new(),
-            resolver,
+        Procedure::new(
+            Some((ProcedureKind::Query, Default::default())),
+            Some(MiddlewareLayerBuilder {
+                middleware: BaseMiddleware::new(),
+                mw,
+            }),
         )
     }
 
-    pub fn mutation<R, RMarker>(
-        self,
-        resolver: R,
-    ) -> Procedure<R, BaseMiddleware<TCtx>, RequestLayerMarker<RMarker>>
+    pub fn query<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<RequestLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
+        R: ResolverFunction<TCtx, RMarker>,
         R::Result: RequestLayer<R::RequestMarker>
             + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
-        Procedure::new_from_resolver(
-            RequestLayerMarker::new(RequestKind::Mutation),
-            BaseMiddleware::new(),
-            resolver,
+        Procedure::new(
+            Some((ProcedureKind::Query, resolver.into_marker())),
+            Some(BaseMiddleware::new()),
         )
     }
 
-    pub fn subscription<R, RMarker>(
-        self,
-        resolver: R,
-    ) -> Procedure<R, BaseMiddleware<TCtx>, StreamLayerMarker<RMarker>>
+    pub fn mutation<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
     where
-        R: ResolverFunction<StreamLayerMarker<RMarker>, LayerCtx = TCtx>
-            + Fn(TCtx, R::Arg) -> R::Result,
+        R: ResolverFunction<TCtx, RMarker>,
+        R::Result: RequestLayer<R::RequestMarker>
+            + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
+    {
+        Procedure::new(
+            Some((ProcedureKind::Query, resolver.into_marker())),
+            Some(BaseMiddleware::new()),
+        )
+    }
+
+    pub fn subscription<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
+    where
+        R: ResolverFunction<TCtx, RMarker>,
         R::Result: RequestLayer<R::RequestMarker>
             + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
     {
-        Procedure::new_from_resolver(StreamLayerMarker::new(), BaseMiddleware::new(), resolver)
+        Procedure::new(
+            Some((ProcedureKind::Query, resolver.into_marker())),
+            Some(BaseMiddleware::new()),
+        )
     }
 }

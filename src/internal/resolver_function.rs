@@ -5,58 +5,42 @@ use specta::{ts::TsExportError, DefOpts, Type, TypeDefs};
 
 use crate::internal::ProcedureDataType;
 
-use super::{
-    FutureMarkerType, RequestLayer, RequestLayerMarker, StreamLayerMarker, StreamMarkerType,
-};
+use super::{FutureMarkerType, RequestLayer, StreamMarkerType};
 
 #[doc(hidden)]
-pub trait ResolverFunction<TMarker>: SealedResolverFunction<TMarker> {}
+pub trait ResolverFunction<TLCtx, TMarker>:
+    SealedResolverFunction<TMarker> + Fn(TLCtx, Self::Arg) -> Self::Result
+{
+}
 
 mod private {
-    use crate::internal::{middleware::MiddlewareBuilder, SealedRequestLayer};
-
     use super::*;
 
+    // TODO: Rename
     pub trait SealedResolverFunction<TMarker>: Send + Sync + 'static {
-        type LayerCtx: Send + Sync + 'static;
+        // TODO: Can a bunch of these assoicated types be removed?
+
         type Arg: DeserializeOwned + Type + 'static;
         type RequestMarker;
         type Result;
-        type ResultMarker;
 
-        type RawResult: Type; // TODO: Can we remove this. It's basically `Self::Result`
-
-        fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result;
-
-        fn typedef<TMiddleware: MiddlewareBuilder>(
-            key: Cow<'static, str>,
-            defs: &mut TypeDefs,
-        ) -> Result<ProcedureDataType, TsExportError> {
-            Ok(ProcedureDataType {
-                key,
-                input: <TMiddleware::Arg<Self::Arg> as Type>::reference(
-                    DefOpts {
-                        parent_inline: false,
-                        type_map: defs,
-                    },
-                    &[],
-                )?,
-                result: <Self::RawResult as Type>::reference(
-                    DefOpts {
-                        parent_inline: false,
-                        type_map: defs,
-                    },
-                    &[],
-                )?,
-            })
-        }
+        fn into_marker(self) -> TMarker;
     }
 
-    impl<TMarker, T: SealedResolverFunction<TMarker>> ResolverFunction<TMarker> for T {}
+    // TODO: Docs + rename cause it's not a marker, it's runtime
+    pub struct Marker<A, B, C, D, E>(pub(crate) A, pub(crate) PhantomData<(B, C, D, E)>);
 
-    // TODO: Merge the following two impls? They are differentiated by `Type = X` but they have different markers through the rest of the system.
+    impl<
+            TMarker,
+            TLCtx,
+            T: SealedResolverFunction<TMarker> + Fn(TLCtx, Self::Arg) -> Self::Result,
+        > ResolverFunction<TLCtx, TMarker> for T
+    {
+    }
 
-    pub struct Marker<A, B, C, D>(PhantomData<(A, B, C, D)>);
+    // TODO: This is always `RequestLayerMarker` which breaks shit
+
+    // TODO: Remove TResultMarker
 
     impl<
             TLayerCtx,
@@ -64,53 +48,20 @@ mod private {
             TResult,
             TResultMarker,
             F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        >
-        SealedResolverFunction<RequestLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>>
-        for F
+        > SealedResolverFunction<Marker<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
     where
         TArg: DeserializeOwned + Type + 'static,
-        TResult: RequestLayer<TResultMarker>
-            + SealedRequestLayer<TResultMarker, Type = FutureMarkerType>,
+        TResult: RequestLayer<TResultMarker>,
         TLayerCtx: Send + Sync + 'static,
     {
-        type LayerCtx = TLayerCtx;
         type Arg = TArg;
-        type Result = TResult;
-        type ResultMarker = RequestLayerMarker<TResultMarker>;
         type RequestMarker = TResultMarker;
-        type RawResult = TResult::Result;
-
-        fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
-            self(ctx, arg)
-        }
-    }
-
-    impl<
-            TLayerCtx,
-            TArg,
-            TResult,
-            TResultMarker,
-            F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        >
-        SealedResolverFunction<StreamLayerMarker<Marker<TArg, TResult, TResultMarker, TLayerCtx>>>
-        for F
-    where
-        TArg: DeserializeOwned + Type + 'static,
-        TResult: RequestLayer<TResultMarker>
-            + SealedRequestLayer<TResultMarker, Type = StreamMarkerType>,
-        TLayerCtx: Send + Sync + 'static,
-    {
-        type LayerCtx = TLayerCtx;
-        type Arg = TArg;
         type Result = TResult;
-        type ResultMarker = StreamLayerMarker<TResultMarker>;
-        type RequestMarker = TResultMarker;
-        type RawResult = TResult::Result;
 
-        fn exec(&self, ctx: Self::LayerCtx, arg: Self::Arg) -> Self::Result {
-            self(ctx, arg)
+        fn into_marker(self) -> Marker<F, TLayerCtx, TArg, TResult, TResultMarker> {
+            Marker(self, PhantomData)
         }
     }
 }
 
-pub(crate) use private::SealedResolverFunction;
+pub(crate) use private::{Marker, SealedResolverFunction};

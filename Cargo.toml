@@ -81,7 +81,7 @@ members = [
     "./examples",
     "./examples/axum",
     "./examples/vercel",
-    "./examples/tauri/src-tauri"
+    # "./examples/tauri/src-tauri" # TODO: Reenable
 ]
 
 [patch.crates-io]

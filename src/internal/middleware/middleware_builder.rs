@@ -5,7 +5,7 @@ use specta::Type;
 
 use crate::internal::{middleware::Middleware, Layer};
 
-pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder {}
+pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
 
 mod private {
     use crate::internal::middleware::MiddlewareLayer;
@@ -26,7 +26,7 @@ mod private {
             T: Layer<Self::LayerCtx>;
     }
 
-    impl<T: SealedMiddlewareBuilder> MiddlewareBuilder for T {}
+    impl<T: SealedMiddlewareBuilder + Sync> MiddlewareBuilder for T {}
 
     pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
     where

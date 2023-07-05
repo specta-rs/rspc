@@ -5,7 +5,8 @@ use specta::TypeDefs;
 use crate::{
     internal::{
         is_valid_name,
-        procedure::{BuildProceduresCtx, IntoProcedureLike},
+        middleware::{MiddlewareBuilder, SealedMiddlewareBuilder},
+        procedure::{BuildProceduresCtx, DynProcedure, Procedure},
         ProcedureStore,
     },
     BuildError, BuildResult, CompiledRouter,
@@ -15,7 +16,7 @@ pub struct Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
-    procedures: Vec<(Cow<'static, str>, Box<dyn IntoProcedureLike<TCtx>>)>,
+    procedures: Vec<(Cow<'static, str>, Box<dyn DynProcedure<TCtx>>)>,
     errors: Vec<BuildError>,
 }
 
@@ -33,7 +34,15 @@ where
     }
 
     #[track_caller]
-    pub fn procedure(mut self, key: &'static str, procedure: impl IntoProcedureLike<TCtx>) -> Self {
+    pub fn procedure<T, TMiddleware>(
+        mut self,
+        key: &'static str,
+        procedure: Procedure<T, TMiddleware>,
+    ) -> Self
+    where
+        // Procedure<T, TMiddleware>: DynProcedure<TCtx>,
+        TMiddleware: MiddlewareBuilder + SealedMiddlewareBuilder<Ctx = TCtx, LayerCtx = TCtx>,
+    {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {
                 cause,
@@ -44,8 +53,9 @@ where
             });
         }
 
-        self.procedures
-            .push((Cow::Borrowed(key), Box::new(procedure)));
+        todo!();
+        // let procedure: Box<dyn DynProcedure<TMiddleware::Ctx>> = Box::new(procedure);
+        // self.procedures.push((Cow::Borrowed(key), procedure));
         self
     }
 

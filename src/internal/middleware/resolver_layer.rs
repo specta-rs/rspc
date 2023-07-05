@@ -9,6 +9,7 @@ mod private {
         ExecError,
     };
 
+    // TODO: For `T: ResolverFunction` or something like that to simplify the generics
     pub struct ResolverLayer<TLayerCtx, T, S>
     where
         TLayerCtx: Send + Sync + 'static,
@@ -36,14 +37,6 @@ mod private {
             (self.func)(a, b, c)
         }
     }
-
-    pub struct MissingResolver<TLayerCtx>(PhantomData<TLayerCtx>);
-
-    impl<TLayerCtx> MissingResolver<TLayerCtx> {
-        pub(crate) const fn new() -> Self {
-            Self(PhantomData)
-        }
-    }
 }
 
-pub(crate) use private::{MissingResolver, ResolverLayer};
+pub(crate) use private::ResolverLayer;

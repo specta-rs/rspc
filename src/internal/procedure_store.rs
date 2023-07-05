@@ -1,7 +1,7 @@
 mod private {
     use std::{borrow::Cow, collections::BTreeMap};
 
-    use specta::{DataType, DataTypeFrom};
+    use specta::{ts::TsExportError, DataType, DataTypeFrom, DefOpts, Type, TypeDefs};
 
     use crate::internal::{DynLayer, Layer};
 
@@ -18,6 +18,35 @@ mod private {
         pub input: DataType,
         #[specta(type = serde_json::Value)]
         pub result: DataType,
+    }
+
+    impl ProcedureDataType {
+        pub fn from_tys<TArg, TResult>(
+            key: Cow<'static, str>,
+            type_map: &mut TypeDefs,
+        ) -> Result<Self, TsExportError>
+        where
+            TArg: Type,
+            TResult: Type,
+        {
+            Ok(ProcedureDataType {
+                key,
+                input: TArg::reference(
+                    DefOpts {
+                        parent_inline: false,
+                        type_map,
+                    },
+                    &[],
+                )?,
+                result: TResult::reference(
+                    DefOpts {
+                        parent_inline: false,
+                        type_map,
+                    },
+                    &[],
+                )?,
+            })
+        }
     }
 
     // TODO: Rename this

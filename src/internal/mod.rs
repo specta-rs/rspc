@@ -8,15 +8,11 @@ pub mod middleware;
 pub mod procedure;
 
 mod layer;
-mod markers;
 mod procedure_store;
 mod resolver_function;
 mod resolver_result;
 
-use std::pin::Pin;
-
 pub use layer::*;
-pub(crate) use markers::*;
 pub(crate) use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;

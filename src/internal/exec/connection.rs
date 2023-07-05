@@ -1,5 +1,5 @@
 use futures::{ready, Stream};
-use httpz::ws::{Message, Websocket};
+use httpz::ws::{Message, Websocket}; // TODO: Being feature flag for `httpz` plz
 use pin_project::pin_project;
 use std::{
     future::Future,
