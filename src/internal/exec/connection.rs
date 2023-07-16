@@ -32,28 +32,22 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
         match self.project() {
             PlzNameThisEnumProj::OwnedStream(s) => {
                 let s = s.project();
-                match s.reference.poll_next(cx) {
-                    Poll::Ready(v) => Poll::Ready(v.map(|r| match r {
-                        Ok(v) => exec::Response {
-                            id: *s.id,
-                            result: exec::ValueOrError::Value(v),
-                        },
-                        Err(err) => exec::Response {
-                            id: *s.id,
-                            result: exec::ValueOrError::Error(err.into()),
-                        },
-                    })),
-                    Poll::Pending => Poll::Pending,
-                }
+
+                let v = ready!(s.reference.poll_next(cx));
+
+                Poll::Ready(v.map(|r| exec::Response {
+                    id: *s.id,
+                    result: match r {
+                        Ok(v) => exec::ValueOrError::Value(v),
+                        Err(err) => exec::ValueOrError::Error(err.into()),
+                    },
+                }))
             }
             PlzNameThisEnumProj::ExecRequestFut(mut s) => match s.as_mut().project() {
-                PinnedOptionProj::Some(ss) => match ss.poll(cx) {
-                    Poll::Ready(v) => {
-                        s.set(PinnedOption::None);
-                        Poll::Ready(Some(v))
-                    }
-                    Poll::Pending => Poll::Pending,
-                },
+                PinnedOptionProj::Some(ss) => ss.poll(cx).map(|v| {
+                    s.set(PinnedOption::None);
+                    Some(v)
+                }),
                 PinnedOptionProj::None => Poll::Ready(None),
             },
         }
@@ -192,22 +186,21 @@ impl<R: AsyncRuntime> Stream for Batcher<R> {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
 
-        match this.batch_timer.as_mut().project() {
-            PinnedOptionProj::Some(batch_timer) => match batch_timer.poll(cx) {
-                Poll::Ready(()) => {
-                    let queue = this.batch.drain(0..this.batch.len()).collect::<Vec<_>>();
-                    this.batch_timer.as_mut().set(PinnedOption::None);
+        Poll::Ready(Some(match this.batch_timer.as_mut().project() {
+            PinnedOptionProj::Some(batch_timer) => {
+                ready!(batch_timer.poll(cx));
 
-                    if queue.len() != 0 {
-                        // TODO: Error handling
-                        Poll::Ready(Some(Some(serde_json::to_string(&queue).unwrap())))
-                    } else {
-                        Poll::Ready(Some(None))
-                    }
+                let queue = this.batch.drain(0..this.batch.len()).collect::<Vec<_>>();
+                this.batch_timer.as_mut().set(PinnedOption::None);
+
+                if queue.len() != 0 {
+                    // TODO: Error handling
+                    Some(serde_json::to_string(&queue).unwrap())
+                } else {
+                    None
                 }
-                Poll::Pending => Poll::Pending,
-            },
-            PinnedOptionProj::None => Poll::Ready(Some(None)),
-        }
+            }
+            PinnedOptionProj::None => None,
+        }))
     }
 }
