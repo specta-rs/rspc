@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     sync::Arc,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 use futures::Stream;
@@ -15,7 +15,7 @@ use crate::{alpha::Executable2, internal::RequestContext, ExecError};
 
 use super::{
     AlphaLayer, AlphaMiddlewareBuilderLikeCompat, AlphaRequestLayer, FutureMarker, IntoProcedure,
-    IntoProcedureCtx, MissingResolver, MwV2, MwV2Result, MwV3, PinnedOption, PinnedOptionProj,
+    IntoProcedureCtx, MissingResolver, MwV2, MwV2Result, MwV3,
     ProcedureLike, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
     StreamMarker,
 };
@@ -351,13 +351,7 @@ where
             },
         );
 
-        Ok(MiddlewareFutOrSomething(
-            PinnedOption::Some(fut),
-            &self.next,
-            PinnedOption::None,
-            None,
-            PinnedOption::None,
-        ))
+        Ok(MiddlewareFutOrSomething::new(fut, &self.next))
     }
 }
 
@@ -365,90 +359,82 @@ where
 // TODO: Cleanup generics on this
 // TODO: Use named fields!!!!!
 #[pin_project(project = MiddlewareFutOrSomethingProj)]
-pub struct MiddlewareFutOrSomething<
+pub enum MiddlewareFutOrSomething<
     'a,
     // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
     TLayerCtx: Send + Sync + 'static,
-    TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
-    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
->(
-    #[pin] PinnedOption<TNewMiddleware::Fut>,
-    &'a TMiddleware,
-    #[pin] PinnedOption<TMiddleware::Stream<'a>>,
-    Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
-    #[pin] PinnedOption<<<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
-);
+    TNewMiddleware: MwV3<TLayerCtx>,
+    TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
+> {
+    First(#[pin] TNewMiddleware::Fut, &'a TMiddleware),
+    Second(
+        Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
+        #[pin] TMiddleware::Stream<'a>,
+    ),
+    Third(#[pin] <<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut),
+}
+
+impl<
+        'a,
+        // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
+        TLayerCtx: Send + Sync + 'static,
+        TNewMiddleware: MwV3<TLayerCtx>,
+        TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
+    > MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>
+{
+    pub fn new(fut: TNewMiddleware::Fut, middleware: &'a TMiddleware) -> Self {
+        Self::First(fut, middleware)
+    }
+}
 
 impl<
         'a,
         TLayerCtx: Send + Sync + 'static,
-        TNewMiddleware: MwV3<TLayerCtx> + Send + Sync + 'static,
-        TMiddleware: AlphaLayer<TNewMiddleware::NewCtx> + 'static,
+        TNewMiddleware: MwV3<TLayerCtx>,
+        TMiddleware: AlphaLayer<TNewMiddleware::NewCtx>,
     > Stream for MiddlewareFutOrSomething<'a, TLayerCtx, TNewMiddleware, TMiddleware>
 {
     type Item = Result<Value, ExecError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
-
-        match this.0.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(result) => {
-                    this.0.set(PinnedOption::None);
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        loop {
+            let new_state = match self.as_mut().project() {
+                MiddlewareFutOrSomethingProj::First(fut, middleware) => {
+                    let result = ready!(fut.poll(cx));
 
                     let (ctx, input, req, resp) = result.explode()?;
-                    *this.3 = resp;
 
-                    match this.1.call(ctx, input, req) {
-                        Ok(stream) => this.2.set(PinnedOption::Some(stream)),
+                    match middleware.call(ctx, input, req) {
+                        Ok(stream) => Self::Second(resp, stream),
                         Err(err) => return Poll::Ready(Some(Err(err))),
                     }
                 }
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
+                MiddlewareFutOrSomethingProj::Second(resp, stream) => {
+                    let result = ready!(stream.poll_next(cx));
 
-        match this.4.as_mut().project() {
-            PinnedOptionProj::Some(fut) => match fut.poll(cx) {
-                Poll::Ready(result) => {
-                    this.4.set(PinnedOption::None);
+                    let Some(resp) = resp.take() else {
+                    	return Poll::Ready(result)
+                    };
 
-                    return Poll::Ready(Some(Ok(result)));
+                    // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
+                    let result = result.unwrap().unwrap();
+
+                    // Future must be stored as we need to re-poll it
+                    Self::Third(resp.call(result))
                 }
-                Poll::Pending => return Poll::Pending,
-            },
-            PinnedOptionProj::None => {}
-        }
-
-        match this.2.as_mut().project() {
-            PinnedOptionProj::Some(fut) => {
-                match fut.poll_next(cx) {
-                    Poll::Ready(result) => {
-                        match this.3.take() {
-                            Some(resp) => {
-                                // TODO: Deal with this -> The `resp` handler should probs take in the whole `Result`?
-                                let result = result.unwrap().unwrap();
-
-                                let fut = resp.call(result);
-                                this.4.set(PinnedOption::Some(fut));
-                            }
-                            None => return Poll::Ready(result),
-                        }
-                    }
-                    Poll::Pending => return Poll::Pending,
+                MiddlewareFutOrSomethingProj::Third(fut) => {
+                    return fut.poll(cx).map(|res| Some(Ok(res)))
                 }
-            }
-            PinnedOptionProj::None => {}
-        }
+            };
 
-        unreachable!()
+            self.as_mut().set(new_state);
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        match &self.2 {
-            PinnedOption::Some(stream) => stream.size_hint(),
-            PinnedOption::None => (0, None),
+        match &self {
+            Self::Second(_, stream) => stream.size_hint(),
+            _ => (0, None),
         }
     }
 }

@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use super::{
-    middleware::AlphaMiddlewareContext, procedure::AlphaProcedure, AlphaBaseMiddleware,
+    procedure::AlphaProcedure, AlphaBaseMiddleware,
     AlphaMiddlewareLayerBuilder, AlphaRequestLayer, AlphaRouter, FutureMarker, MissingResolver,
-    MwV2, MwV2Result, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
+    MwV2, RequestKind, RequestLayerMarker, ResolverFunction, StreamLayerMarker,
     StreamMarker,
 };
 
