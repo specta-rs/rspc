@@ -6,7 +6,7 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        FutureMarkerType, RequestLayer, ResolverFunction, SealedRequestLayer, StreamMarkerType,
+        FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType,
     },
     Router,
 };
@@ -51,8 +51,7 @@ where
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
-    {
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {

@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use std::borrow::Cow;
 
 use serde::de::DeserializeOwned;
@@ -13,17 +11,17 @@ use crate::{
         },
         procedure::{BuildProceduresCtx, DynProcedure},
         FutureMarkerType, Marker, ProcedureDataType, RequestLayer, ResolverFunction,
-        SealedRequestLayer, StreamMarkerType,
+        StreamMarkerType,
     },
     ExecError,
 };
 
 /// TODO: Explain
-pub struct MissingResolver<TLCtx>(PhantomData<TLCtx>);
+pub struct MissingResolver;
 
-impl<TLCtx> Default for MissingResolver<TLCtx> {
+impl Default for MissingResolver {
     fn default() -> Self {
-        Self(PhantomData)
+        Self
     }
 }
 
@@ -51,7 +49,7 @@ where
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
-impl<TMiddleware> Procedure<MissingResolver<TMiddleware::LayerCtx>, TMiddleware>
+impl<TMiddleware> Procedure<MissingResolver, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
@@ -100,7 +98,7 @@ where
     pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {

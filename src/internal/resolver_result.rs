@@ -364,4 +364,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{FutureMarkerType, SealedRequestLayer, StreamMarkerType};
+pub(crate) use private::{FutureMarkerType, StreamMarkerType};
