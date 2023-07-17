@@ -233,8 +233,8 @@ impl<
                 batch.batch_timer.as_mut().set(PinnedOption::None);
 
                 if !queue.is_empty() {
-                    *this.tx_queue = Some(match serde_json::to_string(&queue) {
-                        Ok(s) => s,
+                    match serde_json::to_string(&queue) {
+                        Ok(s) => *this.tx_queue = Some(s),
                         // This error isn't really handled and that is because if `queue` which is a `Vec<Response>` fails serialization, well we are gonna wanna send a `Response` with the error which will also most likely fail serialization.
                         // It's important to note the user provided types are converted to `serde_json::Value` prior to being put into this type so this will only ever fail on internal types.
                         Err(err) => {
@@ -243,11 +243,8 @@ impl<
                                 #[cfg(debug_assertions)]
                                 panic!("rspc internal serialization error: {}", err);
                             }
-
-                            #[cfg(not(debug_assertions))]
-                            None
                         }
-                    });
+                    }
                 }
             }
         }
