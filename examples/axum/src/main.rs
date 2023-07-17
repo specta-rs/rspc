@@ -1,5 +1,5 @@
 use std::{
-    net::{Ipv4Addr, SocketAddr},
+    net::{Ipv4Addr, Ipv6Addr, SocketAddr},
     path::PathBuf,
     time::Duration,
 };
@@ -125,7 +125,7 @@ async fn main() {
         )
         .layer(cors);
 
-    let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 4000));
+    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 4000));
     println!("listening on http://{}/rspc/version", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())

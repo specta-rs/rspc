@@ -40,7 +40,7 @@ where
         procedure: Procedure<T, TMiddleware>,
     ) -> Self
     where
-        // Procedure<T, TMiddleware>: DynProcedure<TCtx>,
+        Procedure<T, TMiddleware>: DynProcedure<TCtx>,
         TMiddleware: MiddlewareBuilder + SealedMiddlewareBuilder<Ctx = TCtx, LayerCtx = TCtx>,
     {
         if let Some(cause) = is_valid_name(key) {
@@ -53,9 +53,8 @@ where
             });
         }
 
-        todo!();
-        // let procedure: Box<dyn DynProcedure<TMiddleware::Ctx>> = Box::new(procedure);
-        // self.procedures.push((Cow::Borrowed(key), procedure));
+        let procedure: Box<dyn DynProcedure<TMiddleware::Ctx>> = Box::new(procedure);
+        self.procedures.push((Cow::Borrowed(key), procedure));
         self
     }
 

@@ -57,7 +57,7 @@ mod private {
     }
 
     // TODO: Cleanup generics on this
-    // TODO: Fix potential panic in this
+    // TODO: Document phases
     #[pin_project(project = MiddlewareLayerFutureProj)]
     pub enum MiddlewareLayerFuture<
         'a,

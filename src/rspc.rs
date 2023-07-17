@@ -81,7 +81,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Query, resolver.into_marker())),
+            Some((ProcedureKind::Mutation, resolver.into_marker())),
             Some(BaseMiddleware::default()),
         )
     }
@@ -93,7 +93,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Query, resolver.into_marker())),
+            Some((ProcedureKind::Subscription, resolver.into_marker())),
             Some(BaseMiddleware::default()),
         )
     }

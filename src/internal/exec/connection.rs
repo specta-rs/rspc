@@ -1,5 +1,4 @@
 use futures::{ready, Stream};
-use httpz::ws::{Message, Websocket}; // TODO: Being feature flag for `httpz` plz
 use pin_project::pin_project;
 use std::{
     future::Future,
@@ -139,7 +138,7 @@ where
 // TODO: Break file?
 
 // Time to wait for more messages before sending them over the websocket connection.
-const BATCH_TIMEOUT: Duration = Duration::from_millis(75);
+const BATCH_TIMEOUT: Duration = Duration::from_millis(15);
 
 /// TODO
 #[pin_project(project = BatchFutProj)]

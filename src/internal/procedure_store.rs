@@ -70,6 +70,7 @@ mod private {
             }
         }
 
+        // TODO: Using track caller style thing for the panics in this function
         pub(crate) fn append<L: Layer<TCtx>>(
             &mut self,
             key: String,

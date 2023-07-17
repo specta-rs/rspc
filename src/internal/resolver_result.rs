@@ -302,6 +302,7 @@ mod private {
         }
     }
 
+    // TODO: Document phases
     #[pin_project(project = FutureMapStreamProj)]
     pub enum FutureMapStream<F: Future, S: Stream> {
         First {
