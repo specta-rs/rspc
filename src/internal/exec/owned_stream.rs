@@ -11,7 +11,7 @@ mod private {
     };
 
     use futures::Stream;
-    use pin_project::pin_project;
+    use pin_project_lite::pin_project;
     use serde_json::Value;
 
     use crate::{
@@ -19,13 +19,15 @@ mod private {
         BuiltRouter, ExecError,
     };
 
-    /// TODO
-    #[pin_project(project = OwnedStreamProj)]
-    pub struct OwnedStream<TCtx> {
-        arc: Arc<BuiltRouter<TCtx>>,
-        #[pin]
-        pub(crate) reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
-        pub(crate) id: u32,
+    pin_project! {
+        #[project = OwnedStreamProj]
+        /// TODO
+        pub struct OwnedStream<TCtx> {
+            arc: Arc<BuiltRouter<TCtx>>,
+            #[pin]
+            pub(crate) reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
+            pub(crate) id: u32,
+        }
     }
 
     impl<TCtx: 'static> OwnedStream<TCtx> {

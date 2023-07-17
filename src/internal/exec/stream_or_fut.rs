@@ -5,26 +5,37 @@ use std::{
 };
 
 use futures::{ready, Stream};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 
 use crate::internal::{exec, PinnedOption, PinnedOptionProj};
 
 use super::{ExecRequestFut, OwnedStream};
 
-/// TODO
-#[pin_project(project = StreamOrFutProj)]
-pub(crate) enum StreamOrFut<TCtx> {
-    OwnedStream(#[pin] OwnedStream<TCtx>),
-    ExecRequestFut(#[pin] ExecRequestFut),
-    Done(u32),
+pin_project! {
+    /// TODO
+    #[project = StreamOrFutProj]
+    pub(crate) enum StreamOrFut<TCtx> {
+        OwnedStream {
+            #[pin]
+            stream: OwnedStream<TCtx>
+        },
+        ExecRequestFut {
+            #[pin]
+            fut: ExecRequestFut,
+        },
+        // TODO: Don't do it like this
+        Done {
+            id: u32,
+        },
+    }
 }
 
 impl<TCtx: 'static> StreamOrFut<TCtx> {
     pub fn id(&self) -> u32 {
         match self {
-            StreamOrFut::OwnedStream(v) => v.id,
-            StreamOrFut::ExecRequestFut(v) => v.id,
-            StreamOrFut::Done(id) => *id,
+            StreamOrFut::OwnedStream { stream } => stream.id,
+            StreamOrFut::ExecRequestFut { fut } => fut.id,
+            StreamOrFut::Done { id } => *id,
         }
     }
 }
@@ -34,8 +45,8 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.as_mut().project() {
-            StreamOrFutProj::OwnedStream(s) => {
-                let s = s.project();
+            StreamOrFutProj::OwnedStream { stream } => {
+                let s = stream.project();
 
                 Poll::Ready(ready!(s.reference.poll_next(cx)).map(|r| exec::Response {
                     id: *s.id,
@@ -45,11 +56,11 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
                     },
                 }))
             }
-            StreamOrFutProj::ExecRequestFut(s) => s.poll(cx).map(|v| {
-                self.set(StreamOrFut::Done(v.id));
+            StreamOrFutProj::ExecRequestFut { fut } => fut.poll(cx).map(|v| {
+                self.set(StreamOrFut::Done { id: v.id });
                 Some(v)
             }),
-            StreamOrFutProj::Done(_) => Poll::Ready(None),
+            StreamOrFutProj::Done { .. } => Poll::Ready(None),
         }
     }
 }

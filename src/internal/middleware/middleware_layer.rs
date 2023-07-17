@@ -6,7 +6,7 @@ mod private {
     };
 
     use futures::{Future, Stream};
-    use pin_project::pin_project;
+    use pin_project_lite::pin_project;
     use serde_json::Value;
 
     use crate::{
@@ -56,30 +56,36 @@ mod private {
         }
     }
 
+    // This exists because `pin_project_lite` doesn't understand `+` bounds
+    pub trait SendSyncStatic: Send + Sync + 'static {}
+    impl<T: Send + Sync + 'static> SendSyncStatic for T {}
+
     // TODO: Cleanup generics on this
     // TODO: Document phases
-    #[pin_project(project = MiddlewareLayerFutureProj)]
-    pub enum MiddlewareLayerFuture<
-        'a,
-        // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
-        TLayerCtx: Send + Sync + 'static,
-        TNewMiddleware: Middleware<TLayerCtx>,
-        TMiddleware: Layer<TNewMiddleware::NewCtx>,
-    > {
-        First {
-            #[pin]
-            fut: TNewMiddleware::Fut,
-            next: &'a TMiddleware,
-        },
-        Second {
-            #[pin]
-            stream: TMiddleware::Stream<'a>,
-            resp: Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
-        },
-        Third {
-            #[pin]
-            fut: <<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut,
-        },
+    pin_project! {
+        #[project = MiddlewareLayerFutureProj]
+        pub enum MiddlewareLayerFuture<
+            'a,
+            // TODO: Remove one of these Ctx's and get from `TMiddleware` or `TNextMiddleware`
+            TLayerCtx: SendSyncStatic,
+            TNewMiddleware: Middleware<TLayerCtx>,
+            TMiddleware: Layer<TNewMiddleware::NewCtx>,
+        > {
+            First {
+                #[pin]
+                fut: TNewMiddleware::Fut,
+                next: &'a TMiddleware,
+            },
+            Second {
+                #[pin]
+                stream: TMiddleware::Stream<'a>,
+                resp: Option<<TNewMiddleware::Result as MwV2Result>::Resp>,
+            },
+            Third {
+                #[pin]
+                fut: <<TNewMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut,
+            },
+        }
     }
 
     impl<

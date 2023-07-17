@@ -13,7 +13,6 @@ mod private {
 
     use futures::{future::poll_fn, stream::FuturesUnordered, Stream, StreamExt};
 
-    use pin_project::pin_project;
     use serde_json::Value;
 
     use crate::{

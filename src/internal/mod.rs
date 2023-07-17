@@ -17,26 +17,22 @@ pub(crate) use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;
 
-#[pin_project::pin_project(project = _PinnedOptionProj)]
-pub(crate) enum PinnedOption<T> {
-    Some(#[pin] T),
-    None,
+pin_project_lite::pin_project! {
+    #[project = PinnedOptionProj]
+    pub(crate) enum PinnedOption<T> {
+        Some {
+            #[pin]
+            v: T,
+        },
+        None,
+    }
 }
 
-// // Let's pretend this isn't using an implementation detail of pin project
-// impl<'pin, T> PinnedOptionProj<'pin, T> {
-//     pub fn map<U, F>(self, f: F) -> Option<U>
-//     where
-//         F: FnOnce(Pin<&mut T>) -> U,
-//     {
-//         match self {
-//             PinnedOptionProj::Some(x) => Some(f(x)),
-//             PinnedOptionProj::None => None,
-//         }
-//     }
-// }
-
-pub(crate) use _PinnedOptionProj as PinnedOptionProj;
+impl<T> From<T> for PinnedOption<T> {
+    fn from(value: T) -> Self {
+        Self::Some { v: value }
+    }
+}
 
 #[cfg(test)]
 mod tests {

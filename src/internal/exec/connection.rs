@@ -8,7 +8,7 @@ use std::{
 };
 
 use futures::{ready, Sink, Stream};
-use pin_project::pin_project;
+use pin_project_lite::pin_project;
 use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 use tokio::sync::{mpsc, oneshot};
@@ -67,20 +67,21 @@ impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
     }
 }
 
-#[pin_project(project = BatchFutProj)]
-struct Batcher<R: AsyncRuntime> {
-    batch: Vec<exec::Response>,
-    #[pin]
-    batch_timer: PinnedOption<R::SleepUtilFut>,
+pin_project! {
+    #[project = BatchFutProj]
+    struct Batcher<R: AsyncRuntime> {
+        batch: Vec<exec::Response>,
+        #[pin]
+        batch_timer: PinnedOption<R::SleepUtilFut>,
+    }
 }
 
 impl<R: AsyncRuntime> Batcher<R> {
     fn insert(self: Pin<&mut Self>, element: exec::Response) {
         let mut this = self.project();
         this.batch.push(element);
-        this.batch_timer.set(PinnedOption::Some(R::sleep_util(
-            Instant::now() + BATCH_TIMEOUT,
-        )));
+        this.batch_timer
+            .set(R::sleep_util(Instant::now() + BATCH_TIMEOUT).into());
     }
 
     fn append(self: Pin<&mut Self>, other: &mut Vec<exec::Response>) {
@@ -90,23 +91,24 @@ impl<R: AsyncRuntime> Batcher<R> {
 
         let mut this = self.project();
         this.batch.append(other);
-        this.batch_timer.set(PinnedOption::Some(R::sleep_util(
-            Instant::now() + BATCH_TIMEOUT,
-        )));
+        this.batch_timer
+            .set(R::sleep_util(Instant::now() + BATCH_TIMEOUT).into());
     }
 }
 
-#[pin_project(project = ConnectionProj)]
-struct Connection<TCtx> {
-    ctx: TCtx,
-    executor: Executor<TCtx>,
-    map: SubscriptionSet,
-    #[pin]
-    streams: StreamUnordered<StreamOrFut<TCtx>>,
+pin_project! {
+    #[project = ConnectionProj]
+    struct Connection<TCtx> {
+        ctx: TCtx,
+        executor: Executor<TCtx>,
+        map: SubscriptionSet,
+        #[pin]
+        streams: StreamUnordered<StreamOrFut<TCtx>>,
 
-    // TODO: Remove these cause disgusting messes
-    steam_to_sub_id: HashMap<usize, u32>,
-    sub_id_to_stream: HashMap<u32, usize>,
+        // TODO: Remove these cause disgusting messes
+        steam_to_sub_id: HashMap<usize, u32>,
+        sub_id_to_stream: HashMap<u32, usize>,
+    }
 }
 
 impl<TCtx> Connection<TCtx>
@@ -124,7 +126,7 @@ where
             .executor
             .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
                 let sub_id = fut.id;
-                let token = self.streams.insert(StreamOrFut::ExecRequestFut(fut));
+                let token = self.streams.insert(StreamOrFut::ExecRequestFut { fut });
                 self.steam_to_sub_id.insert(token, sub_id);
                 self.sub_id_to_stream.insert(sub_id, token);
             });
@@ -141,9 +143,9 @@ where
         }
 
         if let Some(queued) = manager.queued {
-            for s in queued {
-                let sub_id = s.id;
-                let token = self.streams.insert(StreamOrFut::OwnedStream(s));
+            for stream in queued {
+                let sub_id = stream.id;
+                let token = self.streams.insert(StreamOrFut::OwnedStream { stream });
                 self.steam_to_sub_id.insert(token, sub_id);
                 self.sub_id_to_stream.insert(sub_id, token);
             }
@@ -153,36 +155,35 @@ where
     }
 }
 
-/// An abstraction around a single "connection" which can execute rspc subscriptions.
-///
-/// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
-///
-/// This future is spawned onto a thread and coordinates everything. It handles:
-/// - Sending to connection
-/// - Reading from connection
-/// - Executing requests and subscriptions
-/// - Batching responses
-///
-#[pin_project(project = ConnectionTaskProj)]
-pub(crate) struct ConnectionTask<
-    R: AsyncRuntime,
-    TCtx: Clone + Send + 'static,
-    S: Sink<String, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
-    E: std::fmt::Debug + std::error::Error,
-> {
-    #[pin]
-    conn: Connection<TCtx>,
-    #[pin]
-    batch: Batcher<R>,
+pin_project! {
+    #[project = ConnectionTaskProj]
+    /// An abstraction around a single "connection" which can execute rspc subscriptions.
+    ///
+    /// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
+    ///
+    /// This future is spawned onto a thread and coordinates everything. It handles:
+    /// - Sending to connection
+    /// - Reading from connection
+    /// - Executing requests and subscriptions
+    /// - Batching responses
+    ///
+    pub(crate) struct ConnectionTask<R: AsyncRuntime, TCtx, S, E> {
+        #[pin]
+        conn: Connection<TCtx>,
+        #[pin]
+        batch: Batcher<R>,
 
-    // Socket
-    #[pin]
-    socket: S,
-    tx_queue: Option<String>,
+        // Socket
+        #[pin]
+        socket: S,
+        tx_queue: Option<String>,
 
-    // External signal which when called will clear all active subscriptions.
-    // This is used by Tauri on window change as the "connection" never shuts down like a websocket would on page reload.
-    clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
+        // External signal which when called will clear all active subscriptions.
+        // This is used by Tauri on window change as the "connection" never shuts down like a websocket would on page reload.
+        clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
+
+        phantom: PhantomData<E>
+    }
 }
 
 impl<
@@ -214,6 +215,7 @@ impl<
             socket,
             tx_queue: None,
             clear_subscriptions_rx,
+            phantom: PhantomData,
         }
     }
 
@@ -222,7 +224,8 @@ impl<
         // If nothing in `tx_queue`, poll the batcher to populate it
         if this.tx_queue.is_none() {
             let mut batch = this.batch.as_mut().project();
-            if let PinnedOptionProj::Some(batch_timer) = batch.batch_timer.as_mut().project() {
+            if let PinnedOptionProj::Some { v: batch_timer } = batch.batch_timer.as_mut().project()
+            {
                 ready!(batch_timer.poll(cx));
 
                 let queue = batch.batch.drain(0..batch.batch.len()).collect::<Vec<_>>();
