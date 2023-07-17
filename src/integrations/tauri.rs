@@ -21,7 +21,7 @@ use crate::{
         AsyncRuntime, Connection, ConnectionTask, Executor, IncomingMessage, OutgoingMessage,
         SubscriptionMap, TokioRuntime,
     },
-    CompiledRouter,
+    BuiltRouter,
 };
 
 // TODO: Move to https://tauri.app/v1/guides/features/plugin/#advanced -> This should help with avoiding cloning on shared state?
@@ -43,7 +43,7 @@ where
     TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
     R: AsyncRuntime,
 {
-    pub fn new(ctx_fn: TCtxFn, router: Arc<CompiledRouter<TCtx>>) -> Arc<Self> {
+    pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
             executor: Executor::new(router),
             ctx_fn,
@@ -127,7 +127,7 @@ where
 }
 
 pub fn plugin<TCtx>(
-    router: Arc<CompiledRouter<TCtx>>,
+    router: Arc<BuiltRouter<TCtx>>,
     ctx_fn: impl Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<tauri::Wry>
 where

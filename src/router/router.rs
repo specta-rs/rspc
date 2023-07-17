@@ -9,7 +9,7 @@ use crate::{
         procedure::{BuildProceduresCtx, DynProcedure, Procedure},
         ProcedureStore,
     },
-    BuildError, BuildResult, CompiledRouter,
+    BuildError, BuildResult, BuiltRouter,
 };
 
 pub type ProcedureBuildFn<TCtx> =
@@ -120,7 +120,7 @@ where
             (build_fn)(key, &mut ctx);
         }
 
-        let router = CompiledRouter {
+        let router = BuiltRouter {
             queries,
             mutations,
             subscriptions,

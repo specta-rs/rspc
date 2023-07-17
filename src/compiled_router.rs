@@ -40,7 +40,7 @@ impl ExportConfig {
 }
 
 /// TODO
-pub struct CompiledRouter<TCtx = ()>
+pub struct BuiltRouter<TCtx = ()>
 where
     TCtx: 'static,
 {
@@ -50,7 +50,7 @@ where
     pub(crate) typ_store: TypeDefs,
 }
 
-impl<TCtx> CompiledRouter<TCtx>
+impl<TCtx> BuiltRouter<TCtx>
 where
     TCtx: Send + 'static,
 {

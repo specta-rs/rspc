@@ -22,7 +22,7 @@ mod private {
             middleware::{ProcedureKind, RequestContext},
             FutureValueOrStream, ProcedureStore, ProcedureTodo,
         },
-        CompiledRouter, ExecError,
+        BuiltRouter, ExecError,
     };
 
     /// TODO
@@ -112,7 +112,7 @@ mod private {
     /// TODO
     pub struct Executor<TCtx: Send + 'static, R: AsyncRuntime> {
         // TODO: Not `pub`
-        pub(crate) router: Arc<CompiledRouter<TCtx>>,
+        pub(crate) router: Arc<BuiltRouter<TCtx>>,
         phantom: PhantomData<R>,
     }
 
@@ -127,7 +127,7 @@ mod private {
 
     impl<TCtx: Send + 'static, R: AsyncRuntime> Executor<TCtx, R> {
         /// constructs a new [Executor] for your router.
-        pub fn new(router: Arc<CompiledRouter<TCtx>>) -> Self {
+        pub fn new(router: Arc<BuiltRouter<TCtx>>) -> Self {
             Self {
                 router,
                 phantom: PhantomData,

@@ -16,13 +16,13 @@ mod private {
 
     use crate::{
         internal::{middleware::RequestContext, ProcedureTodo},
-        CompiledRouter, ExecError,
+        BuiltRouter, ExecError,
     };
 
     /// TODO
     #[pin_project(project = OwnedStreamProj)]
     pub struct OwnedStream<TCtx: 'static> {
-        arc: Arc<CompiledRouter<TCtx>>,
+        arc: Arc<BuiltRouter<TCtx>>,
         #[pin]
         pub(crate) reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
         pub(crate) id: u32,
@@ -30,7 +30,7 @@ mod private {
 
     impl<TCtx: 'static> OwnedStream<TCtx> {
         pub(crate) fn new(
-            router: Arc<CompiledRouter<TCtx>>,
+            router: Arc<BuiltRouter<TCtx>>,
             ctx: TCtx,
             input: Option<Value>,
             req: RequestContext,

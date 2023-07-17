@@ -12,7 +12,7 @@ use std::{
 
 use crate::{
     internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager, TokioRuntime},
-    CompiledRouter,
+    BuiltRouter,
 };
 
 use super::{handle_websocket, CookieJar, TCtxFunc};
@@ -21,7 +21,7 @@ use super::{handle_websocket, CookieJar, TCtxFunc};
 // TODO: Remove all panics lol
 // TODO: Cleanup the code and use more chaining
 
-impl<TCtx> CompiledRouter<TCtx>
+impl<TCtx> BuiltRouter<TCtx>
 where
     TCtx: Clone + Send + Sync + 'static,
 {
