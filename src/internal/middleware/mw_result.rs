@@ -55,7 +55,7 @@ pub trait MwV2Result {
 pub struct MwResultWithCtx<TLCtx, TResp> {
     pub(crate) input: Value,
     pub(crate) req: RequestContext,
-    pub(crate) ctx: Option<TLCtx>,
+    pub(crate) ctx: TLCtx,
     pub(crate) resp: Option<TResp>,
 }
 
@@ -79,12 +79,7 @@ where
     type Resp = TResp;
 
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
-        Ok((
-            self.ctx.expect("error exploding mw result"),
-            self.input,
-            self.req,
-            self.resp,
-        ))
+        Ok((self.ctx, self.input, self.req, self.resp))
     }
 }
 

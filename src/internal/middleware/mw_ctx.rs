@@ -16,8 +16,8 @@ impl MiddlewareContext {
         MwResultWithCtx {
             input: self.input,
             req: self.req,
-            ctx: Some(ctx),
             resp: None,
+            ctx,
         }
     }
 }
