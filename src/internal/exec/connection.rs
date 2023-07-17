@@ -194,6 +194,7 @@ impl<
         E: std::fmt::Debug + std::error::Error,
     > ConnectionTask<R, TCtx, S, E>
 {
+    #[allow(dead_code)]
     pub fn new(
         ctx: TCtx,
         executor: Executor<TCtx>,

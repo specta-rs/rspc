@@ -48,7 +48,7 @@ workers = ["httpz", "httpz/workers", "httpz/ws"]
 vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
 [dependencies]
-specta = { version = "1", default-features = false, features = ["serde"] }
+specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false }
 thiserror = { version = "1.0.43", default-features = false } # TODO: Possibly remove and do Specta typesafe errors manully?

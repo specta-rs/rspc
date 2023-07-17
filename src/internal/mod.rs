@@ -86,10 +86,13 @@ mod tests {
             exec::Response,
         };
 
-        for (_, ty) in tys.into_iter().filter_map(|(sid, v)| v.map(|v| (sid, v))) {
+        for (_, ty) in tys
+            .iter()
+            .filter_map(|(sid, v)| v.as_ref().map(|v| (sid, v)))
+        {
             file.write_all(b"\n\n").unwrap();
             file.write_all(
-                export_datatype(&Default::default(), &ty)
+                export_datatype(&Default::default(), &ty, &tys)
                     .unwrap()
                     .as_bytes(),
             )
