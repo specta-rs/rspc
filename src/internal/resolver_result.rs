@@ -16,8 +16,6 @@ use specta::Type;
 
 use crate::{Error, ExecError};
 
-use super::{PinnedOption, PinnedOptionProj};
-
 #[doc(hidden)]
 pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 
@@ -158,9 +156,10 @@ mod private {
         type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            MapStream(None, PinnedOption::Some(self), |v| {
-                serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
-            })
+            MapStream::Stream {
+                stream: self,
+                mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            }
         }
     }
 
@@ -176,14 +175,13 @@ mod private {
         type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            let (err, stream) = match self {
-                Ok(v) => (None, PinnedOption::Some(v)),
-                Err(err) => (Some(ExecError::ErrResolverError(err)), PinnedOption::None),
-            };
-
-            MapStream(err, stream, |v| {
-                serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
-            })
+            match self {
+                Ok(stream) => MapStream::Stream {
+                    stream,
+                    mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                },
+                Err(err) => MapStream::Error(Some(ExecError::ErrResolverError(err))),
+            }
         }
     }
 
@@ -199,9 +197,10 @@ mod private {
         type Type = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            MapStream(None, PinnedOption::Some(self), |v| {
-                serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
-            })
+            MapStream::Stream {
+                stream: self,
+                mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            }
         }
     }
 
@@ -219,7 +218,6 @@ mod private {
 
         fn exec(self) -> Self::Stream {
             FutureMapStream::First {
-                err: None,
                 fut: self,
                 fut_mapper: Ok,
                 stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
@@ -241,7 +239,6 @@ mod private {
 
         fn exec(self) -> Self::Stream {
             FutureMapStream::First {
-                err: None,
                 fut: self,
                 fut_mapper: |s| s.map_err(ExecError::ErrResolverError),
                 stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
@@ -263,7 +260,6 @@ mod private {
 
         fn exec(self) -> Self::Stream {
             FutureMapStream::First {
-                err: None,
                 fut: self,
                 fut_mapper: Ok,
                 stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
@@ -271,33 +267,37 @@ mod private {
         }
     }
 
-    #[pin_project(project = MapStreamProj)]
-    pub struct MapStream<S: Stream>(
-        Option<ExecError>,
-        #[pin] PinnedOption<S>,
-        fn(S::Item) -> Result<Value, ExecError>,
-    );
+    #[pin_project(project = MapStreamEnumProj)]
+    pub enum MapStream<S: Stream> {
+        Stream {
+            #[pin]
+            stream: S,
+            mapper: fn(S::Item) -> Result<Value, ExecError>,
+        },
+        Error(
+            // Optional to allow value to be removed on first poll
+            Option<ExecError>,
+        ),
+    }
 
     impl<S: Stream> Stream for MapStream<S> {
         type Item = Result<Value, ExecError>;
 
-        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            let this = self.project();
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            let return_value = match self.as_mut().project() {
+                MapStreamEnumProj::Error(err) => Poll::Ready(err.take().map(Err)),
+                MapStreamEnumProj::Stream { stream, mapper } => {
+                    stream.poll_next(cx).map(|result| result.map(mapper))
+                }
+            };
 
-            if let Some(err) = this.0.take() {
-                return Poll::Ready(Some(Err(err)));
-            }
-
-            match this.1.project() {
-                PinnedOptionProj::Some(s) => s.poll_next(cx).map(|result| result.map(this.2)),
-                PinnedOptionProj::None => Poll::Ready(None),
-            }
+            return_value
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
-            match &self.1 {
-                PinnedOption::Some(s) => s.size_hint(),
-                PinnedOption::None => (0, Some(0)),
+            match self {
+                Self::Stream { stream, .. } => stream.size_hint(),
+                _ => (0, Some(0)),
             }
         }
     }
@@ -306,7 +306,6 @@ mod private {
     #[pin_project(project = FutureMapStreamProj)]
     pub enum FutureMapStream<F: Future, S: Stream> {
         First {
-            err: Option<ExecError>,
             #[pin]
             fut: F,
             fut_mapper: fn(F::Output) -> Result<S, ExecError>,
@@ -326,15 +325,10 @@ mod private {
             loop {
                 let new_value = match self.as_mut().project() {
                     FutureMapStreamProj::First {
-                        err,
                         fut,
                         fut_mapper,
                         stream_mapper,
                     } => {
-                        if let Some(err) = err.take() {
-                            return Poll::Ready(Some(Err(err)));
-                        }
-
                         let result = ready!(fut.poll(cx));
 
                         match (fut_mapper)(result) {
