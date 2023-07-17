@@ -38,13 +38,13 @@
   "devDependencies": {
     "@rspc/client": "workspace:*",
     "@rspc/config": "workspace:*",
-    "@tanstack/react-query": "^4.29.11",
-    "@types/react": "^18.2.7",
+    "@tanstack/react-query": "^4.29.25",
+    "@types/react": "^18.2.15",
     "react": "^18.2.0",
-    "rollup": "^3.23.0",
-    "tslib": "^2.5.2",
-    "typescript": "^5.0.4",
-    "vitest": "^0.31.1"
+    "rollup": "^3.26.3",
+    "tslib": "^2.6.0",
+    "typescript": "^5.1.6",
+    "vitest": "^0.33.0"
   },
   "peerDependencies": {
     "@rspc/client": "workspace:*",

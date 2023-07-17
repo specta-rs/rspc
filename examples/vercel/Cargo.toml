@@ -6,10 +6,10 @@ publish = false
 
 [dependencies]
 tokio = { version = "1", features = ["macros", "time"] }
-serde_json = { version = "1.0.95", features = ["raw_value"] }
+serde_json = { version = "1.0.103", features = ["raw_value"] }
 rspc = { path = "../..", features = ["vercel"] }
-vercel_runtime = { version = "0.3.4" }
-async-stream = "0.3.4"
+vercel_runtime = { version = "1.0.2" }
+async-stream = "0.3.5"
 
 [[bin]]
 name = "rspc"

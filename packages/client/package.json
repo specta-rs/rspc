@@ -45,9 +45,9 @@
   },
   "devDependencies": {
     "@rspc/config": "workspace:*",
-    "rollup": "^3.23.0",
-    "typescript": "^5.0.4",
-    "vitest": "^0.31.1",
+    "rollup": "^3.26.3",
+    "typescript": "^5.1.6",
+    "vitest": "^0.33.0",
     "ws": "^8.13.0"
   }
 }
