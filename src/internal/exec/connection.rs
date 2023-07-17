@@ -136,6 +136,7 @@ where
                     Pin::new(&mut self.streams).remove(id);
                     self.steam_to_sub_id.remove(&id);
                 }
+                manager.map.remove(&sub_id);
             }
         }
 
@@ -370,6 +371,8 @@ impl<
                 });
             }
         }
+        conn.steam_to_sub_id.drain().for_each(drop);
+        conn.map.drain().for_each(drop);
     }
 }
 
