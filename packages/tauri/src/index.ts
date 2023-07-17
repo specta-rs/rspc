@@ -1,100 +1,56 @@
-// import { RSPCError, Link, Request as RspcRequest } from "@rspc/client";
-// import { listen } from "@tauri-apps/api/event";
-// import { appWindow } from "@tauri-apps/api/window";
+import {
+  wsLinkInternal,
+  Link,
+  Request as RspcRequest,
+  Response as RspcResponse,
+  RSPCError,
+} from "@rspc/client";
+import { fireResponse } from "@rspc/client/src/internal";
+import { listen } from "@tauri-apps/api/event";
+import { appWindow } from "@tauri-apps/api/window";
 
-// /**
-//  * Link for the rspc Tauri plugin
-//  */
-// export function tauriLink(): Link {
-//   const activeMap = new Map<
-//     string,
-//     {
-//       resolve: (result: any) => void;
-//       reject: (error: Error | RSPCError) => void;
-//     }
-//   >();
-//   const listener = listen("plugin:rspc:transport:resp", (event) => {
-//     const { id, result } = event.payload as any;
-//     if (activeMap.has(id)) {
-//       if (result.type === "event") {
-//         activeMap.get(id)?.resolve(result.data);
-//       } else if (result.type === "response") {
-//         activeMap.get(id)?.resolve(result.data);
-//         activeMap.delete(id);
-//       } else if (result.type === "error") {
-//         const { message, code } = result.data;
-//         activeMap.get(id)?.reject(new RSPCError(code, message));
-//         activeMap.delete(id);
-//       } else {
-//         console.error(`rspc: received event of unknown type '${result.type}'`);
-//       }
-//     } else {
-//       console.error(`rspc: received event for unknown id '${id}'`);
-//     }
-//   });
+/**
+ * Link for the rspc Tauri plugin
+ */
+export function tauriLink(): Link {
+  return wsLinkInternal(newWsManager());
+}
 
-//   const batch: RspcRequest[] = [];
-//   let batchQueued = false;
-//   const queueBatch = () => {
-//     if (!batchQueued) {
-//       batchQueued = true;
-//       setTimeout(() => {
-//         const currentBatch = [...batch];
-//         batch.splice(0, batch.length);
-//         batchQueued = false;
+function newWsManager() {
+  const activeMap = new Map<
+    number,
+    {
+      resolve: (result: any) => void;
+      reject: (error: Error | RSPCError) => void;
+    }
+  >();
 
-//         (async () => {
-//           if (!listener) {
-//             await listener;
-//           }
+  const listener = listen("plugin:rspc:transport:resp", (event) => {
+    const results: RspcResponse[] = JSON.parse(event.payload as any);
 
-//           await appWindow.emit("plugin:rspc:transport", currentBatch);
-//         })();
-//       });
-//     }
-//   };
+    for (const result of results) {
+      const item = activeMap.get(result.id);
 
-//   return ({ op }) => {
-//     let finished = false;
-//     return {
-//       exec: async (resolve, reject) => {
-//         activeMap.set(op.id, {
-//           resolve,
-//           reject,
-//         });
+      if (!item) {
+        console.error(
+          `rspc: received event with id '${result.id}' for unknown`
+        );
+        return;
+      }
 
-//         batch.push({
-//           id: op.id,
-//           method: op.type,
-//           params: {
-//             path: op.path,
-//             input: op.input,
-//           },
-//         });
-//         queueBatch();
-//       },
-//       abort() {
-//         if (finished) return;
-//         finished = true;
+      fireResponse(result, {
+        resolve: item.resolve,
+        reject: item.reject,
+      });
+      if ("path" in event) activeMap.delete(result.id);
+    }
+  });
 
-//         const subscribeEventIdx = batch.findIndex((b) => b.id === op.id);
-//         if (subscribeEventIdx === -1) {
-//           if (op.type === "subscription") {
-//             batch.push({
-//               id: op.id,
-//               method: "subscriptionStop",
-//               params: null,
-//             });
-//             queueBatch();
-//           }
-//         } else {
-//           batch.splice(subscribeEventIdx, 1);
-//         }
-
-//         activeMap.delete(op.id);
-//       },
-//     };
-//   };
-// }
-
-export {}; // TODO
+  return [
+    activeMap,
+    (data: RspcRequest | RspcRequest[]) =>
+      listener.then(() =>
+        appWindow.emit("plugin:rspc:transport", JSON.stringify(data))
+      ),
+  ] as const;
+}

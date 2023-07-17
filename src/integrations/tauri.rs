@@ -1,22 +1,25 @@
 //! Access rspc via the Tauri IPC bridge.
 
 use std::{
-    borrow::Cow,
     collections::{hash_map::DefaultHasher, HashMap},
+    convert::Infallible,
     hash::{Hash, Hasher},
-    sync::{Arc, Mutex, MutexGuard},
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
 
 use serde_json::Value;
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Runtime, Window, WindowEvent,
+    Window, WindowEvent,
 };
+use tokio::sync::mpsc;
 
 use crate::{
     internal::exec::{
-        self, AsyncRuntime, Executor, OwnedStream, SubscriptionManager, SubscriptionMap,
-        TokioRuntime,
+        AsyncRuntime, Connection, ConnectionTask, Executor, IncomingMessage, OutgoingMessage,
+        SubscriptionMap, TokioRuntime,
     },
     CompiledRouter,
 };
@@ -54,98 +57,55 @@ where
         let window_hash = hasher.finish();
 
         let mut windows = self.windows.lock().unwrap();
-        // Shutdown all subscriptions for the previously loaded page is there was one
         if let Some(subscriptions) = windows.get(&window_hash) {
+            // Shutdown all subscriptions for the previously loaded page is there was one
+            // Everything stays around though so we don't need to recreate it
+
             let mut subscriptions = subscriptions.lock().unwrap();
             for (_, handle) in subscriptions.drain() {
                 TokioRuntime::cancel_task(handle);
             }
         } else {
+            // Setup window for subscriptions
+
+            let executor = self.executor.clone();
+            let (tx, rx) = mpsc::unbounded_channel();
+            let socket = Socket {
+                recv: rx,
+                window: window.clone(),
+            };
+            let ctx = (self.ctx_fn)(window.clone());
+            let handle = R::spawn(async move {
+                ConnectionTask::<R, TCtx, _, _, _, _>::new(Connection::new(ctx, executor), socket)
+                    .await;
+            });
+
             let subscriptions = Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::default()));
             windows.insert(window_hash, subscriptions.clone());
             drop(windows);
 
-            window.listen("plugin:rspc:transport", {
-                let window = window.clone();
-                move |event| {
-                    let reqs = match event.payload() {
-                        Some(v) => {
-                            let v = match serde_json::from_str::<serde_json::Value>(v) {
-                                Ok(v) => match v {
-                                    Value::String(s) => {
-                                        match serde_json::from_str::<serde_json::Value>(&s) {
-                                            Ok(v) => v,
-                                            Err(err) => {
-                                                #[cfg(feature = "tracing")]
-                                                tracing::error!(
-                                                    "failed to parse JSON-RPC request: {}",
-                                                    err
-                                                );
-                                                return;
-                                            }
-                                        }
-                                    }
-                                    v => v,
-                                },
-                                Err(err) => {
-                                    #[cfg(feature = "tracing")]
-                                    tracing::error!("failed to parse JSON-RPC request: {}", err);
-                                    return;
-                                }
-                            };
+            window.listen("plugin:rspc:transport", move |event| {
+                let Some(payload) = event.payload() else {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Tauri event payload is empty");
 
-                            match if v.is_array() {
-                                serde_json::from_value::<Vec<exec::Request>>(v)
-                            } else {
-                                serde_json::from_value::<exec::Request>(v).map(|v| vec![v])
-                            } {
-                                Ok(v) => v,
-                                Err(err) => {
-                                    #[cfg(feature = "tracing")]
-                                    tracing::error!("failed to parse JSON-RPC request: {}", err);
-                                    return;
-                                }
-                            }
-                        }
-                        None => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Tauri event payload is empty");
-
-                            return;
-                        }
+                        return;
                     };
 
-                    let ctx = (self.ctx_fn)(window.clone());
-                    let window = window.clone();
-                    let subscriptions = subscriptions.clone();
-                    let executor = self.executor.clone();
+                // God damn, Tauri is cringe. Why do they string double encode the payload.
+                let payload = match serde_json::from_str::<serde_json::Value>(payload) {
+                    Ok(v) => match v {
+                        Value::String(s) => serde_json::from_str::<serde_json::Value>(&s),
+                        v => Ok(v),
+                    },
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("failed to parse JSON-RPC request: {}", err);
+                        return;
+                    }
+                };
 
-                    // TODO: Remove spawn and queue instead?
-                    TokioRuntime::spawn(async move {
-                        todo!();
-                        // let result = executor
-                        //     .execute_batch(
-                        //         ctx,
-                        //         reqs,
-                        //         &mut Some(TauriSubscriptionManager {
-                        //             subscriptions,
-                        //             window: window.clone(),
-                        //         }),
-                        //     )
-                        //     .await;
-
-                        // window
-                        //     .emit(
-                        //         "plugin:rspc:transport:resp",
-                        //         serde_json::to_string(&result).unwrap(),
-                        //     )
-                        //     .map_err(|err| {
-                        //         #[cfg(feature = "tracing")]
-                        //         tracing::error!("failed to emit JSON-RPC response: {}", err);
-                        //     })
-                        //     .ok();
-                    });
-                }
+                tx.send(IncomingMessage::Msg(payload)).ok();
             });
         }
     }
@@ -173,7 +133,7 @@ pub fn plugin<TCtx>(
 where
     TCtx: Clone + Send + Sync + 'static,
 {
-    let manager = WindowManager::new::<_, _, TokioRuntime>(ctx_fn, router);
+    let manager = WindowManager::<_, _, TokioRuntime>::new(ctx_fn, router);
     Builder::new("rspc")
         .on_page_load(move |window, _page| {
             manager.clone().on_page_load(window.clone());
@@ -189,4 +149,53 @@ where
             })
         })
         .build()
+}
+
+struct Socket {
+    // TODO: Bounded channel?
+    recv: mpsc::UnboundedReceiver<IncomingMessage>,
+    window: Window,
+}
+
+impl futures::Sink<OutgoingMessage> for Socket {
+    type Error = Infallible;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn start_send(
+        self: std::pin::Pin<&mut Self>,
+        item: OutgoingMessage,
+    ) -> Result<(), Self::Error> {
+        println!("OUTGOING: {:?}", item.0); // TODO
+
+        self.window
+            .emit("plugin:rspc:transport:resp", item.0)
+            .map_err(|err| {
+                #[cfg(feature = "tracing")]
+                tracing::error!("failed to emit JSON-RPC response: {}", err);
+            })
+            .ok();
+
+        Ok(())
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl futures::Stream for Socket {
+    type Item = Result<IncomingMessage, Infallible>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let y = self.recv.poll_recv(cx).map(|v| v.map(Ok));
+        println!("INCOMING: {:#?}", y); // TODO
+        y
+    }
 }

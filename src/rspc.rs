@@ -45,7 +45,7 @@ where
     TCtx: Send + Sync + 'static,
 {
     pub fn router(&self) -> Router<TCtx> {
-        Router::new()
+        Router::_internal_new()
     }
 
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(

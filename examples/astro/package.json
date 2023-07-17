@@ -13,6 +13,7 @@
     "@rspc/client": "workspace:*",
     "@rspc/react": "workspace:*",
     "@rspc/solid": "workspace:*",
+    "@rspc/tauri": "workspace:^",
     "@tanstack/react-query": "^4.29.11",
     "@tanstack/solid-query": "^4.29.11",
     "astro": "2.5.5",

@@ -26,7 +26,7 @@ where
 {
     /// Constructs a new `Router`.
     /// Avoid using this directly, use `Rspc::router` instead so the types can be inferred.
-    pub(crate) fn new() -> Self {
+    pub(crate) fn _internal_new() -> Self {
         Self {
             procedures: Vec::new(),
             errors: Vec::new(),

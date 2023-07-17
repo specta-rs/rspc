@@ -1,5 +1,5 @@
 {
-  "name": "@rspc/tauri-example",
+  "name": "@rspc/examples-tauri",
   "private": true,
   "version": "0.0.0",
   "type": "module",

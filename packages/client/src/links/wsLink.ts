@@ -21,7 +21,16 @@ type WsLinkOpts = {
 // TODO: Deal with duplicate subscription id -> Retry -> Make the backend just give it a new ID in the response
 // TODO: Reconnect all active subscriptions on connection restart
 export function wsLink(opts: WsLinkOpts): Link {
-  const [activeMap, send] = newWsManager(opts);
+  return wsLinkInternal(newWsManager(opts));
+}
+
+// TODO: Move into `@rspc/client/internal`
+/**
+ * @internal
+ */
+export function wsLinkInternal([activeMap, send]: ReturnType<
+  typeof newWsManager
+>): Link {
   let idCounter = 0; // TODO: Deal with integer overflow
 
   const batch: RspcRequest[] = []; // TODO: Change this to be `BatchedItem` and refactor

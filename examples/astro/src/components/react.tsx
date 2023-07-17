@@ -1,4 +1,5 @@
 import { initRspc, httpLink, wsLink } from "@rspc/client";
+import { tauriLink } from "@rspc/tauri";
 import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
@@ -42,6 +43,15 @@ const wsClient = initRspc<Procedures>({
     wsLink({
       url: "ws://localhost:4000/rspc/ws",
     }),
+  ],
+});
+
+const tauriQueryClient = new QueryClient();
+const tauriClient = initRspc<Procedures>({
+  links: [
+    // loggerLink(),
+
+    tauriLink(),
   ],
 });
 
@@ -117,6 +127,11 @@ export default function App() {
         <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />
+          </QueryClientProvider>
+        </rspc.Provider>
+        <rspc.Provider client={tauriClient} queryClient={tauriQueryClient}>
+          <QueryClientProvider client={tauriQueryClient}>
+            <Example name="Tauri Transport" />
           </QueryClientProvider>
         </rspc.Provider>
       </div>
