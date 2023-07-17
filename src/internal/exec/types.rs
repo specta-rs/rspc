@@ -82,25 +82,6 @@ mod private {
         Close,
         Skip,
     }
-
-    #[cfg(feature = "httpz")]
-    impl From<httpz::ws::Message> for IncomingMessage {
-        fn from(value: httpz::ws::Message) -> Self {
-            match value {
-                httpz::ws::Message::Text(v) => Self::Msg(serde_json::from_str(&v)),
-                httpz::ws::Message::Binary(v) => Self::Msg(serde_json::from_slice(&v)),
-                httpz::ws::Message::Ping(_) | httpz::ws::Message::Pong(_) => Self::Skip,
-                httpz::ws::Message::Close(_) => Self::Close,
-                httpz::ws::Message::Frame(_) => {
-                    #[cfg(debug_assertions)]
-                    unreachable!("Reading a 'httpz::ws::Message::Frame' is impossible");
-
-                    #[cfg(not(debug_assertions))]
-                    return Self::Skip;
-                }
-            }
-        }
-    }
 }
 
 #[cfg(feature = "unstable")]

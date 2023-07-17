@@ -76,8 +76,7 @@ where
             };
             let ctx = (self.ctx_fn)(window.clone());
             let handle = R::spawn(async move {
-                ConnectionTask::<R, TCtx, _, _, _>::new(Connection::new(ctx, executor), socket)
-                    .await;
+                ConnectionTask::<R, TCtx, _, _>::new(Connection::new(ctx, executor), socket).await;
             });
 
             let subscriptions = Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::default()));

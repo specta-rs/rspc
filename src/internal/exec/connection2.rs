@@ -64,9 +64,7 @@ impl<R: AsyncRuntime> Batcher<R> {
 pub(crate) struct ConnectionTask<
     R: AsyncRuntime,
     TCtx: Clone + Send + 'static,
-    S: Sink<String, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
-    // TODO: Remove both?
-    M2: Into<IncomingMessage>,
+    S: Sink<String, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
     E: std::fmt::Debug + std::error::Error,
 > {
     #[pin]
@@ -78,17 +76,14 @@ pub(crate) struct ConnectionTask<
     #[pin]
     socket: S,
     tx_queue: Option<String>,
-
-    phantom: PhantomData<M2>,
 }
 
 impl<
         R: AsyncRuntime,
         TCtx: Clone + Send + 'static,
-        S: Sink<String, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
-        M2: Into<IncomingMessage>,
+        S: Sink<String, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
         E: std::fmt::Debug + std::error::Error,
-    > ConnectionTask<R, TCtx, S, M2, E>
+    > ConnectionTask<R, TCtx, S, E>
 {
     pub fn new(conn: Connection<R, TCtx>, socket: S) -> Self {
         Self {
@@ -99,13 +94,12 @@ impl<
             },
             socket,
             tx_queue: None,
-            phantom: PhantomData,
         }
     }
 
     /// Poll sending
     fn poll_send(
-        this: &mut ConnectionTaskProj<R, TCtx, S, M2, E>,
+        this: &mut ConnectionTaskProj<R, TCtx, S, E>,
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
         // If nothing in `tx_queue`, poll the batcher to populate it
@@ -156,12 +150,8 @@ impl<
     }
 
     /// Poll receiving
-    ///
-    /// `Poll::Ready(Some(true))` is returned the entire future is complete. This invariant must be maintained by caller!
-    /// `Poll::Ready(Some(false))` means you must `Self::poll_send`. This invariant must be maintained by caller!
-    /// `Poll::Ready(None)` is returned no wakers have been registered. This invariant must be maintained by caller!
     fn poll_recv(
-        this: &mut ConnectionTaskProj<R, TCtx, S, M2, E>,
+        this: &mut ConnectionTaskProj<R, TCtx, S, E>,
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
         match ready!(this.socket.as_mut().poll_next(cx)) {
@@ -222,7 +212,7 @@ impl<
 
     /// Poll active streams
     fn poll_streams(
-        this: &mut ConnectionTaskProj<R, TCtx, S, M2, E>,
+        this: &mut ConnectionTaskProj<R, TCtx, S, E>,
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
         if let Some(batch) = ready!(this.conn.as_mut().poll_next(cx)).expect("rspc unreachable") {
@@ -237,10 +227,9 @@ impl<
 impl<
         R: AsyncRuntime,
         TCtx: Clone + Send + 'static,
-        S: Sink<String, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
-        M2: Into<IncomingMessage>,
+        S: Sink<String, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
         E: std::fmt::Debug + std::error::Error,
-    > Future for ConnectionTask<R, TCtx, S, M2, E>
+    > Future for ConnectionTask<R, TCtx, S, E>
 {
     type Output = ();
 

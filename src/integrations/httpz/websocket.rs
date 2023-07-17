@@ -1,13 +1,13 @@
 use std::pin::pin;
 
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use httpz::{
     http::{Response, StatusCode},
-    ws::WebsocketUpgrade,
+    ws::{Message, WebsocketUpgrade},
     HttpResponse,
 };
 
-use crate::internal::exec::{Connection, ConnectionTask, Executor, TokioRuntime};
+use crate::internal::exec::{Connection, ConnectionTask, Executor, IncomingMessage, TokioRuntime};
 
 use super::TCtxFunc;
 
@@ -48,12 +48,26 @@ where
 
     let cookies = req.cookies(); // TODO: Reorder args of next func so cookies goes first
     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |_, socket| async move {
-        let socket = socket.with(|v: String| async move {
-            Ok(httpz::ws::Message::Text(v)) as Result<_, httpz::Error>
-        });
+        let socket = socket
+            .with(|v: String| async move { Ok(Message::Text(v)) as Result<_, httpz::Error> })
+            .map(|v| {
+                v.map(|v| match v {
+                    Message::Text(v) => IncomingMessage::Msg(serde_json::from_str(&v)),
+                    Message::Binary(v) => IncomingMessage::Msg(serde_json::from_slice(&v)),
+                    Message::Ping(_) | Message::Pong(_) => IncomingMessage::Skip,
+                    Message::Close(_) => IncomingMessage::Close,
+                    Message::Frame(_) => {
+                        #[cfg(debug_assertions)]
+                        unreachable!("Reading a 'httpz::ws::Message::Frame' is impossible");
+
+                        #[cfg(not(debug_assertions))]
+                        return IncomingMessage::Skip;
+                    }
+                })
+            });
         let socket = pin!(socket);
 
-        ConnectionTask::<TokioRuntime, TCtx, _, _, _>::new(Connection::new(ctx, executor), socket)
+        ConnectionTask::<TokioRuntime, TCtx, _, _>::new(Connection::new(ctx, executor), socket)
             .await;
     })
     .into_response()
