@@ -54,11 +54,11 @@ where
     ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
     {
         Procedure::new(
-            Some((ProcedureKind::Query, Default::default())),
-            Some(MiddlewareLayerBuilder {
+            None,
+            MiddlewareLayerBuilder {
                 middleware: BaseMiddleware::default(),
                 mw,
-            }),
+            },
         )
     }
 
@@ -70,7 +70,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Query, resolver.into_marker())),
-            Some(BaseMiddleware::default()),
+            BaseMiddleware::default(),
         )
     }
 
@@ -82,7 +82,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Mutation, resolver.into_marker())),
-            Some(BaseMiddleware::default()),
+            BaseMiddleware::default(),
         )
     }
 
@@ -94,7 +94,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Subscription, resolver.into_marker())),
-            Some(BaseMiddleware::default()),
+            BaseMiddleware::default(),
         )
     }
 }

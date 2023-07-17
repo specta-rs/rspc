@@ -30,13 +30,13 @@ impl<TLCtx> Default for MissingResolver<TLCtx> {
 mod private {
     use super::*;
 
-    /// TODO
-    pub struct Procedure<T, TMiddleware> {
-        // Is `None` until a resolver is set by the user or after `.build()` is called.
-        // `T = Marker<_, _, _, _>` or `T = MissingResolver<_>`
-        pub(super) inner: Option<(ProcedureKind, T)>,
-        // Is `None` after `.build()` is called. `.build()` can't take `self` cause dyn safety.
-        pub(super) mw: Option<TMiddleware>,
+    pub enum Procedure<T, TMiddleware> {
+        Unbuilt {
+            // Is `None` until a resolver is set by the user
+            inner: Option<(ProcedureKind, T)>,
+            mw: TMiddleware,
+        },
+        Built,
     }
 }
 
@@ -46,8 +46,8 @@ impl<TMiddleware, T> Procedure<T, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
-    pub(crate) fn new(inner: Option<(ProcedureKind, T)>, mw: Option<TMiddleware>) -> Self {
-        Self { inner, mw }
+    pub(crate) fn new(inner: Option<(ProcedureKind, T)>, mw: TMiddleware) -> Self {
+        Self::Unbuilt { inner, mw }
     }
 
     // pub(crate) fn into_dyn_procedure(self) -> Box<dyn DynProcedure<TMiddleware::Ctx>> {
@@ -72,7 +72,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Query, resolver.into_marker())),
-            Some(BaseMiddleware::default()),
+            BaseMiddleware::default(),
         )
     }
 
@@ -87,7 +87,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Mutation, resolver.into_marker())),
-            Some(BaseMiddleware::default()),
+            BaseMiddleware::default(),
         )
     }
 
@@ -102,7 +102,7 @@ where
     {
         Procedure::new(
             Some((ProcedureKind::Subscription, resolver.into_marker())),
-            Some(BaseMiddleware::default()),
+            BaseMiddleware::default(),
         )
     }
 
@@ -112,12 +112,16 @@ where
     ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             None,
-            Some(MiddlewareLayerBuilder {
-                middleware: self
-                    .mw
-                    .expect("rspc: called `.with()` but no middleware was set"),
+            MiddlewareLayerBuilder {
+                // todo: enforce via typestate
+                middleware: match self {
+                    Self::Unbuilt { mw, .. } => mw,
+                    Self::Built { .. } => {
+                        panic!("rspc: called `.with()` on built procedure");
+                    }
+                },
                 mw,
-            }),
+            },
         )
     }
 }
@@ -136,9 +140,16 @@ where
         key: Cow<'static, str>,
         ctx: &'b mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
     ) {
-        let (kind, Marker(resolver, _)) = self.inner.take().expect(
-            "Called 'DynProcedure.build()' in invalid state! This is likely a bug in rspc's types.",
-        );
+        let (mw, (kind, Marker(resolver, _))) = match std::mem::replace(self, Self::Built) {
+            Self::Unbuilt { mw, inner } => {
+                (mw, inner.expect(
+               		"Called 'DynProcedure.build()' in invalid state! This is likely a bug in rspc's types.",
+                ))
+            }
+            Self::Built => {
+                panic!("rspc: procedure was built twice. This is a fatal error.")
+            }
+        };
 
         let m = match kind {
             ProcedureKind::Query => &mut ctx.queries,
@@ -155,16 +166,13 @@ where
 
         m.append(
             key_str,
-            self.mw
-                .take()
-                .expect("rspc: procedure was built twice. This is a fatal error.")
-                .build(ResolverLayer::new(move |ctx, input, _| {
-                    Ok((resolver)(
-                        ctx,
-                        serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                    )
-                    .exec())
-                })),
+            mw.build(ResolverLayer::new(move |ctx, input, _| {
+                Ok((resolver)(
+                    ctx,
+                    serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+                )
+                .exec())
+            })),
             type_def,
         );
     }
