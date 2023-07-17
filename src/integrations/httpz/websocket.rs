@@ -1,3 +1,6 @@
+use std::pin::pin;
+
+use futures::SinkExt;
 use httpz::{
     http::{Response, StatusCode},
     ws::WebsocketUpgrade,
@@ -44,11 +47,14 @@ where
     };
 
     let cookies = req.cookies(); // TODO: Reorder args of next func so cookies goes first
-    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |_, socket| {
-        ConnectionTask::<TokioRuntime, TCtx, _, _, _, _>::new(
-            Connection::new(ctx, executor),
-            socket,
-        )
+    WebsocketUpgrade::from_req_with_cookies(req, cookies, move |_, socket| async move {
+        let socket = socket.with(|v: String| async move {
+            Ok(httpz::ws::Message::Text(v)) as Result<_, httpz::Error>
+        });
+        let socket = pin!(socket);
+
+        ConnectionTask::<TokioRuntime, TCtx, _, _, _>::new(Connection::new(ctx, executor), socket)
+            .await;
     })
     .into_response()
 }

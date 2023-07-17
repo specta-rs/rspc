@@ -9,45 +9,20 @@ use futures::{ready, Sink, Stream};
 use pin_project::pin_project;
 use serde_json::Value;
 
-use super::{AsyncRuntime, Batcher, Connection};
+use super::{AsyncRuntime, Batcher, Connection, IncomingMessage};
 use crate::internal::exec;
 
-// TODO: Maybe merge this `Connection` and `Batch` abstractions into this?
-// TODO: Rewrite this to named enums instead of `Option<bool>` and the like
+enum PollResult {
+    /// The poller has done some progressed work.
+    /// WARNING: this does not guarantee any wakers have been registered so to uphold the `Future` invariants you can not return.
+    Progressed,
 
-#[derive(Debug)]
-pub(crate) enum IncomingMessage {
-    Msg(Result<Value, serde_json::Error>),
-    Close,
-    Skip,
-}
+    /// The poller has queued a message to be sent.
+    /// WARNING: You must call `Self::poll_send` to prior to returning from the `Future::poll` method.
+    QueueSend,
 
-pub(crate) struct OutgoingMessage(pub String);
-
-#[cfg(feature = "httpz")]
-impl From<httpz::ws::Message> for IncomingMessage {
-    fn from(value: httpz::ws::Message) -> Self {
-        match value {
-            httpz::ws::Message::Text(v) => Self::Msg(serde_json::from_str(&v)),
-            httpz::ws::Message::Binary(v) => Self::Msg(serde_json::from_slice(&v)),
-            httpz::ws::Message::Ping(_) | httpz::ws::Message::Pong(_) => Self::Skip,
-            httpz::ws::Message::Close(_) => Self::Close,
-            httpz::ws::Message::Frame(_) => {
-                #[cfg(debug_assertions)]
-                unreachable!("Reading a 'httpz::ws::Message::Frame' is impossible");
-
-                #[cfg(not(debug_assertions))]
-                return Self::Skip;
-            }
-        }
-    }
-}
-
-#[cfg(feature = "httpz")]
-impl From<OutgoingMessage> for httpz::ws::Message {
-    fn from(value: OutgoingMessage) -> Self {
-        Self::Text(value.0)
-    }
+    /// The future is complete
+    Complete,
 }
 
 /// TODO
@@ -55,8 +30,8 @@ impl From<OutgoingMessage> for httpz::ws::Message {
 pub(crate) struct ConnectionTask<
     R: AsyncRuntime,
     TCtx: Clone + Send + 'static,
-    S: Sink<M, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
-    M: From<OutgoingMessage>,
+    S: Sink<String, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
+    // TODO: Remove both?
     M2: Into<IncomingMessage>,
     E: std::fmt::Debug + std::error::Error,
 > {
@@ -67,7 +42,7 @@ pub(crate) struct ConnectionTask<
 
     #[pin]
     socket: S,
-    tx_queue: Option<M>,
+    tx_queue: Option<String>,
 
     phantom: PhantomData<M2>,
 }
@@ -75,11 +50,10 @@ pub(crate) struct ConnectionTask<
 impl<
         R: AsyncRuntime,
         TCtx: Clone + Send + 'static,
-        S: Sink<M, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
-        M: From<OutgoingMessage>,
+        S: Sink<String, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
         M2: Into<IncomingMessage>,
         E: std::fmt::Debug + std::error::Error,
-    > ConnectionTask<R, TCtx, S, M, M2, E>
+    > ConnectionTask<R, TCtx, S, M2, E>
 {
     pub fn new(conn: Connection<R, TCtx>, socket: S) -> Self {
         Self {
@@ -92,16 +66,14 @@ impl<
     }
 
     /// Poll sending
-    ///
-    /// `Poll::Ready(())` is returned no wakers have been registered. This invariant must be maintained by caller!
     fn poll_send(
-        this: &mut ConnectionTaskProj<R, TCtx, S, M, M2, E>,
+        this: &mut ConnectionTaskProj<R, TCtx, S, M2, E>,
         cx: &mut Context<'_>,
-    ) -> Poll<()> {
+    ) -> Poll<PollResult> {
         // If nothing in `tx_queue`, poll the batcher to populate it
         if this.tx_queue.is_none() {
             match ready!(this.batch.as_mut().poll_next(cx)) {
-                Some(Some(json)) => *this.tx_queue = Some(OutgoingMessage(json).into()),
+                Some(Some(json)) => *this.tx_queue = Some(json),
                 Some(None) => {}
                 None => panic!("rspc: batcher stream ended unexpectedly"),
             };
@@ -114,7 +86,7 @@ impl<
                 #[cfg(feature = "tracing")]
                 tracing::error!("Error waiting for websocket to be ready: {}", err);
 
-                return Poll::Ready(());
+                return PollResult::Progressed.into();
             };
 
             let item = this
@@ -135,7 +107,7 @@ impl<
             tracing::error!("Error flushing message to websocket: {}", err);
         }
 
-        Poll::Ready(())
+        PollResult::Progressed.into()
     }
 
     /// Poll receiving
@@ -144,9 +116,9 @@ impl<
     /// `Poll::Ready(Some(false))` means you must `Self::poll_send`. This invariant must be maintained by caller!
     /// `Poll::Ready(None)` is returned no wakers have been registered. This invariant must be maintained by caller!
     fn poll_recv(
-        this: &mut ConnectionTaskProj<R, TCtx, S, M, M2, E>,
+        this: &mut ConnectionTaskProj<R, TCtx, S, M2, E>,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<bool>> {
+    ) -> Poll<PollResult> {
         match ready!(this.socket.as_mut().poll_next(cx)) {
             Some(Ok(msg)) => {
                 let res = match msg.into() {
@@ -158,9 +130,9 @@ impl<
                         // TODO: Terminate all subscriptions
                         // TODO: Tell frontend all subscriptions were terminated
 
-                        return Poll::Ready(Some(true));
+                        return PollResult::Complete.into();
                     }
-                    IncomingMessage::Skip => return Poll::Ready(None),
+                    IncomingMessage::Skip => return PollResult::Progressed.into(),
                 };
 
                 match res.and_then(|v| match v.is_array() {
@@ -168,11 +140,7 @@ impl<
                     false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
                 }) {
                     Ok(reqs) => {
-                        let mut a = this.conn.exec(reqs);
-                        println!("C {a:?}");
-                        this.batch.as_mut().append(&mut a);
-
-                        return Poll::Ready(Some(false));
+                        this.batch.as_mut().append(&mut this.conn.exec(reqs));
                     }
                     Err(_err) => {
                         #[cfg(feature = "tracing")]
@@ -182,6 +150,8 @@ impl<
                         println!("D {_err:?}");
                     }
                 }
+
+                PollResult::QueueSend
             }
             Some(Err(_err)) => {
                 #[cfg(feature = "tracing")]
@@ -189,6 +159,8 @@ impl<
 
                 // TODO: Send report of error to frontend
                 println!("E {_err:?}");
+
+                PollResult::QueueSend
             }
             None => {
                 #[cfg(feature = "tracing")]
@@ -197,38 +169,33 @@ impl<
                 // TODO: Terminate all subscriptions
                 // TODO: Tell frontend all subscriptions were terminated
 
-                return Poll::Ready(Some(true));
+                PollResult::Complete
             }
         }
-
-        Poll::Ready(None)
+        .into()
     }
 
     /// Poll active streams
-    ///
-    /// `Poll::Ready(false)` is returned no wakers have been registered. This invariant must be maintained by caller!
-    /// `Poll::Ready(true)` means you must `Self::poll_send`. This invariant must be maintained by caller!
     fn poll_streams(
-        this: &mut ConnectionTaskProj<R, TCtx, S, M, M2, E>,
+        this: &mut ConnectionTaskProj<R, TCtx, S, M2, E>,
         cx: &mut Context<'_>,
-    ) -> Poll<bool> {
+    ) -> Poll<PollResult> {
         if let Some(batch) = ready!(this.conn.as_mut().poll_next(cx)).expect("rspc unreachable") {
             this.batch.as_mut().insert(batch);
-            return Poll::Ready(true);
+            return PollResult::QueueSend.into();
         }
 
-        Poll::Ready(false)
+        PollResult::Progressed.into()
     }
 }
 
 impl<
         R: AsyncRuntime,
         TCtx: Clone + Send + 'static,
-        S: Sink<M, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
-        M: From<OutgoingMessage>,
+        S: Sink<String, Error = E> + Stream<Item = Result<M2, E>> + Send + Unpin,
         M2: Into<IncomingMessage>,
         E: std::fmt::Debug + std::error::Error,
-    > Future for ConnectionTask<R, TCtx, S, M, M2, E>
+    > Future for ConnectionTask<R, TCtx, S, M2, E>
 {
     type Output = ();
 
@@ -244,17 +211,18 @@ impl<
             }
 
             match Self::poll_recv(&mut this, cx) {
-                Poll::Ready(Some(true)) => return Poll::Ready(()),
-                Poll::Ready(Some(false)) => continue,
-                Poll::Ready(None) => {}
+                Poll::Ready(PollResult::Complete) => return Poll::Ready(()),
+                Poll::Ready(PollResult::Progressed) => {}
+                Poll::Ready(PollResult::QueueSend) => continue,
                 Poll::Pending => {
                     is_pending = true;
                 }
             }
 
             match Self::poll_streams(&mut this, cx) {
-                Poll::Ready(true) => continue,
-                Poll::Ready(false) => {}
+                Poll::Ready(PollResult::Complete) => return Poll::Ready(()),
+                Poll::Ready(PollResult::Progressed) => {}
+                Poll::Ready(PollResult::QueueSend) => continue,
                 Poll::Pending => {
                     is_pending = true;
                 }

@@ -18,7 +18,7 @@ use super::{
 // TODO: Seal this shit up tight
 
 /// TODO
-#[pin_project(project = PlzNameThisEnumProj)]
+#[pin_project(project = StreamOrFutProj)]
 enum StreamOrFut<TCtx: 'static> {
     OwnedStream(#[pin] OwnedStream<TCtx>),
     ExecRequestFut(#[pin] PinnedOption<ExecRequestFut>),
@@ -29,7 +29,7 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.project() {
-            PlzNameThisEnumProj::OwnedStream(s) => {
+            StreamOrFutProj::OwnedStream(s) => {
                 let s = s.project();
 
                 let v = ready!(s.reference.poll_next(cx));
@@ -42,7 +42,7 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
                     },
                 }))
             }
-            PlzNameThisEnumProj::ExecRequestFut(mut s) => match s.as_mut().project() {
+            StreamOrFutProj::ExecRequestFut(mut s) => match s.as_mut().project() {
                 PinnedOptionProj::Some(ss) => ss.poll(cx).map(|v| {
                     s.set(PinnedOption::None);
                     Some(v)

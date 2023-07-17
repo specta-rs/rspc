@@ -18,8 +18,8 @@ use tokio::sync::mpsc;
 
 use crate::{
     internal::exec::{
-        AsyncRuntime, Connection, ConnectionTask, Executor, IncomingMessage, OutgoingMessage,
-        SubscriptionMap, TokioRuntime,
+        AsyncRuntime, Connection, ConnectionTask, Executor, IncomingMessage, SubscriptionMap,
+        TokioRuntime,
     },
     BuiltRouter,
 };
@@ -76,7 +76,7 @@ where
             };
             let ctx = (self.ctx_fn)(window.clone());
             let handle = R::spawn(async move {
-                ConnectionTask::<R, TCtx, _, _, _, _>::new(Connection::new(ctx, executor), socket)
+                ConnectionTask::<R, TCtx, _, _, _>::new(Connection::new(ctx, executor), socket)
                     .await;
             });
 
@@ -157,21 +157,16 @@ struct Socket {
     window: Window,
 }
 
-impl futures::Sink<OutgoingMessage> for Socket {
+impl futures::Sink<String> for Socket {
     type Error = Infallible;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn start_send(
-        self: std::pin::Pin<&mut Self>,
-        item: OutgoingMessage,
-    ) -> Result<(), Self::Error> {
-        println!("OUTGOING: {:?}", item.0); // TODO
-
+    fn start_send(self: std::pin::Pin<&mut Self>, item: String) -> Result<(), Self::Error> {
         self.window
-            .emit("plugin:rspc:transport:resp", item.0)
+            .emit("plugin:rspc:transport:resp", item)
             .map_err(|err| {
                 #[cfg(feature = "tracing")]
                 tracing::error!("failed to emit JSON-RPC response: {}", err);
@@ -194,8 +189,6 @@ impl futures::Stream for Socket {
     type Item = Result<IncomingMessage, Infallible>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let y = self.recv.poll_recv(cx).map(|v| v.map(Ok));
-        println!("INCOMING: {:#?}", y); // TODO
-        y
+        self.recv.poll_recv(cx).map(|v| v.map(Ok))
     }
 }
