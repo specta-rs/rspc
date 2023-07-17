@@ -2,30 +2,27 @@ use std::{borrow::Cow, sync::Arc};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
+use rspc::internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager};
 
 const I: usize = 100;
 
-async fn benchmark_main(r: &Arc<rspc::Router>) {
-    use rspc::internal::jsonrpc::*;
-    use rspc::internal::*;
-
+async fn benchmark_main(e: &Executor<()>) {
     for _ in 0..I {
-        let mut response = None as Option<jsonrpc::Response>;
-        handle_json_rpc(
+        let response = match e.execute(
             (),
-            jsonrpc::Request {
-                jsonrpc: None,
-                id: RequestId::Null,
-                inner: jsonrpc::RequestInner::Query {
-                    path: "demo".to_string(), // TODO: Lifetime instead of allocate?
-                    input: None,
-                },
+            exec::Request::Query {
+                id: 0,
+                path: Cow::Borrowed("demo"),
+                input: None,
             },
-            Cow::Borrowed(r),
-            &mut response,
-        )
-        .await;
-        let _result = black_box(response.unwrap());
+            &mut (None as Option<NoOpSubscriptionManager>),
+        ) {
+            ExecutorResult::FutureResponse(fut) => fut.await,
+            ExecutorResult::Response(resp) => resp,
+            ExecutorResult::None => unreachable!(),
+        };
+
+        let _result = black_box(response);
 
         // println!("{:?}", result);
     }
@@ -43,7 +40,7 @@ async fn benchmark_0_1_3(r: &Arc<rspc_legacy::Router>) {
                 jsonrpc: None,
                 id: RequestId::Null,
                 inner: jsonrpc::RequestInner::Query {
-                    path: "demo".to_string(), // TODO: Lifetime instead of allocate?
+                    path: "demo".to_string(),
                     input: None,
                 },
             },
@@ -66,13 +63,14 @@ fn bench(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
     c.bench_function("main-build-routers", |b| {
-        const R: rspc::alpha::Rspc<()> = rspc::alpha::Rspc::new();
+        const R: rspc::Rspc<()> = rspc::Rspc::new();
         b.iter(|| {
             for _ in 0..100 {
                 black_box(
                     R.router()
                         .procedure("demo", R.query(|_, _: ()| async move { "Hello World!" }))
-                        .compat()
+                        .build()
+                        .unwrap()
                         .arced(),
                 );
             }
@@ -93,13 +91,14 @@ fn bench(c: &mut Criterion) {
     });
 
     c.bench_function("main", |b| {
-        const R: rspc::alpha::Rspc<()> = rspc::alpha::Rspc::new();
-        let r = black_box(
+        const R: rspc::Rspc<()> = rspc::Rspc::new();
+        let r = black_box(Executor::new(
             R.router()
                 .procedure("demo", R.query(|_, _: ()| async move { "Hello World!" }))
-                .compat()
+                .build()
+                .unwrap()
                 .arced(),
-        );
+        ));
         b.to_async(&rt).iter(|| benchmark_main(&r))
     });
 
@@ -114,8 +113,8 @@ fn bench(c: &mut Criterion) {
     });
 
     c.bench_function("main-mw", |b| {
-        const R: rspc::alpha::Rspc<()> = rspc::alpha::Rspc::new();
-        let r = black_box(
+        const R: rspc::Rspc<()> = rspc::Rspc::new();
+        let r = black_box(Executor::new(
             R.router()
                 .procedure(
                     "demo",
@@ -141,9 +140,10 @@ fn bench(c: &mut Criterion) {
                         .with(|mw, ctx| async move { mw.next(ctx) })
                         .query(|_, _: ()| async move { "Hello World!" }),
                 )
-                .compat()
+                .build()
+                .unwrap()
                 .arced(),
-        );
+        ));
         b.to_async(&rt).iter(|| benchmark_main(&r))
     });
 
@@ -178,8 +178,8 @@ fn bench(c: &mut Criterion) {
     });
 
     c.bench_function("main-53-procedures", |b| {
-        const R: rspc::alpha::Rspc<()> = rspc::alpha::Rspc::new();
-        let r = black_box(
+        const R: rspc::Rspc<()> = rspc::Rspc::new();
+        let r = black_box(Executor::new(
             R.router()
                 .procedure("a", R.query(|_, _: ()| async move { "Hello World!" }))
                 .procedure("b", R.query(|_, _: ()| async move { "Hello World!" }))
@@ -234,9 +234,10 @@ fn bench(c: &mut Criterion) {
                 .procedure("ay", R.query(|_, _: ()| async move { "Hello World!" }))
                 .procedure("az", R.query(|_, _: ()| async move { "Hello World!" }))
                 .procedure("demo", R.query(|_, _: ()| async move { "Hello World!" }))
-                .compat()
+                .build()
+                .unwrap()
                 .arced(),
-        );
+        ));
         b.to_async(&rt).iter(|| benchmark_main(&r))
     });
 

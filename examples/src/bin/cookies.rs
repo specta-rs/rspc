@@ -3,39 +3,48 @@
 use std::{ops::Add, path::PathBuf};
 
 use axum::routing::get;
-use rspc::{integrations::httpz::Request, Config};
+use rspc::{integrations::httpz::Request, ExportConfig, Rspc};
 use time::OffsetDateTime;
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
 
+#[derive(Clone)]
 pub struct Ctx {
     cookies: Cookies,
 }
 
+const R: Rspc<Ctx> = Rspc::new();
+
 #[tokio::main]
 async fn main() {
-    let router =
-        rspc::Router::<Ctx>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ))
-            .query("getCookie", |t| {
-                t(|ctx, _: ()| {
-                    ctx.cookies
-                        .get("myDemoCookie")
-                        .map(|c| c.value().to_string())
-                })
-            })
-            .mutation("setCookie", |t| {
-                t(|ctx, new_value: String| {
-                    let mut cookie = Cookie::new("myDemoCookie", new_value);
-                    cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
-                    cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
-                    ctx.cookies.add(cookie);
-                })
-            })
-            .build()
-            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+    let router = R
+        .router()
+        .procedure(
+            "getCookie",
+            R.query(|ctx, _: ()| {
+                ctx.cookies
+                    .get("myDemoCookie")
+                    .map(|c| c.value().to_string())
+            }),
+        )
+        .procedure(
+            "setCookie",
+            R.mutation(|ctx, new_value: String| {
+                let mut cookie = Cookie::new("myDemoCookie", new_value);
+                cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
+                cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
+                ctx.cookies.add(cookie);
+            }),
+        )
+        .build()
+        .unwrap()
+        .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+
+    router
+        .export_ts(ExportConfig::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        ))
+        .unwrap();
 
     let app = axum::Router::new()
         .with_state(())

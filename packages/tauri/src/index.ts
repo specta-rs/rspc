@@ -1,72 +1,56 @@
-import { randomId, OperationType, Transport, RSPCError } from "@rspc/client";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import {
+  wsLinkInternal,
+  Link,
+  Request as RspcRequest,
+  Response as RspcResponse,
+  RSPCError,
+} from "@rspc/client";
+import { fireResponse } from "@rspc/client/src/internal";
+import { listen } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 
-export class TauriTransport implements Transport {
-  private requestMap = new Map<string, (data: any) => void>();
-  private listener?: Promise<UnlistenFn>;
-  clientSubscriptionCallback?: (id: string, value: any) => void;
+/**
+ * Link for the rspc Tauri plugin
+ */
+export function tauriLink(): Link {
+  return wsLinkInternal(newWsManager());
+}
 
-  constructor() {
-    this.listener = listen("plugin:rspc:transport:resp", (event) => {
-      const { id, result } = event.payload as any;
-      if (result.type === "event") {
-        if (this.clientSubscriptionCallback)
-          this.clientSubscriptionCallback(id, result.data);
-      } else if (result.type === "response") {
-        if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "response", result: result.data });
-          this.requestMap.delete(id);
-        }
-      } else if (result.type === "error") {
-        const { message, code } = result.data;
-        if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "error", message, code });
-          this.requestMap.delete(id);
-        }
-      } else {
-        console.error(`Received event of unknown method '${result.type}'`);
+function newWsManager() {
+  const activeMap = new Map<
+    number,
+    {
+      resolve: (result: any) => void;
+      reject: (error: Error | RSPCError) => void;
+    }
+  >();
+
+  const listener = listen("plugin:rspc:transport:resp", (event) => {
+    const results: RspcResponse[] = JSON.parse(event.payload as any);
+
+    for (const result of results) {
+      const item = activeMap.get(result.id);
+
+      if (!item) {
+        console.error(
+          `rspc: received event with id '${result.id}' for unknown`
+        );
+        return;
       }
-    });
-  }
 
-  async doRequest(
-    operation: OperationType,
-    key: string,
-    input: any
-  ): Promise<any> {
-    if (!this.listener) {
-      await this.listener;
+      fireResponse(result, {
+        resolve: item.resolve,
+        reject: item.reject,
+      });
+      if ("path" in event) activeMap.delete(result.id);
     }
+  });
 
-    const id = randomId();
-    let resolve: (data: any) => void;
-    const promise = new Promise((res) => {
-      resolve = res;
-    });
-
-    // @ts-ignore
-    this.requestMap.set(id, resolve);
-
-    await appWindow.emit("plugin:rspc:transport", {
-      id,
-      method: operation,
-      params: {
-        path: key,
-        input,
-      },
-    });
-
-    const body = (await promise) as any;
-    if (body.type === "error") {
-      const { code, message } = body;
-      throw new RSPCError(code, message);
-    } else if (body.type === "response") {
-      return body.result;
-    } else {
-      throw new Error(
-        `RSPC Tauri doRequest received invalid body type '${body?.type}'`
-      );
-    }
-  }
+  return [
+    activeMap,
+    (data: RspcRequest | RspcRequest[]) =>
+      listener.then(() =>
+        appWindow.emit("plugin:rspc:transport", JSON.stringify(data))
+      ),
+  ] as const;
 }

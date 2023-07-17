@@ -1,4 +1,5 @@
-import { createClient, FetchTransport, WebsocketTransport } from "@rspc/client";
+import { initRspc, httpLink, wsLink } from "@rspc/client";
+import { tauriLink } from "@rspc/tauri";
 import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
@@ -6,24 +7,58 @@ import React, { useState } from "react";
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import type { Procedures } from "../../../bindings";
 
-export const rspc = createReactQueryHooks<Procedures>();
+const fetchQueryClient = new QueryClient();
+const fetchClient = initRspc<Procedures>({
+  links: [
+    // loggerLink(),
 
-export const fetchQueryClient = new QueryClient();
-const fetchClient = createClient<Procedures>({
-  transport: new FetchTransport("http://localhost:4000/rspc"),
+    httpLink({
+      url: "http://[::]:4000/rspc",
+
+      // You can enable batching -> This is generally a good idea unless your doing HTTP caching
+      // batch: true,
+
+      // You can override the fetch function if required
+      // fetch: (input, init) => fetch(input, { ...init, credentials: "include" }), // Include Cookies for cross-origin requests
+
+      // Provide static custom headers
+      // headers: {
+      //   "x-demo": "abc",
+      // },
+
+      // Provide dynamic custom headers
+      // headers: ({ op }) => ({
+      //   "x-procedure-path": op.path,
+      // }),
+    }),
+  ],
+  // onError // TODO: Make sure this is still working
 });
 
-// Custom fetch parameters
-// const fetchClient = createClient<Procedures>({
-//   transport: new FetchTransport("http://localhost:4000/rspc", (input, init) =>
-//     fetch(input, { ...init, credentials: "include" }) // Include Cookies for cross-origin requests
-//   ),
-// });
+const wsQueryClient = new QueryClient();
+const wsClient = initRspc<Procedures>({
+  links: [
+    // loggerLink(),
 
-export const wsQueryClient = new QueryClient();
-const wsClient = createClient<Procedures>({
-  transport: new WebsocketTransport("ws://localhost:4000/rspc/ws"),
+    wsLink({
+      url: "ws://localhost:4000/rspc/ws",
+    }),
+  ],
 });
+
+const tauriQueryClient = new QueryClient();
+const tauriClient = initRspc<Procedures>({
+  links: [
+    // loggerLink(),
+
+    tauriLink(),
+  ],
+});
+
+// TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
+// TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
+export const rspc = createReactQueryHooks<Procedures>(fetchClient);
+// export const rspc2 = createReactQueryHooks<Procedures>(wsClient);
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
@@ -33,6 +68,15 @@ function Example({ name }: { name: string }) {
   const { mutate, isLoading } = rspc.useMutation("sendMsg");
   const { error } = rspc.useQuery(["error"], {
     retry: false,
+  });
+
+  const [subId, setSubId] = useState<number | null>(null);
+  const [enabled, setEnabled] = useState(true);
+  rspc.useSubscription(["testSubscriptionShutdown"], {
+    enabled,
+    onData(msg) {
+      setSubId(msg);
+    },
   });
 
   return (
@@ -48,13 +92,21 @@ function Example({ name }: { name: string }) {
         Error returned: {error?.code} {error?.message}
       </p>
       <p>Transformed Query: {transformMe}</p>
-      <ExampleSubscription rerenderProp={rerenderProp} />
+      <ExampleSubscription key={rerenderProp} rerenderProp={rerenderProp} />
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
       </button>
       <button onClick={() => mutate("Hello!")} disabled={isLoading}>
         Send Msg!
       </button>
+      <br />
+      <input
+        type="checkbox"
+        onClick={(e) => setEnabled((e.currentTarget as any).checked)}
+        value="false"
+        disabled={subId === null}
+      />
+      {`${enabled ? "Enabled" : "Disabled"} ${subId}`}
     </div>
   );
 }
@@ -83,7 +135,8 @@ export default function App() {
         }}
       >
         <h1>React</h1>
-        <QueryClientProvider client={fetchQueryClient} contextSharing={true}>
+        <QueryClientProvider client={fetchQueryClient}>
+          {/* TODO: rspc.Provider implies fetchClient??? */}
           <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
             <Example name="Fetch Transport" />
           </rspc.Provider>
@@ -91,6 +144,11 @@ export default function App() {
         <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />
+          </QueryClientProvider>
+        </rspc.Provider>
+        <rspc.Provider client={tauriClient} queryClient={tauriQueryClient}>
+          <QueryClientProvider client={tauriQueryClient}>
+            <Example name="Tauri Transport" />
           </QueryClientProvider>
         </rspc.Provider>
       </div>

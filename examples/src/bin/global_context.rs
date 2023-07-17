@@ -6,27 +6,34 @@ use std::{
     },
 };
 
-use rspc::{Config, Router};
+use rspc::{ExportConfig, Rspc};
 
 #[derive(Clone)]
 pub struct MyCtx {
     count: Arc<AtomicU16>,
 }
 
+const R: Rspc<MyCtx> = Rspc::new();
+
 #[tokio::main]
 async fn main() {
-    let router =
-        Router::<MyCtx>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
-            ))
+    let router = R
+        .router()
+        .procedure(
+            "hit",
             // This is a query so it can be accessed in browser without frontend. A `mutation`
             // shoudl be used if the method returns a side effect.
-            .query("hit", |t| {
-                t(|ctx, _: ()| ctx.count.fetch_add(1, Ordering::SeqCst))
-            })
-            .build()
-            .arced();
+            R.query(|ctx, _: ()| ctx.count.fetch_add(1, Ordering::SeqCst)),
+        )
+        .build()
+        .unwrap()
+        .arced();
+
+    router
+        .export_ts(ExportConfig::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        ))
+        .unwrap();
 
     // AtomicU16 provided interior mutability but if your type does not wrap it in an
     // `Arc<Mutex<T>>`. This could be your database connecton or any other value.

@@ -14,16 +14,16 @@ categories = ["web-programming", "asynchronous"]
 [dependencies]
 include_dir = "0.7.3"
 requestty = "0.5.0"
-strum = { version = "0.24.1", features = ["derive"] }
+strum = { version = "0.25.0", features = ["derive"] }
 rustc_version = "0.4.0"
-ureq = { version = "2.6.2", features = ["json"] }
-serde_json = "1.0.95"
-ctrlc = "3.2.5"
-thiserror = "1.0.40"
+ureq = { version = "2.7.1", features = ["json"] }
+serde_json = "1.0.103"
+ctrlc = "3.4.0"
+thiserror = "1.0.43"
 walkdir = "2"
 
 [dev-dependencies]
-tempdir = "0.3.7"
-cargo = "0.69.1"
-tokio = { version = "1.27.0", features = ["full", "process"] }
+tempfile = "3.6.0"
+cargo = "0.71.0"
+tokio = { version = "1.29.1", features = ["full", "process"] }
 futures = "0.3.28"

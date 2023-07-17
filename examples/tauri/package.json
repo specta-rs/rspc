@@ -1,0 +1,20 @@
+{
+  "name": "@rspc/examples-tauri",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "web-dev": "vite",
+    "web-build": "tsc && vite build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1.4.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.4.0",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.4"
+  }
+}

@@ -18,20 +18,12 @@
       "types": "./dist/full.d.ts",
       "import": "./dist/full.mjs",
       "default": "./dist/full.js"
-    },
-    "./v2": {
-      "types": "./dist/v2.d.ts",
-      "import": "./dist/v2.mjs",
-      "default": "./dist/v2.js"
     }
   },
   "typesVersions": {
     "*": {
       "full": [
         "dist/full.d.ts"
-      ],
-      "v2": [
-        "dist/v2.d.ts"
       ]
     }
   },
@@ -39,15 +31,14 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup --config rollup.config.ts --configPlugin swc3",
-    "dev": "pnpm build --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest ./index.test.ts"
   },
   "devDependencies": {
-    "@rspc/config": "workspace:*",
-    "rollup": "^3.21.2",
-    "typescript": "^5.0.4",
-    "vitest": "^0.30.1",
+    "tsup": "^7.1.0",
+    "typescript": "^5.1.6",
+    "vitest": "^0.33.0",
     "ws": "^8.13.0"
   }
 }

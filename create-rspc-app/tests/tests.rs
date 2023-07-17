@@ -17,7 +17,7 @@ use create_rspc_app::internal::{
 };
 use futures::future::join_all;
 use strum::IntoEnumIterator;
-use tempdir::TempDir;
+use tempfile::TempDir;
 use tokio::process::Command;
 
 #[tokio::test]
@@ -28,7 +28,7 @@ async fn test_templates() {
     );
     env::set_var("CARGO_TERM_VERBOSE", "false");
     env::set_var("CARGO_QUITE", "true");
-    let dir = TempDir::new("create_rspc_app_test").unwrap();
+    let dir = TempDir::new().unwrap();
     let result = _test(dir.path()).await;
     env::remove_var("CARGO_TARGET_DIR");
     remove_dir_all(&dir).unwrap();
@@ -143,7 +143,7 @@ async fn _test(base_dir: &Path) -> Result<(), String> {
                             )
                         })?;
                     compile_cfg.spec = Packages::Packages(vec!["rspc-test".into()]);
-                    if let Err(err) = cargo::ops::compile(&ws, &compile_cfg) {
+                    if let Err(err) = cargo::ops::compile(ws, &compile_cfg) {
                         return Err(format!(
                             "Error({:?}-{:?}-{:?}): Failed to compile: {}",
                             framework, database, frontend, err

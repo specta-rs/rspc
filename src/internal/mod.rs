@@ -1,28 +1,46 @@
 //! Internal types which power rspc. The module provides no guarantee of compatibility between updates, so you should be careful rely on types from it.
 //!
-//! WARNING: Anything in this module does not follow semantic versioning as it's considered an implementation detail.
+//! WARNING: Anything in this module or submodules does not follow semantic versioning as it's considered an implementation detail.
 //!
 
-mod async_map;
-pub mod jsonrpc;
-mod jsonrpc_exec;
-mod middleware;
-mod procedure_builder;
+pub mod exec;
+pub mod middleware;
+pub mod procedure;
+
+mod layer;
 mod procedure_store;
+mod resolver_function;
+mod resolver_result;
 
-pub use async_map::*;
-pub use middleware::*;
-pub use procedure_builder::*;
-pub use procedure_store::*;
+pub use layer::*;
+pub(crate) use procedure_store::*;
+pub use resolver_function::*;
+pub use resolver_result::*;
 
-#[cfg(not(feature = "unstable"))]
-pub use specta;
+pin_project_lite::pin_project! {
+    #[project = PinnedOptionProj]
+    pub(crate) enum PinnedOption<T> {
+        Some {
+            #[pin]
+            v: T,
+        },
+        None,
+    }
+}
+
+impl<T> From<T> for PinnedOption<T> {
+    fn from(value: T) -> Self {
+        Self::Some { v: value }
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use std::{fs::File, io::Write, path::PathBuf};
 
     use specta::{ts::export_datatype, DefOpts, Type, TypeDefs};
+
+    use crate::internal::exec;
 
     macro_rules! collect_datatypes {
         ($( $i:path ),* $(,)? ) => {{
@@ -64,8 +82,8 @@ mod tests {
         let tys = collect_datatypes! {
             super::ProcedureDataType,
             // crate::Procedures, // TODO
-            super::jsonrpc::Request,
-            // super::jsonrpc::Response, // TODO
+            exec::Request,
+            exec::Response,
         };
 
         for (_, ty) in tys.into_iter().filter_map(|(sid, v)| v.map(|v| (sid, v))) {

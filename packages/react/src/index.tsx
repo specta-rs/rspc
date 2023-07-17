@@ -1,3 +1,5 @@
+"use client";
+
 import {
   createContext,
   ReactElement,
@@ -19,26 +21,28 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import {
-  Client,
-  ProceduresLike,
-  RSPCError,
-  inferProcedures,
   _inferProcedureHandlerInput,
   inferInfiniteQueries,
   _inferInfiniteQueryProcedureHandlerInput,
   inferInfiniteQueryResult,
-  ProcedureDef,
   inferQueryInput,
   inferQueryResult,
   inferMutationResult,
   inferMutationInput,
-  inferSubscriptionResult,
   ProceduresDef,
+  inferProcedureResult,
 } from "@rspc/client";
+import { AlphaClient, RSPCError } from "@rspc/client";
+
+// TODO: Remove this once off plane
+export { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// TODO: Reuse one from client but don't export it in public API
+type KeyAndInput = [string] | [string, any];
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
   rspc?: {
-    client?: Client<TProcedures>;
+    client?: AlphaClient<TProcedures>;
   };
 }
 
@@ -46,21 +50,29 @@ export interface SubscriptionOptions<TOutput> {
   enabled?: boolean;
   onStarted?: () => void;
   onData: (data: TOutput) => void;
-  onError?: (err: RSPCError) => void;
+  // TODO: Not `| Error`
+  onError?: (err: RSPCError | Error) => void;
 }
 
 export interface Context<TProcedures extends ProceduresDef> {
-  client: Client<TProcedures>;
+  client: AlphaClient<TProcedures>;
   queryClient: QueryClient;
 }
 
-export function createReactQueryHooks<
-  TProceduresLike extends ProceduresLike
->() {
-  type TProcedures = inferProcedures<TProceduresLike>;
-  type TBaseOptions = BaseOptions<TProcedures>;
+// TODO: Share with SolidJS hooks if possible?
+export type HooksOpts<P extends ProceduresDef> = {
+  context: React.Context<Context<P>>;
+};
 
-  const Context = createContext<Context<TProcedures>>(undefined!);
+export function createReactQueryHooks<P extends ProceduresDef>(
+  client: AlphaClient<P>,
+  opts?: HooksOpts<P>
+) {
+  type TBaseOptions = BaseOptions<P>;
+
+  const mapQueryKey: (keyAndInput: KeyAndInput) => KeyAndInput =
+    (client as any).mapQueryKey || ((x) => x);
+  const Context = opts?.context || createContext<Context<P>>(undefined!);
 
   function useContext() {
     const ctx = _useContext(Context);
@@ -71,78 +83,21 @@ export function createReactQueryHooks<
     return ctx;
   }
 
-  type CustomQueryHookReturn<TConstrainedProcedures extends ProcedureDef> = <
-    K extends TConstrainedProcedures["key"] & string,
-    TQueryFnData = Extract<TConstrainedProcedures, { key: K }>["result"],
-    TData = Extract<TConstrainedProcedures, { key: K }>["result"]
-  >(
-    keyAndInput: [
-      key: K,
-      ...input: Extract<TConstrainedProcedures, { key: K }>["input"] extends
-        | never
-        | null
-        ? []
-        : [Extract<TConstrainedProcedures, { key: K }>["input"]]
-    ],
-    opts?: Omit<
-      UseQueryOptions<
-        TQueryFnData,
-        RSPCError,
-        TData,
-        [K, Extract<TConstrainedProcedures, { key: K }>["input"]]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
-  ) => UseQueryResult<TData, RSPCError>;
-
-  /*
-  [UNDOCUMENTED]: This function IS NOT and will probably never be completely type safe. It is for people doing crazy stuff on top of rspc.
-  By using it you accept the risk involved with a lack of type safety. If you can make this more typesafe a PR would be welcome!
-  */
-  function customQuery<TConstrainedProcedures extends ProcedureDef>(
-    map: (
-      key: [
-        key: TConstrainedProcedures["key"],
-        ...input: TConstrainedProcedures["input"]
-      ]
-    ) => [
-      inferProcedures<TProceduresLike>["queries"]["key"] & string,
-      inferProcedures<TProceduresLike>["queries"]["input"]
-    ]
-  ): CustomQueryHookReturn<TConstrainedProcedures> {
-    return (keyAndInput, opts) => {
-      const { rspc, ...rawOpts } = opts ?? {};
-      let client = rspc?.client;
-      if (!client) {
-        client = useContext().client;
-      }
-
-      return __useQuery({
-        queryKey: map(keyAndInput as any),
-        queryFn: async () => {
-          return await client!.query(map(keyAndInput as any) as any);
-        },
-        ...(rawOpts as any),
-      });
-    };
-  }
-
   function useQuery<
-    K extends inferProcedures<TProceduresLike>["queries"]["key"] & string,
-    TQueryFnData = inferQueryResult<TProcedures, K>,
-    TData = inferQueryResult<TProcedures, K>
+    K extends P["queries"]["key"] & string,
+    TQueryFnData = inferQueryResult<P, K>,
+    TData = inferQueryResult<P, K>
   >(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+      ...input: _inferProcedureHandlerInput<P, "queries", K>
     ],
     opts?: Omit<
       UseQueryOptions<
         TQueryFnData,
         RSPCError,
         TData,
-        [K, inferQueryInput<TProcedures, K>]
+        [K, inferQueryInput<P, K>]
       >,
       "queryKey" | "queryFn"
     > &
@@ -154,127 +109,65 @@ export function createReactQueryHooks<
       client = useContext().client;
     }
 
-    return __useQuery(
-      keyAndInput,
-      async () => {
-        return await client!.query(keyAndInput);
-      },
-      rawOpts as any
-    );
-  }
-
-  function useInfiniteQuery<
-    K extends inferInfiniteQueries<TProcedures>["key"] & string
-  >(
-    keyAndInput: [
-      key: K,
-      ...input: _inferInfiniteQueryProcedureHandlerInput<TProcedures, K>
-    ],
-    opts?: Omit<
-      UseInfiniteQueryOptions<
-        inferInfiniteQueryResult<TProcedures, K>,
-        RSPCError,
-        inferInfiniteQueryResult<TProcedures, K>,
-        inferInfiniteQueryResult<TProcedures, K>,
-        [K, inferQueryInput<TProcedures, K>]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
-  ): UseInfiniteQueryResult<
-    inferInfiniteQueryResult<TProcedures, K>,
-    RSPCError
-  > {
-    const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
-
-    return __useInfiniteQuery({
-      queryKey: keyAndInput,
-      queryFn: async () => {
-        throw new Error("TODO"); // TODO: Finish this
-      },
-      ...(rawOpts as any),
+    return __useQuery({
+      queryKey: mapQueryKey(keyAndInput as any) as any,
+      queryFn: () => client!.query(keyAndInput),
+      ...rawOpts,
     });
   }
 
-  type CustomMutationHookReturn<TConstrainedProcedures extends ProcedureDef> = <
-    K extends TConstrainedProcedures["key"] & string,
-    TContext = unknown
-  >(
-    key: K | [K],
-    opts?: UseMutationOptions<
-      Extract<TConstrainedProcedures, { key: K }>["result"],
-      RSPCError,
-      Extract<TConstrainedProcedures, { key: K }>["result"] extends never
-        ? undefined
-        : Extract<TConstrainedProcedures, { key: K }>["result"],
-      TContext
-    > &
-      TBaseOptions
-  ) => UseMutationResult<
-    Extract<TConstrainedProcedures, { key: K }>["result"],
-    RSPCError,
-    Extract<TConstrainedProcedures, { key: K }>["input"] extends never
-      ? undefined
-      : Extract<TConstrainedProcedures, { key: K }>["input"],
-    TContext
-  >;
+  // function useInfiniteQuery<K extends inferInfiniteQueries<P>["key"] & string>(
+  //   keyAndInput: [
+  //     key: K,
+  //     ...input: _inferInfiniteQueryProcedureHandlerInput<P, K>
+  //   ],
+  //   opts?: Omit<
+  //     UseInfiniteQueryOptions<
+  //       inferInfiniteQueryResult<P, K>,
+  //       RSPCError,
+  //       inferInfiniteQueryResult<P, K>,
+  //       inferInfiniteQueryResult<P, K>,
+  //       [K, inferQueryInput<P, K>]
+  //     >,
+  //     "queryKey" | "queryFn"
+  //   > &
+  //     TBaseOptions
+  // ): UseInfiniteQueryResult<inferInfiniteQueryResult<P, K>, RSPCError> {
+  //   const { rspc, ...rawOpts } = opts ?? {};
+  //   let client = rspc?.client;
+  //   if (!client) {
+  //     client = useContext().client;
+  //   }
 
-  /*
-  [UNDOCUMENTED]: This function IS NOT and will probably never be completely type safe. It is for people doing crazy stuff on top of rspc.
-  By using it you accept the risk involved with a lack of type safety. If you can make this more typesafe a PR would be welcome!
-  */
-  function customMutation<TConstrainedProcedures extends ProcedureDef>(
-    map: (
-      key: [
-        key: TConstrainedProcedures["key"],
-        ...input: [TConstrainedProcedures["input"]]
-      ]
-    ) => [
-      inferProcedures<TProceduresLike>["mutations"]["key"] & string,
-      inferProcedures<TProceduresLike>["mutations"]["input"]
-    ]
-  ): CustomMutationHookReturn<TConstrainedProcedures> {
-    return (key, opts) => {
-      const { rspc, ...rawOpts } = opts ?? {};
-      let client = rspc?.client;
-      if (!client) {
-        client = useContext().client;
-      }
-
-      return __useMutation({
-        mutationFn: async (input) => {
-          const actualKey = Array.isArray(key) ? key[0] : key;
-          return client!.mutation(map([actualKey, input]) as any);
-        },
-        ...(rawOpts as any),
-      });
-    };
-  }
+  //   return __useInfiniteQuery({
+  //     queryKey: mapQueryKey(keyAndInput as any),
+  //     queryFn: async () => {
+  //       throw new Error("TODO"); // TODO: Finish this
+  //     },
+  //     ...(rawOpts as any),
+  //   });
+  // }
 
   function useMutation<
-    K extends TProcedures["mutations"]["key"] & string,
+    K extends P["mutations"]["key"] & string,
     TContext = unknown
   >(
     key: K | [K],
     opts?: UseMutationOptions<
-      inferMutationResult<TProcedures, K>,
+      inferMutationResult<P, K>,
       RSPCError,
-      inferMutationInput<TProcedures, K> extends never
+      inferMutationInput<P, K> extends never
         ? undefined
-        : inferMutationInput<TProcedures, K>,
+        : inferMutationInput<P, K>,
       TContext
     > &
       TBaseOptions
   ): UseMutationResult<
-    inferMutationResult<TProcedures, K>,
+    inferMutationResult<P, K>,
     RSPCError,
-    inferMutationInput<TProcedures, K> extends never
+    inferMutationInput<P, K> extends never
       ? undefined
-      : inferMutationInput<TProcedures, K>,
+      : inferMutationInput<P, K>,
     TContext
   > {
     const { rspc, ...rawOpts } = opts ?? {};
@@ -290,12 +183,12 @@ export function createReactQueryHooks<
   }
 
   function useSubscription<
-    K extends TProcedures["subscriptions"]["key"] & string,
-    TData = inferSubscriptionResult<TProcedures, K>
+    K extends P["subscriptions"]["key"] & string,
+    TData = inferProcedureResult<P, "subscriptions", K>
   >(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+      ...input: _inferProcedureHandlerInput<P, "subscriptions", K>
     ],
     opts: SubscriptionOptions<TData> & TBaseOptions
   ) {
@@ -304,53 +197,27 @@ export function createReactQueryHooks<
       client = useContext().client;
     }
     const queryKey = hashQueryKey(keyAndInput);
-
     const enabled = opts?.enabled ?? true;
 
     return useEffect(() => {
-      if (!enabled) {
-        return;
-      }
-      let isStopped = false;
-      // @ts-ignore // TODO: Fix this
-      const unsubscribe = client!.addSubscription<K, TData>(
-        keyAndInput as any,
-        {
-          onStarted: () => {
-            if (!isStopped) {
-              opts.onStarted?.();
-            }
-          },
-          // @ts-ignore// TODO: Fix this
-          onData: (data) => {
-            if (!isStopped) {
-              opts.onData(data);
-            }
-          },
-          // @ts-ignore // TODO: Fix this
-          onError: (err) => {
-            if (!isStopped) {
-              opts.onError?.(err);
-            }
-          },
-        }
-      );
-      return () => {
-        isStopped = true;
-        unsubscribe();
-      };
+      if (!enabled) return;
+      return client!.addSubscription<K, TData>(keyAndInput, {
+        onData: opts.onData,
+        onError: opts.onError,
+      });
     }, [queryKey, enabled]);
   }
 
   return {
-    _rspc_def: undefined! as TProcedures, // This allows inferring the operations type from TS helpers
+    _rspc_def: undefined! as P, // This allows inferring the operations type from TS helpers
     Provider: ({
       children,
       client,
       queryClient,
     }: {
       children?: ReactElement;
-      client: Client<TProcedures>;
+      client: AlphaClient<P>;
+      // TODO: Remove this arg and infer from React context?
       queryClient: QueryClient;
     }) => (
       <Context.Provider
@@ -365,10 +232,8 @@ export function createReactQueryHooks<
       </Context.Provider>
     ),
     useContext,
-    customQuery,
     useQuery,
     // useInfiniteQuery,
-    customMutation,
     useMutation,
     useSubscription,
   };

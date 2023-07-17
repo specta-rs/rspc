@@ -130,11 +130,9 @@ export function Interpolate({ children }: PropsWithChildren) {
   useEffect(() => {
     const modifiedNodes = new Set<any>();
     if (ref.current) {
-      // console.log(1);
       (function iterate_node(node: any) {
         if (node.nodeType === 3) {
           // Node.TEXT_NODE
-          // console.log(activePackageManager.name.toLowerCase());
           var text = node.data
             .replace("pnpm", activePackageManager.name.toLowerCase())
             .replace(
@@ -143,7 +141,6 @@ export function Interpolate({ children }: PropsWithChildren) {
             );
           if (text != node.data) {
             modifiedNodes.add(node);
-            // console.log("NODE", typeof node);
             // there's a Safari bug
             node.data = text;
           }

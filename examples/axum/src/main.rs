@@ -1,11 +1,17 @@
-use std::{path::PathBuf, time::Duration};
+use std::{
+    net::{Ipv6Addr, SocketAddr},
+    path::PathBuf,
+    time::Duration, sync::atomic::AtomicU16, task::{Poll, Context}, pin::Pin,
+};
 
+use futures::Stream;
 use async_stream::stream;
 use axum::routing::get;
-use rspc::{alpha::Rspc, integrations::httpz::Request, Config};
+use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
+#[derive(Clone)]
 struct Ctx {
     x_demo_header: Option<String>,
 }
@@ -14,127 +20,121 @@ const R: Rspc<Ctx> = Rspc::new();
 
 #[tokio::main]
 async fn main() {
-    // let router = R
-    //     .router()
-    //     .procedure("version", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
-    //     .procedure(
-    //         "version1",
-    //         R.with(|mw, ctx| async move {
-    //             println!("MW ONE");
-    //             mw.next(ctx)
-    //         })
-    //         .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
-    //     )
-    //     .procedure(
-    //         "version2",
-    //         R.with(|mw, ctx| async move {
-    //             println!("MW ONE");
-    //             mw.next(ctx)
-    //         })
-    //         .with(|mw, ctx| async move {
-    //             println!("MW TWO");
-    //             mw.next(ctx)
-    //         })
-    //         .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
-    //     )
-    //     .procedure(
-    //         "version3",
-    //         R.with(|mw, ctx| async move {
-    //             println!("MW ONE");
-    //             mw.next(ctx)
-    //         })
-    //         .with(|mw, ctx| async move {
-    //             println!("MW TWO");
-    //             mw.next(ctx)
-    //         })
-    //         .with(|mw, ctx| async move {
-    //             println!("MW THREE");
-    //             mw.next(ctx)
-    //         })
-    //         .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
-    //     )
-    //     .procedure(
-    //         "version4",
-    //         R.with(|mw, ctx| async move {
-    //             println!("MW ONE");
-    //             mw.next(ctx).resp(|result| async move {
-    //                 println!("MW ONE RESULT: {result:?}");
-    //                 result
-    //             })
-    //         })
-    //         .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
-    //     )
-    //     .compat()
-    //     .arced();
+    let router = R
+        .router()
+        .procedure(
+            "version",
+            R
+                .with(|mw, ctx| async move {
+                    mw.next(ctx).map(|resp| async move {
+                        println!("Client requested version '{}'", resp);
+                        resp
+                    })
+                })
+                .with(|mw, ctx| async move { mw.next(ctx) })
+                .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+        )
+        .procedure(
+            "X-Demo-Header",
+            R.query(|ctx, _: ()| ctx.x_demo_header.unwrap_or_else(|| "No header".to_string())),
+        )
+        .procedure("echo", R.query(|_, v: String| v))
+        .procedure(
+            "error",
+            R.query(|_, _: ()| {
+                Err(rspc::Error::new(
+                    rspc::ErrorCode::InternalServerError,
+                    "Something went wrong".into(),
+                )) as Result<String, rspc::Error>
+            }),
+        )
+        .procedure(
+            "error",
+            R.mutation(|_, _: ()| {
+                Err(rspc::Error::new(
+                    rspc::ErrorCode::InternalServerError,
+                    "Something went wrong".into(),
+                )) as Result<String, rspc::Error>
+            }),
+        )
+        .procedure(
+            "transformMe",
+            R.query(|_, _: ()| "Hello, world!".to_string()),
+        )
+        .procedure(
+            "sendMsg",
+            R.mutation(|_, v: String| {
+                println!("Client said '{}'", v);
+                v
+            }),
+        )
+        .procedure(
+            "pings",
+            R.subscription(|_, _: ()| {
+                println!("Client subscribed to 'pings'");
+                stream! {
+                    yield "start".to_string();
+                    for i in 0..5 {
+                        println!("Sending ping {}", i);
+                        yield i.to_string();
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }),
+        )
+        .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
+            stream! {
+                for _ in 0..5 {
+                    yield Ok("ping".to_string());
+                    sleep(Duration::from_secs(1)).await;
+                }
+                yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
+            }
+        }))
+        .procedure(
+            "testSubscriptionShutdown",
+            R.subscription({
+                static COUNT: AtomicU16 = AtomicU16::new(0);
+                |_, _: ()| {
+                    let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-    let router =
-        R.router()
-            .procedure("version", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
-            .procedure(
-                "X-Demo-Header",
-                R.query(|ctx, _: ()| {
-                    ctx.x_demo_header
-                        .clone()
-                        .unwrap_or_else(|| "No header".to_string())
-                }),
-            )
-            .procedure("echo", R.query(|_, v: String| v))
-            .procedure(
-                "error",
-                R.query(|_, _: ()| {
-                    Err(rspc::Error::new(
-                        rspc::ErrorCode::InternalServerError,
-                        "Something went wrong".into(),
-                    )) as Result<String, rspc::Error>
-                }),
-            )
-            .procedure(
-                "error",
-                R.mutation(|_, _: ()| {
-                    Err(rspc::Error::new(
-                        rspc::ErrorCode::InternalServerError,
-                        "Something went wrong".into(),
-                    )) as Result<String, rspc::Error>
-                }),
-            )
-            .procedure(
-                "transformMe",
-                R.query(|_, _: ()| "Hello, world!".to_string()),
-            )
-            .procedure(
-                "sendMsg",
-                R.mutation(|_, v: String| {
-                    println!("Client said '{}'", v);
-                    v
-                }),
-            )
-            .procedure(
-                "pings",
-                R.subscription(|_, _: ()| {
-                    println!("Client subscribed to 'pings'");
-                    stream! {
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
+                    pub struct HandleDrop {
+                        id: u16,
+                        send: bool,
+                    }
+
+                    impl Stream for HandleDrop {
+                        type Item = u16;
+    
+                        fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+                            if self.send {
+                                Poll::Pending
+                            } else {
+                                self.send = true;
+                                Poll::Ready(Some(self.id))
+                            }
                         }
                     }
-                }),
-            )
-            // TODO: Results being returned from subscriptions
-            // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
-            //     stream! {
-            //         for i in 0..5 {
-            //             yield Ok("ping".to_string());
-            //             sleep(Duration::from_secs(1)).await;
-            //         }
-            //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            //     }
-            // }))
-            .build(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ))
-            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+    
+                    impl Drop for HandleDrop {
+                        fn drop(&mut self) {
+                            println!("Dropped subscription with id {}", self.id);
+                        }
+                    }
+
+                    HandleDrop { id, send: false }
+                }
+            }),
+        )
+        .build()
+        .unwrap()
+        .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+
+    router
+        .export_ts(ExportConfig::new(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        ))
+        .unwrap();
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -161,7 +161,7 @@ async fn main() {
         )
         .layer(cors);
 
-    let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
+    let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 4000));
     println!("listening on http://{}/rspc/version", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())

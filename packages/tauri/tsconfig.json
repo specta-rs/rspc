@@ -1,5 +1,5 @@
 {
-  "extends": "@rspc/config/tsconfig.json",
+  "extends": "../tsconfig.json",
   "compilerOptions": {
     "lib": ["esnext", "dom"]
   },
