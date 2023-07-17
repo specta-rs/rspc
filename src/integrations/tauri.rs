@@ -18,8 +18,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     internal::exec::{
-        AsyncRuntime, Connection, ConnectionTask, Executor, IncomingMessage, SubscriptionMap,
-        TokioRuntime,
+        AsyncRuntime, ConnectionTask, Executor, IncomingMessage, SubscriptionMap, TokioRuntime,
     },
     BuiltRouter,
 };
@@ -75,9 +74,7 @@ where
                 window: window.clone(),
             };
             let ctx = (self.ctx_fn)(window.clone());
-            let handle = R::spawn(async move {
-                ConnectionTask::<R, TCtx, _, _>::new(Connection::new(ctx, executor), socket).await;
-            });
+            let handle = R::spawn(ConnectionTask::new(ctx, executor, socket));
 
             let subscriptions = Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::default()));
             windows.insert(window_hash, subscriptions.clone());

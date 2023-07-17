@@ -7,7 +7,7 @@ use httpz::{
     HttpResponse,
 };
 
-use crate::internal::exec::{Connection, ConnectionTask, Executor, IncomingMessage, TokioRuntime};
+use crate::internal::exec::{ConnectionTask, Executor, IncomingMessage, TokioRuntime};
 
 use super::TCtxFunc;
 
@@ -67,8 +67,7 @@ where
             });
         let socket = pin!(socket);
 
-        ConnectionTask::<TokioRuntime, TCtx, _, _>::new(Connection::new(ctx, executor), socket)
-            .await;
+        ConnectionTask::new(ctx, executor, socket).await;
     })
     .into_response()
 }
