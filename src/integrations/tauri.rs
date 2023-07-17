@@ -57,7 +57,7 @@ where
 
             shutdown_streams_tx.send(()).ok();
         } else {
-            let (clear_subscriptions_tx, clear_subscriptions_rx) = mpsc::unbounded_channel();
+            let (clear_subscriptions_tx, mut clear_subscriptions_rx) = mpsc::unbounded_channel();
             windows.insert(window_hash, clear_subscriptions_tx);
             drop(windows);
 
@@ -69,7 +69,7 @@ where
                     recv: rx,
                     window: window.clone(),
                 },
-                Some(clear_subscriptions_rx),
+                Some(Box::new(move |cx| clear_subscriptions_rx.poll_recv(cx))),
             ));
 
             window.listen("plugin:rspc:transport", move |event| {
@@ -86,9 +86,9 @@ where
                         Value::String(s) => serde_json::from_str::<serde_json::Value>(&s),
                         v => Ok(v),
                     },
-                    Err(err) => {
+                    Err(_err) => {
                         #[cfg(feature = "tracing")]
-                        tracing::error!("failed to parse JSON-RPC request: {}", err);
+                        tracing::error!("failed to parse JSON-RPC request: {}", _err);
                         return;
                     }
                 };
@@ -152,9 +152,9 @@ impl futures::Sink<String> for Socket {
     fn start_send(self: std::pin::Pin<&mut Self>, item: String) -> Result<(), Self::Error> {
         self.window
             .emit("plugin:rspc:transport:resp", item)
-            .map_err(|err| {
+            .map_err(|_err| {
                 #[cfg(feature = "tracing")]
-                tracing::error!("failed to emit JSON-RPC response: {}", err);
+                tracing::error!("failed to emit JSON-RPC response: {}", _err);
             })
             .ok();
 

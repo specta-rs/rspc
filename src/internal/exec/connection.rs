@@ -11,7 +11,6 @@ use futures::{ready, Sink, Stream};
 use pin_project_lite::pin_project;
 use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
-use tokio::sync::{mpsc, oneshot};
 
 use super::{
     AsyncRuntime, Executor, IncomingMessage, OwnedStream, Request, Response, StreamOrFut,
@@ -155,6 +154,8 @@ where
     }
 }
 
+type ClearSubscriptionsRx = Option<Box<dyn FnMut(&mut Context<'_>) -> Poll<Option<()>> + Send>>;
+
 pin_project! {
     #[project = ConnectionTaskProj]
     /// An abstraction around a single "connection" which can execute rspc subscriptions.
@@ -180,7 +181,7 @@ pin_project! {
 
         // External signal which when called will clear all active subscriptions.
         // This is used by Tauri on window change as the "connection" never shuts down like a websocket would on page reload.
-        clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
+        clear_subscriptions_rx: ClearSubscriptionsRx,
 
         phantom: PhantomData<E>
     }
@@ -197,7 +198,7 @@ impl<
         ctx: TCtx,
         executor: Executor<TCtx>,
         socket: S,
-        clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
+        clear_subscriptions_rx: ClearSubscriptionsRx,
     ) -> Self {
         Self {
             conn: Connection {
@@ -254,9 +255,9 @@ impl<
         // If something is queued to send
         if this.tx_queue.is_some() {
             // Wait until the socket is ready for sending
-            if let Err(err) = ready!(this.socket.as_mut().poll_ready(cx)) {
+            if let Err(_err) = ready!(this.socket.as_mut().poll_ready(cx)) {
                 #[cfg(feature = "tracing")]
-                tracing::error!("Error waiting for websocket to be ready: {}", err);
+                tracing::error!("Error waiting for websocket to be ready: {}", _err);
 
                 return ().into();
             };
@@ -267,16 +268,16 @@ impl<
                 // We check it is `Some(_)` every poll but defer taking it from the `Option` until the socket is ready
                 .expect("rspc unreachable");
 
-            if let Err(err) = this.socket.as_mut().start_send(item) {
+            if let Err(_err) = this.socket.as_mut().start_send(item) {
                 #[cfg(feature = "tracing")]
-                tracing::error!("Error sending message to websocket: {}", err);
+                tracing::error!("Error sending message to websocket: {}", _err);
             }
         }
 
         // Flush the previously sent data if any is pending
-        if let Err(err) = ready!(this.socket.as_mut().poll_flush(cx)) {
+        if let Err(_err) = ready!(this.socket.as_mut().poll_flush(cx)) {
             #[cfg(feature = "tracing")]
-            tracing::error!("Error flushing message to websocket: {}", err);
+            tracing::error!("Error flushing message to websocket: {}", _err);
         }
 
         ().into()
@@ -399,7 +400,7 @@ impl<
             should_send = false;
 
             if let Some(recv) = &mut this.clear_subscriptions_rx {
-                match recv.poll_recv(cx) {
+                match (recv)(cx) {
                     Poll::Ready(Some(())) => Self::shutdown_all_streams(&mut this),
                     Poll::Ready(None) => *this.clear_subscriptions_rx = None,
                     Poll::Pending => is_pending = true,
