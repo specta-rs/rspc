@@ -1,4 +1,4 @@
-import { createClient, FetchTransport } from "@rspc/client";
+import { initRspc, httpLink } from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { Procedures } from "./bindings";
@@ -8,8 +8,13 @@ const PATH = "api/rspc";
 const HOST =
   typeof window === "undefined" ? process.env.VERCEL_URL : window.location.host;
 
-export const client = createClient<Procedures>({
-  transport: new FetchTransport(`${PROTOCOL}://${HOST}/${PATH}`),
+export const client = initRspc<Procedures>({
+  links: [
+    httpLink({
+      url: `${PROTOCOL}://${HOST}/${PATH}`,
+      batch: true,
+    }),
+  ],
 });
 
 export const queryClient = new QueryClient({
@@ -26,4 +31,4 @@ export const {
   useQuery,
   useSubscription,
   Provider: RSPCProvider,
-} = createReactQueryHooks<Procedures>();
+} = createReactQueryHooks<Procedures>(client);

@@ -2,15 +2,16 @@ use std::{borrow::Cow, sync::Arc};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
-use rspc::internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager, TokioRuntime};
+use rspc::internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager};
 
 const I: usize = 100;
 
-async fn benchmark_main(e: &Executor<(), TokioRuntime>) {
+async fn benchmark_main(e: &Executor<()>) {
     for _ in 0..I {
         let response = match e.execute(
             (),
             exec::Request::Query {
+                id: 0,
                 path: Cow::Borrowed("demo"),
                 input: None,
             },

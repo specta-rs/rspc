@@ -1,4 +1,4 @@
-import { httpLink, initRspc } from "@rspc/client";
+import { httpLink, wsLink, initRspc } from "@rspc/client";
 import { createReactQueryHooks } from "@rspc/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { Procedures } from "../../bindings";
@@ -12,8 +12,9 @@ export const client = initRspc<Procedures>({
           url: "http://localhost:4000/rspc",
           batch: true,
         })
-      : // TODO: Fix this
-        (undefined as any), // new WebsocketTransport("ws://localhost:4000/rspc/ws"),
+      : wsLink({
+          url: "ws://localhost:4000/rspc/ws",
+        }),
   ],
 });
 
