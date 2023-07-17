@@ -51,10 +51,8 @@ pub trait MwV2Result {
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError>;
 }
 
-pub struct MwResultWithCtx<TLCtx, TResp>
-where
-    TResp: Executable2,
-{
+// TODO: Seal this and rename it
+pub struct MwResultWithCtx<TLCtx, TResp> {
     pub(crate) input: Value,
     pub(crate) req: RequestContext,
     pub(crate) ctx: Option<TLCtx>,
