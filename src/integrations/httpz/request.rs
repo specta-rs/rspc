@@ -1,5 +1,3 @@
-use std::mem;
-
 use httpz::{axum::axum::extract::FromRequestParts, http};
 
 use super::CookieJar;
@@ -45,7 +43,7 @@ impl Request {
     pub fn cookies(&mut self) -> Option<CookieJar> {
         // TODO: This take means a `None` response could be because it was already used or because it's a websocket. This is a confusing DX and needs fixing.
 
-        mem::replace(&mut self.1, None)
+        self.1.take()
     }
 
     /// query_pairs returns an iterator of the query parameters.

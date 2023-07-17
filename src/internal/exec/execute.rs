@@ -62,7 +62,7 @@ mod private {
             unreachable!();
         }
 
-        fn abort_subscription(&mut self, id: u32) {
+        fn abort_subscription(&mut self, _id: u32) {
             // Empty enum is unconstructable so this panics will never be hit.
             unreachable!();
         }
@@ -111,7 +111,7 @@ mod private {
             ctx: &TCtx,
             reqs: Vec<Request>,
             subscriptions: &mut Option<M>,
-            mut queue: impl FnMut(ExecRequestFut) -> () + 'a,
+            mut queue: impl FnMut(ExecRequestFut) + 'a,
         ) -> Vec<Response>
         where
             TCtx: Clone,
@@ -220,7 +220,7 @@ mod private {
                 });
             }
 
-            let id = *&req.id;
+            let id = req.id;
             match OwnedStream::new(self.router.clone(), ctx, input, req) {
                 Ok(s) => {
                     subscriptions.insert(id);

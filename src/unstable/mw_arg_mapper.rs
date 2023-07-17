@@ -57,7 +57,7 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
         private::MiddlewareFnWithTypeMapper(
             move |mw: MiddlewareContext, ctx| {
                 let (out, state) =
-                    M::map::<serde_json::Value>(serde_json::from_value(mw.input).unwrap());
+                    M::map::<serde_json::Value>(serde_json::from_value(mw.input).unwrap()); // TODO: Error handling
 
                 handler(
                     MiddlewareContext {

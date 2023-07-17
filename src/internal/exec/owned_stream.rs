@@ -40,7 +40,7 @@ mod private {
                 None => return Err(req.id),
             };
 
-            let id = *&req.id;
+            let id = req.id;
 
             // SAFETY: Trust me bro
             let stream = unsafe { &*stream }

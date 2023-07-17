@@ -84,7 +84,7 @@ impl<R: AsyncRuntime> Batcher<R> {
     }
 
     fn append(self: Pin<&mut Self>, other: &mut Vec<exec::Response>) {
-        if other.len() == 0 {
+        if other.is_empty() {
             return;
         }
 
@@ -234,8 +234,11 @@ impl<
                         // This error isn't really handled and that is because if `queue` which is a `Vec<Response>` fails serialization, well we are gonna wanna send a `Response` with the error which will also most likely fail serialization.
                         // It's important to note the user provided types are converted to `serde_json::Value` prior to being put into this type so this will only ever fail on internal types.
                         Err(err) => {
-                            #[cfg(debug_assertions)]
-                            panic!("rspc internal serialization error: {}", err);
+                            #[allow(clippy::panic)]
+                            {
+                                #[cfg(debug_assertions)]
+                                panic!("rspc internal serialization error: {}", err);
+                            }
 
                             #[cfg(not(debug_assertions))]
                             None
@@ -246,7 +249,7 @@ impl<
         }
 
         // If something is queued to send
-        if let Some(_) = this.tx_queue {
+        if this.tx_queue.is_some() {
             // Wait until the socket is ready for sending
             if let Err(err) = ready!(this.socket.as_mut().poll_ready(cx)) {
                 #[cfg(feature = "tracing")]
@@ -283,7 +286,7 @@ impl<
     ) -> Poll<PollResult> {
         match ready!(this.socket.as_mut().poll_next(cx)) {
             Some(Ok(msg)) => {
-                let res = match msg.into() {
+                let res = match msg {
                     IncomingMessage::Msg(json) => json,
                     IncomingMessage::Close => return PollResult::Complete.into(),
                     IncomingMessage::Skip => return PollResult::Progressed.into(),
@@ -324,30 +327,28 @@ impl<
         this: &mut ConnectionTaskProj<R, TCtx, S, E>,
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
-        loop {
-            let mut conn = this.conn.as_mut().project();
-            match ready!(conn.streams.as_mut().poll_next(cx)) {
-                Some((a, _)) => match a {
-                    StreamYield::Item(batch) => {
-                        this.batch.as_mut().insert(batch);
-                        break PollResult::QueueSend;
-                    }
-                    StreamYield::Finished(f) => {
-                        if let Some(stream) = f.take(conn.streams.as_mut()) {
-                            this.batch.as_mut().insert(exec::Response {
-                                id: stream.id(),
-                                inner: ResponseInner::Complete,
-                            });
+        let mut conn = this.conn.as_mut().project();
+        match ready!(conn.streams.as_mut().poll_next(cx)) {
+            Some((a, _)) => match a {
+                StreamYield::Item(batch) => {
+                    this.batch.as_mut().insert(batch);
+                    PollResult::QueueSend
+                }
+                StreamYield::Finished(f) => {
+                    if let Some(stream) = f.take(conn.streams.as_mut()) {
+                        this.batch.as_mut().insert(exec::Response {
+                            id: stream.id(),
+                            inner: ResponseInner::Complete,
+                        });
 
-                            break PollResult::QueueSend;
-                        } else {
-                            break PollResult::Progressed;
-                        }
+                        PollResult::QueueSend
+                    } else {
+                        PollResult::Progressed
                     }
-                },
-                // If no streams, fall asleep until a new subscription is queued
-                None => break PollResult::Progressed,
-            }
+                }
+            },
+            // If no streams, fall asleep until a new subscription is queued
+            None => PollResult::Progressed,
         }
         .into()
     }
@@ -402,7 +403,7 @@ impl<
                 }
             }
 
-            if let Poll::Pending = Self::poll_send(&mut this, cx) {
+            if Self::poll_send(&mut this, cx).is_pending() {
                 is_pending = true;
             }
 

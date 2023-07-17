@@ -12,6 +12,7 @@
     // missing_docs
 )]
 #![allow(clippy::module_inception)]
+#![allow(clippy::type_complexity)] // TODO: Fix this and disable it
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(feature = "unstable")]

@@ -119,11 +119,7 @@ where
     TResultMarker: 'static,
     TMiddleware: MiddlewareBuilder,
 {
-    fn build<'b>(
-        self,
-        key: Cow<'static, str>,
-        ctx: &'b mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
-    ) {
+    fn build(self, key: Cow<'static, str>, ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>) {
         let Marker(resolver, kind, _) = self.resolver;
 
         let m = match kind {

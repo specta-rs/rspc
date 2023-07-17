@@ -49,6 +49,7 @@ where
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
 
+        #[allow(clippy::unwrap_used)] // TODO: Stop using unwrap
         let mut windows = self.windows.lock().unwrap();
         if let Some(shutdown_streams_tx) = windows.get(&window_hash) {
             // Shutdown all subscriptions for the previously loaded page is there was one
@@ -97,6 +98,7 @@ where
         }
     }
 
+    #[allow(clippy::unwrap_used)] // TODO: Stop using unwrap
     pub fn close_requested(&self, window: &Window<tauri::Wry>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);

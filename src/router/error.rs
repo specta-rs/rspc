@@ -23,6 +23,7 @@ impl BuildError {
     }
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Error, PartialEq, Eq)]
 pub(crate) enum BuildErrorCause {
     #[error(

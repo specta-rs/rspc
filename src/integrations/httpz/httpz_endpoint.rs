@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager, TokioRuntime},
+    internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager},
     BuiltRouter,
 };
 
@@ -57,7 +57,9 @@ where
                         (&Method::POST, _) => {
                             handle_http(executor, ctx_fn, req).await.into_response()
                         }
-                        _ => todo!(),
+                        _ => Ok(Response::builder()
+                            .status(StatusCode::METHOD_NOT_ALLOWED)
+                            .body(vec![])?),
                     }
                 }
             },
@@ -107,7 +109,7 @@ where
 
             exec::Request::Mutation { id: 0, path, input }
         }
-        _ => todo!(),
+        _ => unreachable!(),
     };
 
     let cookie_jar = Arc::new(Mutex::new(cookies));

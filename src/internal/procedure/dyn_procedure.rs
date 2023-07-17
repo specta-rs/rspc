@@ -20,7 +20,7 @@ mod private {
     pub trait DynProcedure<TCtx>: 'static {
         // build takes `&self` but it's safe to assume it will only be run once. It can't take `self` due to dyn Trait restrictions.
         // Due to this prefer `Option::take` instead of `Arc::new` in this method!
-        fn build<'b>(self, key: Cow<'static, str>, ctx: &'b mut BuildProceduresCtx<'_, TCtx>);
+        fn build(self, key: Cow<'static, str>, ctx: &mut BuildProceduresCtx<'_, TCtx>);
     }
 }
 pub(crate) use private::*;
