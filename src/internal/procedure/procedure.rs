@@ -9,8 +9,8 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
             ProcedureKind, ResolverLayer,
         },
-        procedure::BuildProceduresCtx,
-        FutureMarkerType, HasResolver, ProcedureDataType, RequestLayer, ResolverFunction,
+        procedure::{BuildProceduresCtx, DynProcedure},
+        FutureMarkerType, Marker, ProcedureDataType, RequestLayer, ResolverFunction,
         StreamMarkerType,
     },
     ExecError,
@@ -110,8 +110,8 @@ where
     }
 }
 
-impl<F, TArg, TResult, TResultMarker, TMiddleware>
-    Procedure<HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
+impl<F, TArg, TResult, TResultMarker, TMiddleware> DynProcedure<TMiddleware::Ctx>
+    for Procedure<Marker<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
 where
     F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
     TArg: Type + DeserializeOwned + 'static,
@@ -119,12 +119,12 @@ where
     TResultMarker: 'static,
     TMiddleware: MiddlewareBuilder,
 {
-    pub(crate) fn build(
+    fn build<'b>(
         self,
         key: Cow<'static, str>,
-        ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
+        ctx: &'b mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
     ) {
-        let HasResolver { resolver, kind, .. } = self.resolver;
+        let Marker(resolver, kind, _) = self.resolver;
 
         let m = match kind {
             ProcedureKind::Query => &mut ctx.queries,

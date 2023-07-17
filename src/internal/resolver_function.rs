@@ -27,23 +27,12 @@ mod private {
         fn into_marker(self, kind: ProcedureKind) -> TMarker;
     }
 
-    pub struct HasResolver<TResolver, TArg, TResult, TResultMarker, TMiddleware> {
-        pub(crate) resolver: TResolver,
-        pub(crate) kind: ProcedureKind,
-        _phantom: PhantomData<(TArg, TResult, TResultMarker, TMiddleware)>,
-    }
-
-    impl<TResolver, TArg, TResult, TResultMarker, TMiddleware>
-        HasResolver<TResolver, TArg, TResult, TResultMarker, TMiddleware>
-    {
-        pub fn new(kind: ProcedureKind, resolver: TResolver) -> Self {
-            Self {
-                resolver,
-                kind,
-                _phantom: PhantomData,
-            }
-        }
-    }
+    // TODO: Docs + rename cause it's not a marker, it's runtime
+    pub struct Marker<A, B, C, D, E>(
+        pub(crate) A,
+        pub(crate) ProcedureKind,
+        pub(crate) PhantomData<(B, C, D, E)>,
+    );
 
     impl<
             TMarker,
@@ -57,10 +46,14 @@ mod private {
 
     // TODO: Remove TResultMarker
 
-    impl<F, TLayerCtx, TArg, TResult, TResultMarker>
-        SealedResolverFunction<HasResolver<F, TArg, TResult, TResultMarker, TLayerCtx>> for F
+    impl<
+            TLayerCtx,
+            TArg,
+            TResult,
+            TResultMarker,
+            F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        > SealedResolverFunction<Marker<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
     where
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
         TResult: RequestLayer<TResultMarker>,
         TLayerCtx: Send + Sync + 'static,
@@ -72,10 +65,10 @@ mod private {
         fn into_marker(
             self,
             kind: ProcedureKind,
-        ) -> HasResolver<F, TArg, TResult, TResultMarker, TLayerCtx> {
-            HasResolver::new(kind, self)
+        ) -> Marker<F, TLayerCtx, TArg, TResult, TResultMarker> {
+            Marker(self, kind, PhantomData)
         }
     }
 }
 
-pub(crate) use private::{HasResolver, SealedResolverFunction};
+pub(crate) use private::{Marker, SealedResolverFunction};
