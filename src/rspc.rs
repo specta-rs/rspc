@@ -65,8 +65,7 @@ where
     pub fn query<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
     where
         R: ResolverFunction<TCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
+        R::Result: RequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
             resolver.into_marker(ProcedureKind::Query),
@@ -77,8 +76,7 @@ where
     pub fn mutation<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
     where
         R: ResolverFunction<TCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
+        R::Result: RequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
             resolver.into_marker(ProcedureKind::Mutation),
@@ -89,8 +87,7 @@ where
     pub fn subscription<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
     where
         R: ResolverFunction<TCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker>
-            + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
+        R::Result: RequestLayer<R::RequestMarker, Type = StreamMarkerType>,
     {
         Procedure::new(
             resolver.into_marker(ProcedureKind::Subscription),
