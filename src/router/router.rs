@@ -12,11 +12,14 @@ use crate::{
     BuildError, BuildResult, CompiledRouter,
 };
 
+pub type ProcedureBuildFn<TCtx> =
+    Box<dyn FnOnce(Cow<'static, str>, &mut BuildProceduresCtx<'_, TCtx>)>;
+
 pub struct Router<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
-    procedures: Vec<(Cow<'static, str>, Box<dyn DynProcedure<TCtx>>)>,
+    procedures: Vec<(Cow<'static, str>, ProcedureBuildFn<TCtx>)>,
     errors: Vec<BuildError>,
 }
 
@@ -53,8 +56,9 @@ where
             });
         }
 
-        let procedure: Box<dyn DynProcedure<TMiddleware::Ctx>> = Box::new(procedure);
-        self.procedures.push((Cow::Borrowed(key), procedure));
+        let build_fn: ProcedureBuildFn<TCtx> =
+            Box::new(|full_key, ctx| procedure.build(full_key, ctx));
+        self.procedures.push((Cow::Borrowed(key), build_fn));
         self
     }
 
@@ -111,9 +115,9 @@ where
             subscriptions: &mut subscriptions,
         };
 
-        for (key, mut procedure) in self.procedures.into_iter() {
+        for (key, build_fn) in self.procedures.into_iter() {
             // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-            procedure.build(key, &mut ctx);
+            (build_fn)(key, &mut ctx);
         }
 
         let router = CompiledRouter {

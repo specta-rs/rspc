@@ -28,15 +28,9 @@ impl<TLCtx> Default for MissingResolver<TLCtx> {
 }
 
 mod private {
-    use super::*;
-
-    pub enum Procedure<T, TMiddleware> {
-        Unbuilt {
-            // Is `None` until a resolver is set by the user
-            inner: Option<(ProcedureKind, T)>,
-            mw: TMiddleware,
-        },
-        Built,
+    pub struct Procedure<T, TMiddleware> {
+        pub(crate) resolver: T,
+        pub(crate) mw: TMiddleware,
     }
 }
 
@@ -46,8 +40,8 @@ impl<TMiddleware, T> Procedure<T, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
-    pub(crate) fn new(inner: Option<(ProcedureKind, T)>, mw: TMiddleware) -> Self {
-        Self::Unbuilt { inner, mw }
+    pub(crate) fn new(resolver: T, mw: TMiddleware) -> Self {
+        Self { resolver, mw }
     }
 
     // pub(crate) fn into_dyn_procedure(self) -> Box<dyn DynProcedure<TMiddleware::Ctx>> {
@@ -71,7 +65,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Query, resolver.into_marker())),
+            resolver.into_marker(ProcedureKind::Query),
             BaseMiddleware::default(),
         )
     }
@@ -86,7 +80,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Mutation, resolver.into_marker())),
+            resolver.into_marker(ProcedureKind::Mutation),
             BaseMiddleware::default(),
         )
     }
@@ -101,7 +95,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Subscription, resolver.into_marker())),
+            resolver.into_marker(ProcedureKind::Subscription),
             BaseMiddleware::default(),
         )
     }
@@ -111,15 +105,10 @@ where
         mw: Mw,
     ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
-            None,
+            MissingResolver::default(),
             MiddlewareLayerBuilder {
                 // todo: enforce via typestate
-                middleware: match self {
-                    Self::Unbuilt { mw, .. } => mw,
-                    Self::Built { .. } => {
-                        panic!("rspc: called `.with()` on built procedure");
-                    }
-                },
+                middleware: self.mw,
                 mw,
             },
         )
@@ -136,20 +125,11 @@ where
     TMiddleware: MiddlewareBuilder,
 {
     fn build<'b>(
-        &'b mut self,
+        self,
         key: Cow<'static, str>,
         ctx: &'b mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
     ) {
-        let (mw, (kind, Marker(resolver, _))) = match std::mem::replace(self, Self::Built) {
-            Self::Unbuilt { mw, inner } => {
-                (mw, inner.expect(
-               		"Called 'DynProcedure.build()' in invalid state! This is likely a bug in rspc's types.",
-                ))
-            }
-            Self::Built => {
-                panic!("rspc: procedure was built twice. This is a fatal error.")
-            }
-        };
+        let Marker(resolver, kind, _) = self.resolver;
 
         let m = match kind {
             ProcedureKind::Query => &mut ctx.queries,
@@ -166,7 +146,7 @@ where
 
         m.append(
             key_str,
-            mw.build(ResolverLayer::new(move |ctx, input, _| {
+            self.mw.build(ResolverLayer::new(move |ctx, input, _| {
                 Ok((resolver)(
                     ctx,
                     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,

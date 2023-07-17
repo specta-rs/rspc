@@ -54,7 +54,7 @@ where
     ) -> Procedure<MissingResolver<Mw::NewCtx>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
     {
         Procedure::new(
-            None,
+            MissingResolver::default(),
             MiddlewareLayerBuilder {
                 middleware: BaseMiddleware::default(),
                 mw,
@@ -69,7 +69,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Query, resolver.into_marker())),
+            resolver.into_marker(ProcedureKind::Query),
             BaseMiddleware::default(),
         )
     }
@@ -81,7 +81,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = FutureMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Mutation, resolver.into_marker())),
+            resolver.into_marker(ProcedureKind::Mutation),
             BaseMiddleware::default(),
         )
     }
@@ -93,7 +93,7 @@ where
             + SealedRequestLayer<R::RequestMarker, Type = StreamMarkerType>,
     {
         Procedure::new(
-            Some((ProcedureKind::Subscription, resolver.into_marker())),
+            resolver.into_marker(ProcedureKind::Subscription),
             BaseMiddleware::default(),
         )
     }

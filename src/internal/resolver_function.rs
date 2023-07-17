@@ -12,6 +12,8 @@ pub trait ResolverFunction<TLCtx, TMarker>:
 }
 
 mod private {
+    use crate::internal::middleware::ProcedureKind;
+
     use super::*;
 
     // TODO: Rename
@@ -22,11 +24,15 @@ mod private {
         type RequestMarker;
         type Result;
 
-        fn into_marker(self) -> TMarker;
+        fn into_marker(self, kind: ProcedureKind) -> TMarker;
     }
 
     // TODO: Docs + rename cause it's not a marker, it's runtime
-    pub struct Marker<A, B, C, D, E>(pub(crate) A, pub(crate) PhantomData<(B, C, D, E)>);
+    pub struct Marker<A, B, C, D, E>(
+        pub(crate) A,
+        pub(crate) ProcedureKind,
+        pub(crate) PhantomData<(B, C, D, E)>,
+    );
 
     impl<
             TMarker,
@@ -56,8 +62,11 @@ mod private {
         type RequestMarker = TResultMarker;
         type Result = TResult;
 
-        fn into_marker(self) -> Marker<F, TLayerCtx, TArg, TResult, TResultMarker> {
-            Marker(self, PhantomData)
+        fn into_marker(
+            self,
+            kind: ProcedureKind,
+        ) -> Marker<F, TLayerCtx, TArg, TResult, TResultMarker> {
+            Marker(self, kind, PhantomData)
         }
     }
 }
