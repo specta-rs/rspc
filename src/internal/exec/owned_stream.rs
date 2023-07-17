@@ -21,7 +21,7 @@ mod private {
 
     /// TODO
     #[pin_project(project = OwnedStreamProj)]
-    pub struct OwnedStream<TCtx: 'static> {
+    pub struct OwnedStream<TCtx> {
         arc: Arc<BuiltRouter<TCtx>>,
         #[pin]
         pub(crate) reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
@@ -100,15 +100,15 @@ use super::{
 /// TODO
 //
 // TODO: Rename
-pub struct TrustMeBro<TCtx: Send + 'static, R: AsyncRuntime> {
+pub struct TrustMeBro<TCtx: Send + 'static> {
     #[allow(unused)]
-    arc: Executor<TCtx, R>,
+    arc: Executor<TCtx>,
     queries: *const ProcedureStore<TCtx>,
     mutations: *const ProcedureStore<TCtx>,
 }
 
-impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
-    pub fn new(arc: Executor<TCtx, R>) -> Self {
+impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
+    pub fn new(arc: Executor<TCtx>) -> Self {
         Self {
             queries: &arc.router.queries,
             mutations: &arc.router.mutations,
@@ -121,7 +121,7 @@ impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
     /// A `None` result means the executor has no response to send back to the client.
     /// This usually means the request was a subscription and a task was spawned to handle it.
     /// It should not be treated as an error.
-    pub fn execute<M: SubscriptionManager<R, TCtx>>(
+    pub fn execute<M: SubscriptionManager<TCtx>>(
         &self,
         ctx: TCtx,
         req: Request,
@@ -178,9 +178,7 @@ impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
             },
             Request::SubscriptionStop { id } => {
                 if let Some(subscriptions) = &mut subscription_manager {
-                    if let Some(task) = subscriptions.subscriptions().remove(&id) {
-                        R::cancel_task(task);
-                    }
+                    subscriptions.abort_subscription(id);
                 }
 
                 ExecutorResult::None
@@ -188,25 +186,26 @@ impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
         }
     }
 
-    fn exec_subscription<M: SubscriptionManager<R, TCtx>>(
+    fn exec_subscription<M: SubscriptionManager<TCtx>>(
         &self,
         ctx: TCtx,
         subscription_manager: &mut M,
         req: RequestContext,
         input: Option<Value>,
     ) -> ExecutorResult {
-        let subscriptions = subscription_manager.subscriptions();
+        let mut subscriptions = subscription_manager.subscriptions();
 
-        if subscriptions.contains_key(&req.id) {
+        if subscriptions.contains(&req.id) {
             return ExecutorResult::Response(Response {
                 id: req.id,
                 inner: ResponseInner::Error(ExecError::ErrSubscriptionDuplicateId.into()),
             });
         }
 
+        let id = req.id;
         match OwnedStream::new(self.arc.router.clone(), ctx, input, req) {
             Ok(s) => {
-                // subscriptions.insert(id, task_handle); // TODO
+                subscriptions.insert(id);
                 drop(subscriptions);
 
                 subscription_manager.queue(s.id, s);

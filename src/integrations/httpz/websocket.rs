@@ -12,7 +12,7 @@ use crate::internal::exec::{ConnectionTask, Executor, IncomingMessage, TokioRunt
 use super::TCtxFunc;
 
 pub(crate) fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx, TokioRuntime>,
+    executor: Executor<TCtx>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -67,7 +67,7 @@ where
             });
         let socket = pin!(socket);
 
-        ConnectionTask::new(ctx, executor, socket, None).await;
+        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, executor, socket, None).await;
     })
     .into_response()
 }

@@ -1,7 +1,7 @@
 mod private {
     use std::{
         borrow::Cow,
-        collections::HashMap,
+        collections::{HashMap, HashSet},
         convert::Infallible,
         future::{Future, Ready},
         marker::PhantomData,
@@ -27,11 +27,11 @@ mod private {
 
     /// Map for subscription id to task handle.
     /// This is used for shutting down subscriptions.
-    pub type SubscriptionMap<R> = HashMap<u32, <R as AsyncRuntime>::TaskHandle>;
+    pub type SubscriptionSet = HashSet<u32>;
 
     /// TODO
-    pub trait SubscriptionManager<R: AsyncRuntime, TCtx> {
-        type Map<'m>: DerefMut<Target = SubscriptionMap<R>> + 'm
+    pub trait SubscriptionManager<TCtx> {
+        type Set<'m>: DerefMut<Target = SubscriptionSet> + 'm
         where
             Self: 'm;
 
@@ -39,49 +39,32 @@ mod private {
         fn queue(&mut self, id: u32, stream: OwnedStream<TCtx>);
 
         /// TODO
-        fn subscriptions(&mut self) -> Self::Map<'_>;
+        fn subscriptions(&mut self) -> Self::Set<'_>;
+
+        /// TODO
+        fn abort_subscription(&mut self, id: u32);
     }
 
     /// TODO
     #[derive(Clone)]
     pub enum NoOpSubscriptionManager {}
 
-    impl<R: AsyncRuntime, TCtx> SubscriptionManager<R, TCtx> for NoOpSubscriptionManager {
-        type Map<'a> = &'a mut SubscriptionMap<R>;
+    impl<TCtx> SubscriptionManager<TCtx> for NoOpSubscriptionManager {
+        type Set<'a> = &'a mut SubscriptionSet;
 
         fn queue(&mut self, _id: u32, _task: OwnedStream<TCtx>) {
             // Empty enum is unconstructable so this panics will never be hit.
             unreachable!();
         }
 
-        fn subscriptions(&mut self) -> Self::Map<'_> {
+        fn subscriptions(&mut self) -> Self::Set<'_> {
             // Empty enum is unconstructable so this panics will never be hit.
             unreachable!();
         }
-    }
 
-    /// TODO
-    pub struct GenericSubscriptionManager<'a, R: AsyncRuntime, TCtx: 'static> {
-        pub map: &'a mut SubscriptionMap<R>,
-        pub queued: Option<Vec<OwnedStream<TCtx>>>,
-    }
-
-    impl<'a, R: AsyncRuntime, TCtx> SubscriptionManager<R, TCtx>
-        for GenericSubscriptionManager<'a, R, TCtx>
-    {
-        type Map<'m> = &'m mut SubscriptionMap<R> where Self: 'm;
-
-        fn queue(&mut self, _id: u32, stream: OwnedStream<TCtx>) {
-            match &mut self.queued {
-                Some(queued) => {
-                    queued.push(stream);
-                }
-                None => self.queued = Some(vec![stream]),
-            }
-        }
-
-        fn subscriptions(&mut self) -> Self::Map<'_> {
-            self.map
+        fn abort_subscription(&mut self, id: u32) {
+            // Empty enum is unconstructable so this panics will never be hit.
+            unreachable!();
         }
     }
 
@@ -96,28 +79,23 @@ mod private {
     }
 
     /// TODO
-    pub struct Executor<TCtx: Send + 'static, R: AsyncRuntime> {
+    pub struct Executor<TCtx> {
         // TODO: Not `pub`
         pub(crate) router: Arc<BuiltRouter<TCtx>>,
-        phantom: PhantomData<R>,
     }
 
-    impl<TCtx: Send + 'static, R: AsyncRuntime> Clone for Executor<TCtx, R> {
+    impl<TCtx: Send + 'static> Clone for Executor<TCtx> {
         fn clone(&self) -> Self {
             Self {
                 router: self.router.clone(),
-                phantom: PhantomData,
             }
         }
     }
 
-    impl<TCtx: Send + 'static, R: AsyncRuntime> Executor<TCtx, R> {
+    impl<TCtx: Send + 'static> Executor<TCtx> {
         /// constructs a new [Executor] for your router.
         pub fn new(router: Arc<BuiltRouter<TCtx>>) -> Self {
-            Self {
-                router,
-                phantom: PhantomData,
-            }
+            Self { router }
         }
 
         /// TODO
@@ -137,7 +115,7 @@ mod private {
         ) -> Vec<Response>
         where
             TCtx: Clone,
-            M: SubscriptionManager<R, TCtx>,
+            M: SubscriptionManager<TCtx>,
         {
             let mut resps = Vec::with_capacity(reqs.len());
 
@@ -161,7 +139,7 @@ mod private {
         /// A `None` result means the executor has no response to send back to the client.
         /// This usually means the request was a subscription and a task was spawned to handle it.
         /// It should not be treated as an error.
-        pub fn execute<M: SubscriptionManager<R, TCtx>>(
+        pub fn execute<M: SubscriptionManager<TCtx>>(
             &self,
             ctx: TCtx,
             req: Request,
@@ -218,10 +196,7 @@ mod private {
                 },
                 Request::SubscriptionStop { id } => {
                     if let Some(subscriptions) = &mut subscription_manager {
-                        // if let Some(task) = subscriptions.subscriptions().remove(&id) {
-                        //     R::cancel_task(task);
-                        // }
-                        todo!();
+                        subscriptions.abort_subscription(id);
                     }
 
                     ExecutorResult::None
@@ -229,16 +204,16 @@ mod private {
             }
         }
 
-        fn exec_subscription<M: SubscriptionManager<R, TCtx>>(
+        fn exec_subscription<M: SubscriptionManager<TCtx>>(
             &self,
             ctx: TCtx,
             subscription_manager: &mut M,
             req: RequestContext,
             input: Option<Value>,
         ) -> ExecutorResult {
-            let subscriptions = subscription_manager.subscriptions();
+            let mut subscriptions = subscription_manager.subscriptions();
 
-            if subscriptions.contains_key(&req.id) {
+            if subscriptions.contains(&req.id) {
                 return ExecutorResult::Response(Response {
                     id: req.id,
                     inner: ResponseInner::Error(ExecError::ErrSubscriptionDuplicateId.into()),
@@ -248,7 +223,7 @@ mod private {
             let id = *&req.id;
             match OwnedStream::new(self.router.clone(), ctx, input, req) {
                 Ok(s) => {
-                    // subscriptions.insert(id, task_handle); // TODO // TODO
+                    subscriptions.insert(id);
                     drop(subscriptions);
 
                     subscription_manager.queue(id, s);
@@ -319,12 +294,10 @@ pub(crate) use private::ExecRequestFut;
 #[cfg(feature = "unstable")]
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub use private::{
-    Executor, ExecutorResult, GenericSubscriptionManager, NoOpSubscriptionManager,
-    SubscriptionManager, SubscriptionMap,
+    Executor, ExecutorResult, NoOpSubscriptionManager, SubscriptionManager, SubscriptionSet,
 };
 
 #[cfg(not(feature = "unstable"))]
 pub(crate) use private::{
-    Executor, ExecutorResult, GenericSubscriptionManager, NoOpSubscriptionManager,
-    SubscriptionManager, SubscriptionMap,
+    Executor, ExecutorResult, NoOpSubscriptionManager, SubscriptionManager, SubscriptionSet,
 };

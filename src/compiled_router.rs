@@ -17,7 +17,7 @@ use crate::{
     ExportError,
 };
 
-/// TODO
+/// ExportConfig is used to configure how rspc will export your types.
 pub struct ExportConfig {
     export_path: PathBuf,
     header: Cow<'static, str>,
@@ -39,11 +39,8 @@ impl ExportConfig {
     }
 }
 
-/// TODO
-pub struct BuiltRouter<TCtx = ()>
-where
-    TCtx: 'static,
-{
+/// BuiltRouter is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
+pub struct BuiltRouter<TCtx = ()> {
     pub(crate) queries: ProcedureStore<TCtx>,
     pub(crate) mutations: ProcedureStore<TCtx>,
     pub(crate) subscriptions: ProcedureStore<TCtx>,
@@ -99,7 +96,7 @@ where
         let mutations_ts = generate_procedures_ts(&config, self.mutations.store.iter());
         let subscriptions_ts = generate_procedures_ts(&config, self.subscriptions.store.iter());
 
-        // TODO: Specta API
+        // TODO: Specta API + `ExportConfig` option for a formatter
         writeln!(
             file,
             r#"

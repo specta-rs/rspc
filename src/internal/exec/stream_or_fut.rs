@@ -13,7 +13,7 @@ use super::{ExecRequestFut, OwnedStream};
 
 /// TODO
 #[pin_project(project = StreamOrFutProj)]
-pub(crate) enum StreamOrFut<TCtx: 'static> {
+pub(crate) enum StreamOrFut<TCtx> {
     OwnedStream(#[pin] OwnedStream<TCtx>),
     ExecRequestFut(#[pin] ExecRequestFut),
     Done(u32),

@@ -17,30 +17,24 @@ use tauri::{
 use tokio::sync::mpsc;
 
 use crate::{
-    internal::exec::{
-        AsyncRuntime, ConnectionTask, Executor, IncomingMessage, SubscriptionMap, TokioRuntime,
-    },
+    internal::exec::{AsyncRuntime, ConnectionTask, Executor, IncomingMessage, TokioRuntime},
     BuiltRouter,
 };
 
-// TODO: Move to https://tauri.app/v1/guides/features/plugin/#advanced -> This should help with avoiding cloning on shared state?
-
-struct WindowManager<TCtxFn, TCtx, R>
+struct WindowManager<TCtxFn, TCtx>
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
-    R: AsyncRuntime,
 {
-    executor: Executor<TCtx, R>,
+    executor: Executor<TCtx>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, mpsc::UnboundedSender<()>>>,
 }
 
-impl<TCtxFn, TCtx, R> WindowManager<TCtxFn, TCtx, R>
+impl<TCtxFn, TCtx> WindowManager<TCtxFn, TCtx>
 where
     TCtx: Clone + Send + Sync + 'static,
     TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
-    R: AsyncRuntime,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
@@ -50,19 +44,15 @@ where
         })
     }
 
-    pub fn on_page_load(self: Arc<Self>, window: Window<tauri::Wry>) {
+    pub fn on_page_load<R: AsyncRuntime>(self: Arc<Self>, window: Window<tauri::Wry>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
-
-        println!("WINDOW {:?}", window_hash); // TODO
 
         let mut windows = self.windows.lock().unwrap();
         if let Some(shutdown_streams_tx) = windows.get(&window_hash) {
             // Shutdown all subscriptions for the previously loaded page is there was one
             // All the previous threads and stuff stays around though so we don't need to recreate it
-
-            println!("KILL TAURI SUBSCRIPTIONS {:?}", window_hash,); // TODO
 
             shutdown_streams_tx.send(()).ok();
         } else {
@@ -70,17 +60,14 @@ where
             windows.insert(window_hash, clear_subscriptions_tx);
             drop(windows);
 
-            let executor = self.executor.clone();
             let (tx, rx) = mpsc::unbounded_channel();
-            let socket = Socket {
-                recv: rx,
-                window: window.clone(),
-            };
-            let ctx = (self.ctx_fn)(window.clone());
-            R::spawn(ConnectionTask::new(
-                ctx,
-                executor,
-                socket,
+            R::spawn(ConnectionTask::<R, _, _, _>::new(
+                (self.ctx_fn)(window.clone()),
+                self.executor.clone(),
+                Socket {
+                    recv: rx,
+                    window: window.clone(),
+                },
                 Some(clear_subscriptions_rx),
             ));
 
@@ -115,7 +102,7 @@ where
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
 
-        if let Some(shutdown_streams_tx) = self.windows.lock().unwrap().remove(&window_hash) {
+        if let Some(shutdown_streams_tx) = self.windows.lock().unwrap().get(&window_hash) {
             shutdown_streams_tx.send(()).ok();
         }
     }
@@ -128,10 +115,10 @@ pub fn plugin<TCtx>(
 where
     TCtx: Clone + Send + Sync + 'static,
 {
-    let manager = WindowManager::<_, _, TokioRuntime>::new(ctx_fn, router);
+    let manager = WindowManager::new(ctx_fn, router);
     Builder::new("rspc")
         .on_page_load(move |window, _page| {
-            manager.clone().on_page_load(window.clone());
+            manager.clone().on_page_load::<TokioRuntime>(window.clone());
 
             window.on_window_event({
                 let window = window.clone();

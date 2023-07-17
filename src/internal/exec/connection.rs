@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     future::Future,
     marker::PhantomData,
     pin::Pin,
@@ -13,8 +14,8 @@ use streamunordered::{StreamUnordered, StreamYield};
 use tokio::sync::{mpsc, oneshot};
 
 use super::{
-    AsyncRuntime, Executor, GenericSubscriptionManager, IncomingMessage, Request, Response,
-    StreamOrFut, SubscriptionMap,
+    AsyncRuntime, Executor, IncomingMessage, OwnedStream, Request, Response, StreamOrFut,
+    SubscriptionManager, SubscriptionSet,
 };
 use crate::internal::{
     exec::{self, ResponseInner},
@@ -35,6 +36,35 @@ enum PollResult {
 
     /// The future is complete
     Complete,
+}
+
+struct ConnectionSubscriptionManager<'a, TCtx> {
+    pub map: &'a mut SubscriptionSet,
+    pub to_abort: Option<Vec<u32>>,
+    pub queued: Option<Vec<OwnedStream<TCtx>>>,
+}
+
+impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
+    for ConnectionSubscriptionManager<'a, TCtx>
+{
+    type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
+
+    fn queue(&mut self, _id: u32, stream: OwnedStream<TCtx>) {
+        match &mut self.queued {
+            Some(queued) => {
+                queued.push(stream);
+            }
+            None => self.queued = Some(vec![stream]),
+        }
+    }
+
+    fn subscriptions(&mut self) -> Self::Set<'_> {
+        self.map
+    }
+
+    fn abort_subscription(&mut self, id: u32) {
+        self.to_abort.get_or_insert_with(Vec::new).push(id);
+    }
 }
 
 #[pin_project(project = BatchFutProj)]
@@ -67,38 +97,54 @@ impl<R: AsyncRuntime> Batcher<R> {
 }
 
 #[pin_project(project = ConnectionProj)]
-struct Connection<R, TCtx>
-where
-    R: AsyncRuntime,
-    TCtx: Clone + Send + 'static,
-{
+struct Connection<TCtx> {
     ctx: TCtx,
-    executor: Executor<TCtx, R>,
-    map: SubscriptionMap<R>,
+    executor: Executor<TCtx>,
+    map: SubscriptionSet,
     #[pin]
     streams: StreamUnordered<StreamOrFut<TCtx>>,
+
+    // TODO: Remove these cause disgusting messes
+    steam_to_sub_id: HashMap<usize, u32>,
+    sub_id_to_stream: HashMap<u32, usize>,
 }
 
-impl<R, TCtx> Connection<R, TCtx>
+impl<TCtx> Connection<TCtx>
 where
-    R: AsyncRuntime,
     TCtx: Clone + Send + 'static,
 {
     pub fn exec(&mut self, reqs: Vec<Request>) -> Vec<Response> {
-        let mut manager = Some(GenericSubscriptionManager {
+        let mut manager = Some(ConnectionSubscriptionManager {
             map: &mut self.map,
+            to_abort: None,
             queued: None,
         });
 
         let resps = self
             .executor
             .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
-                self.streams.insert(StreamOrFut::ExecRequestFut(fut));
+                let sub_id = fut.id;
+                let token = self.streams.insert(StreamOrFut::ExecRequestFut(fut));
+                self.steam_to_sub_id.insert(token, sub_id);
+                self.sub_id_to_stream.insert(sub_id, token);
             });
 
-        if let Some(queued) = manager.expect("rspc unreachable").queued {
+        let manager = manager.expect("rspc unreachable");
+        if let Some(to_abort) = manager.to_abort {
+            for sub_id in to_abort {
+                if let Some(id) = self.sub_id_to_stream.remove(&sub_id) {
+                    Pin::new(&mut self.streams).remove(id);
+                    self.steam_to_sub_id.remove(&id);
+                }
+            }
+        }
+
+        if let Some(queued) = manager.queued {
             for s in queued {
-                self.streams.insert(StreamOrFut::OwnedStream(s));
+                let sub_id = s.id;
+                let token = self.streams.insert(StreamOrFut::OwnedStream(s));
+                self.steam_to_sub_id.insert(token, sub_id);
+                self.sub_id_to_stream.insert(sub_id, token);
             }
         }
 
@@ -124,7 +170,7 @@ pub(crate) struct ConnectionTask<
     E: std::fmt::Debug + std::error::Error,
 > {
     #[pin]
-    conn: Connection<R, TCtx>,
+    conn: Connection<TCtx>,
     #[pin]
     batch: Batcher<R>,
 
@@ -147,7 +193,7 @@ impl<
 {
     pub fn new(
         ctx: TCtx,
-        executor: Executor<TCtx, R>,
+        executor: Executor<TCtx>,
         socket: S,
         clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
     ) -> Self {
@@ -155,8 +201,10 @@ impl<
             conn: Connection {
                 ctx,
                 executor,
-                map: SubscriptionMap::<R>::new(),
+                map: SubscriptionSet::new(),
                 streams: StreamUnordered::new(),
+                steam_to_sub_id: HashMap::new(),
+                sub_id_to_stream: HashMap::new(),
             },
             batch: Batcher {
                 batch: Vec::with_capacity(4),
@@ -311,9 +359,11 @@ impl<
     }
 
     fn shutdown_all_streams(this: &mut ConnectionTaskProj<R, TCtx, S, E>) {
-        let mut streams = this.conn.as_mut().project().streams;
-        for i in 0..streams.len() {
-            if let Some(stream) = streams.as_mut().take(i) {
+        let mut conn = this.conn.as_mut().project();
+
+        // TODO: This can be improved by: https://github.com/jonhoo/streamunordered/pull/5
+        for (token, _) in conn.steam_to_sub_id.drain() {
+            if let Some(stream) = conn.streams.as_mut().take(token) {
                 this.batch.as_mut().insert(exec::Response {
                     id: stream.id(),
                     inner: ResponseInner::Complete,

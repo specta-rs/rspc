@@ -39,7 +39,7 @@ async fn benchmark_0_1_3(r: &Arc<rspc_legacy::Router>) {
                 jsonrpc: None,
                 id: RequestId::Null,
                 inner: jsonrpc::RequestInner::Query {
-                    path: "demo".to_string(), // TODO: Lifetime instead of allocate?
+                    path: "demo".to_string(),
                     input: None,
                 },
             },

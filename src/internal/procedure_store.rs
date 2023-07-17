@@ -52,7 +52,7 @@ mod private {
     }
 
     // TODO: Rename this
-    pub(crate) struct ProcedureTodo<TCtx> {
+    pub struct ProcedureTodo<TCtx> {
         pub(crate) exec: Box<dyn DynLayer<TCtx>>,
         pub(crate) ty: ProcedureDataType,
     }

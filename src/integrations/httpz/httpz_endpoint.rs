@@ -67,7 +67,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove all panics lol
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx, TokioRuntime>,
+    executor: Executor<TCtx>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -174,7 +174,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
 async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx, TokioRuntime>,
+    executor: Executor<TCtx>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
