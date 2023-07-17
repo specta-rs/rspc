@@ -3,14 +3,18 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
+    time::{Duration, Instant},
 };
 
 use futures::{ready, Sink, Stream};
 use pin_project::pin_project;
 use serde_json::Value;
 
-use super::{AsyncRuntime, Batcher, Connection, IncomingMessage};
-use crate::internal::exec;
+use super::{AsyncRuntime, Connection, IncomingMessage};
+use crate::internal::{exec, PinnedOption, PinnedOptionProj};
+
+// Time to wait for more messages before sending them over the websocket connection.
+const BATCH_TIMEOUT: Duration = Duration::from_millis(15);
 
 enum PollResult {
     /// The poller has done some progressed work.
@@ -23,6 +27,36 @@ enum PollResult {
 
     /// The future is complete
     Complete,
+}
+
+/// TODO
+#[pin_project(project = BatchFutProj)]
+struct Batcher<R: AsyncRuntime> {
+    batch: Vec<exec::Response>,
+    #[pin]
+    batch_timer: PinnedOption<R::SleepUtilFut>,
+}
+
+impl<R: AsyncRuntime> Batcher<R> {
+    fn insert(self: Pin<&mut Self>, element: exec::Response) {
+        let mut this = self.project();
+        this.batch.push(element);
+        this.batch_timer.set(PinnedOption::Some(R::sleep_util(
+            Instant::now() + BATCH_TIMEOUT,
+        )));
+    }
+
+    fn append(self: Pin<&mut Self>, other: &mut Vec<exec::Response>) {
+        if other.len() == 0 {
+            return;
+        }
+
+        let mut this = self.project();
+        this.batch.append(other);
+        this.batch_timer.set(PinnedOption::Some(R::sleep_util(
+            Instant::now() + BATCH_TIMEOUT,
+        )));
+    }
 }
 
 /// TODO
@@ -40,6 +74,7 @@ pub(crate) struct ConnectionTask<
     #[pin]
     batch: Batcher<R>,
 
+    // Socket
     #[pin]
     socket: S,
     tx_queue: Option<String>,
@@ -58,7 +93,10 @@ impl<
     pub fn new(conn: Connection<R, TCtx>, socket: S) -> Self {
         Self {
             conn,
-            batch: Batcher::new(),
+            batch: Batcher {
+                batch: Vec::with_capacity(4),
+                batch_timer: PinnedOption::None,
+            },
             socket,
             tx_queue: None,
             phantom: PhantomData,
@@ -72,11 +110,18 @@ impl<
     ) -> Poll<PollResult> {
         // If nothing in `tx_queue`, poll the batcher to populate it
         if this.tx_queue.is_none() {
-            match ready!(this.batch.as_mut().poll_next(cx)) {
-                Some(Some(json)) => *this.tx_queue = Some(json),
-                Some(None) => {}
-                None => panic!("rspc: batcher stream ended unexpectedly"),
-            };
+            let mut batch = this.batch.as_mut().project();
+            if let PinnedOptionProj::Some(batch_timer) = batch.batch_timer.as_mut().project() {
+                ready!(batch_timer.poll(cx));
+
+                let queue = batch.batch.drain(0..batch.batch.len()).collect::<Vec<_>>();
+                batch.batch_timer.as_mut().set(PinnedOption::None);
+
+                if queue.len() != 0 {
+                    // TODO: Error handling
+                    *this.tx_queue = Some(serde_json::to_string(&queue).unwrap());
+                }
+            }
         }
 
         // If something is queued to send

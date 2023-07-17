@@ -55,7 +55,7 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
 
 /// TODO
 #[pin_project(project = ConnectionProj)]
-pub struct Connection<R, TCtx>
+pub(crate) struct Connection<R, TCtx>
 where
     R: AsyncRuntime,
     TCtx: Clone + Send + 'static,
@@ -132,74 +132,5 @@ where
             // If no streams, fall asleep until a new subscription is queued
             None => Poll::Pending,
         }
-    }
-}
-
-// TODO: Break file?
-
-// Time to wait for more messages before sending them over the websocket connection.
-const BATCH_TIMEOUT: Duration = Duration::from_millis(15);
-
-/// TODO
-#[pin_project(project = BatchFutProj)]
-pub struct Batcher<R: AsyncRuntime> {
-    batch: Vec<exec::Response>,
-    #[pin]
-    batch_timer: PinnedOption<R::SleepUtilFut>,
-}
-
-impl<R: AsyncRuntime> Batcher<R> {
-    pub fn new() -> Self {
-        Self {
-            batch: Vec::with_capacity(4),
-            batch_timer: PinnedOption::None,
-        }
-    }
-
-    pub fn insert(self: Pin<&mut Self>, element: exec::Response) {
-        let mut this = self.project();
-        this.batch.push(element);
-        this.batch_timer.set(PinnedOption::Some(R::sleep_util(
-            Instant::now() + BATCH_TIMEOUT,
-        )));
-    }
-
-    pub fn append(self: Pin<&mut Self>, other: &mut Vec<exec::Response>) {
-        if other.len() == 0 {
-            return;
-        }
-
-        let mut this = self.project();
-        this.batch.append(other);
-        this.batch_timer.set(PinnedOption::Some(R::sleep_util(
-            Instant::now() + BATCH_TIMEOUT,
-        )));
-    }
-}
-
-impl<R: AsyncRuntime> Stream for Batcher<R> {
-    // `Option::None` means nothing to report, continue on with poll impl.
-    // This could *technically* be the `Option` forced by `Stream` but that would go against the semantic meaning of it.
-    type Item = Option<String>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
-
-        Poll::Ready(Some(match this.batch_timer.as_mut().project() {
-            PinnedOptionProj::Some(batch_timer) => {
-                ready!(batch_timer.poll(cx));
-
-                let queue = this.batch.drain(0..this.batch.len()).collect::<Vec<_>>();
-                this.batch_timer.as_mut().set(PinnedOption::None);
-
-                if queue.len() != 0 {
-                    // TODO: Error handling
-                    Some(serde_json::to_string(&queue).unwrap())
-                } else {
-                    None
-                }
-            }
-            PinnedOptionProj::None => None,
-        }))
     }
 }
