@@ -28,7 +28,7 @@ mod private {
     }
 
     // TODO: Docs + rename cause it's not a marker, it's runtime
-    pub struct Marker<A, B, C, D, E>(
+    pub struct HasResolver<A, B, C, D, E>(
         pub(crate) A,
         pub(crate) ProcedureKind,
         pub(crate) PhantomData<(B, C, D, E)>,
@@ -52,7 +52,7 @@ mod private {
             TResult,
             TResultMarker,
             F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        > SealedResolverFunction<Marker<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
+        > SealedResolverFunction<HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
     where
         TArg: DeserializeOwned + Type + 'static,
         TResult: RequestLayer<TResultMarker>,
@@ -65,10 +65,10 @@ mod private {
         fn into_marker(
             self,
             kind: ProcedureKind,
-        ) -> Marker<F, TLayerCtx, TArg, TResult, TResultMarker> {
-            Marker(self, kind, PhantomData)
+        ) -> HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker> {
+            HasResolver(self, kind, PhantomData)
         }
     }
 }
 
-pub(crate) use private::{Marker, SealedResolverFunction};
+pub(crate) use private::{HasResolver, SealedResolverFunction};

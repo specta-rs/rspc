@@ -9,8 +9,8 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
             ProcedureKind, ResolverLayer,
         },
-        procedure::{BuildProceduresCtx, DynProcedure},
-        FutureMarkerType, Marker, ProcedureDataType, RequestLayer, ResolverFunction,
+        procedure::BuildProceduresCtx,
+        FutureMarkerType, HasResolver, ProcedureDataType, RequestLayer, ResolverFunction,
         StreamMarkerType,
     },
     ExecError,
@@ -41,10 +41,6 @@ where
     pub(crate) fn new(resolver: T, mw: TMiddleware) -> Self {
         Self { resolver, mw }
     }
-
-    // pub(crate) fn into_dyn_procedure(self) -> Box<dyn DynProcedure<TMiddleware::Ctx>> {
-    //     Box::new(self)
-    // }
 }
 
 // Can only set the resolver or add middleware until a resolver has been set.
@@ -110,8 +106,8 @@ where
     }
 }
 
-impl<F, TArg, TResult, TResultMarker, TMiddleware> DynProcedure<TMiddleware::Ctx>
-    for Procedure<Marker<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
+impl<F, TArg, TResult, TResultMarker, TMiddleware>
+    Procedure<HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
 where
     F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
     TArg: Type + DeserializeOwned + 'static,
@@ -119,8 +115,12 @@ where
     TResultMarker: 'static,
     TMiddleware: MiddlewareBuilder,
 {
-    fn build(self, key: Cow<'static, str>, ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>) {
-        let Marker(resolver, kind, _) = self.resolver;
+    pub(crate) fn build(
+        self,
+        key: Cow<'static, str>,
+        ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
+    ) {
+        let HasResolver(resolver, kind, _) = self.resolver;
 
         let m = match kind {
             ProcedureKind::Query => &mut ctx.queries,

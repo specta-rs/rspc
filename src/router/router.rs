@@ -1,13 +1,14 @@
 use std::{borrow::Cow, panic::Location};
 
-use specta::TypeDefs;
+use serde::de::DeserializeOwned;
+use specta::{Type, TypeDefs};
 
 use crate::{
     internal::{
         is_valid_name,
-        middleware::{MiddlewareBuilder, SealedMiddlewareBuilder},
-        procedure::{BuildProceduresCtx, DynProcedure, Procedure},
-        ProcedureStore,
+        middleware::MiddlewareBuilder,
+        procedure::{BuildProceduresCtx, Procedure},
+        HasResolver, ProcedureStore, RequestLayer,
     },
     BuildError, BuildResult, BuiltRouter,
 };
@@ -37,14 +38,20 @@ where
     }
 
     #[track_caller]
-    pub fn procedure<T, TMiddleware>(
+    pub fn procedure<F, TArg, TResult, TResultMarker, TMiddleware>(
         mut self,
         key: &'static str,
-        procedure: Procedure<T, TMiddleware>,
+        procedure: Procedure<
+            HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>,
+            TMiddleware,
+        >,
     ) -> Self
     where
-        Procedure<T, TMiddleware>: DynProcedure<TCtx>,
-        TMiddleware: MiddlewareBuilder + SealedMiddlewareBuilder<Ctx = TCtx, LayerCtx = TCtx>,
+        F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        TArg: Type + DeserializeOwned + 'static,
+        TResult: RequestLayer<TResultMarker> + 'static,
+        TResultMarker: 'static,
+        TMiddleware: MiddlewareBuilder<Ctx = TCtx, LayerCtx = TCtx>,
     {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {
@@ -56,9 +63,11 @@ where
             });
         }
 
-        let build_fn: ProcedureBuildFn<TCtx> =
-            Box::new(|full_key, ctx| procedure.build(full_key, ctx));
-        self.procedures.push((Cow::Borrowed(key), build_fn));
+        self.procedures.push((
+            Cow::Borrowed(key),
+            Box::new(|full_key, ctx| procedure.build(full_key, ctx)),
+        ));
+
         self
     }
 
