@@ -91,8 +91,8 @@ use crate::{
 };
 
 use super::{
-    AsyncRuntime, ExecRequestFut, Executor, ExecutorResult, Request, Response, SubscriptionManager,
-    ValueOrError,
+    AsyncRuntime, ExecRequestFut, Executor, ExecutorResult, Request, Response, ResponseInner,
+    SubscriptionManager,
 };
 
 // TODO: Seal the following stuff
@@ -173,7 +173,7 @@ impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
                 ),
                 None => ExecutorResult::Response(Response {
                     id,
-                    result: ValueOrError::Error(ExecError::ErrSubscriptionsNotSupported.into()),
+                    inner: ResponseInner::Error(ExecError::ErrSubscriptionsNotSupported.into()),
                 }),
             },
             Request::SubscriptionStop { id } => {
@@ -200,7 +200,7 @@ impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
         if subscriptions.contains_key(&req.id) {
             return ExecutorResult::Response(Response {
                 id: req.id,
-                result: ValueOrError::Error(ExecError::ErrSubscriptionDuplicateId.into()),
+                inner: ResponseInner::Error(ExecError::ErrSubscriptionDuplicateId.into()),
             });
         }
 
@@ -215,7 +215,7 @@ impl<TCtx: Send + 'static, R: AsyncRuntime> TrustMeBro<TCtx, R> {
             }
             Err(id) => ExecutorResult::Response(Response {
                 id,
-                result: ValueOrError::Error(ExecError::OperationNotFound.into()),
+                inner: ResponseInner::Error(ExecError::OperationNotFound.into()),
             }),
         }
     }

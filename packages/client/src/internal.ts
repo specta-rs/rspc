@@ -1,4 +1,4 @@
-import { Operation, RSPCError, ValueOrError } from ".";
+import { Operation, RSPCError, ResponseInner } from ".";
 
 export type BatchedItem = {
   op: Operation;
@@ -8,7 +8,7 @@ export type BatchedItem = {
 };
 
 export async function fireResponse(
-  resp: ValueOrError,
+  resp: ResponseInner,
   i:
     | BatchedItem
     | {
@@ -24,9 +24,11 @@ export async function fireResponse(
     i.resolve(resp.value);
   } else if (resp.type === "error") {
     i.reject(new RSPCError(resp.value.code, resp.value.message));
+  } else if (resp.type === "complete") {
+    // TODO
   } else {
-    console.error("rspc: batch response type mismatch!");
-    i.reject(new RSPCError(500, "batch response type mismatch"));
+    console.error("rspc: response type mismatch!");
+    i.reject(new RSPCError(500, "response type mismatch"));
   }
 }
 

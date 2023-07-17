@@ -67,7 +67,7 @@ where
             });
         let socket = pin!(socket);
 
-        ConnectionTask::new(ctx, executor, socket).await;
+        ConnectionTask::new(ctx, executor, socket, None).await;
     })
     .into_response()
 }

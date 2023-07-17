@@ -56,11 +56,13 @@ mod private {
     #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
     #[serde(tag = "type", content = "value", rename_all = "camelCase")]
-    pub enum ValueOrError {
+    pub enum ResponseInner {
         /// The result of a successful operation.
         Value(Value),
         /// The result of a failed operation.
         Error(ResponseError),
+        /// A message to indicate that the operation is complete.
+        Complete,
     }
 
     /// The type of a response from rspc.
@@ -72,11 +74,12 @@ mod private {
     pub struct Response {
         pub id: u32,
         #[serde(flatten)]
-        pub result: ValueOrError,
+        pub inner: ResponseInner,
     }
 
     /// TODO
     #[derive(Debug)]
+    #[allow(dead_code)]
     pub(crate) enum IncomingMessage {
         Msg(Result<Value, serde_json::Error>),
         Close,

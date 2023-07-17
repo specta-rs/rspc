@@ -18,14 +18,15 @@ mod private {
 
     use crate::{
         internal::{
-            exec::{AsyncRuntime, OwnedStream, Request, Response, ValueOrError},
+            exec::{AsyncRuntime, OwnedStream, Request, Response, ResponseInner},
             middleware::{ProcedureKind, RequestContext},
             FutureValueOrStream, ProcedureStore, ProcedureTodo,
         },
         BuiltRouter, ExecError,
     };
 
-    /// TODO
+    /// Map for subscription id to task handle.
+    /// This is used for shutting down subscriptions.
     pub type SubscriptionMap<R> = HashMap<u32, <R as AsyncRuntime>::TaskHandle>;
 
     /// TODO
@@ -70,7 +71,7 @@ mod private {
     {
         type Map<'m> = &'m mut SubscriptionMap<R> where Self: 'm;
 
-        fn queue(&mut self, id: u32, stream: OwnedStream<TCtx>) {
+        fn queue(&mut self, _id: u32, stream: OwnedStream<TCtx>) {
             match &mut self.queued {
                 Some(queued) => {
                     queued.push(stream);
@@ -93,21 +94,6 @@ mod private {
         Response(Response),
         None,
     }
-
-    // #[pin_project(project = BatchExecStreamProj)]
-    // pub struct BatchExecStream<'a>(#[pin] FuturesUnordered<ExecRequestFut<'a>>);
-
-    // impl<'a> Stream for BatchExecStream<'a> {
-    //     type Item = Response;
-
-    //     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-    //         self.project().0.poll_next(cx)
-    //     }
-
-    //     fn size_hint(&self) -> (usize, Option<usize>) {
-    //         self.0.size_hint()
-    //     }
-    // }
 
     /// TODO
     pub struct Executor<TCtx: Send + 'static, R: AsyncRuntime> {
@@ -227,14 +213,15 @@ mod private {
                     ),
                     None => ExecutorResult::Response(Response {
                         id,
-                        result: ValueOrError::Error(ExecError::ErrSubscriptionsNotSupported.into()),
+                        inner: ResponseInner::Error(ExecError::ErrSubscriptionsNotSupported.into()),
                     }),
                 },
                 Request::SubscriptionStop { id } => {
                     if let Some(subscriptions) = &mut subscription_manager {
-                        if let Some(task) = subscriptions.subscriptions().remove(&id) {
-                            R::cancel_task(task);
-                        }
+                        // if let Some(task) = subscriptions.subscriptions().remove(&id) {
+                        //     R::cancel_task(task);
+                        // }
+                        todo!();
                     }
 
                     ExecutorResult::None
@@ -254,14 +241,14 @@ mod private {
             if subscriptions.contains_key(&req.id) {
                 return ExecutorResult::Response(Response {
                     id: req.id,
-                    result: ValueOrError::Error(ExecError::ErrSubscriptionDuplicateId.into()),
+                    inner: ResponseInner::Error(ExecError::ErrSubscriptionDuplicateId.into()),
                 });
             }
 
             let id = *&req.id;
             match OwnedStream::new(self.router.clone(), ctx, input, req) {
                 Ok(s) => {
-                    // subscriptions.insert(id, task_handle); // TODO
+                    // subscriptions.insert(id, task_handle); // TODO // TODO
                     drop(subscriptions);
 
                     subscription_manager.queue(id, s);
@@ -270,7 +257,7 @@ mod private {
                 }
                 Err(id) => ExecutorResult::Response(Response {
                     id,
-                    result: ValueOrError::Error(ExecError::OperationNotFound.into()),
+                    inner: ResponseInner::Error(ExecError::OperationNotFound.into()),
                 }),
             }
         }
@@ -278,7 +265,7 @@ mod private {
 
     pub struct ExecRequestFut {
         stream: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
-        id: u32,
+        pub(crate) id: u32,
     }
 
     impl ExecRequestFut {
@@ -298,7 +285,7 @@ mod private {
                 }),
                 None => ExecutorResult::Response(Response {
                     id: req.id,
-                    result: ValueOrError::Error(ExecError::OperationNotFound.into()),
+                    inner: ResponseInner::Error(ExecError::OperationNotFound.into()),
                 }),
             }
         }
@@ -311,15 +298,15 @@ mod private {
             match self.stream.as_mut().poll_next(cx) {
                 Poll::Ready(Some(Ok(result))) => Poll::Ready(Response {
                     id: self.id,
-                    result: ValueOrError::Value(result),
+                    inner: ResponseInner::Value(result),
                 }),
                 Poll::Ready(Some(Err(err))) => Poll::Ready(Response {
                     id: self.id,
-                    result: ValueOrError::Error(err.into()),
+                    inner: ResponseInner::Error(err.into()),
                 }),
                 Poll::Ready(None) => Poll::Ready(Response {
                     id: self.id,
-                    result: ValueOrError::Error(ExecError::ErrStreamEmpty.into()),
+                    inner: ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
                 }),
                 Poll::Pending => Poll::Pending,
             }

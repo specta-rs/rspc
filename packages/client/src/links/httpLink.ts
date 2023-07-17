@@ -1,4 +1,4 @@
-import { ValueOrError, Response as RspcResponse } from "..";
+import { ResponseInner, Response as RspcResponse } from "..";
 import { RSPCError } from "../error";
 import { BatchedItem, fireResponse } from "../internal";
 import { Link, Operation } from "./link";
@@ -53,7 +53,7 @@ export function httpLink(opts: HttpLinkOpts): Link {
 
   let dispatch: (op: BatchedItem) => void = (item: BatchedItem) => {
     const [url, init] = requestParams(opts, item);
-    doFetch<ValueOrError>(fetchFn, opts.url + url, init).then((body) => {
+    doFetch<ResponseInner>(fetchFn, opts.url + url, init).then((body) => {
       if (body === undefined) {
         return;
       }

@@ -12,5 +12,6 @@ export type Procedures = {
         { key: "sendMsg", input: string, result: string },
     subscriptions: 
         { key: "errorPings", input: never, result: string } | 
-        { key: "pings", input: never, result: string }
+        { key: "pings", input: never, result: string } | 
+        { key: "testSubscriptionShutdown", input: never, result: number }
 };

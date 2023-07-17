@@ -70,6 +70,14 @@ function Example({ name }: { name: string }) {
     retry: false,
   });
 
+  const [subId, setSubId] = useState<string | null>(null);
+  const [enabled, setEnabled] = useState(true);
+  rspc.useSubscription(["testSubscriptionShutdown"], {
+    onData(msg) {
+      setSubId(msg);
+    },
+  });
+
   return (
     <div
       style={{
@@ -83,13 +91,21 @@ function Example({ name }: { name: string }) {
         Error returned: {error?.code} {error?.message}
       </p>
       <p>Transformed Query: {transformMe}</p>
-      <ExampleSubscription rerenderProp={rerenderProp} />
+      <ExampleSubscription key={rerenderProp} rerenderProp={rerenderProp} />
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
       </button>
       <button onClick={() => mutate("Hello!")} disabled={isLoading}>
         Send Msg!
       </button>
+      <br />
+      <input
+        type="checkbox"
+        onClick={(e) => setEnabled((e.currentTarget as any).checked)}
+        value="false"
+        disabled={subId === null}
+      />
+      {`${enabled ? "Enabled" : "Disabled"} ${subId}`}
     </div>
   );
 }

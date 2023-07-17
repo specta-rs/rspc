@@ -1,9 +1,15 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::time::Duration;
+use std::{
+    pin::Pin,
+    sync::atomic::AtomicU16,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use async_stream::stream;
+use futures::Stream;
 use rspc::{ErrorCode, Rspc};
 use tokio::time::sleep;
 
@@ -87,6 +93,41 @@ async fn main() {
             yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
         }
     }))
+    .procedure(
+        "testSubscriptionShutdown",
+        R.subscription({
+            static COUNT: AtomicU16 = AtomicU16::new(0);
+            |_, _: ()| {
+                let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+                pub struct HandleDrop {
+                    id: u16,
+                    send: bool,
+                }
+
+                impl Stream for HandleDrop {
+                    type Item = u16;
+
+                    fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+                        if self.send {
+                            Poll::Pending
+                        } else {
+                            self.send = true;
+                            Poll::Ready(Some(self.id))
+                        }
+                    }
+                }
+
+                impl Drop for HandleDrop {
+                    fn drop(&mut self) {
+                        println!("Dropped subscription with id {}", self.id);
+                    }
+                }
+
+                HandleDrop { id, send: false }
+            }
+        }),
+    )
     .build()
     .unwrap()
     .arced(); // This function is a shortcut to wrap the router in an `Arc`.

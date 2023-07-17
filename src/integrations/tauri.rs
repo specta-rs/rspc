@@ -33,7 +33,7 @@ where
 {
     executor: Executor<TCtx, R>,
     ctx_fn: TCtxFn,
-    windows: Mutex<HashMap<u64, Arc<Mutex<SubscriptionMap<TokioRuntime>>>>>,
+    windows: Mutex<HashMap<u64, mpsc::UnboundedSender<()>>>,
 }
 
 impl<TCtxFn, TCtx, R> WindowManager<TCtxFn, TCtx, R>
@@ -55,17 +55,20 @@ where
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
 
-        let mut windows = self.windows.lock().unwrap();
-        if let Some(subscriptions) = windows.get(&window_hash) {
-            // Shutdown all subscriptions for the previously loaded page is there was one
-            // Everything stays around though so we don't need to recreate it
+        println!("WINDOW {:?}", window_hash); // TODO
 
-            let mut subscriptions = subscriptions.lock().unwrap();
-            for (_, handle) in subscriptions.drain() {
-                TokioRuntime::cancel_task(handle);
-            }
+        let mut windows = self.windows.lock().unwrap();
+        if let Some(shutdown_streams_tx) = windows.get(&window_hash) {
+            // Shutdown all subscriptions for the previously loaded page is there was one
+            // All the previous threads and stuff stays around though so we don't need to recreate it
+
+            println!("KILL TAURI SUBSCRIPTIONS {:?}", window_hash,); // TODO
+
+            shutdown_streams_tx.send(()).ok();
         } else {
-            // Setup window for subscriptions
+            let (clear_subscriptions_tx, clear_subscriptions_rx) = mpsc::unbounded_channel();
+            windows.insert(window_hash, clear_subscriptions_tx);
+            drop(windows);
 
             let executor = self.executor.clone();
             let (tx, rx) = mpsc::unbounded_channel();
@@ -74,11 +77,12 @@ where
                 window: window.clone(),
             };
             let ctx = (self.ctx_fn)(window.clone());
-            let handle = R::spawn(ConnectionTask::new(ctx, executor, socket));
-
-            let subscriptions = Arc::new(Mutex::new(SubscriptionMap::<TokioRuntime>::default()));
-            windows.insert(window_hash, subscriptions.clone());
-            drop(windows);
+            R::spawn(ConnectionTask::new(
+                ctx,
+                executor,
+                socket,
+                Some(clear_subscriptions_rx),
+            ));
 
             window.listen("plugin:rspc:transport", move |event| {
                 let Some(payload) = event.payload() else {
@@ -111,13 +115,8 @@ where
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
 
-        if let Some(rspc_window) = self.windows.lock().unwrap().remove(&window_hash) {
-            TokioRuntime::spawn(async move {
-                let mut subscriptions = rspc_window.lock().unwrap();
-                for (_, tx) in subscriptions.drain() {
-                    TokioRuntime::cancel_task(tx);
-                }
-            });
+        if let Some(shutdown_streams_tx) = self.windows.lock().unwrap().remove(&window_hash) {
+            shutdown_streams_tx.send(()).ok();
         }
     }
 }

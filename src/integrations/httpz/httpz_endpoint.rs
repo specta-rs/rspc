@@ -137,7 +137,7 @@ where
             ExecutorResult::None => unreachable!(
                 "Executor will only return none for a 'stopSubscription' event which is impossible here"
             ),
-        }.result;
+        }.inner;
 
     let cookies = {
         match Arc::try_unwrap(cookie_jar) {

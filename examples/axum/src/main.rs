@@ -1,9 +1,10 @@
 use std::{
     net::{Ipv6Addr, SocketAddr},
     path::PathBuf,
-    time::Duration,
+    time::Duration, sync::atomic::AtomicU16, task::{Poll, Context}, pin::Pin,
 };
 
+use futures::Stream;
 use async_stream::stream;
 use axum::routing::get;
 use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc};
@@ -90,6 +91,41 @@ async fn main() {
                 yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
             }
         }))
+        .procedure(
+            "testSubscriptionShutdown",
+            R.subscription({
+                static COUNT: AtomicU16 = AtomicU16::new(0);
+                |_, _: ()| {
+                    let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+                    pub struct HandleDrop {
+                        id: u16,
+                        send: bool,
+                    }
+
+                    impl Stream for HandleDrop {
+                        type Item = u16;
+    
+                        fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+                            if self.send {
+                                Poll::Pending
+                            } else {
+                                self.send = true;
+                                Poll::Ready(Some(self.id))
+                            }
+                        }
+                    }
+    
+                    impl Drop for HandleDrop {
+                        fn drop(&mut self) {
+                            println!("Dropped subscription with id {}", self.id);
+                        }
+                    }
+
+                    HandleDrop { id, send: false }
+                }
+            }),
+        )
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.
