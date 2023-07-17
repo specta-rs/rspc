@@ -111,11 +111,11 @@ mod private {
                         	return Poll::Ready(result);
                         };
 
-                        // TODO: Handle error
-                        let result = result.unwrap().unwrap();
-
-                        Self::Third {
-                            fut: resp.call(result),
+                        match result {
+                            Some(Ok(value)) => Self::Third {
+                                fut: resp.call(value),
+                            },
+                            result => return Poll::Ready(result),
                         }
                     }
                     MiddlewareLayerFutureProj::Third { fut } => {
