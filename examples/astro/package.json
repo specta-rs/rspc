@@ -24,7 +24,6 @@
   "devDependencies": {
     "@astrojs/react": "^2.2.1",
     "@astrojs/solid-js": "^2.2.0",
-    "@rspc/config": "workspace:*",
     "@types/react": "^18.2.15",
     "typescript": "^5.1.6"
   },

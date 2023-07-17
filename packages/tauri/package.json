@@ -19,17 +19,16 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup --config rollup.config.ts --configPlugin swc3",
-    "dev": "pnpm build --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest"
   },
   "dependencies": {
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "@rspc/config": "workspace:*",
+    "tsup": "^7.1.0",
     "@tauri-apps/api": "^1.4.0",
-    "rollup": "^3.26.3",
     "typescript": "^5.1.6",
     "vitest": "^0.33.0"
   },

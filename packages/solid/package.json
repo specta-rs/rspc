@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "@rspc/client": "workspace:*",
-    "@rspc/config": "workspace:*",
     "@tanstack/solid-query": "^4.29.25",
     "rollup": "^3.26.3",
     "rollup-preset-solid": "^2.0.1",

@@ -19,7 +19,6 @@
     "react-popper": "^2.3.0"
   },
   "devDependencies": {
-    "@rspc/config": "workspace:*",
     "@types/node": "20.4.2",
     "@types/react": "^18.2.15",
     "autoprefixer": "^10.4.14",
