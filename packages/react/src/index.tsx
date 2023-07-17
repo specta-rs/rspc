@@ -200,9 +200,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     const enabled = opts?.enabled ?? true;
 
     return useEffect(() => {
-      if (!enabled) {
-        return;
-      }
+      if (!enabled) return;
       return client!.addSubscription<K, TData>(keyAndInput, {
         onData: opts.onData,
         onError: opts.onError,

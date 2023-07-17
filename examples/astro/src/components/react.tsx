@@ -73,6 +73,7 @@ function Example({ name }: { name: string }) {
   const [subId, setSubId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(true);
   rspc.useSubscription(["testSubscriptionShutdown"], {
+    enabled,
     onData(msg) {
       setSubId(msg);
     },
