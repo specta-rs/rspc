@@ -61,26 +61,6 @@ macro_rules! resolver {
     };
 }
 
-fn bruh() {
-    db.transcript().find_first(vec![
-        transcript::id::equals(self.transcript_id),
-        transcript::project::is(vec![project::team::is(vec![team::members::some(vec![
-            user::id::equals(user_id),
-        ])])]),
-    ]);
-    db.transcript().find_first(transcript::where! {
-    	id: self.transcript_id,
-     	project: {
-      		team: {
-		        members: {
-			        some: { id: user_id }
-		        }
-        	}
-      	}
-    })
-
-}
-
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
 impl<TMiddleware> Procedure<MissingResolver, TMiddleware>
