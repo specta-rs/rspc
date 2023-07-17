@@ -43,53 +43,53 @@ where
     }
 }
 
+macro_rules! resolver {
+    ($func:ident, $kind:ident, $result_marker:ident) => {
+        pub fn $func<R, RMarker>(
+            self,
+            resolver: R,
+        ) -> Procedure<RMarker, BaseMiddleware<TMiddleware::LayerCtx>>
+        where
+            R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
+            R::Result: RequestLayer<R::RequestMarker, Type = $result_marker>,
+        {
+            Procedure::new(
+                resolver.into_marker(ProcedureKind::$kind),
+                BaseMiddleware::default(),
+            )
+        }
+    };
+}
+
+fn bruh() {
+    db.transcript().find_first(vec![
+        transcript::id::equals(self.transcript_id),
+        transcript::project::is(vec![project::team::is(vec![team::members::some(vec![
+            user::id::equals(user_id),
+        ])])]),
+    ]);
+    db.transcript().find_first(transcript::where! {
+    	id: self.transcript_id,
+     	project: {
+      		team: {
+		        members: {
+			        some: { id: user_id }
+		        }
+        	}
+      	}
+    })
+
+}
+
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
 impl<TMiddleware> Procedure<MissingResolver, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
-    pub fn query<R, RMarker>(
-        self,
-        resolver: R,
-    ) -> Procedure<RMarker, BaseMiddleware<TMiddleware::LayerCtx>>
-    where
-        R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new(
-            resolver.into_marker(ProcedureKind::Query),
-            BaseMiddleware::default(),
-        )
-    }
-
-    pub fn mutation<R, RMarker>(
-        self,
-        resolver: R,
-    ) -> Procedure<RMarker, BaseMiddleware<TMiddleware::LayerCtx>>
-    where
-        R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new(
-            resolver.into_marker(ProcedureKind::Mutation),
-            BaseMiddleware::default(),
-        )
-    }
-
-    pub fn subscription<R, RMarker>(
-        self,
-        resolver: R,
-    ) -> Procedure<RMarker, BaseMiddleware<TMiddleware::LayerCtx>>
-    where
-        R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker, Type = StreamMarkerType>,
-    {
-        Procedure::new(
-            resolver.into_marker(ProcedureKind::Subscription),
-            BaseMiddleware::default(),
-        )
-    }
+    resolver!(query, Query, FutureMarkerType);
+    resolver!(mutation, Mutation, FutureMarkerType);
+    resolver!(subscription, Subscription, StreamMarkerType);
 
     pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
         self,

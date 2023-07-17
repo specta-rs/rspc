@@ -40,6 +40,21 @@ where
     }
 }
 
+macro_rules! resolver {
+    ($func:ident, $kind:ident, $result_marker:ident) => {
+        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
+        where
+            R: ResolverFunction<TCtx, RMarker>,
+            R::Result: RequestLayer<R::RequestMarker, Type = $result_marker>,
+        {
+            Procedure::new(
+                resolver.into_marker(ProcedureKind::$kind),
+                BaseMiddleware::default(),
+            )
+        }
+    };
+}
+
 impl<TCtx> Rspc<TCtx>
 where
     TCtx: Send + Sync + 'static,
@@ -61,36 +76,7 @@ where
         )
     }
 
-    pub fn query<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<TCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new(
-            resolver.into_marker(ProcedureKind::Query),
-            BaseMiddleware::default(),
-        )
-    }
-
-    pub fn mutation<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<TCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker, Type = FutureMarkerType>,
-    {
-        Procedure::new(
-            resolver.into_marker(ProcedureKind::Mutation),
-            BaseMiddleware::default(),
-        )
-    }
-
-    pub fn subscription<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
-    where
-        R: ResolverFunction<TCtx, RMarker>,
-        R::Result: RequestLayer<R::RequestMarker, Type = StreamMarkerType>,
-    {
-        Procedure::new(
-            resolver.into_marker(ProcedureKind::Subscription),
-            BaseMiddleware::default(),
-        )
-    }
+    resolver!(query, Query, FutureMarkerType);
+    resolver!(mutation, Mutation, FutureMarkerType);
+    resolver!(subscription, Subscription, StreamMarkerType);
 }
