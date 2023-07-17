@@ -34,7 +34,6 @@ export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
   return new AlphaClient<P>(args);
 }
 
-// TODO: This will replace old client
 export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
   private links: Link[];

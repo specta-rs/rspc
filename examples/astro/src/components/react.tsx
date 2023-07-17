@@ -70,7 +70,7 @@ function Example({ name }: { name: string }) {
     retry: false,
   });
 
-  const [subId, setSubId] = useState<string | null>(null);
+  const [subId, setSubId] = useState<number | null>(null);
   const [enabled, setEnabled] = useState(true);
   rspc.useSubscription(["testSubscriptionShutdown"], {
     enabled,

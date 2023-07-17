@@ -18,20 +18,12 @@
       "types": "./dist/full.d.ts",
       "import": "./dist/full.mjs",
       "default": "./dist/full.js"
-    },
-    "./v2": {
-      "types": "./dist/v2.d.ts",
-      "import": "./dist/v2.mjs",
-      "default": "./dist/v2.js"
     }
   },
   "typesVersions": {
     "*": {
       "full": [
         "dist/full.d.ts"
-      ],
-      "v2": [
-        "dist/v2.d.ts"
       ]
     }
   },
