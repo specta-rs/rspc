@@ -275,23 +275,23 @@ impl<
         this: &mut ConnectionTaskProj<R, TCtx, S, E>,
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
-        let mut conn = this.conn.as_mut().project();
-        match ready!(conn.streams.as_mut().poll_next(cx)) {
-            Some((a, _)) => match a {
-                StreamYield::Item(batch) => {
-                    this.batch.as_mut().insert(batch);
-                    PollResult::QueueSend
-                }
-                StreamYield::Finished(f) => {
-                    f.remove(conn.streams.as_mut());
+        loop {
+            let mut conn = this.conn.as_mut().project();
+            match ready!(conn.streams.as_mut().poll_next(cx)) {
+                Some((a, _)) => match a {
+                    StreamYield::Item(batch) => {
+                        this.batch.as_mut().insert(batch);
+                        break PollResult::QueueSend;
+                    }
+                    StreamYield::Finished(f) => {
+                        f.remove(conn.streams.as_mut());
 
-                    // TODO: Let the frontend know the stream was dropped
-
-                    PollResult::Progressed
-                }
-            },
-            // If no streams, fall asleep until a new subscription is queued
-            None => PollResult::Progressed,
+                        // TODO: Let the frontend know the stream was dropped
+                    }
+                },
+                // If no streams, fall asleep until a new subscription is queued
+                None => break PollResult::Progressed,
+            }
         }
         .into()
     }
