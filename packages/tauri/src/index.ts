@@ -1,9 +1,9 @@
 import {
-  wsLinkInternal,
   Link,
   Request as RspcRequest,
   Response as RspcResponse,
   RSPCError,
+  _internal_wsLinkInternal,
   _internal_fireResponse,
 } from "@rspc/client";
 import { listen } from "@tauri-apps/api/event";
@@ -13,7 +13,7 @@ import { appWindow } from "@tauri-apps/api/window";
  * Link for the rspc Tauri plugin
  */
 export function tauriLink(): Link {
-  return wsLinkInternal(newWsManager());
+  return _internal_wsLinkInternal(newWsManager());
 }
 
 function newWsManager() {
