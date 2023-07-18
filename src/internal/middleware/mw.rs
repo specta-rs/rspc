@@ -62,4 +62,8 @@ mod private {
     }
 }
 
+#[cfg(feature = "unstable")]
+pub use private::SealedMiddleware;
+
+#[cfg(not(feature = "unstable"))]
 pub(crate) use private::SealedMiddleware;

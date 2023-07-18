@@ -7,7 +7,10 @@ export type BatchedItem = {
   abort: AbortController;
 };
 
-export async function fireResponse(
+/**
+ * @internal
+ */
+export async function _internal_fireResponse(
   resp: ResponseInner,
   i:
     | BatchedItem

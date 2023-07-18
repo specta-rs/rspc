@@ -6,7 +6,7 @@ use specta::Type;
 use crate::{
     internal::{
         middleware::{
-            BaseMiddleware, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
+            ConstrainedMiddleware, Middleware, MiddlewareBuilder, MiddlewareLayerBuilder,
             ProcedureKind, ResolverLayer,
         },
         procedure::BuildProceduresCtx,
@@ -45,18 +45,12 @@ where
 
 macro_rules! resolver {
     ($func:ident, $kind:ident, $result_marker:ident) => {
-        pub fn $func<R, RMarker>(
-            self,
-            resolver: R,
-        ) -> Procedure<RMarker, BaseMiddleware<TMiddleware::LayerCtx>>
+        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
         where
             R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
             R::Result: RequestLayer<R::RequestMarker, Type = $result_marker>,
         {
-            Procedure::new(
-                resolver.into_marker(ProcedureKind::$kind),
-                BaseMiddleware::default(),
-            )
+            Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
         }
     };
 }
@@ -72,6 +66,21 @@ where
     resolver!(subscription, Subscription, StreamMarkerType);
 
     pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
+        self,
+        mw: Mw,
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+        Procedure::new(
+            MissingResolver::default(),
+            MiddlewareLayerBuilder {
+                // todo: enforce via typestate
+                middleware: self.mw,
+                mw,
+            },
+        )
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn with2<Mw: Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {

@@ -4,8 +4,8 @@ import {
   Request as RspcRequest,
   Response as RspcResponse,
   RSPCError,
+  _internal_fireResponse,
 } from "@rspc/client";
-import { fireResponse } from "@rspc/client/src/internal";
 import { listen } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 
@@ -38,7 +38,7 @@ function newWsManager() {
         return;
       }
 
-      fireResponse(result, {
+      _internal_fireResponse(result, {
         resolve: item.resolve,
         reject: item.reject,
       });

@@ -1,7 +1,7 @@
 import { RSPCError } from "../error";
 import { Link } from "./link";
 import { Request as RspcRequest, Response as RspcResponse } from "../bindings";
-import { fireResponse } from "../internal";
+import { _internal_fireResponse } from "../internal";
 
 const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 
@@ -134,7 +134,7 @@ function newWsManager(opts: WsLinkOpts) {
           return;
         }
 
-        fireResponse(result, {
+        _internal_fireResponse(result, {
           resolve: item.resolve,
           reject: item.reject,
         });

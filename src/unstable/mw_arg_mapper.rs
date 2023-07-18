@@ -25,13 +25,13 @@ pub trait MwArgMapper: Send + Sync {
     /// the output of the mapper to be passed on to the following procedure.
     ///
     /// WARNING: This is not typesafe. If you get it wrong it will runtime panic!
-    type Output<T>: DeserializeOwned + Type + 'static
+    type Input<T>: DeserializeOwned + Type + 'static
     where
         T: DeserializeOwned + Type + 'static;
 
     /// Apply the mapping to the input argument.
     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
-        arg: Self::Output<T>,
+        arg: Self::Input<T>,
     ) -> (T, Self::State);
 }
 
@@ -92,7 +92,7 @@ mod private {
         type Fut = Fu;
         type Result = R;
         type NewCtx = R::Ctx; // TODO: Make this work with context switching
-        type Arg<T: Type + DeserializeOwned + 'static> = M::Output<T>;
+        type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
 
         fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
             (self.0)(mw, ctx)

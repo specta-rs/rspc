@@ -3,7 +3,8 @@ use std::marker::PhantomData;
 use crate::{
     internal::{
         middleware::{
-            BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
+            BaseMiddleware, ConstrainedMiddleware, Middleware, MiddlewareLayerBuilder,
+            ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
         FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType,
@@ -64,6 +65,20 @@ where
     }
 
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
+        self,
+        mw: Mw,
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
+        Procedure::new(
+            MissingResolver::default(),
+            MiddlewareLayerBuilder {
+                middleware: BaseMiddleware::default(),
+                mw,
+            },
+        )
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn with2<Mw: Middleware<TCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {

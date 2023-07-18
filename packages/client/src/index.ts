@@ -7,3 +7,5 @@ export * from "./links/link";
 export * from "./links/httpLink";
 export * from "./links/wsLink";
 export * from "./links/loggerLink";
+
+export { _internal_fireResponse } from "./internal";

@@ -1,6 +1,6 @@
 import { ResponseInner, Response as RspcResponse } from "..";
 import { RSPCError } from "../error";
-import { BatchedItem, fireResponse } from "../internal";
+import { BatchedItem, _internal_fireResponse } from "../internal";
 import { Link, Operation } from "./link";
 
 type HTTPHeaders = Record<string, string | string[] | undefined>;
@@ -68,7 +68,7 @@ export function httpLink(opts: HttpLinkOpts): Link {
         return;
       }
 
-      fireResponse(body, item);
+      _internal_fireResponse(body, item);
     });
   };
 
@@ -119,7 +119,7 @@ export function httpLink(opts: HttpLinkOpts): Link {
           continue;
         }
 
-        fireResponse(item, batchItem);
+        _internal_fireResponse(item, batchItem);
       }
     };
 

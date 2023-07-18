@@ -14,7 +14,7 @@ mod private {
     #[derive(Debug, Clone, DataTypeFrom)]
     #[cfg_attr(test, derive(specta::Type))]
     #[cfg_attr(test, specta(rename = "ProcedureDef"))]
-    pub(crate) struct ProcedureDataType {
+    pub struct ProcedureDataType {
         pub key: Cow<'static, str>,
         #[specta(type = serde_json::Value)]
         pub input: DataType,
@@ -55,6 +55,13 @@ mod private {
     pub struct ProcedureTodo<TCtx> {
         pub(crate) exec: Box<dyn DynLayer<TCtx>>,
         pub(crate) ty: ProcedureDataType,
+    }
+
+    impl<TCtx> ProcedureTodo<TCtx> {
+        #[cfg(feature = "unstable")]
+        pub fn ty(&self) -> &ProcedureDataType {
+            &self.ty
+        }
     }
 
     pub struct ProcedureStore<TCtx> {

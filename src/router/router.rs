@@ -51,7 +51,7 @@ where
         TArg: Type + DeserializeOwned + 'static,
         TResult: RequestLayer<TResultMarker> + 'static,
         TResultMarker: 'static,
-        TMiddleware: MiddlewareBuilder<Ctx = TCtx, LayerCtx = TCtx>,
+        TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
     {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {
