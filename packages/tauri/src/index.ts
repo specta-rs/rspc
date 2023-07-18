@@ -42,7 +42,8 @@ function newWsManager() {
         resolve: item.resolve,
         reject: item.reject,
       });
-      if ("path" in event) activeMap.delete(result.id);
+      if (result.type === "value" || result.type === "complete")
+        activeMap.delete(result.id);
     }
   });
 
