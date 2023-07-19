@@ -72,6 +72,7 @@ export function _internal_wsLinkInternal([activeMap, send]: ReturnType<
     return {
       exec: async (resolve, reject) => {
         activeMap.set(id, {
+          oneshot: op.method !== "subscription",
           resolve,
           reject,
         });
@@ -115,6 +116,8 @@ function newWsManager(opts: WsLinkOpts) {
   const activeMap = new Map<
     number,
     {
+      // Should delete after first response
+      oneshot: boolean;
       resolve: (result: any) => void;
       reject: (error: Error | RSPCError) => void;
     }
@@ -138,7 +141,10 @@ function newWsManager(opts: WsLinkOpts) {
           resolve: item.resolve,
           reject: item.reject,
         });
-        if (result.type === "value" || result.type === "complete")
+        if (
+          (item.oneshot && result.type === "value") ||
+          result.type === "complete"
+        )
           activeMap.delete(result.id);
       }
     });
