@@ -1,6 +1,6 @@
 {
   "name": "@rspc/client",
-  "version": "0.1.3",
+  "version": "1.0.0-rc.1",
   "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
