@@ -104,6 +104,7 @@ impl From<ExecError> for ResponseError {
                 ExecError::OperationNotFound => ErrorCode::NotFound,
                 ExecError::DeserializingArgErr(_) => ErrorCode::BadRequest,
                 ExecError::SerializingResultErr(_) => ErrorCode::InternalServerError,
+                #[cfg(feature = "axum")]
                 ExecError::AxumExtractorError => ErrorCode::BadRequest,
                 ExecError::ErrResolverError(err) => err.code,
                 ExecError::ErrSubscriptionWithNullId => ErrorCode::BadRequest,
