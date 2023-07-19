@@ -48,7 +48,7 @@ impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
 {
     type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
 
-    fn queue(&mut self, _id: u32, stream: OwnedStream<TCtx>) {
+    fn queue(&mut self, stream: OwnedStream<TCtx>) {
         match &mut self.queued {
             Some(queued) => {
                 queued.push(stream);
@@ -337,18 +337,8 @@ impl<
                     PollResult::QueueSend
                 }
                 StreamYield::Finished(f) => {
-                    if let Some(stream) = f.take(conn.streams.as_mut()) {
-                        if let StreamOrFut::OwnedStream { stream } = stream {
-                            this.batch.as_mut().insert(exec::Response {
-                                id: stream.id,
-                                inner: ResponseInner::Complete,
-                            });
-                        }
-
-                        PollResult::QueueSend
-                    } else {
-                        PollResult::Progressed
-                    }
+                    f.take(conn.streams.as_mut());
+                    PollResult::Progressed
                 }
             },
             // If no streams, fall asleep until a new subscription is queued
@@ -369,14 +359,7 @@ impl<
 
         // TODO: This can be improved by: https://github.com/jonhoo/streamunordered/pull/5
         for (token, _) in conn.steam_to_sub_id.drain() {
-            if let Some(stream) = conn.streams.as_mut().take(token) {
-                if let StreamOrFut::OwnedStream { stream } = stream {
-                    this.batch.as_mut().insert(exec::Response {
-                        id: stream.id,
-                        inner: ResponseInner::Complete,
-                    });
-                }
-            }
+            conn.streams.as_mut().remove(token);
         }
         conn.steam_to_sub_id.drain().for_each(drop);
         conn.map.drain().for_each(drop);

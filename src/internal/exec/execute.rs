@@ -35,7 +35,7 @@ mod private {
             Self: 'm;
 
         /// TODO
-        fn queue(&mut self, id: u32, stream: OwnedStream<TCtx>);
+        fn queue(&mut self, stream: OwnedStream<TCtx>);
 
         /// TODO
         fn subscriptions(&mut self) -> Self::Set<'_>;
@@ -51,7 +51,7 @@ mod private {
     impl<TCtx> SubscriptionManager<TCtx> for NoOpSubscriptionManager {
         type Set<'a> = &'a mut SubscriptionSet;
 
-        fn queue(&mut self, _id: u32, _task: OwnedStream<TCtx>) {
+        fn queue(&mut self, _task: OwnedStream<TCtx>) {
             // Empty enum is unconstructable so this panics will never be hit.
             unreachable!();
         }
@@ -105,7 +105,7 @@ mod private {
         ///
         // WARNING: The result of this function will not contain all requests.
         // Your expected to use the `queue` fn to push them onto the runtime and handle them when completed
-        pub(crate) fn execute_batch<'a, M>(
+        pub fn execute_batch<'a, M>(
             &'a self,
             ctx: &TCtx,
             reqs: Vec<Request>,
@@ -225,7 +225,7 @@ mod private {
                     subscriptions.insert(id);
                     drop(subscriptions);
 
-                    subscription_manager.queue(id, s);
+                    subscription_manager.queue(s);
 
                     ExecutorResult::None
                 }
@@ -239,7 +239,7 @@ mod private {
 
     pub struct ExecRequestFut {
         stream: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
-        pub(crate) id: u32,
+        pub id: u32,
     }
 
     impl ExecRequestFut {

@@ -80,7 +80,7 @@ mod private {
     /// TODO
     #[derive(Debug)]
     #[allow(dead_code)]
-    pub(crate) enum IncomingMessage {
+    pub enum IncomingMessage {
         Msg(Result<Value, serde_json::Error>),
         Close,
         Skip,

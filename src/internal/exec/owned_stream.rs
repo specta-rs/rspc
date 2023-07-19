@@ -19,6 +19,8 @@ mod private {
         BuiltRouter, ExecError,
     };
 
+    // TODO: This should be private or handle the "complete" message. Right now `StreamOrFut` handles it and can easily be overlooked by downstream impl.
+
     pin_project! {
         #[project = OwnedStreamProj]
         /// TODO
@@ -26,7 +28,7 @@ mod private {
             arc: Arc<BuiltRouter<TCtx>>,
             #[pin]
             pub(crate) reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
-            pub(crate) id: u32,
+            pub id: u32,
         }
     }
 
@@ -210,7 +212,7 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
                 subscriptions.insert(id);
                 drop(subscriptions);
 
-                subscription_manager.queue(s.id, s);
+                subscription_manager.queue(s);
 
                 ExecutorResult::None
             }
