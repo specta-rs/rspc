@@ -99,9 +99,19 @@ impl From<ExecError> for Error {
 
 impl From<ExecError> for ResponseError {
     fn from(err: ExecError) -> Self {
-        // TODO: Clean this up when doing typesafe errors
         Self {
-            code: 500,
+            code: match &err {
+                ExecError::OperationNotFound => ErrorCode::NotFound,
+                ExecError::DeserializingArgErr(_) => ErrorCode::BadRequest,
+                ExecError::SerializingResultErr(_) => ErrorCode::InternalServerError,
+                ExecError::AxumExtractorError => ErrorCode::BadRequest,
+                ExecError::ErrResolverError(err) => err.code,
+                ExecError::ErrSubscriptionWithNullId => ErrorCode::BadRequest,
+                ExecError::ErrSubscriptionDuplicateId => ErrorCode::BadRequest,
+                ExecError::ErrSubscriptionsNotSupported => ErrorCode::BadRequest,
+                ExecError::ErrStreamEmpty => ErrorCode::InternalServerError,
+            }
+            .to_status_code(),
             // TODO: Don't expose the error to the frontend by default
             message: err.to_string(),
             data: None,
@@ -174,7 +184,7 @@ impl Error {
 }
 
 /// TODO
-#[derive(Debug, Clone, Serialize, Type, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Type, PartialEq, Eq)]
 pub enum ErrorCode {
     BadRequest,
     Unauthorized,

@@ -85,6 +85,8 @@ mod private {
                 // The actual data stream from the resolver function or next middleware
                 #[pin]
                 stream: TNextLayer::Stream<'a>,
+                // We use this so we can keep polling `resp_fut` for the final message and once it is done and this bool is set, shutdown.
+                is_stream_done: bool,
 
                 // The currently executing future returned by the `resp_fn` (publicly `.map`) function
                 // Be aware this will go `None` -> `Some` -> `None`, etc for a subscription
@@ -116,13 +118,21 @@ mod private {
                 match self.as_mut().project() {
                     MiddlewareLayerFutureProj::Resolve { fut, next } => {
                         let result = ready!(fut.poll(cx));
-                        let (ctx, input, req, resp_fn) = result.explode()?;
+                        let (ctx, input, req, resp_fn) = match result.explode() {
+                            Ok(v) => v,
+                            Err(err) => {
+                                cx.waker().wake_by_ref(); // No wakers set so we set one
+                                self.as_mut().set(Self::PendingDone);
+                                return Poll::Ready(Some(Err(err)));
+                            }
+                        };
 
                         match next.call(ctx, input, req) {
                             Ok(stream) => {
                                 self.as_mut().set(Self::Execute {
-                                    resp_fut: PinnedOption::None,
                                     stream,
+                                    is_stream_done: false,
+                                    resp_fut: PinnedOption::None,
                                     resp_fn,
                                 });
                             }
@@ -136,6 +146,7 @@ mod private {
                     }
                     MiddlewareLayerFutureProj::Execute {
                         mut stream,
+                        is_stream_done,
                         mut resp_fut,
                         resp_fn,
                     } => {
@@ -144,6 +155,11 @@ mod private {
                             cx.waker().wake_by_ref(); // No wakers set so we set one
                             resp_fut.set(PinnedOption::None);
                             return Poll::Ready(Some(Ok(result)));
+                        }
+
+                        if *is_stream_done {
+                            self.as_mut().set(Self::Done);
+                            return Poll::Ready(None);
                         }
 
                         match ready!(stream.as_mut().poll_next(cx)) {
@@ -156,16 +172,24 @@ mod private {
                                         continue;
                                     }
                                     // TODO: The `.map` function is skipped for errors. Maybe it should be possible to map them when desired?
-                                    Err(err) => return Poll::Ready(Some(Err(err))),
+                                    Err(err) => {
+                                        cx.waker().wake_by_ref(); // No wakers set so we set one
+                                        self.as_mut().set(Self::PendingDone);
+                                        return Poll::Ready(Some(Err(err)));
+                                    }
                                 },
 
                                 // No `.map` fn so we return the result as is
-                                None => return Poll::Ready(Some(result)),
+                                None => {
+                                    cx.waker().wake_by_ref(); // No wakers set so we set one
+                                    self.as_mut().set(Self::PendingDone);
+                                    return Poll::Ready(Some(result));
+                                }
                             },
-                            // The underlying stream has shutdown so we will too
+                            // The underlying stream has shutdown so we will resolve `resp_fut` and then terminate ourselves
                             None => {
-                                self.as_mut().set(Self::Done);
-                                return Poll::Ready(None);
+                                *is_stream_done = true;
+                                continue;
                             }
                         }
                     }

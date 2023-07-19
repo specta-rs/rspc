@@ -45,7 +45,7 @@ mod private {
     #[derive(Debug, Serialize, PartialEq, Eq)]
     #[cfg_attr(test, derive(specta::Type))]
     pub struct ResponseError {
-        pub code: i32,
+        pub code: u16,
         pub message: String,
         pub data: Option<Value>,
     }

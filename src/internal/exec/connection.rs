@@ -330,20 +330,18 @@ impl<
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
         let mut conn = this.conn.as_mut().project();
-        for _ in 0..conn.streams.len() {
-            match ready!(conn.streams.as_mut().poll_next(cx)) {
-                Some((a, _)) => match a {
-                    StreamYield::Item(resp) => {
-                        this.batch.as_mut().insert(resp);
-                        return PollResult::QueueSend.into();
-                    }
-                    StreamYield::Finished(f) => {
-                        f.take(conn.streams.as_mut());
-                    }
-                },
-                // If no streams, fall asleep until a new subscription is queued
-                None => {}
-            }
+        match ready!(conn.streams.as_mut().poll_next(cx)) {
+            Some((a, _)) => match a {
+                StreamYield::Item(resp) => {
+                    this.batch.as_mut().insert(resp);
+                    return PollResult::QueueSend.into();
+                }
+                StreamYield::Finished(f) => {
+                    f.take(conn.streams.as_mut());
+                }
+            },
+            // If no streams, fall asleep until a new subscription is queued
+            None => {}
         }
 
         PollResult::Progressed.into()
