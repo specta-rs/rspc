@@ -65,7 +65,6 @@ impl From<ExecError> for Error {
             //     cause: None,
             // },
             ExecError::ErrResolverError(err) => err,
-
             ExecError::ErrSubscriptionWithNullId => Error {
                 code: ErrorCode::BadRequest,
                 message: "error creating subscription with null request id".into(),
@@ -136,16 +135,6 @@ pub struct Error {
     #[serde(skip)]
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
-
-// impl From<Error> for JsonRPCError {
-//     fn from(err: Error) -> Self {
-//         JsonRPCError {
-//             code: err.code.to_status_code() as i32,
-//             message: err.message,
-//             data: None,
-//         }
-//     }
-// }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

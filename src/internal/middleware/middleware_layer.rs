@@ -172,6 +172,7 @@ mod private {
                                         continue;
                                     }
                                     // TODO: The `.map` function is skipped for errors. Maybe it should be possible to map them when desired?
+                                    // TODO: We also shut down the whole stream on a single error. Is this desired?
                                     Err(err) => {
                                         cx.waker().wake_by_ref(); // No wakers set so we set one
                                         self.as_mut().set(Self::PendingDone);
@@ -182,7 +183,6 @@ mod private {
                                 // No `.map` fn so we return the result as is
                                 None => {
                                     cx.waker().wake_by_ref(); // No wakers set so we set one
-                                    self.as_mut().set(Self::PendingDone);
                                     return Poll::Ready(Some(result));
                                 }
                             },
@@ -194,6 +194,7 @@ mod private {
                         }
                     }
                     MiddlewareLayerFutureProj::PendingDone => {
+                        println!("PENDING DONE");
                         self.as_mut().set(Self::Done);
                         return Poll::Ready(None);
                     }
