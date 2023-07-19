@@ -23,20 +23,7 @@ pin_project! {
             #[pin]
             fut: ExecRequestFut,
         },
-        // TODO: Don't do it like this
-        Done {
-            id: u32,
-        },
-    }
-}
-
-impl<TCtx: 'static> StreamOrFut<TCtx> {
-    pub fn id(&self) -> u32 {
-        match self {
-            StreamOrFut::OwnedStream { stream } => stream.id,
-            StreamOrFut::ExecRequestFut { fut } => fut.id,
-            StreamOrFut::Done { id } => *id,
-        }
+        Done,
     }
 }
 
@@ -57,7 +44,7 @@ impl<TCtx: 'static> Stream for StreamOrFut<TCtx> {
                 }))
             }
             StreamOrFutProj::ExecRequestFut { fut } => fut.poll(cx).map(|v| {
-                self.set(StreamOrFut::Done { id: v.id });
+                self.set(StreamOrFut::Done);
                 Some(v)
             }),
             StreamOrFutProj::Done { .. } => Poll::Ready(None),

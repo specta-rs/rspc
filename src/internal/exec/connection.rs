@@ -338,10 +338,12 @@ impl<
                 }
                 StreamYield::Finished(f) => {
                     if let Some(stream) = f.take(conn.streams.as_mut()) {
-                        this.batch.as_mut().insert(exec::Response {
-                            id: stream.id(),
-                            inner: ResponseInner::Complete,
-                        });
+                        if let StreamOrFut::OwnedStream { stream } = stream {
+                            this.batch.as_mut().insert(exec::Response {
+                                id: stream.id,
+                                inner: ResponseInner::Complete,
+                            });
+                        }
 
                         PollResult::QueueSend
                     } else {
@@ -368,10 +370,12 @@ impl<
         // TODO: This can be improved by: https://github.com/jonhoo/streamunordered/pull/5
         for (token, _) in conn.steam_to_sub_id.drain() {
             if let Some(stream) = conn.streams.as_mut().take(token) {
-                this.batch.as_mut().insert(exec::Response {
-                    id: stream.id(),
-                    inner: ResponseInner::Complete,
-                });
+                if let StreamOrFut::OwnedStream { stream } = stream {
+                    this.batch.as_mut().insert(exec::Response {
+                        id: stream.id,
+                        inner: ResponseInner::Complete,
+                    });
+                }
             }
         }
         conn.steam_to_sub_id.drain().for_each(drop);
