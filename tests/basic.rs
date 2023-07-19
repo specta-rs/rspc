@@ -133,9 +133,12 @@ fn test_alpha_api() {
                     "[LOG] req='{:?}' ctx='{:?}' input='{:?}'",
                     mw.req, ctx, mw.input
                 );
-                mw.next(ctx).map(|result| async move {
-                    println!("{msg} result='{result:?}'");
-                    result
+                mw.next(ctx).map(move |result| {
+                    let msg = msg.clone();
+                    async move {
+                        println!("{msg} result='{result:?}'");
+                        result
+                    }
                 })
             })
             .with(|mw, ctx| async move {
@@ -143,9 +146,12 @@ fn test_alpha_api() {
                     "[LOG2] req='{:?}' ctx='{:?}' input='{:?}'",
                     mw.req, ctx, mw.input
                 );
-                mw.next(ctx).map(|result| async move {
-                    println!("{msg} result='{result:?}'");
-                    result
+                mw.next(ctx).map(move |result| {
+                    let msg = msg.clone();
+                    async move {
+                        println!("{msg} result='{result:?}'");
+                        result
+                    }
                 })
             })
             .query(|ctx, _: ()| {
