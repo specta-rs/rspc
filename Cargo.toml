@@ -1,7 +1,7 @@
 [package]
 name = "rspc"
 description = "A blazing fast and easy to use TRPC server for Rust."
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.4"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
