@@ -124,10 +124,10 @@ where
         let resps = self
             .executor
             .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
-                let sub_id = fut.id;
+                let fut_id = fut.id;
                 let token = self.streams.insert(StreamOrFut::ExecRequestFut { fut });
-                self.steam_to_sub_id.insert(token, sub_id);
-                self.sub_id_to_stream.insert(sub_id, token);
+                self.steam_to_sub_id.insert(token, fut_id);
+                self.sub_id_to_stream.insert(fut_id, token);
             });
 
         let manager = manager.expect("rspc unreachable");
@@ -330,21 +330,23 @@ impl<
         cx: &mut Context<'_>,
     ) -> Poll<PollResult> {
         let mut conn = this.conn.as_mut().project();
-        match ready!(conn.streams.as_mut().poll_next(cx)) {
-            Some((a, _)) => match a {
-                StreamYield::Item(batch) => {
-                    this.batch.as_mut().insert(batch);
-                    PollResult::QueueSend
-                }
-                StreamYield::Finished(f) => {
-                    f.take(conn.streams.as_mut());
-                    PollResult::Progressed
-                }
-            },
-            // If no streams, fall asleep until a new subscription is queued
-            None => PollResult::Progressed,
+        for _ in 0..conn.streams.len() {
+            match ready!(conn.streams.as_mut().poll_next(cx)) {
+                Some((a, _)) => match a {
+                    StreamYield::Item(batch) => {
+                        this.batch.as_mut().insert(batch);
+                        return PollResult::QueueSend.into();
+                    }
+                    StreamYield::Finished(f) => {
+                        f.take(conn.streams.as_mut());
+                    }
+                },
+                // If no streams, fall asleep until a new subscription is queued
+                None => {}
+            }
         }
-        .into()
+
+        PollResult::Progressed.into()
     }
 
     fn complete(this: &mut ConnectionTaskProj<R, TCtx, S, E>) {
