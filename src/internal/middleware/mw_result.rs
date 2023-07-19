@@ -21,13 +21,13 @@ impl<TRet: Ret, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut
 pub trait Executable2: Send + Sync + 'static {
     type Fut: Future<Output = Value> + Send;
 
-    fn call(self, v: Value) -> Self::Fut;
+    fn call(&self, v: Value) -> Self::Fut;
 }
 
-impl<TFut: Fut<Value>, TFunc: FnOnce(Value) -> TFut + Send + Sync + 'static> Executable2 for TFunc {
+impl<TFut: Fut<Value>, TFunc: Fn(Value) -> TFut + Send + Sync + 'static> Executable2 for TFunc {
     type Fut = TFut;
 
-    fn call(self, v: Value) -> Self::Fut {
+    fn call(&self, v: Value) -> Self::Fut {
         (self)(v)
     }
 }
@@ -37,7 +37,7 @@ pub struct Executable2Placeholder {}
 impl Executable2 for Executable2Placeholder {
     type Fut = Ready<Value>;
 
-    fn call(self, _: Value) -> Self::Fut {
+    fn call(&self, _: Value) -> Self::Fut {
         unreachable!();
     }
 }

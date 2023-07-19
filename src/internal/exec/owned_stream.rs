@@ -27,7 +27,7 @@ mod private {
         pub struct OwnedStream<TCtx> {
             arc: Arc<BuiltRouter<TCtx>>,
             #[pin]
-            pub(crate) reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
+            reference: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
             pub id: u32,
         }
     }

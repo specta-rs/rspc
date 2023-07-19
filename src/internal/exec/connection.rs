@@ -333,8 +333,8 @@ impl<
         for _ in 0..conn.streams.len() {
             match ready!(conn.streams.as_mut().poll_next(cx)) {
                 Some((a, _)) => match a {
-                    StreamYield::Item(batch) => {
-                        this.batch.as_mut().insert(batch);
+                    StreamYield::Item(resp) => {
+                        this.batch.as_mut().insert(resp);
                         return PollResult::QueueSend.into();
                     }
                     StreamYield::Finished(f) => {
