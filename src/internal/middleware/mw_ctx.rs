@@ -22,7 +22,7 @@ impl MiddlewareContext {
 
     #[cfg(feature = "tracing")]
     pub fn with_span(mut self, span: Option<tracing::Span>) -> Self {
-        self.req.span = span;
+        self.req.span = Some(span);
         self
     }
 
@@ -64,7 +64,7 @@ pub struct RequestContext {
     pub kind: ProcedureKind,
     pub path: Cow<'static, str>,
     #[cfg(feature = "tracing")]
-    pub span: Option<tracing::Span>,
+    span: Option<Option<tracing::Span>>,
     // Prevents downstream user constructing type
     _priv: (),
 }
@@ -74,23 +74,30 @@ impl RequestContext {
         Self {
             id,
             #[cfg(feature = "tracing")]
-            span: Some(match kind {
-                ProcedureKind::Query => {
-                    let query = path.as_ref();
-                    tracing::info_span!("rspc", query)
-                }
-                ProcedureKind::Mutation => {
-                    let mutation = path.as_ref();
-                    tracing::info_span!("rspc", mutation)
-                }
-                ProcedureKind::Subscription => {
-                    let subscription = path.as_ref();
-                    tracing::info_span!("rspc", subscription)
-                }
-            }),
+            span: None,
             kind,
             path,
             _priv: (),
         }
+    }
+
+    #[cfg(feature = "tracing")]
+    pub fn span(&self) -> Option<tracing::Span> {
+        self.span.clone().unwrap_or_else(|| {
+            Some(match self.kind {
+                ProcedureKind::Query => {
+                    let query = self.path.as_ref();
+                    tracing::info_span!("rspc", query)
+                }
+                ProcedureKind::Mutation => {
+                    let mutation = self.path.as_ref();
+                    tracing::info_span!("rspc", mutation)
+                }
+                ProcedureKind::Subscription => {
+                    let subscription = self.path.as_ref();
+                    tracing::info_span!("rspc", subscription)
+                }
+            })
+        })
     }
 }

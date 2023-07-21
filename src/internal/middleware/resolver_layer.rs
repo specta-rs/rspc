@@ -36,7 +36,7 @@ where
         c: RequestContext,
     ) -> Result<Self::Stream<'_>, ExecError> {
         #[cfg(feature = "tracing")]
-        let span = c.span.clone();
+        let span = c.span();
 
         #[cfg(feature = "tracing")]
         let _enter = span.as_ref().map(|s| s.enter());
