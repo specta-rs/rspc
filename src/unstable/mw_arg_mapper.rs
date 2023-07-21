@@ -60,11 +60,10 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
                     M::map::<serde_json::Value>(serde_json::from_value(mw.input).unwrap()); // TODO: Error handling
 
                 handler(
-                    MiddlewareContext {
-                        input: serde_json::to_value(out).unwrap(), // TODO: Error handling
-                        req: mw.req,
-                        _priv: (),
-                    },
+                    MiddlewareContext::new(
+                        serde_json::to_value(out).unwrap(), // TODO: Error handling
+                        mw.req,
+                    ),
                     ctx,
                     state,
                 )

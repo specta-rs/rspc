@@ -40,14 +40,7 @@ mod private {
             input: Value,
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
-            let fut = self.mw.run_me(
-                ctx,
-                MiddlewareContext {
-                    input,
-                    req,
-                    _priv: (),
-                },
-            );
+            let fut = self.mw.run_me(ctx, MiddlewareContext::new(input, req));
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,

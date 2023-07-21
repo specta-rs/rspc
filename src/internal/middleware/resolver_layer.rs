@@ -23,6 +23,10 @@ where
     T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
     S: Stream<Item = Result<Value, ExecError>> + Send + 'static,
 {
+    #[cfg(feature = "tracing")]
+    type Stream<'a> = futures::future::Either<S, tracing_futures::Instrumented<S>>;
+
+    #[cfg(not(feature = "tracing"))]
     type Stream<'a> = S;
 
     fn call(
@@ -31,7 +35,28 @@ where
         b: Value,
         c: RequestContext,
     ) -> Result<Self::Stream<'_>, ExecError> {
-        (self.func)(a, b, c)
+        #[cfg(feature = "tracing")]
+        let span = c.span.clone();
+
+        #[cfg(feature = "tracing")]
+        let _enter = span.as_ref().map(|s| s.enter());
+
+        let result = (self.func)(a, b, c);
+
+        #[cfg(feature = "tracing")]
+        drop(_enter);
+
+        #[cfg(not(feature = "tracing"))]
+        return result;
+
+        #[cfg(feature = "tracing")]
+        if let Some(span) = span {
+            return result.map(|v| {
+                futures::future::Either::Right(tracing_futures::Instrument::instrument(v, span))
+            });
+        } else {
+            return result.map(futures::future::Either::Left);
+        }
     }
 }
 

@@ -28,7 +28,7 @@ harness = false
 [features]
 default = ["typescript"]
 tauri = ["dep:tauri", "tokio", "tauri/wry"]
-tracing = ["dep:tracing"]
+tracing = ["dep:tracing", "dep:tracing-futures"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
 anyhow = ["dep:anyhow"]
 tokio = ["dep:tokio", "specta/tokio"]
@@ -59,6 +59,7 @@ pin-project-lite = "0.2.10"
 httpz = { version = "0.0.5", default-features = false, optional = true }
 tauri = { version = "1.4.1", default-features = false, optional = true }
 tracing = { version = "0.1.37", default-features = false, optional = true }
+tracing-futures = { version = "0.2.5", default-features = false, features = ["futures-03"], optional = true }
 worker = { version = "0.0.17", default-features = false, optional = true }
 anyhow = { version = "1", default-features = false, optional = true }
 tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }

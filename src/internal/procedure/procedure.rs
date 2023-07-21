@@ -6,8 +6,8 @@ use specta::Type;
 use crate::{
     internal::{
         middleware::{
-            ConstrainedMiddleware, Middleware, MiddlewareBuilder, MiddlewareLayerBuilder,
-            ProcedureKind, ResolverLayer,
+            ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind,
+            ResolverLayer,
         },
         procedure::BuildProceduresCtx,
         FutureMarkerType, HasResolver, ProcedureDataType, RequestLayer, ResolverFunction,
@@ -80,7 +80,7 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn with2<Mw: Middleware<TMiddleware::LayerCtx>>(
+    pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {

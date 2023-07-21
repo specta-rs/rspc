@@ -144,35 +144,20 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
             Request::Query { id, path, input } => ExecRequestFut::exec(
                 ctx,
                 unsafe { &*self.queries },
-                RequestContext {
-                    id,
-                    kind: ProcedureKind::Query,
-                    path,
-                    _priv: (),
-                },
+                RequestContext::new(id, ProcedureKind::Query, path),
                 input,
             ),
             Request::Mutation { id, path, input } => ExecRequestFut::exec(
                 ctx,
                 unsafe { &*self.mutations },
-                RequestContext {
-                    id,
-                    kind: ProcedureKind::Mutation,
-                    path,
-                    _priv: (),
-                },
+                RequestContext::new(id, ProcedureKind::Mutation, path),
                 input,
             ),
             Request::Subscription { id, path, input } => match subscription_manager {
                 Some(subscriptions) => self.exec_subscription(
                     ctx,
                     subscriptions,
-                    RequestContext {
-                        id,
-                        kind: ProcedureKind::Subscription,
-                        path,
-                        _priv: (),
-                    },
+                    RequestContext::new(id, ProcedureKind::Subscription, path),
                     input,
                 ),
                 None => ExecutorResult::Response(Response {

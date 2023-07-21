@@ -10,6 +10,7 @@ use axum::routing::get;
 use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
+use tracing::info;
 
 #[derive(Clone)]
 struct Ctx {
@@ -20,6 +21,8 @@ const R: Rspc<Ctx> = Rspc::new();
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
+
     let router = R
         .router()
         .procedure(
@@ -32,7 +35,10 @@ async fn main() {
                     })
                 })
                 .with(|mw, ctx| async move { mw.next(ctx) })
-                .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+                .query(|_, _: ()| {
+                    info!("Client requested version");
+                    env!("CARGO_PKG_VERSION")
+                }),
         )
         .procedure(
             "X-Demo-Header",
@@ -75,7 +81,7 @@ async fn main() {
                 stream! {
                     yield "start".to_string();
                     for i in 0..5 {
-                        println!("Sending ping {}", i);
+                        info!("Sending ping {}", i);
                         yield i.to_string();
                         sleep(Duration::from_secs(1)).await;
                     }
