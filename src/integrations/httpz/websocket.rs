@@ -55,7 +55,11 @@ where
                     Message::Text(v) => IncomingMessage::Msg(serde_json::from_str(&v)),
                     Message::Binary(v) => IncomingMessage::Msg(serde_json::from_slice(&v)),
                     Message::Ping(_) | Message::Pong(_) => IncomingMessage::Skip,
+                    // TODO: This is a suboptimal feature flag cause it's *akshually* based on Tokio or not.
+                    #[cfg(feature = "axum")]
                     Message::Close(_) => IncomingMessage::Close,
+                    // TODO: This is a suboptimal feature flag cause it's *akshually* based on Tokio or not.
+                    #[cfg(feature = "axum")]
                     Message::Frame(_) => {
                         #[cfg(debug_assertions)]
                         unreachable!("Reading a 'httpz::ws::Message::Frame' is impossible");

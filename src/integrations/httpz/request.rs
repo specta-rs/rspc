@@ -1,6 +1,9 @@
-use httpz::{axum::axum::extract::FromRequestParts, http};
+use httpz::http;
 
 use super::CookieJar;
+
+#[cfg(feature = "axum")]
+use httpz::axum::axum::extract::FromRequestParts;
 
 /// TODO
 ///
