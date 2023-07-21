@@ -22,7 +22,9 @@ use crate::internal::{
 };
 
 // Time to wait for more messages before sending them over the websocket connection.
-const BATCH_TIMEOUT: Duration = Duration::from_millis(15);
+// This batch is mostly designed to reduce the impact of duplicate subscriptions a bit
+// as sending them together should help us utilise transport layer compression.
+const BATCH_TIMEOUT: Duration = Duration::from_millis(5);
 
 enum PollResult {
     /// The poller has done some progressed work.
@@ -105,7 +107,6 @@ pin_project! {
         streams: StreamUnordered<StreamOrFut<TCtx>>,
 
         // TODO: Remove these cause disgusting messes
-        steam_to_sub_id: HashMap<usize, u32>,
         sub_id_to_stream: HashMap<u32, usize>,
     }
 }
@@ -125,27 +126,24 @@ where
             .executor
             .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
                 let fut_id = fut.id;
-                let token = self.streams.insert(StreamOrFut::ExecRequestFut { fut });
-                self.steam_to_sub_id.insert(token, fut_id);
+                let token = self.streams.insert(StreamOrFut::Future { fut });
                 self.sub_id_to_stream.insert(fut_id, token);
             });
 
         let manager = manager.expect("rspc unreachable");
         if let Some(to_abort) = manager.to_abort {
             for sub_id in to_abort {
-                if let Some(id) = self.sub_id_to_stream.remove(&sub_id) {
-                    Pin::new(&mut self.streams).remove(id);
-                    self.steam_to_sub_id.remove(&id);
+                if let Some(token) = self.sub_id_to_stream.remove(&sub_id) {
+                    Pin::new(&mut self.streams).remove(token);
+                    manager.map.take(&sub_id);
                 }
-                manager.map.remove(&sub_id);
             }
         }
 
         if let Some(queued) = manager.queued {
             for stream in queued {
                 let sub_id = stream.id;
-                let token = self.streams.insert(StreamOrFut::OwnedStream { stream });
-                self.steam_to_sub_id.insert(token, sub_id);
+                let token = self.streams.insert(StreamOrFut::Stream { stream });
                 self.sub_id_to_stream.insert(sub_id, token);
             }
         }
@@ -207,7 +205,6 @@ impl<
                 executor,
                 map: SubscriptionSet::new(),
                 streams: StreamUnordered::new(),
-                steam_to_sub_id: HashMap::new(),
                 sub_id_to_stream: HashMap::new(),
             },
             batch: Batcher {
@@ -338,7 +335,11 @@ impl<
                         return PollResult::QueueSend.into();
                     }
                     StreamYield::Finished(f) => {
-                        f.take(conn.streams.as_mut());
+                        if let Some(stream) = f.take(conn.streams.as_mut()) {
+                            let sub_id = stream.id();
+                            conn.sub_id_to_stream.remove(&sub_id);
+                            conn.map.take(&sub_id);
+                        }
                     }
                 },
                 // If no streams, fall asleep until a new subscription is queued
@@ -359,10 +360,9 @@ impl<
         let mut conn = this.conn.as_mut().project();
 
         // TODO: This can be improved by: https://github.com/jonhoo/streamunordered/pull/5
-        for (token, _) in conn.steam_to_sub_id.drain() {
+        for (_, token) in conn.sub_id_to_stream.drain() {
             conn.streams.as_mut().remove(token);
         }
-        conn.steam_to_sub_id.drain().for_each(drop);
         conn.map.drain().for_each(drop);
     }
 }

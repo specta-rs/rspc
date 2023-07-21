@@ -18,17 +18,30 @@ mod private {
         /// TODO
         #[project = StreamOrFutProj]
         pub enum StreamOrFut<TCtx> {
-            OwnedStream {
+            Stream {
                 #[pin]
                 stream: OwnedStream<TCtx>
             },
-            ExecRequestFut {
+            Future {
                 #[pin]
                 fut: ExecRequestFut,
             },
             // When the underlying stream shutdowns we yield a shutdown message. Once it is yielded we need to yield a `None` to tell the poller we are done.
-            PendingDone,
-            Done,
+            PendingDone {
+                id: u32
+            },
+            Done { id: u32 },
+        }
+    }
+
+    impl<TCtx: 'static> StreamOrFut<TCtx> {
+        pub fn id(&self) -> u32 {
+            match self {
+                StreamOrFut::Stream { stream } => stream.id,
+                StreamOrFut::Future { fut } => fut.id,
+                StreamOrFut::PendingDone { id } => *id,
+                StreamOrFut::Done { id } => *id,
+            }
         }
     }
 
@@ -37,7 +50,7 @@ mod private {
 
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             match self.as_mut().project() {
-                StreamOrFutProj::OwnedStream { mut stream } => {
+                StreamOrFutProj::Stream { mut stream } => {
                     Poll::Ready(Some(match ready!(stream.as_mut().poll_next(cx)) {
                         Some(r) => exec::Response {
                             id: stream.id,
@@ -49,7 +62,7 @@ mod private {
                         None => {
                             let id = stream.id;
                             cx.waker().wake_by_ref(); // No wakers set so we set one
-                            self.set(StreamOrFut::PendingDone);
+                            self.set(StreamOrFut::PendingDone { id });
                             exec::Response {
                                 id,
                                 inner: exec::ResponseInner::Complete,
@@ -57,16 +70,20 @@ mod private {
                         }
                     }))
                 }
-                StreamOrFutProj::ExecRequestFut { fut } => fut.poll(cx).map(|v| {
-                    cx.waker().wake_by_ref(); // No wakers set so we set one
-                    self.set(StreamOrFut::PendingDone);
-                    Some(v)
-                }),
-                StreamOrFutProj::PendingDone => {
-                    self.set(StreamOrFut::Done);
+                StreamOrFutProj::Future { fut } => {
+                    let id = fut.id;
+                    fut.poll(cx).map(|v| {
+                        cx.waker().wake_by_ref(); // No wakers set so we set one
+                        self.set(StreamOrFut::PendingDone { id });
+                        Some(v)
+                    })
+                }
+                StreamOrFutProj::PendingDone { id } => {
+                    let id = *id;
+                    self.set(StreamOrFut::Done { id });
                     Poll::Ready(None)
                 }
-                StreamOrFutProj::Done => {
+                StreamOrFutProj::Done { .. } => {
                     #[cfg(debug_assertions)]
                     panic!("`StreamOrFut` polled after completion");
 
