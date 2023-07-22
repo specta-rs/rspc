@@ -6,6 +6,7 @@ publish = false
 
 [dependencies]
 rspc = { path = "../../", features = ["axum", "tracing"] }
+rspc-axum = { path = "../../crates/axum" }
 tokio = { version = "1.29.1", features = ["full"] }
 async-stream = "0.3.5"
 axum = { version = "0.6.19", features = ["ws"] }
