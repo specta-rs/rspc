@@ -28,13 +28,13 @@ async fn main() {
         .procedure(
             "version",
             R
-                .with(|mw, ctx| async move {
-                    mw.next(ctx).map(|resp| async move {
-                        println!("Client requested version '{}'", resp);
-                        resp
-                    })
-                })
-                .with(|mw, ctx| async move { mw.next(ctx) })
+                // .with(|mw, ctx| async move {
+                //     mw.next(ctx).map(|resp| async move {
+                //         println!("Client requested version '{}'", resp);
+                //         resp
+                //     })
+                // })
+                // .with(|mw, ctx| async move { mw.next(ctx) })
                 .query(|_, _: ()| {
                     info!("Client requested version");
                     env!("CARGO_PKG_VERSION")
@@ -165,6 +165,17 @@ async fn main() {
                 })
                 .axum(),
         )
+        // .nest(
+        //     "/rspc",
+        //     rspc_axum::endpoint(router, |req: Request| {
+        //         println!("Client requested operation '{}'", req.uri().path());
+        //             Ctx {
+        //                 x_demo_header: req
+        //                     .headers()
+        //                     .get("X-Demo-Header")
+        //                     .map(|v| v.to_str().unwrap().to_string()),
+        //             }
+        //     }),
         .layer(cors);
 
     let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 4000));

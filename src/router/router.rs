@@ -29,7 +29,7 @@ where
     TCtx: Send + Sync + 'static,
 {
     /// Constructs a new `Router`.
-    /// Avoid using this directly, use `Rspc::router` instead so the types can be inferred.
+    /// Avoid using this directly, use [`Rspc::router`] instead so the types can be inferred.
     pub(crate) fn _internal_new() -> Self {
         Self {
             procedures: Vec::new(),

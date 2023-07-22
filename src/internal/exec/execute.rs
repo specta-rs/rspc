@@ -19,7 +19,7 @@ mod private {
         internal::{
             exec::{AsyncRuntime, OwnedStream, Request, Response, ResponseInner},
             middleware::{ProcedureKind, RequestContext},
-            FutureValueOrStream, ProcedureStore, ProcedureTodo,
+            DynBody, FutureValueOrStream, ProcedureStore, ProcedureTodo,
         },
         BuiltRouter, ExecError,
     };
@@ -78,6 +78,7 @@ mod private {
     }
 
     /// TODO
+    // TODO: Generic on both incoming body & content type result -> Use currying for it
     pub struct Executor<TCtx> {
         // TODO: Not `pub`
         pub(crate) router: Arc<BuiltRouter<TCtx>>,
@@ -120,15 +121,17 @@ mod private {
 
             // TODO: Probs catch panics so they don't take out the whole batch
 
-            for req in reqs {
-                match self.execute(ctx.clone(), req, subscriptions) {
-                    ExecutorResult::FutureResponse(fut) => queue(fut),
-                    ExecutorResult::Response(resp) => {
-                        resps.push(resp);
-                    }
-                    ExecutorResult::None => {}
-                }
-            }
+            // for req in reqs {
+            //     match self.execute(ctx.clone(), req, subscriptions, body) {
+            //         ExecutorResult::FutureResponse(fut) => queue(fut),
+            //         ExecutorResult::Response(resp) => {
+            //             resps.push(resp);
+            //         }
+            //         ExecutorResult::None => {}
+            //     }
+            // }
+
+            todo!();
 
             resps
         }
@@ -143,6 +146,7 @@ mod private {
             ctx: TCtx,
             req: Request,
             mut subscription_manager: &mut Option<M>,
+            body: &mut DynBody,
         ) -> ExecutorResult {
             // TODO
             // #[cfg(feature = "tracing")]
@@ -159,12 +163,14 @@ mod private {
                     &self.router.queries,
                     RequestContext::new(id, ProcedureKind::Query, path),
                     input,
+                    body,
                 ),
                 Request::Mutation { id, path, input } => ExecRequestFut::exec(
                     ctx,
                     &self.router.mutations,
                     RequestContext::new(id, ProcedureKind::Mutation, path),
                     input,
+                    body,
                 ),
                 Request::Subscription { id, path, input } => match subscription_manager {
                     Some(subscriptions) => self.exec_subscription(
@@ -172,6 +178,7 @@ mod private {
                         subscriptions,
                         RequestContext::new(id, ProcedureKind::Subscription, path),
                         input,
+                        body,
                     ),
                     None => ExecutorResult::Response(Response {
                         id,
@@ -194,6 +201,7 @@ mod private {
             subscription_manager: &mut M,
             req: RequestContext,
             input: Option<Value>,
+            body: &mut DynBody,
         ) -> ExecutorResult {
             let mut subscriptions = subscription_manager.subscriptions();
 
@@ -205,7 +213,7 @@ mod private {
             }
 
             let id = req.id;
-            match OwnedStream::new(self.router.clone(), ctx, input, req) {
+            match OwnedStream::new(self.router.clone(), ctx, input, req, body) {
                 Ok(s) => {
                     subscriptions.insert(id);
                     drop(subscriptions);
@@ -233,6 +241,7 @@ mod private {
             procedures: *const ProcedureStore<TCtx>,
             req: RequestContext,
             input: Option<Value>,
+            body: &mut DynBody,
         ) -> ExecutorResult {
             // TODO: This unsafe is not coupled to the Arc which is bad
             match unsafe { &*procedures }.store.get(req.path.as_ref()) {
@@ -240,7 +249,7 @@ mod private {
                     id: req.id,
                     stream: procedure
                         .exec
-                        .dyn_call(ctx, input.unwrap_or(Value::Null), req),
+                        .dyn_call(ctx, input.unwrap_or(Value::Null), req, body),
                 }),
                 None => ExecutorResult::Response(Response {
                     id: req.id,

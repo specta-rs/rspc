@@ -1,11 +1,16 @@
 use std::{
+    convert::Infallible,
     fmt::Debug,
     future::{Future, Ready},
 };
 
+use bytes::Bytes;
 use serde_json::Value;
 
-use crate::{internal::middleware::RequestContext, ExecError};
+use crate::{
+    internal::{middleware::RequestContext, DynBody},
+    ExecError,
+};
 
 mod private {
     // TODO
@@ -47,30 +52,63 @@ pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;
 
+    type Body: http_body::Body<Data = Bytes, Error = Infallible> + Send + Sync;
+
     // TODO: Seal this and make it private
-    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError>;
+    fn explode(
+        self,
+    ) -> Result<
+        (
+            Self::Ctx,
+            Value,
+            RequestContext,
+            Option<Self::Resp>,
+            Self::Body,
+        ),
+        ExecError,
+    >;
 }
 
+// pub trait MwV2Result2<'a> {
+//     type Body: http_body::Body<Data = Bytes, Error = Infallible> + Send + Sync;
+
+//     // TODO: Seal this and make it private
+//     fn explode(
+//         self,
+//     ) -> Result<
+//         (
+//             Self::Ctx,
+//             Value,
+//             RequestContext,
+//             Option<Self::Resp>,
+//             Self::Body,
+//         ),
+//         ExecError,
+//     >;
+// }
+
 // TODO: Seal this and rename it
-pub struct MwResultWithCtx<TLCtx, TResp> {
+pub struct MwResultWithCtx<'a, TLCtx, TResp> {
     pub(crate) input: Value,
     pub(crate) req: RequestContext,
     pub(crate) ctx: TLCtx,
+    pub(crate) body: &'a mut DynBody,
     pub(crate) resp: Option<TResp>,
 }
 
-impl<TLCtx, TResp: Executable2> MwResultWithCtx<TLCtx, TResp> {
-    pub fn map<E: Executable2>(self, handler: E) -> MwResultWithCtx<TLCtx, E> {
+impl<'a, TLCtx, TResp: Executable2> MwResultWithCtx<'a, TLCtx, TResp> {
+    pub fn map<E: Executable2>(self, handler: E) -> MwResultWithCtx<'a, TLCtx, E> {
         MwResultWithCtx {
             input: self.input,
             req: self.req,
             ctx: self.ctx,
+            body: self.body,
             resp: Some(handler),
         }
     }
 }
 
-impl<TLCtx, TResp> MwV2Result for MwResultWithCtx<TLCtx, TResp>
+impl<'a, TLCtx, TResp> MwV2Result for MwResultWithCtx<'a, TLCtx, TResp>
 where
     TLCtx: Send + Sync + 'static,
     TResp: Executable2,
@@ -78,12 +116,25 @@ where
     type Ctx = TLCtx;
     type Resp = TResp;
 
-    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
-        Ok((self.ctx, self.input, self.req, self.resp))
+    type Body = &'a mut DynBody;
+
+    fn explode(
+        self,
+    ) -> Result<
+        (
+            Self::Ctx,
+            Value,
+            RequestContext,
+            Option<Self::Resp>,
+            Self::Body,
+        ),
+        ExecError,
+    > {
+        Ok((self.ctx, self.input, self.req, self.resp, self.body))
     }
 }
 
-impl<TLCtx, TResp> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, crate::Error>
+impl<'a, TLCtx, TResp> MwV2Result for Result<MwResultWithCtx<'a, TLCtx, TResp>, crate::Error>
 where
     TLCtx: Send + Sync + 'static,
     TResp: Executable2,
@@ -91,7 +142,20 @@ where
     type Ctx = TLCtx;
     type Resp = TResp;
 
-    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
+    type Body = &'a mut DynBody;
+
+    fn explode(
+        self,
+    ) -> Result<
+        (
+            Self::Ctx,
+            Value,
+            RequestContext,
+            Option<Self::Resp>,
+            Self::Body,
+        ),
+        ExecError,
+    > {
         match self {
             Ok(mw_result) => Ok(mw_result.explode()?),
             Err(err) => Err(err.into()),

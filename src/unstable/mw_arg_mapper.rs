@@ -43,13 +43,12 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
         Self(PhantomData)
     }
 
-    pub fn mount<TLCtx, TNCtx, Fu, R>(
+    pub fn mount<TLCtx, TNCtx, TNewResult, Fu, R>(
         &self,
         handler: impl Fn(MiddlewareContext, TLCtx, M::State) -> Fu + Send + Sync + 'static,
-    ) -> impl Middleware<TLCtx, NewCtx = TNCtx>
+    ) -> impl Middleware<TLCtx, Result = R>
     where
         TLCtx: Send + Sync + 'static,
-        TNCtx: Send + Sync + 'static,
         Fu: Future<Output = R> + Send + Sync + 'static,
         R: MwV2Result<Ctx = TNCtx> + Send + 'static,
     {
@@ -90,7 +89,6 @@ mod private {
     {
         type Fut = Fu;
         type Result = R;
-        type NewCtx = R::Ctx; // TODO: Make this work with context switching
         type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
 
         fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {

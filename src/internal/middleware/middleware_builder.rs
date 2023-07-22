@@ -10,7 +10,7 @@ use crate::internal::{middleware::Middleware, Layer};
 pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
 
 mod private {
-    use crate::internal::middleware::MiddlewareLayer;
+    use crate::internal::middleware::{MiddlewareLayer, MwV2Result};
 
     use super::*;
 
@@ -47,7 +47,7 @@ mod private {
         TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
     {
         type Ctx = TMiddleware::Ctx;
-        type LayerCtx = TNewMiddleware::NewCtx;
+        type LayerCtx = <TNewMiddleware::Result as MwV2Result>::Ctx;
         type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
     where
         T: Layer<Self::LayerCtx>;

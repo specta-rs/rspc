@@ -133,7 +133,7 @@ where
     };
 
     let response =
-        match executor.execute(ctx, request, &mut (None as Option<NoOpSubscriptionManager>)) {
+        match executor.execute(ctx, request, &mut (None as Option<NoOpSubscriptionManager>), &mut http_body_util::Full::new(bytes::Bytes::new())) {
             ExecutorResult::FutureResponse(fut) => fut.await,
             ExecutorResult::Response(response) => response,
             ExecutorResult::None => unreachable!(

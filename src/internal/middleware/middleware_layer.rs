@@ -13,7 +13,7 @@ mod private {
         internal::{
             middleware::Middleware,
             middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
-            Layer, PinnedOption, PinnedOptionProj, SealedLayer,
+            DynBody, Layer, PinnedOption, PinnedOptionProj, SealedLayer,
         },
         ExecError,
     };
@@ -32,15 +32,18 @@ mod private {
         TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
         TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
     {
-        type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
+        type Stream<'b> = MiddlewareLayerFuture<'b, TLayerCtx, TNewMiddleware, TMiddleware>;
 
         fn call(
             &self,
             ctx: TLayerCtx,
             input: Value,
             req: RequestContext,
+            body: &mut DynBody,
         ) -> Result<Self::Stream<'_>, ExecError> {
-            let fut = self.mw.run_me(ctx, MiddlewareContext::new(input, req));
+            let fut = self
+                .mw
+                .run_me(ctx, MiddlewareContext::new(input, req, body));
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,
@@ -111,7 +114,7 @@ mod private {
                 match self.as_mut().project() {
                     MiddlewareLayerFutureProj::Resolve { fut, next } => {
                         let result = ready!(fut.poll(cx));
-                        let (ctx, input, req, resp_fn) = match result.explode() {
+                        let (ctx, input, req, resp_fn, body) = match result.explode() {
                             Ok(v) => v,
                             Err(err) => {
                                 cx.waker().wake_by_ref(); // No wakers set so we set one
@@ -120,22 +123,23 @@ mod private {
                             }
                         };
 
-                        match next.call(ctx, input, req) {
-                            Ok(stream) => {
-                                self.as_mut().set(Self::Execute {
-                                    stream,
-                                    is_stream_done: false,
-                                    resp_fut: PinnedOption::None,
-                                    resp_fn,
-                                });
-                            }
+                        // match next.call(ctx, input, req, body) {
+                        //     Ok(stream) => {
+                        //         self.as_mut().set(Self::Execute {
+                        //             stream,
+                        //             is_stream_done: false,
+                        //             resp_fut: PinnedOption::None,
+                        //             resp_fn,
+                        //         });
+                        //     }
 
-                            Err(err) => {
-                                cx.waker().wake_by_ref(); // No wakers set so we set one
-                                self.as_mut().set(Self::PendingDone);
-                                return Poll::Ready(Some(Err(err)));
-                            }
-                        }
+                        //     Err(err) => {
+                        //         cx.waker().wake_by_ref(); // No wakers set so we set one
+                        //         self.as_mut().set(Self::PendingDone);
+                        //         return Poll::Ready(Some(Err(err)));
+                        //     }
+                        // }
+                        todo!();
                     }
                     MiddlewareLayerFutureProj::Execute {
                         mut stream,
@@ -187,7 +191,6 @@ mod private {
                         }
                     }
                     MiddlewareLayerFutureProj::PendingDone => {
-                        println!("PENDING DONE");
                         self.as_mut().set(Self::Done);
                         return Poll::Ready(None);
                     }

@@ -8,14 +8,15 @@ pub mod middleware;
 pub mod procedure;
 
 mod layer;
-mod procedure_store;
 mod resolver_function;
 mod resolver_result;
 
 pub use layer::*;
-pub(crate) use procedure_store::*;
 pub use resolver_function::*;
 pub use resolver_result::*;
+
+// TODO: Remove this
+pub(crate) use procedure::procedure_store::*;
 
 mod private {
     pin_project_lite::pin_project! {

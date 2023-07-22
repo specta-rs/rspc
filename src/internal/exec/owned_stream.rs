@@ -15,7 +15,7 @@ mod private {
     use serde_json::Value;
 
     use crate::{
-        internal::{middleware::RequestContext, ProcedureTodo},
+        internal::{middleware::RequestContext, DynBody, ProcedureTodo},
         BuiltRouter, ExecError,
     };
 
@@ -38,6 +38,7 @@ mod private {
             ctx: TCtx,
             input: Option<Value>,
             req: RequestContext,
+            body: &mut DynBody,
         ) -> Result<Self, u32> {
             let stream: *const _ = match router.subscriptions.store.get(req.path.as_ref()) {
                 Some(v) => v,
@@ -47,9 +48,10 @@ mod private {
             let id = req.id;
 
             // SAFETY: Trust me bro
-            let stream = unsafe { &*stream }
-                .exec
-                .dyn_call(ctx, input.unwrap_or(Value::Null), req);
+            let stream =
+                unsafe { &*stream }
+                    .exec
+                    .dyn_call(ctx, input.unwrap_or(Value::Null), req, body);
 
             Ok(Self {
                 arc: router,
@@ -89,7 +91,7 @@ use serde_json::Value;
 use crate::{
     internal::{
         middleware::{ProcedureKind, RequestContext},
-        ProcedureStore,
+        DynBody, ProcedureStore,
     },
     ExecError,
 };
@@ -130,6 +132,7 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
         ctx: TCtx,
         req: Request,
         mut subscription_manager: &mut Option<M>,
+        body: &mut DynBody,
     ) -> ExecutorResult {
         // TODO
         // #[cfg(feature = "tracing")]
@@ -146,12 +149,14 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
                 unsafe { &*self.queries },
                 RequestContext::new(id, ProcedureKind::Query, path),
                 input,
+                body,
             ),
             Request::Mutation { id, path, input } => ExecRequestFut::exec(
                 ctx,
                 unsafe { &*self.mutations },
                 RequestContext::new(id, ProcedureKind::Mutation, path),
                 input,
+                body,
             ),
             Request::Subscription { id, path, input } => match subscription_manager {
                 Some(subscriptions) => self.exec_subscription(
@@ -159,6 +164,7 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
                     subscriptions,
                     RequestContext::new(id, ProcedureKind::Subscription, path),
                     input,
+                    body,
                 ),
                 None => ExecutorResult::Response(Response {
                     id,
@@ -181,6 +187,7 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
         subscription_manager: &mut M,
         req: RequestContext,
         input: Option<Value>,
+        body: &mut DynBody,
     ) -> ExecutorResult {
         let mut subscriptions = subscription_manager.subscriptions();
 
@@ -192,7 +199,7 @@ impl<TCtx: Send + 'static> TrustMeBro<TCtx> {
         }
 
         let id = req.id;
-        match OwnedStream::new(self.arc.router.clone(), ctx, input, req) {
+        match OwnedStream::new(self.arc.router.clone(), ctx, input, req, body) {
             Ok(s) => {
                 subscriptions.insert(id);
                 drop(subscriptions);
