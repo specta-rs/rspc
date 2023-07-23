@@ -11,6 +11,7 @@ mod private {
         task::{Context, Poll, Waker},
     };
 
+    use bytes::Bytes;
     use futures::{future::poll_fn, stream::FuturesUnordered, Stream, StreamExt};
 
     use serde_json::Value;
@@ -18,7 +19,7 @@ mod private {
     use crate::{
         internal::{
             exec::{AsyncRuntime, OwnedStream, Request, Response, ResponseInner},
-            middleware::{ProcedureKind, RequestContext},
+            middleware::{ProcedureKind, RequestContext, STATE},
             FutureValueOrStream, ProcedureStore, ProcedureTodo,
         },
         BuiltRouter, ExecError,
@@ -267,7 +268,22 @@ mod private {
                     id: self.id,
                     inner: ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
                 }),
-                Poll::Pending => Poll::Pending,
+                Poll::Pending => {
+                    // TODO: Do this body stuff for `OwnedStream` too by putting it in `StreamOrFut`
+                    // TODO: Move `STATE` data in local state incase future is moved onto thread.
+
+                    let wants_body = STATE.with(|w| w.borrow_mut().waker.is_some());
+                    println!("{:?}", wants_body);
+                    if wants_body {
+                        STATE.with(|w| {
+                            let mut w = w.borrow_mut();
+                            w.chunk = Some(Bytes::from("Hello World"));
+                            w.waker.take().expect("unreachable").wake(); // TODO: Use waker vs just looping?
+                        });
+                    }
+
+                    Poll::Pending
+                }
             }
         }
     }

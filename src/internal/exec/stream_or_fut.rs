@@ -96,7 +96,7 @@ mod private {
         fn size_hint(&self) -> (usize, Option<usize>) {
             match self {
                 StreamOrFut::Stream { stream } => stream.size_hint(),
-                StreamOrFut::Future { fut } => (0, Some(1)),
+                StreamOrFut::Future { .. } => (0, Some(1)),
                 StreamOrFut::PendingDone { .. } => (0, Some(0)),
                 StreamOrFut::Done { .. } => (0, Some(0)),
             }
