@@ -127,11 +127,7 @@ where
         m.append(
             key_str,
             self.mw.build(ResolverLayer::new(move |ctx, input, _| {
-                Ok((resolver)(
-                    ctx,
-                    serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-                )
-                .exec())
+                Ok((resolver)(ctx, input).exec())
             })),
             type_def,
         );
