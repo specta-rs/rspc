@@ -57,17 +57,18 @@ where
         #[cfg(feature = "tracing")]
         let _enter = span.as_ref().map(|s| s.enter());
 
-        let result = (self.func)(
-            ctx,
-            serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-            req,
-        );
+        // TODO: Using content types lol
+        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
+        let result = (self.func)(ctx, input, req);
 
         #[cfg(feature = "tracing")]
         drop(_enter);
 
         #[cfg(not(feature = "tracing"))]
-        return result.map(|stream| DecodeBody { stream });
+        return result.map(|stream| DecodeBody {
+            got_body: false,
+            stream,
+        });
 
         #[cfg(feature = "tracing")]
         return if let Some(span) = span {
