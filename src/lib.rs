@@ -20,12 +20,14 @@
 pub mod unstable;
 
 mod compiled_router;
+mod content_type;
 mod error;
 mod router;
 mod rspc;
 
 pub use crate::rspc::*;
 pub use compiled_router::*;
+pub use content_type::*;
 pub use error::*;
 pub use router::*;
 

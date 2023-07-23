@@ -8,7 +8,7 @@ use crate::{
         procedure::{MissingResolver, Procedure},
         FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType,
     },
-    Router,
+    ContentTypes, Json, Router,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -21,17 +21,18 @@ use crate::{
 /// const R: Rspc<()> = Rspc::new();
 /// ```
 pub struct Rspc<
-    TCtx = (), // The is the context the current router was initialised with
+    TCtx = (),            // The is the context the current router was initialised with
+    TContentTypes = Json, // The supported content types for the current router
 > where
-    TCtx: Send + Sync + 'static,
+    TContentTypes: ContentTypes,
 {
-    phantom: PhantomData<TCtx>,
+    phantom: PhantomData<fn() -> (TCtx, TContentTypes)>,
 }
 
 #[allow(clippy::new_without_default)]
-impl<TCtx> Rspc<TCtx>
+impl<TCtx, TContentTypes> Rspc<TCtx, TContentTypes>
 where
-    TCtx: Send + Sync + 'static,
+    TContentTypes: ContentTypes,
 {
     pub const fn new() -> Self {
         Self {
@@ -55,9 +56,11 @@ macro_rules! resolver {
     };
 }
 
-impl<TCtx> Rspc<TCtx>
+impl<TCtx, TContentTypes> Rspc<TCtx, TContentTypes>
 where
+    // TODO: Loosen context bounds?
     TCtx: Send + Sync + 'static,
+    TContentTypes: ContentTypes,
 {
     pub fn router(&self) -> Router<TCtx> {
         Router::_internal_new()
@@ -67,28 +70,29 @@ where
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                middleware: BaseMiddleware::default(),
-                mw,
-            },
-        )
+        // Procedure::new(
+        //     MissingResolver::default(),
+        //     MiddlewareLayerBuilder {
+        //         middleware: BaseMiddleware::default(),
+        //         mw,
+        //     },
+        // )
+        todo!();
     }
 
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
-        self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                middleware: BaseMiddleware::default(),
-                mw,
-            },
-        )
-    }
+    // #[cfg(feature = "unstable")]
+    // pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
+    //     self,
+    //     mw: Mw,
+    // ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
+    //     Procedure::new(
+    //         MissingResolver::default(),
+    //         MiddlewareLayerBuilder {
+    //             middleware: BaseMiddleware::default(),
+    //             mw,
+    //         },
+    //     )
+    // }
 
     resolver!(query, Query, FutureMarkerType);
     resolver!(mutation, Mutation, FutureMarkerType);
