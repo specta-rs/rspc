@@ -13,8 +13,8 @@ use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
 use super::{
-    AsyncRuntime, Executor, IncomingMessage, OwnedStream, Request, Response, StreamOrFut,
-    SubscriptionManager, SubscriptionSet,
+    AsyncRuntime, Executor, IncomingMessage, Request, Response, StreamOrFut, SubscriptionManager,
+    SubscriptionSet,
 };
 use crate::internal::{
     exec::{self, ResponseInner},
@@ -42,7 +42,7 @@ enum PollResult {
 struct ConnectionSubscriptionManager<'a, TCtx> {
     pub map: &'a mut SubscriptionSet,
     pub to_abort: Option<Vec<u32>>,
-    pub queued: Option<Vec<OwnedStream<TCtx>>>,
+    pub queued: Option<Vec<StreamOrFut<TCtx>>>,
 }
 
 impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
@@ -50,7 +50,7 @@ impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
 {
     type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
 
-    fn queue(&mut self, stream: OwnedStream<TCtx>) {
+    fn queue(&mut self, stream: StreamOrFut<TCtx>) {
         match &mut self.queued {
             Some(queued) => {
                 queued.push(stream);
@@ -142,8 +142,8 @@ where
 
         if let Some(queued) = manager.queued {
             for stream in queued {
-                let sub_id = stream.id;
-                let token = self.streams.insert(StreamOrFut::Stream { stream });
+                let sub_id = stream.id();
+                let token = self.streams.insert(stream);
                 self.sub_id_to_stream.insert(sub_id, token);
             }
         }

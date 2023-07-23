@@ -18,7 +18,7 @@ mod private {
 
     use crate::{
         internal::{
-            exec::{AsyncRuntime, OwnedStream, Request, Response, ResponseInner},
+            exec::{AsyncRuntime, Request, Response, ResponseInner, StreamOrFut},
             middleware::{ProcedureKind, RequestContext, STATE},
             FutureValueOrStream, ProcedureStore, ProcedureTodo,
         },
@@ -36,7 +36,7 @@ mod private {
             Self: 'm;
 
         /// TODO
-        fn queue(&mut self, stream: OwnedStream<TCtx>);
+        fn queue(&mut self, stream: StreamOrFut<TCtx>);
 
         /// TODO
         fn subscriptions(&mut self) -> Self::Set<'_>;
@@ -52,7 +52,7 @@ mod private {
     impl<TCtx> SubscriptionManager<TCtx> for NoOpSubscriptionManager {
         type Set<'a> = &'a mut SubscriptionSet;
 
-        fn queue(&mut self, _task: OwnedStream<TCtx>) {
+        fn queue(&mut self, _task: StreamOrFut<TCtx>) {
             // Empty enum is unconstructable so this panics will never be hit.
             unreachable!();
         }
@@ -206,7 +206,7 @@ mod private {
             }
 
             let id = req.id;
-            match OwnedStream::new(self.router.clone(), ctx, input, req) {
+            match StreamOrFut::new_stream(self.router.clone(), ctx, input, req) {
                 Ok(s) => {
                     subscriptions.insert(id);
                     drop(subscriptions);
