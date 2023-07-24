@@ -5,12 +5,13 @@ mod private {
         task::{ready, Context, Poll},
     };
 
-    use futures::{Future, Stream};
+    use futures::Future;
     use pin_project_lite::pin_project;
     use serde_json::Value;
 
     use crate::{
         internal::{
+            exec::RspcStream,
             middleware::Middleware,
             middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
             Layer, PinnedOption, PinnedOptionProj, SealedLayer,
@@ -102,7 +103,7 @@ mod private {
             TLayerCtx: Send + Sync + 'static,
             TMiddleware: Middleware<TLayerCtx>,
             TNextLayer: Layer<TMiddleware::NewCtx>,
-        > Stream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+        > RspcStream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
     {
         type Item = Result<Value, ExecError>;
 

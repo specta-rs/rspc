@@ -13,7 +13,7 @@ use serde_json::Value;
 use specta::Type;
 
 use crate::{
-    internal::{middleware::RequestContext, SealedLayer},
+    internal::{exec::RspcStream, middleware::RequestContext, SealedLayer},
     ExecError,
 };
 
@@ -111,7 +111,7 @@ pin_project! {
     }
 }
 
-impl<S: Stream> Stream for DecodeBody<S> {
+impl<S: Stream> RspcStream for DecodeBody<S> {
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

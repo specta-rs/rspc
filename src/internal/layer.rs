@@ -1,20 +1,21 @@
 use std::{future::ready, pin::Pin};
 
-use futures::{stream::once, Stream};
 use serde_json::Value;
 
-use crate::ExecError;
+use super::exec::RspcStream;
+use crate::{
+    internal::{exec::Once, middleware::RequestContext},
+    ExecError,
+};
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
 pub(crate) type FutureValueOrStream<'a> =
-    Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>;
+    Pin<Box<dyn RspcStream<Item = Result<Value, ExecError>> + Send + 'a>>;
 
 #[doc(hidden)]
 pub trait Layer<TLayerCtx: 'static>: SealedLayer<TLayerCtx> {}
 
 mod private {
-    use crate::internal::middleware::RequestContext;
-
     use super::*;
 
     pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
@@ -35,14 +36,15 @@ mod private {
         ) -> FutureValueOrStream<'_> {
             match self.call(ctx, input, req) {
                 Ok(stream) => Box::pin(stream),
-                Err(err) => Box::pin(once(ready(Err(err)))),
+                // TODO: Avoid allocating error future here
+                Err(err) => Box::pin(Once::new(ready(Err(err)))),
             }
         }
     }
 
     /// Prevents the end user implementing the `Layer` trait and hides the internals
     pub trait SealedLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> {
-        type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
+        type Stream<'a>: RspcStream<Item = Result<Value, ExecError>> + Send + 'a;
 
         fn call(
             &self,
