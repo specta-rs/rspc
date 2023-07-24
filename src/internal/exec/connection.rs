@@ -13,7 +13,7 @@ use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
 use super::{
-    AsyncRuntime, Executor, IncomingMessage, Request, Response, StreamOrFut, SubscriptionManager,
+    AsyncRuntime, Executor, IncomingMessage, Request, Response, RspcTask, SubscriptionManager,
     SubscriptionSet,
 };
 use crate::internal::{
@@ -42,7 +42,7 @@ enum PollResult {
 struct ConnectionSubscriptionManager<'a, TCtx> {
     pub map: &'a mut SubscriptionSet,
     pub to_abort: Option<Vec<u32>>,
-    pub queued: Option<Vec<StreamOrFut<TCtx>>>,
+    pub queued: Option<Vec<RspcTask<TCtx>>>,
 }
 
 impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
@@ -50,7 +50,7 @@ impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
 {
     type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
 
-    fn queue(&mut self, stream: StreamOrFut<TCtx>) {
+    fn queue(&mut self, stream: RspcTask<TCtx>) {
         match &mut self.queued {
             Some(queued) => {
                 queued.push(stream);
@@ -104,7 +104,7 @@ pin_project! {
         executor: Executor<TCtx>,
         map: SubscriptionSet,
         #[pin]
-        streams: StreamUnordered<StreamOrFut<TCtx>>,
+        streams: StreamUnordered<RspcTask<TCtx>>,
 
         // TODO: Remove these cause disgusting messes
         sub_id_to_stream: HashMap<u32, usize>,
@@ -125,8 +125,8 @@ where
         let resps = self
             .executor
             .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
-                let fut_id = fut.id;
-                let token = self.streams.insert(StreamOrFut::Future { fut });
+                let fut_id = fut.id();
+                let token = self.streams.insert(fut.into());
                 self.sub_id_to_stream.insert(fut_id, token);
             });
 

@@ -77,7 +77,9 @@ mod private {
         pub inner: ResponseInner,
     }
 
-    /// TODO
+    /// The type of an incoming message to the [`Connection`] abstraction.
+    ///
+    /// This allows it to be used with any socket that can convert into this type.
     #[derive(Debug)]
     #[allow(dead_code)]
     pub enum IncomingMessage {

@@ -1,4 +1,5 @@
 //! Axum integration for rspc
+#![allow(warnings)] // TODO: Remove once stabilized
 
 // TODO: Crate lints
 
