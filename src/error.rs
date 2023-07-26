@@ -120,6 +120,7 @@ impl From<ExecError> for ResponseError {
 }
 
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum ExportError {
     #[error("IO error exporting bindings: {0}")]
     IOErr(#[from] std::io::Error),
@@ -175,6 +176,7 @@ impl Error {
 
 /// TODO
 #[derive(Debug, Clone, Copy, Serialize, Type, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ErrorCode {
     BadRequest,
     Unauthorized,

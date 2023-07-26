@@ -9,8 +9,8 @@ use crate::internal::{
         ResolverLayer,
     },
     procedure::BuildProceduresCtx,
-    FutureMarkerType, HasResolver, ProcedureDataType, RequestLayer, ResolverFunction,
-    StreamMarkerType,
+    procedure::ProcedureDataType,
+    FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, StreamMarkerType,
 };
 
 /// TODO: Explain

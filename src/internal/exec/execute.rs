@@ -19,8 +19,9 @@ mod private {
     use crate::{
         internal::{
             exec::{AsyncRuntime, Request, RequestFuture, Response, ResponseInner, RspcTask},
-            middleware::{ProcedureKind, RequestContext, STATE},
-            FutureValueOrStream, ProcedureStore, ProcedureTodo,
+            middleware::{ProcedureKind, RequestContext},
+            procedure::{ProcedureStore, ProcedureTodo},
+            FutureValueOrStream,
         },
         BuiltRouter, ExecError,
     };

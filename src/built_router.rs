@@ -13,7 +13,7 @@ use specta::{
 };
 
 use crate::{
-    internal::{ProcedureStore, ProcedureTodo},
+    internal::procedure::{ProcedureStore, ProcedureTodo},
     ExportError,
 };
 

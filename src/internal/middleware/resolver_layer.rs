@@ -1,16 +1,13 @@
-use std::{
-    cell::RefCell,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll, Waker},
-};
-
-use bytes::Bytes;
 use futures::Stream;
 use pin_project_lite::pin_project;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use specta::Type;
+use std::{
+    marker::PhantomData,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use crate::{
     internal::{exec::RspcStream, middleware::RequestContext, SealedLayer},
@@ -65,10 +62,7 @@ where
         drop(_enter);
 
         #[cfg(not(feature = "tracing"))]
-        return result.map(|stream| DecodeBody {
-            got_body: false,
-            stream,
-        });
+        return result.map(|stream| DecodeBody { stream });
 
         #[cfg(feature = "tracing")]
         return if let Some(span) = span {
@@ -78,34 +72,30 @@ where
         } else {
             result.map(futures::future::Either::Left)
         }
-        .map(|stream| DecodeBody {
-            got_body: false,
-            stream,
-        });
+        .map(|stream| DecodeBody { stream });
     }
 }
 
-pub(crate) struct State {
-    pub waker: Option<Waker>,
-    pub chunk: Option<Bytes>,
-}
+// pub(crate) struct State {
+//     pub waker: Option<Waker>,
+//     pub chunk: Option<Bytes>,
+// }
 
-impl State {
-    const fn new() -> Self {
-        Self {
-            waker: None,
-            chunk: None,
-        }
-    }
-}
+// impl State {
+//     const fn new() -> Self {
+//         Self {
+//             waker: None,
+//             chunk: None,
+//         }
+//     }
+// }
 
-thread_local!(pub(crate) static STATE: RefCell<State> = RefCell::new(State::new()));
+// thread_local!(pub(crate) static STATE: RefCell<State> = RefCell::new(State::new()));
 
 pin_project! {
     /// TODO
     // TODO: Seal this
     pub struct DecodeBody<S> {
-        got_body: bool,
         #[pin]
         stream: S
     }
@@ -116,18 +106,18 @@ impl<S: Stream> RspcStream for DecodeBody<S> {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        if !*this.got_body {
-            *this.got_body = true;
-            println!("GET BODY");
+        // if !*this.got_body {
+        //     *this.got_body = true;
+        //     println!("GET BODY");
 
-            STATE.with(|v| {
-                v.borrow_mut().waker = Some(cx.waker().clone());
-            });
+        //     STATE.with(|v| {
+        //         v.borrow_mut().waker = Some(cx.waker().clone());
+        //     });
 
-            return Poll::Pending;
-        } else {
-            println!("GOT BODY {:?}", STATE.with(|v| v.borrow_mut().chunk.take()));
-        }
+        //     return Poll::Pending;
+        // } else {
+        //     println!("GOT BODY {:?}", STATE.with(|v| v.borrow_mut().chunk.take()));
+        // }
 
         this.stream.poll_next(cx)
     }

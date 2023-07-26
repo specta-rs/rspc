@@ -12,8 +12,9 @@ use serde_json::Value;
 use crate::{
     internal::{
         exec::{self, Response, ResponseInner},
-        middleware::{RequestContext, STATE},
-        PinnedOption, PinnedOptionProj, ProcedureStore,
+        middleware::RequestContext,
+        procedure::ProcedureStore,
+        PinnedOption, PinnedOptionProj,
     },
     BuiltRouter, ExecError,
 };
@@ -69,22 +70,7 @@ impl RequestFuture {
                 id: self.id,
                 inner: ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
             }),
-            Poll::Pending => {
-                // TODO: Do this body stuff for `OwnedStream` too by putting it in `StreamOrFut`
-                // TODO: Move `STATE` data in local state incase future is moved onto thread.
-
-                // let wants_body = STATE.with(|w| w.borrow_mut().waker.is_some());
-                // println!("{:?}", wants_body);
-                // if wants_body {
-                //     STATE.with(|w| {
-                //         let mut w = w.borrow_mut();
-                //         w.chunk = Some(Bytes::from("Hello World"));
-                //         w.waker.take().expect("unreachable").wake(); // TODO: Use waker vs just looping?
-                //     });
-                // }
-
-                Poll::Pending
-            }
+            Poll::Pending => Poll::Pending,
         }
     }
 }

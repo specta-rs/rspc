@@ -1,6 +1,6 @@
 use specta::TypeDefs;
 
-use crate::internal::ProcedureStore;
+use crate::internal::procedure::ProcedureStore;
 
 // TODO: Make this `pub(crate)` instead of sealed.
 mod private {
