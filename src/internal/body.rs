@@ -4,6 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use bytes::Bytes;
 use futures::ready;
 use pin_project_lite::pin_project;
 use serde_json::Value;
@@ -33,7 +34,6 @@ pub trait Body {
 // This type was taken from futures_util so all credit to it's original authors!
 pin_project! {
     /// A stream which emits single element and then EOF.
-    #[derive(Debug)]
     #[must_use = "streams do nothing unless polled"]
     pub(crate) struct Once<Fut> {
         #[pin]

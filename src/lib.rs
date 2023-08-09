@@ -36,3 +36,6 @@ pub mod internal;
 #[cfg(feature = "unstable")]
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub use blob::Blob;
+
+#[cfg(not(feature = "unstable"))]
+pub(crate) use blob::Blob;

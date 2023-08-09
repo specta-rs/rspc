@@ -34,8 +34,9 @@ where
     TLayerCtx: Send + Sync + 'static,
     TArg: Type + DeserializeOwned + 'static,
     T: Fn(TLayerCtx, TArg, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
-    S: Body + Send + 'static, // Stream<Item = Result<Value, ExecError>> + Send + 'static,
+    S: Body + Send + 'static,
 {
+    // TODO: Fix tracing support
     // #[cfg(feature = "tracing")]
     // type Stream<'a> = futures::future::Either<S, tracing_futures::Instrumented<S>>;
 
@@ -54,15 +55,15 @@ where
         // #[cfg(feature = "tracing")]
         // let _enter = span.as_ref().map(|s| s.enter());
 
-        // // TODO: Using content types lol
-        // let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
-        // let result = (self.func)(ctx, input, req);
+        // TODO: Using content types lol
+        let input = serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?;
+        let result = (self.func)(ctx, input, req);
 
         // #[cfg(feature = "tracing")]
         // drop(_enter);
 
         // #[cfg(not(feature = "tracing"))]
-        // return result.map(|stream| DecodeBody { stream });
+        return result;
 
         // #[cfg(feature = "tracing")]
         // return if let Some(span) = span {
@@ -73,6 +74,5 @@ where
         //     result.map(futures::future::Either::Left)
         // }
         // .map(|stream| DecodeBody { stream });
-        todo!();
     }
 }

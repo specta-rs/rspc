@@ -19,21 +19,29 @@ use crate::{Error, ExecError};
 pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 
 mod private {
+    use std::convert::Infallible;
+
+    use bytes::Bytes;
     use pin_project_lite::pin_project;
 
     use crate::{internal::Body, Blob};
 
     use super::*;
 
-    // TODO: Try and remove
-    pub struct StreamAdapter<S: Stream<Item = Result<Value, ExecError>> + Send + 'static>(pub S);
+    pin_project! {
+        // TODO: Try and remove
+        pub struct StreamAdapter<S> {
+            #[pin]
+            stream: S,
+        }
+    }
 
     impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> Body for StreamAdapter<S> {
         fn poll_next(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
         ) -> Poll<Option<Result<Value, ExecError>>> {
-            todo!()
+            self.project().stream.poll_next(cx)
         }
 
         fn size_hint(&self) -> (usize, Option<usize>) {
@@ -70,9 +78,11 @@ mod private {
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(once(ready(
-                serde_json::to_value(self).map_err(ExecError::SerializingResultErr),
-            )))
+            StreamAdapter {
+                stream: once(ready(
+                    serde_json::to_value(self).map_err(ExecError::SerializingResultErr),
+                )),
+            }
         }
     }
 
@@ -105,10 +115,11 @@ mod private {
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(once(ready(
-                self.map_err(ExecError::ErrResolverError)
-                    .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
-            )))
+            StreamAdapter {
+                stream: once(ready(self.map_err(ExecError::ErrResolverError).and_then(
+                    |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                ))),
+            }
         }
     }
 
@@ -124,17 +135,23 @@ mod private {
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(once(FutureSerializeFuture {
-                fut: self,
-                phantom: PhantomData,
-            }))
+            StreamAdapter {
+                stream: once(FutureSerializeFuture {
+                    fut: self,
+                    phantom: PhantomData,
+                }),
+            }
         }
     }
 
     #[doc(hidden)]
-    pub enum FutureBlobAsyncBufReadMarker {}
+    pub struct FutureBlobAsyncBufReadMarker<S>(
+        PhantomData<S>,
+        // Prevents this type from being instantiated
+        Infallible,
+    );
     #[cfg(feature = "tokio")]
-    impl<TFut, S> SealedRequestLayer<FutureBlobAsyncBufReadMarker> for TFut
+    impl<TFut, S> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S>> for TFut
     where
         TFut: Future<Output = Blob<S>> + Send + 'static,
         S: tokio::io::AsyncBufRead,
@@ -184,10 +201,12 @@ mod private {
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(once(FutureSerializeResultFuture {
-                fut: self,
-                phantom: PhantomData,
-            }))
+            StreamAdapter {
+                stream: once(FutureSerializeResultFuture {
+                    fut: self,
+                    phantom: PhantomData,
+                }),
+            }
         }
     }
 
@@ -208,10 +227,11 @@ mod private {
         type Output = Result<Value, ExecError>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            self.project().fut.poll(cx).map(|v| {
-                v.map_err(ExecError::ErrResolverError)
-                    .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr))
-            })
+            // self.project().fut.poll(cx).map(|v| {
+            //     v.map_err(ExecError::ErrResolverError)
+            //         .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr))
+            // })
+            todo!();
         }
     }
 
@@ -229,10 +249,12 @@ mod private {
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(MapStream::Stream {
-                stream: self,
-                mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            })
+            StreamAdapter {
+                stream: MapStream::Stream {
+                    stream: self,
+                    mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                },
+            }
         }
     }
 
@@ -248,15 +270,19 @@ mod private {
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(match self {
-                Ok(stream) => MapStream::Stream {
-                    stream,
-                    mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            StreamAdapter {
+                stream: match self {
+                    Ok(stream) => MapStream::Stream {
+                        stream,
+                        mapper: |v| {
+                            serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                        },
+                    },
+                    Err(err) => MapStream::Error {
+                        err: Some(ExecError::ErrResolverError(err)),
+                    },
                 },
-                Err(err) => MapStream::Error {
-                    err: Some(ExecError::ErrResolverError(err)),
-                },
-            })
+            }
         }
     }
 
@@ -272,10 +298,12 @@ mod private {
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(MapStream::Stream {
-                stream: self,
-                mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            })
+            StreamAdapter {
+                stream: MapStream::Stream {
+                    stream: self,
+                    mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                },
+            }
         }
     }
 
@@ -292,11 +320,15 @@ mod private {
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(FutureMapStream::First {
-                fut: self,
-                fut_mapper: Ok,
-                stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            })
+            StreamAdapter {
+                stream: FutureMapStream::First {
+                    fut: self,
+                    fut_mapper: Ok,
+                    stream_mapper: |v| {
+                        serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                    },
+                },
+            }
         }
     }
 
@@ -313,11 +345,15 @@ mod private {
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(FutureMapStream::First {
-                fut: self,
-                fut_mapper: |s| s.map_err(ExecError::ErrResolverError),
-                stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            })
+            StreamAdapter {
+                stream: FutureMapStream::First {
+                    fut: self,
+                    fut_mapper: |s| s.map_err(ExecError::ErrResolverError),
+                    stream_mapper: |v| {
+                        serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                    },
+                },
+            }
         }
     }
 
@@ -334,11 +370,15 @@ mod private {
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            StreamAdapter(FutureMapStream::First {
-                fut: self,
-                fut_mapper: Ok,
-                stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            })
+            StreamAdapter {
+                stream: FutureMapStream::First {
+                    fut: self,
+                    fut_mapper: Ok,
+                    stream_mapper: |v| {
+                        serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                    },
+                },
+            }
         }
     }
 
