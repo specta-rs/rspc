@@ -105,9 +105,10 @@ mod private {
             TNextLayer: Layer<TMiddleware::NewCtx>,
         > RspcStream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
     {
-        type Item = Result<Value, ExecError>;
-
-        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        fn poll_next(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Option<Result<Value, ExecError>>> {
             loop {
                 match self.as_mut().project() {
                     MiddlewareLayerFutureProj::Resolve { fut, next } => {

@@ -29,9 +29,10 @@ mod private {
     pub struct StreamAdapter<S: Stream<Item = Result<Value, ExecError>> + Send + 'static>(pub S);
 
     impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> RspcStream for StreamAdapter<S> {
-        type Item = Result<Value, ExecError>;
-
-        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        fn poll_next(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Option<Result<Value, ExecError>>> {
             todo!()
         }
 
@@ -48,7 +49,7 @@ mod private {
 
     pub trait SealedRequestLayer<TMarker> {
         type Result: Type;
-        type Stream: RspcStream<Item = Result<Value, ExecError>> + Send + 'static;
+        type Stream: RspcStream + Send + 'static;
         type TypeMarker;
 
         fn exec(self) -> Self::Stream;

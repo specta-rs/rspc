@@ -9,8 +9,7 @@ use crate::{
 };
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
-pub(crate) type FutureValueOrStream<'a> =
-    Pin<Box<dyn RspcStream<Item = Result<Value, ExecError>> + Send + 'a>>;
+pub(crate) type FutureValueOrStream<'a> = Pin<Box<dyn RspcStream + Send + 'a>>;
 
 #[doc(hidden)]
 pub trait Layer<TLayerCtx: 'static>: SealedLayer<TLayerCtx> {}
@@ -44,7 +43,7 @@ mod private {
 
     /// Prevents the end user implementing the `Layer` trait and hides the internals
     pub trait SealedLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> {
-        type Stream<'a>: RspcStream<Item = Result<Value, ExecError>> + Send + 'a;
+        type Stream<'a>: RspcStream + Send + 'a;
 
         fn call(
             &self,

@@ -6,6 +6,9 @@ use std::{
 
 use futures::ready;
 use pin_project_lite::pin_project;
+use serde_json::Value;
+
+use crate::ExecError;
 
 // /// TODO
 // pub enum RspcPoll<T> {
@@ -24,11 +27,11 @@ use pin_project_lite::pin_project;
 // TODO: Make this `pub(crate)`
 #[must_use = "streams do nothing unless polled"]
 pub trait RspcStream {
-    // TODO: Remove item
-    type Item;
-
     // TODO: Return bytes
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>>;
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Value, ExecError>>>;
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -55,10 +58,11 @@ impl<Fut> Once<Fut> {
     }
 }
 
-impl<Fut: Future> RspcStream for Once<Fut> {
-    type Item = Fut::Output;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+impl<Fut: Future<Output = Result<Value, ExecError>>> RspcStream for Once<Fut> {
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Value, ExecError>>> {
         let mut this = self.project();
         let v = match this.future.as_mut().as_pin_mut() {
             Some(fut) => ready!(fut.poll(cx)),
