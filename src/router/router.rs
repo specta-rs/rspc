@@ -7,7 +7,7 @@ use crate::{
     internal::{
         middleware::MiddlewareBuilder,
         procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
-        HasResolver, RequestLayer,
+        resolver::{HasResolver, RequestLayer},
     },
     BuildError, BuildResult, BuiltRouter,
 };

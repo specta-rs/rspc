@@ -6,7 +6,7 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType,
+        resolver::{FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType},
     },
     Router,
 };
@@ -45,7 +45,7 @@ macro_rules! resolver {
         pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
         where
             R: ResolverFunction<TCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, Type = $result_marker>,
+            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker>,
         {
             Procedure::new(
                 resolver.into_marker(ProcedureKind::$kind),

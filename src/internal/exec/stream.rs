@@ -14,13 +14,20 @@ use pin_project_lite::pin_project;
 //     Pending,
 // }
 
-/// TODO
+// TODO: Rename `Body` + Hoist into `internal`
+/// The resulting body from an rspc operation.
+/// This can mean different things in different contexts.
+///
+/// For a query or mutation each frame is a part of the resulting single "message". Eg. part of the json, or part of a file.
+/// For a subscription each frame is a discrete websocket message. Eg. the json for a single procedure's result
 ///
 // TODO: Make this `pub(crate)`
 #[must_use = "streams do nothing unless polled"]
 pub trait RspcStream {
+    // TODO: Remove item
     type Item;
 
+    // TODO: Return bytes
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>>;
 
     #[inline]

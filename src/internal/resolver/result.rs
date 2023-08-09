@@ -21,7 +21,24 @@ pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 mod private {
     use pin_project_lite::pin_project;
 
+    use crate::{internal::exec::RspcStream, Blob};
+
     use super::*;
+
+    // TODO: Try and remove
+    pub struct StreamAdapter<S: Stream<Item = Result<Value, ExecError>> + Send + 'static>(pub S);
+
+    impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> RspcStream for StreamAdapter<S> {
+        type Item = Result<Value, ExecError>;
+
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            todo!()
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (0, None)
+        }
+    }
 
     // Markers
     #[doc(hidden)]
@@ -31,8 +48,8 @@ mod private {
 
     pub trait SealedRequestLayer<TMarker> {
         type Result: Type;
-        type Stream: Stream<Item = Result<Value, ExecError>> + Send + 'static;
-        type Type;
+        type Stream: RspcStream<Item = Result<Value, ExecError>> + Send + 'static;
+        type TypeMarker;
 
         fn exec(self) -> Self::Stream;
     }
@@ -48,13 +65,31 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = Once<Ready<Result<Value, ExecError>>>;
-        type Type = FutureMarkerType;
+        type Stream = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>;
+        type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            once(ready(
+            StreamAdapter(once(ready(
                 serde_json::to_value(self).map_err(ExecError::SerializingResultErr),
-            ))
+            )))
+        }
+    }
+
+    // TODO: Allow `Blob<T>` with `futures::AsyncRead`/`futures:AsyncBufRead` traits
+
+    #[doc(hidden)]
+    pub enum BlobAsyncBufReadMarker {}
+    #[cfg(feature = "tokio")]
+    impl<S> SealedRequestLayer<BlobAsyncBufReadMarker> for Blob<S>
+    where
+        S: tokio::io::AsyncBufRead,
+    {
+        type Result = ();
+        type Stream = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>;
+        type TypeMarker = FutureMarkerType;
+
+        fn exec(self) -> Self::Stream {
+            todo!();
         }
     }
 
@@ -65,12 +100,13 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = Once<Ready<Result<Value, ExecError>>>;
-        type Type = FutureMarkerType;
+        type Stream = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>;
+        type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            once(ready(self.map_err(ExecError::ErrResolverError).and_then(
-                |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            StreamAdapter(once(ready(
+                self.map_err(ExecError::ErrResolverError)
+                    .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
             )))
         }
     }
@@ -83,14 +119,31 @@ mod private {
         T: Serialize + Type + Send + 'static,
     {
         type Result = T;
-        type Stream = Once<FutureSerializeFuture<TFut, T>>;
-        type Type = FutureMarkerType;
+        type Stream = StreamAdapter<Once<FutureSerializeFuture<TFut, T>>>;
+        type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            once(FutureSerializeFuture {
+            StreamAdapter(once(FutureSerializeFuture {
                 fut: self,
                 phantom: PhantomData,
-            })
+            }))
+        }
+    }
+
+    #[doc(hidden)]
+    pub enum FutureBlobAsyncBufReadMarker {}
+    #[cfg(feature = "tokio")]
+    impl<TFut, S> SealedRequestLayer<FutureBlobAsyncBufReadMarker> for TFut
+    where
+        TFut: Future<Output = Blob<S>> + Send + 'static,
+        S: tokio::io::AsyncBufRead,
+    {
+        type Result = ();
+        type Stream = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>; // StreamAdapter<Once<FutureSerializeFuture<TFut, T>>>;
+        type TypeMarker = FutureMarkerType;
+
+        fn exec(self) -> Self::Stream {
+            todo!();
         }
     }
 
@@ -126,14 +179,14 @@ mod private {
         T: Serialize + Type + Send + 'static,
     {
         type Result = T;
-        type Stream = Once<FutureSerializeResultFuture<TFut, T>>;
-        type Type = FutureMarkerType;
+        type Stream = StreamAdapter<Once<FutureSerializeResultFuture<TFut, T>>>;
+        type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Stream {
-            once(FutureSerializeResultFuture {
+            StreamAdapter(once(FutureSerializeResultFuture {
                 fut: self,
                 phantom: PhantomData,
-            })
+            }))
         }
     }
 
@@ -171,14 +224,14 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = MapStream<TStream>;
-        type Type = StreamMarkerType;
+        type Stream = StreamAdapter<MapStream<TStream>>;
+        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            MapStream::Stream {
+            StreamAdapter(MapStream::Stream {
                 stream: self,
                 mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            }
+            })
         }
     }
 
@@ -190,11 +243,11 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = MapStream<TStream>;
-        type Type = StreamMarkerType;
+        type Stream = StreamAdapter<MapStream<TStream>>;
+        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            match self {
+            StreamAdapter(match self {
                 Ok(stream) => MapStream::Stream {
                     stream,
                     mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
@@ -202,7 +255,7 @@ mod private {
                 Err(err) => MapStream::Error {
                     err: Some(ExecError::ErrResolverError(err)),
                 },
-            }
+            })
         }
     }
 
@@ -214,14 +267,14 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = MapStream<TStream>;
-        type Type = StreamMarkerType;
+        type Stream = StreamAdapter<MapStream<TStream>>;
+        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            MapStream::Stream {
+            StreamAdapter(MapStream::Stream {
                 stream: self,
                 mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            }
+            })
         }
     }
 
@@ -234,15 +287,15 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = FutureMapStream<TFut, TStream>;
-        type Type = StreamMarkerType;
+        type Stream = StreamAdapter<FutureMapStream<TFut, TStream>>;
+        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            FutureMapStream::First {
+            StreamAdapter(FutureMapStream::First {
                 fut: self,
                 fut_mapper: Ok,
                 stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            }
+            })
         }
     }
 
@@ -255,15 +308,15 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = FutureMapStream<TFut, TStream>;
-        type Type = StreamMarkerType;
+        type Stream = StreamAdapter<FutureMapStream<TFut, TStream>>;
+        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            FutureMapStream::First {
+            StreamAdapter(FutureMapStream::First {
                 fut: self,
                 fut_mapper: |s| s.map_err(ExecError::ErrResolverError),
                 stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            }
+            })
         }
     }
 
@@ -276,15 +329,15 @@ mod private {
         T: Serialize + Type,
     {
         type Result = T;
-        type Stream = FutureMapStream<TFut, TStream>;
-        type Type = StreamMarkerType;
+        type Stream = StreamAdapter<FutureMapStream<TFut, TStream>>;
+        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Stream {
-            FutureMapStream::First {
+            StreamAdapter(FutureMapStream::First {
                 fut: self,
                 fut_mapper: Ok,
                 stream_mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            }
+            })
         }
     }
 

@@ -32,7 +32,7 @@ tracing = ["dep:tracing", "dep:tracing-futures"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
 anyhow = ["dep:anyhow"]
 tokio = ["dep:tokio", "specta/tokio"]
-typescript = ["specta/typescript"] # TODO: Use this in the actual codebase
+typescript = ["specta/typescript"]                            # TODO: Use this in the actual codebase
 
 unstable = [] # APIs where one line of code can blow up your whole app
 
@@ -50,12 +50,14 @@ vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 [dependencies]
 specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
-serde_json = { version = "1", default-features = false }
-thiserror = { version = "1.0.43", default-features = false } # TODO: Possibly remove and do Specta typesafe errors manully?
+thiserror = { version = "1.0.43", default-features = false }                         # TODO: Possibly remove and do Specta typesafe errors manully?
 futures = { version = "0.3.28", default-features = false }
 pin-project-lite = "0.2.10"
 
 # Optional
+serde_json = { version = "1", default-features = false }
+# TODO: toml, yaml, formdata
+
 httpz = { version = "0.0.5", default-features = false, optional = true }
 tauri = { version = "1.4.1", default-features = false, optional = true }
 tracing = { version = "0.1.37", default-features = false, optional = true }
@@ -64,9 +66,11 @@ worker = { version = "0.0.17", default-features = false, optional = true }
 anyhow = { version = "1", default-features = false, optional = true }
 tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }
 streamunordered = "0.5.2"
-http-body = "1.0.0-rc.2"
 bytes = "1.4.0"
-http-body-util = "0.1.0-rc.3" # TODO: Remove
+
+# TODO: Remove
+http-body = "1.0.0-rc.2"      # In adapter
+http-body-util = "0.1.0-rc.3" # Just remove
 
 [dev-dependencies]
 # Tests
@@ -77,13 +81,7 @@ tauri = { version = "1.4.1", features = ["api-all"] }
 # Benchmark
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 pprof = { version = "0.12.0", features = ["flamegraph", "criterion", "protobuf-codec", "frame-pointer"] }
-rspc_legacy = { package = "rspc", version = "0.1.3"}
+rspc_legacy = { package = "rspc", version = "0.1.3" }
 
 [workspace]
-members = [
-    "./crates/*",
-    "./examples",
-    "./examples/axum",
-    "./examples/vercel",
-    "./examples/tauri/src-tauri"
-]
+members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "./examples/tauri/src-tauri"]

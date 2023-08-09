@@ -4,13 +4,12 @@ use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::internal::{
-    middleware::{
-        ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind,
-        ResolverLayer,
+    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
+    procedure::{BuildProceduresCtx, ProcedureDataType},
+    resolver::{
+        FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
+        StreamMarkerType,
     },
-    procedure::BuildProceduresCtx,
-    procedure::ProcedureDataType,
-    FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, StreamMarkerType,
 };
 
 /// TODO: Explain
@@ -45,7 +44,7 @@ macro_rules! resolver {
         pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
         where
             R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, Type = $result_marker>,
+            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker>,
         {
             Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
         }

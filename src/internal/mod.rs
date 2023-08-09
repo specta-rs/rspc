@@ -6,14 +6,11 @@
 pub mod exec;
 pub mod middleware;
 pub mod procedure;
+pub mod resolver;
 
 mod layer;
-mod resolver_function;
-mod resolver_result;
 
 pub use layer::*;
-pub use resolver_function::*;
-pub use resolver_result::*;
 
 mod private {
     pin_project_lite::pin_project! {
