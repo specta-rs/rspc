@@ -21,14 +21,14 @@ pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 mod private {
     use pin_project_lite::pin_project;
 
-    use crate::{internal::exec::RspcStream, Blob};
+    use crate::{internal::Body, Blob};
 
     use super::*;
 
     // TODO: Try and remove
     pub struct StreamAdapter<S: Stream<Item = Result<Value, ExecError>> + Send + 'static>(pub S);
 
-    impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> RspcStream for StreamAdapter<S> {
+    impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> Body for StreamAdapter<S> {
         fn poll_next(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -49,7 +49,7 @@ mod private {
 
     pub trait SealedRequestLayer<TMarker> {
         type Result: Type;
-        type Stream: RspcStream + Send + 'static;
+        type Stream: Body + Send + 'static;
         type TypeMarker;
 
         fn exec(self) -> Self::Stream;

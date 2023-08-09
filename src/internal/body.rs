@@ -10,23 +10,14 @@ use serde_json::Value;
 
 use crate::ExecError;
 
-// /// TODO
-// pub enum RspcPoll<T> {
-//     Ready(Option<T>),
-//     // PendingBodyChunk,
-//     Pending,
-// }
-
-// TODO: Rename `Body` + Hoist into `internal`
 /// The resulting body from an rspc operation.
-/// This can mean different things in different contexts.
 ///
+/// This can mean different things in different contexts.
 /// For a query or mutation each frame is a part of the resulting single "message". Eg. part of the json, or part of a file.
 /// For a subscription each frame is a discrete websocket message. Eg. the json for a single procedure's result
 ///
-// TODO: Make this `pub(crate)`
-#[must_use = "streams do nothing unless polled"]
-pub trait RspcStream {
+#[must_use = "`Body` do nothing unless polled"]
+pub trait Body {
     // TODO: Return bytes
     fn poll_next(
         self: Pin<&mut Self>,
@@ -58,7 +49,7 @@ impl<Fut> Once<Fut> {
     }
 }
 
-impl<Fut: Future<Output = Result<Value, ExecError>>> RspcStream for Once<Fut> {
+impl<Fut: Future<Output = Result<Value, ExecError>>> Body for Once<Fut> {
     fn poll_next(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,

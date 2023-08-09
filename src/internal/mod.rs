@@ -8,8 +8,10 @@ pub mod middleware;
 pub mod procedure;
 pub mod resolver;
 
+mod body;
 mod layer;
 
+pub(crate) use body::*;
 pub use layer::*;
 
 mod private {

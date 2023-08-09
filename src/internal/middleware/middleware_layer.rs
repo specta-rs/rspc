@@ -11,10 +11,9 @@ mod private {
 
     use crate::{
         internal::{
-            exec::RspcStream,
             middleware::Middleware,
             middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
-            Layer, PinnedOption, PinnedOptionProj, SealedLayer,
+            Body, Layer, PinnedOption, PinnedOptionProj, SealedLayer,
         },
         ExecError,
     };
@@ -103,7 +102,7 @@ mod private {
             TLayerCtx: Send + Sync + 'static,
             TMiddleware: Middleware<TLayerCtx>,
             TNextLayer: Layer<TMiddleware::NewCtx>,
-        > RspcStream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+        > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
     {
         fn poll_next(
             mut self: Pin<&mut Self>,

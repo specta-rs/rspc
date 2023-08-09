@@ -14,12 +14,12 @@ use crate::{
         exec::{self, Response, ResponseInner},
         middleware::RequestContext,
         procedure::ProcedureStore,
-        PinnedOption, PinnedOptionProj,
+        Body, PinnedOption, PinnedOptionProj,
     },
     BuiltRouter, ExecError,
 };
 
-use super::{ExecutorResult, RspcStream};
+use super::ExecutorResult;
 
 /// TODO
 pub struct RequestFuture {
@@ -27,7 +27,7 @@ pub struct RequestFuture {
 
     // You will notice this is a `Stream` not a `Future` like would be implied by the struct.
     // rspc's whole middleware system only uses `Stream`'s cause it makes life easier so we change to & from a `Future` at the start/end.
-    stream: Pin<Box<dyn RspcStream + Send>>,
+    stream: Pin<Box<dyn Body + Send>>,
 }
 
 impl RequestFuture {
@@ -135,7 +135,7 @@ enum Inner<TCtx> {
         // We MUST hold the `Arc` so it doesn't get dropped while the stream exists from it.
         _arc: Arc<BuiltRouter<TCtx>>,
         // The stream to poll
-        reference: Pin<Box<dyn RspcStream + Send>>,
+        reference: Pin<Box<dyn Body + Send>>,
     },
     Future(RequestFuture),
     // When the underlying stream yields `None` we map it to a "complete" message and change to this state.

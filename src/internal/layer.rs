@@ -2,19 +2,17 @@ use std::{future::ready, pin::Pin};
 
 use serde_json::Value;
 
-use super::exec::RspcStream;
-use crate::{
-    internal::{exec::Once, middleware::RequestContext},
-    ExecError,
-};
+use crate::{internal::middleware::RequestContext, ExecError};
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
-pub(crate) type FutureValueOrStream<'a> = Pin<Box<dyn RspcStream + Send + 'a>>;
+pub(crate) type FutureValueOrStream<'a> = Pin<Box<dyn Body + Send + 'a>>;
 
 #[doc(hidden)]
 pub trait Layer<TLayerCtx: 'static>: SealedLayer<TLayerCtx> {}
 
 mod private {
+    use crate::internal::Once;
+
     use super::*;
 
     pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
@@ -43,7 +41,7 @@ mod private {
 
     /// Prevents the end user implementing the `Layer` trait and hides the internals
     pub trait SealedLayer<TLayerCtx: 'static>: DynLayer<TLayerCtx> {
-        type Stream<'a>: RspcStream + Send + 'a;
+        type Stream<'a>: Body + Send + 'a;
 
         fn call(
             &self,
@@ -64,3 +62,5 @@ mod private {
 }
 
 pub(crate) use private::{DynLayer, SealedLayer};
+
+use super::Body;

@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    internal::{exec::RspcStream, middleware::RequestContext, SealedLayer},
+    internal::{middleware::RequestContext, Body, SealedLayer},
     ExecError,
 };
 
@@ -34,7 +34,7 @@ where
     TLayerCtx: Send + Sync + 'static,
     TArg: Type + DeserializeOwned + 'static,
     T: Fn(TLayerCtx, TArg, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
-    S: RspcStream + Send + 'static, // Stream<Item = Result<Value, ExecError>> + Send + 'static,
+    S: Body + Send + 'static, // Stream<Item = Result<Value, ExecError>> + Send + 'static,
 {
     // #[cfg(feature = "tracing")]
     // type Stream<'a> = futures::future::Either<S, tracing_futures::Instrumented<S>>;
