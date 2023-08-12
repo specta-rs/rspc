@@ -5,5 +5,5 @@ mod layer;
 mod result;
 
 pub use function::*;
-pub use layer::*;
+pub(crate) use layer::*;
 pub use result::*;

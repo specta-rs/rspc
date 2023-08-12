@@ -11,7 +11,6 @@ mod private {
         task::{Context, Poll, Waker},
     };
 
-    use bytes::Bytes;
     use futures::{future::poll_fn, stream::FuturesUnordered, Stream, StreamExt};
 
     use serde_json::Value;
@@ -84,8 +83,6 @@ mod private {
         /// It should not be treated as an error.
         None,
     }
-
-    // impl Future for ExecutorResult {}
 
     /// TODO
     pub struct Executor<TCtx> {

@@ -4,7 +4,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
 use futures::ready;
 use pin_project_lite::pin_project;
 use serde_json::Value;
@@ -19,7 +18,7 @@ use crate::ExecError;
 ///
 #[must_use = "`Body` do nothing unless polled"]
 pub trait Body {
-    // TODO: Return bytes
+    // TODO: Return `bytes::Bytes` instead
     fn poll_next(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,

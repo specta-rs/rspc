@@ -2,6 +2,7 @@ use std::{future::ready, pin::Pin};
 
 use serde_json::Value;
 
+use super::Body;
 use crate::{internal::middleware::RequestContext, ExecError};
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
@@ -62,5 +63,3 @@ mod private {
 }
 
 pub(crate) use private::{DynLayer, SealedLayer};
-
-use super::Body;
