@@ -17,9 +17,10 @@ mod private {
 
     use crate::{
         internal::{
-            exec::{AsyncRuntime, OwnedStream, Request, Response, ResponseInner},
+            exec::{AsyncRuntime, Request, RequestFuture, Response, ResponseInner, RspcTask},
             middleware::{ProcedureKind, RequestContext},
-            FutureValueOrStream, ProcedureStore, ProcedureTodo,
+            procedure::{ProcedureStore, ProcedureTodo},
+            FutureValueOrStream,
         },
         BuiltRouter, ExecError,
     };
@@ -34,8 +35,9 @@ mod private {
         where
             Self: 'm;
 
+        // TODO: Replace this with the normal `queue` fn?
         /// TODO
-        fn queue(&mut self, stream: OwnedStream<TCtx>);
+        fn queue(&mut self, stream: RspcTask<TCtx>);
 
         /// TODO
         fn subscriptions(&mut self) -> Self::Set<'_>;
@@ -51,7 +53,7 @@ mod private {
     impl<TCtx> SubscriptionManager<TCtx> for NoOpSubscriptionManager {
         type Set<'a> = &'a mut SubscriptionSet;
 
-        fn queue(&mut self, _task: OwnedStream<TCtx>) {
+        fn queue(&mut self, _task: RspcTask<TCtx>) {
             // Empty enum is unconstructable so this panics will never be hit.
             unreachable!();
         }
@@ -72,15 +74,19 @@ mod private {
     // This means a thread is only spawned by us for subscriptions and by the caller for requests.
     // If `execute` was async it would *usually* be spawned by the caller but if it were a subscription it would then be spawned again by us.
     pub enum ExecutorResult {
-        FutureResponse(ExecRequestFut),
+        /// A future that will resolve to a response.
+        FutureResponse(RequestFuture),
+        /// A static response
         Response(Response),
+        /// A `None` result means the executor has no response to send back to the client.
+        /// This usually means the request was a subscription and a task was spawned to handle it.
+        /// It should not be treated as an error.
         None,
     }
 
     /// TODO
     pub struct Executor<TCtx> {
-        // TODO: Not `pub`
-        pub(crate) router: Arc<BuiltRouter<TCtx>>,
+        router: Arc<BuiltRouter<TCtx>>,
     }
 
     impl<TCtx: Send + 'static> Clone for Executor<TCtx> {
@@ -110,7 +116,7 @@ mod private {
             ctx: &TCtx,
             reqs: Vec<Request>,
             subscriptions: &mut Option<M>,
-            mut queue: impl FnMut(ExecRequestFut) + 'a,
+            mut queue: impl FnMut(RequestFuture) + 'a,
         ) -> Vec<Response>
         where
             TCtx: Clone,
@@ -122,7 +128,7 @@ mod private {
 
             for req in reqs {
                 match self.execute(ctx.clone(), req, subscriptions) {
-                    ExecutorResult::FutureResponse(fut) => queue(fut),
+                    ExecutorResult::FutureResponse(fut) => queue(fut.into()),
                     ExecutorResult::Response(resp) => {
                         resps.push(resp);
                     }
@@ -146,7 +152,7 @@ mod private {
         ) -> ExecutorResult {
             // TODO
             // #[cfg(feature = "tracing")]
-            // tracing::debug!(
+            // tracing::trace!(
             //     "Executing operation '{}' with key '{}' with params {:?}",
             //     kind.to_str(),
             //     procedure_name,
@@ -154,13 +160,13 @@ mod private {
             // );
 
             match req {
-                Request::Query { id, path, input } => ExecRequestFut::exec(
+                Request::Query { id, path, input } => RequestFuture::exec(
                     ctx,
                     &self.router.queries,
                     RequestContext::new(id, ProcedureKind::Query, path),
                     input,
                 ),
-                Request::Mutation { id, path, input } => ExecRequestFut::exec(
+                Request::Mutation { id, path, input } => RequestFuture::exec(
                     ctx,
                     &self.router.mutations,
                     RequestContext::new(id, ProcedureKind::Mutation, path),
@@ -205,7 +211,7 @@ mod private {
             }
 
             let id = req.id;
-            match OwnedStream::new(self.router.clone(), ctx, input, req) {
+            match RspcTask::new_stream(self.router.clone(), ctx, input, req) {
                 Ok(s) => {
                     subscriptions.insert(id);
                     drop(subscriptions);
@@ -220,60 +226,10 @@ mod private {
                 }),
             }
         }
-    }
 
-    pub struct ExecRequestFut {
-        stream: Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>,
-        pub id: u32,
-    }
-
-    impl ExecRequestFut {
-        pub fn exec<TCtx: 'static>(
-            ctx: TCtx,
-            procedures: *const ProcedureStore<TCtx>,
-            req: RequestContext,
-            input: Option<Value>,
-        ) -> ExecutorResult {
-            // TODO: This unsafe is not coupled to the Arc which is bad
-            match unsafe { &*procedures }.store.get(req.path.as_ref()) {
-                Some(procedure) => ExecutorResult::FutureResponse(Self {
-                    id: req.id,
-                    stream: procedure
-                        .exec
-                        .dyn_call(ctx, input.unwrap_or(Value::Null), req),
-                }),
-                None => ExecutorResult::Response(Response {
-                    id: req.id,
-                    inner: ResponseInner::Error(ExecError::OperationNotFound.into()),
-                }),
-            }
-        }
-    }
-
-    impl Future for ExecRequestFut {
-        type Output = Response;
-
-        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            match self.stream.as_mut().poll_next(cx) {
-                Poll::Ready(Some(Ok(result))) => Poll::Ready(Response {
-                    id: self.id,
-                    inner: ResponseInner::Value(result),
-                }),
-                Poll::Ready(Some(Err(err))) => Poll::Ready(Response {
-                    id: self.id,
-                    inner: ResponseInner::Error(err.into()),
-                }),
-                Poll::Ready(None) => Poll::Ready(Response {
-                    id: self.id,
-                    inner: ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
-                }),
-                Poll::Pending => Poll::Pending,
-            }
-        }
+        // TODO: Handle subscription cleanup
     }
 }
-
-pub(crate) use private::ExecRequestFut;
 
 #[cfg(feature = "unstable")]
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]

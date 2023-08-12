@@ -5,6 +5,7 @@ export type Procedures = {
         { key: "X-Demo-Header", input: never, result: string } | 
         { key: "echo", input: string, result: string } | 
         { key: "error", input: never, result: string } | 
+        { key: "serveFile", input: never, result: null } | 
         { key: "transformMe", input: never, result: string } | 
         { key: "version", input: never, result: string },
     mutations: 

@@ -5,7 +5,7 @@ mod private {
         task::{ready, Context, Poll},
     };
 
-    use futures::{Future, Stream};
+    use futures::Future;
     use pin_project_lite::pin_project;
     use serde_json::Value;
 
@@ -13,7 +13,7 @@ mod private {
         internal::{
             middleware::Middleware,
             middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
-            Layer, PinnedOption, PinnedOptionProj, SealedLayer,
+            Body, Layer, PinnedOption, PinnedOptionProj, SealedLayer,
         },
         ExecError,
     };
@@ -102,11 +102,12 @@ mod private {
             TLayerCtx: Send + Sync + 'static,
             TMiddleware: Middleware<TLayerCtx>,
             TNextLayer: Layer<TMiddleware::NewCtx>,
-        > Stream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+        > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
     {
-        type Item = Result<Value, ExecError>;
-
-        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        fn poll_next(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Option<Result<Value, ExecError>>> {
             loop {
                 match self.as_mut().project() {
                     MiddlewareLayerFutureProj::Resolve { fut, next } => {

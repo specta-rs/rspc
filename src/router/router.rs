@@ -5,16 +5,14 @@ use specta::{Type, TypeDefs};
 
 use crate::{
     internal::{
-        is_valid_name,
         middleware::MiddlewareBuilder,
-        procedure::{BuildProceduresCtx, Procedure},
-        HasResolver, ProcedureStore, RequestLayer,
+        procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
+        resolver::{HasResolver, RequestLayer},
     },
     BuildError, BuildResult, BuiltRouter,
 };
 
-pub type ProcedureBuildFn<TCtx> =
-    Box<dyn FnOnce(Cow<'static, str>, &mut BuildProceduresCtx<'_, TCtx>)>;
+type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut BuildProceduresCtx<'_, TCtx>)>;
 
 pub struct Router<TCtx>
 where
@@ -29,7 +27,7 @@ where
     TCtx: Send + Sync + 'static,
 {
     /// Constructs a new `Router`.
-    /// Avoid using this directly, use `Rspc::router` instead so the types can be inferred.
+    /// Avoid using this directly, use [`Rspc::router`] instead so the types can be inferred.
     pub(crate) fn _internal_new() -> Self {
         Self {
             procedures: Vec::new(),

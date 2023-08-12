@@ -7,8 +7,8 @@ use std::{
 use futures::Stream;
 use async_stream::stream;
 use axum::routing::get;
-use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc};
-use tokio::time::sleep;
+use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc, Blob};
+use tokio::{time::sleep, fs::File, io::BufReader};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -132,6 +132,14 @@ async fn main() {
                 }
             }),
         )
+        // TODO: This is an unstable feature and should be used with caution!
+        .procedure("serveFile", R.query(|_, _: ()| async move {
+            let file = File::open("./demo.json").await.unwrap();
+
+            // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
+
+            Blob(BufReader::new(file))
+        }))
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.

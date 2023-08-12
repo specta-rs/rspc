@@ -1,4 +1,4 @@
-//! Internal types which power rspc. The module provides no guarantee of compatibility between updates, so you should be careful rely on types from it.
+//! Internal types which power rspc. The module provides no guarantee of compatibility between updates, so you should be careful relying on types from it.
 //!
 //! WARNING: Anything in this module or submodules does not follow semantic versioning as it's considered an implementation detail.
 //!
@@ -6,16 +6,13 @@
 pub mod exec;
 pub mod middleware;
 pub mod procedure;
+pub mod resolver;
 
+mod body;
 mod layer;
-mod procedure_store;
-mod resolver_function;
-mod resolver_result;
 
+pub(crate) use body::*;
 pub use layer::*;
-pub(crate) use procedure_store::*;
-pub use resolver_function::*;
-pub use resolver_result::*;
 
 mod private {
     pin_project_lite::pin_project! {
@@ -84,7 +81,7 @@ mod tests {
         .unwrap();
 
         let tys = collect_datatypes! {
-            super::ProcedureDataType,
+            super::procedure::ProcedureDataType,
             // crate::Procedures, // TODO
             exec::Request,
             exec::Response,
