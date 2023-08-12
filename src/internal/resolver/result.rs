@@ -124,21 +124,18 @@ mod private {
 
     #[doc(hidden)]
     pub enum FutureSerializeMarker {}
-    impl<TFut, T> SealedRequestLayer<FutureSerializeMarker> for TFut
+    impl<F> SealedRequestLayer<FutureSerializeMarker> for F
     where
-        TFut: Future<Output = T> + Send + 'static,
-        T: Serialize + Type + Send + 'static,
+        F: Future + Send + 'static,
+        F::Output: Serialize + Type + Send + 'static,
     {
-        type Result = T;
-        type Body = StreamAdapter<Once<FutureSerializeFuture<TFut, T>>>;
+        type Result = F::Output;
+        type Body = StreamAdapter<Once<FutureSerializeFuture<F>>>;
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
-                stream: once(FutureSerializeFuture {
-                    fut: self,
-                    phantom: PhantomData,
-                }),
+                stream: once(FutureSerializeFuture { fut: self }),
             }
         }
     }
@@ -170,17 +167,16 @@ mod private {
 
     pin_project! {
         #[project = FutureSerializeFutureProj]
-        pub struct FutureSerializeFuture<TFut, T> {
+        pub struct FutureSerializeFuture<TFut> {
             #[pin]
             fut: TFut,
-            phantom: PhantomData<T>
         }
     }
 
-    impl<TFut, T> Future for FutureSerializeFuture<TFut, T>
+    impl<TFut> Future for FutureSerializeFuture<TFut>
     where
-        TFut: Future<Output = T> + Send + 'static,
-        T: Serialize + Type + Send + 'static,
+        TFut: Future + Send + 'static,
+        TFut::Output: Serialize + Type + Send + 'static,
     {
         type Output = Result<Value, ExecError>;
 
@@ -241,13 +237,13 @@ mod private {
 
     #[doc(hidden)]
     pub enum StreamMarker {}
-    impl<TStream, T> SealedRequestLayer<StreamMarker> for TStream
+    impl<S> SealedRequestLayer<StreamMarker> for S
     where
-        TStream: Stream<Item = T> + Send + Sync + 'static,
-        T: Serialize + Type,
+        S: Stream + Send + Sync + 'static,
+        S::Item: Serialize + Type,
     {
-        type Result = T;
-        type Body = StreamAdapter<MapStream<TStream>>;
+        type Result = S::Item;
+        type Body = StreamAdapter<MapStream<S>>;
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
@@ -262,13 +258,13 @@ mod private {
 
     #[doc(hidden)]
     pub enum ResultStreamMarker {}
-    impl<TStream, T> SealedRequestLayer<ResultStreamMarker> for Result<TStream, Error>
+    impl<S> SealedRequestLayer<ResultStreamMarker> for Result<S, Error>
     where
-        TStream: Stream<Item = T> + Send + Sync + 'static,
-        T: Serialize + Type,
+        S: Stream + Send + Sync + 'static,
+        S::Item: Serialize + Type,
     {
-        type Result = T;
-        type Body = StreamAdapter<MapStream<TStream>>;
+        type Result = S::Item;
+        type Body = StreamAdapter<MapStream<S>>;
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
@@ -311,14 +307,14 @@ mod private {
 
     #[doc(hidden)]
     pub enum FutureStreamMarker {}
-    impl<TFut, TStream, T> SealedRequestLayer<FutureStreamMarker> for TFut
+    impl<TFut, S> SealedRequestLayer<FutureStreamMarker> for TFut
     where
-        TFut: Future<Output = TStream> + Send + 'static,
-        TStream: Stream<Item = T> + Send + Sync + 'static,
-        T: Serialize + Type,
+        TFut: Future<Output = S> + Send + 'static,
+        S: Stream + Send + Sync + 'static,
+        S::Item: Serialize + Type,
     {
-        type Result = T;
-        type Body = StreamAdapter<FutureMapStream<TFut, TStream>>;
+        type Result = S::Item;
+        type Body = StreamAdapter<FutureMapStream<TFut, S>>;
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
@@ -336,14 +332,14 @@ mod private {
 
     #[doc(hidden)]
     pub enum FutureResultStreamMarker {}
-    impl<TFut, TStream, T> SealedRequestLayer<FutureResultStreamMarker> for TFut
+    impl<TFut, S> SealedRequestLayer<FutureResultStreamMarker> for TFut
     where
-        TFut: Future<Output = Result<TStream, Error>> + Send + 'static,
-        TStream: Stream<Item = T> + Send + Sync + 'static,
-        T: Serialize + Type,
+        TFut: Future<Output = Result<S, Error>> + Send + 'static,
+        S: Stream + Send + Sync + 'static,
+        S::Item: Serialize + Type,
     {
-        type Result = T;
-        type Body = StreamAdapter<FutureMapStream<TFut, TStream>>;
+        type Result = S::Item;
+        type Body = StreamAdapter<FutureMapStream<TFut, S>>;
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {

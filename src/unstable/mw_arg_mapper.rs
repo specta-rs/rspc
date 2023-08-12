@@ -43,15 +43,14 @@ impl<M: MwArgMapper + 'static> MwArgMapperMiddleware<M> {
         Self(PhantomData)
     }
 
-    pub fn mount<TLCtx, TNCtx, Fu, R>(
+    pub fn mount<TLCtx, F>(
         &self,
-        handler: impl Fn(MiddlewareContext, TLCtx, M::State) -> Fu + Send + Sync + 'static,
-    ) -> impl Middleware<TLCtx, NewCtx = TNCtx>
+        handler: impl Fn(MiddlewareContext, TLCtx, M::State) -> F + Send + Sync + 'static,
+    ) -> impl Middleware<TLCtx, NewCtx = <F::Output as MwV2Result>::Ctx>
     where
         TLCtx: Send + Sync + 'static,
-        TNCtx: Send + Sync + 'static,
-        Fu: Future<Output = R> + Send + Sync + 'static,
-        R: MwV2Result<Ctx = TNCtx> + Send + 'static,
+        F: Future + Send + Sync + 'static,
+        F::Output: MwV2Result + Send + 'static,
     {
         // TODO: Make this passthrough to new handler but provide the owned `State` as an arg
         private::MiddlewareFnWithTypeMapper(
@@ -80,17 +79,17 @@ mod private {
 
     pub struct MiddlewareFnWithTypeMapper<M, F>(pub(super) F, pub(super) PhantomData<M>);
 
-    impl<M, TLCtx, F, Fu, R> SealedMiddleware<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
+    impl<M, TLCtx, F, Fu> SealedMiddleware<TLCtx> for MiddlewareFnWithTypeMapper<M, F>
     where
         TLCtx: Send + Sync + 'static,
         F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = R> + Send + 'static,
-        R: MwV2Result + Send + 'static,
+        Fu: Future + Send + 'static,
+        Fu::Output: MwV2Result + Send + 'static,
         M: MwArgMapper + 'static,
     {
         type Fut = Fu;
-        type Result = R;
-        type NewCtx = R::Ctx; // TODO: Make this work with context switching
+        type Result = Fu::Output;
+        type NewCtx = <Fu::Output as MwV2Result>::Ctx; // TODO: Make this work with context switching
         type Arg<T: Type + DeserializeOwned + 'static> = M::Input<T>;
 
         fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {

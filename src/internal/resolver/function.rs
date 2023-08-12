@@ -46,14 +46,10 @@ mod private {
 
     // TODO: Remove TResultMarker
 
-    impl<
-            TLayerCtx,
-            TArg,
-            TResult,
-            TResultMarker,
-            F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        > SealedResolverFunction<HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
+    impl<TLayerCtx, TArg, TResult, TResultMarker, F>
+        SealedResolverFunction<HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
     where
+        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
         TResult: RequestLayer<TResultMarker>,
         TLayerCtx: Send + Sync + 'static,

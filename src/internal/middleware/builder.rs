@@ -39,18 +39,17 @@ mod private {
         pub(crate) mw: TNewMiddleware,
     }
 
-    impl<TLayerCtx, TMiddleware, TNewMiddleware> SealedMiddlewareBuilder
+    impl<TMiddleware, TNewMiddleware> SealedMiddlewareBuilder
         for MiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
     where
-        TLayerCtx: Send + Sync + 'static,
-        TMiddleware: MiddlewareBuilder<LayerCtx = TLayerCtx> + Send + Sync + 'static,
-        TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
+        TMiddleware: MiddlewareBuilder + Send + Sync + 'static,
+        TNewMiddleware: Middleware<TMiddleware::LayerCtx> + Send + Sync + 'static,
     {
         type Ctx = TMiddleware::Ctx;
         type LayerCtx = TNewMiddleware::NewCtx;
-        type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TLayerCtx, T, TNewMiddleware>>
-    where
-        T: Layer<Self::LayerCtx>;
+        type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, T, TNewMiddleware>>
+        where
+            T: Layer<Self::LayerCtx>;
         type Arg<T: Type + DeserializeOwned + 'static> = TNewMiddleware::Arg<T>;
 
         fn build<T>(self, next: T) -> Self::LayerResult<T>

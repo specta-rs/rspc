@@ -20,12 +20,12 @@ where
 {
 }
 
-impl<TLCtx, F, Fu, R> ConstrainedMiddleware<TLCtx> for F
+impl<TLCtx, F, Fu> ConstrainedMiddleware<TLCtx> for F
 where
     TLCtx: Send + Sync + 'static,
     F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
-    Fu: Future<Output = R> + Send + 'static,
-    R: MwV2Result + Send + 'static,
+    Fu: Future + Send + 'static,
+    Fu::Output: MwV2Result + Send + 'static,
 {
 }
 
@@ -44,16 +44,16 @@ mod private {
 
     impl<TLCtx, T: SealedMiddleware<TLCtx>> Middleware<TLCtx> for T {}
 
-    impl<TLCtx, F, Fu, R> SealedMiddleware<TLCtx> for F
+    impl<TLCtx, F, Fu> SealedMiddleware<TLCtx> for F
     where
         TLCtx: Send + Sync + 'static,
         F: Fn(MiddlewareContext, TLCtx) -> Fu + Send + Sync + 'static,
-        Fu: Future<Output = R> + Send + 'static,
-        R: MwV2Result + Send + 'static,
+        Fu: Future + Send + 'static,
+        Fu::Output: MwV2Result + Send + 'static,
     {
         type Fut = Fu;
-        type Result = R;
-        type NewCtx = R::Ctx; // TODO: Make this work with context switching
+        type Result = Fu::Output;
+        type NewCtx = <Fu::Output as MwV2Result>::Ctx; // TODO: Make this work with context switching
         type Arg<T: Type + DeserializeOwned + 'static> = T;
 
         fn run_me(&self, ctx: TLCtx, mw: MiddlewareContext) -> Self::Fut {
