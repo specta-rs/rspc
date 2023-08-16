@@ -474,6 +474,7 @@ mod private {
         }
     }
 
+    #[cfg(feature = "tokio")]
     pin_project! {
         #[project = FutureBlobStreamProj]
         pub struct FutureBlobStream<F, S>
@@ -487,6 +488,7 @@ mod private {
         }
     }
 
+    #[cfg(feature = "tokio")]
     impl<S: tokio::io::AsyncBufRead, F: Future> Body for FutureBlobStream<F, S> {
         fn poll_next(
             self: Pin<&mut Self>,
@@ -501,6 +503,7 @@ mod private {
         }
     }
 
+    #[cfg(feature = "tokio")]
     pin_project! {
         #[project = BlobStreamProj]
         pub struct BlobStream<S> {
@@ -510,6 +513,7 @@ mod private {
         }
     }
 
+    #[cfg(feature = "tokio")]
     impl<S: tokio::io::AsyncBufRead> Body for BlobStream<S> {
         fn poll_next(
             self: Pin<&mut Self>,
