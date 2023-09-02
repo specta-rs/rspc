@@ -36,12 +36,13 @@ where
     }
 
     #[track_caller]
-    pub fn procedure<F, TArg, TResult, TResultMarker, TMiddleware>(
+    pub fn procedure<F, TArg, TResult, TResultMarker, TMiddleware, TError>(
         mut self,
         key: &'static str,
         procedure: Procedure<
             HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>,
             TMiddleware,
+            TError,
         >,
     ) -> Self
     where
@@ -50,6 +51,7 @@ where
         TResult: RequestLayer<TResultMarker> + 'static,
         TResultMarker: 'static,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
+        TError: 'static,
     {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {

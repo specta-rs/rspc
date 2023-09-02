@@ -22,24 +22,24 @@ pub fn mount() -> Router<()> {
             }
         }),
     )
-    // .procedure(
-    //     "asyncPings",
-    //     R.subscription(|_ctx, _args: ()| async move {
-    //         stream! {
-    //             for _ in 0..5 {
-    //                 yield Ok("ping".to_string());
-    //                 sleep(Duration::from_secs(1)).await;
-    //             }
-    //         }
-    //     }),
-    // )
-    // .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
-    //     stream! {
-    //         for _ in 0..5 {
-    //             yield Ok("ping".to_string());
-    //             sleep(Duration::from_secs(1)).await;
-    //         }
-    //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-    //     }
-    // }))
+    .procedure(
+        "asyncPings",
+        R.subscription(|_ctx, _args: ()| async move {
+            stream! {
+                for _ in 0..5 {
+                    yield Ok("ping".to_string()) as Result<_, rspc::Error>;
+                    sleep(Duration::from_secs(1)).await;
+                }
+            }
+        }),
+    )
+    .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
+        stream! {
+            for _ in 0..5 {
+                yield Ok("ping".to_string());
+                sleep(Duration::from_secs(1)).await;
+            }
+            yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
+        }
+    }))
 }

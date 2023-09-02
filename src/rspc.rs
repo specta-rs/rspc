@@ -8,7 +8,7 @@ use crate::{
         procedure::{MissingResolver, Procedure},
         resolver::{FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType},
     },
-    Router,
+    Error, Router,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -42,10 +42,13 @@ where
 
 macro_rules! resolver {
     ($func:ident, $kind:ident, $result_marker:ident) => {
-        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
+        pub fn $func<R, RMarker>(
+            self,
+            resolver: R,
+        ) -> Procedure<RMarker, BaseMiddleware<TCtx>, Error>
         where
             R: ResolverFunction<TCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker>,
+            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = Error>,
         {
             Procedure::new(
                 resolver.into_marker(ProcedureKind::$kind),
@@ -63,10 +66,14 @@ where
         Router::_internal_new()
     }
 
+    pub fn error<TError>(self) -> Procedure<MissingResolver, BaseMiddleware<TCtx>, TError> {
+        Procedure::new(MissingResolver::default(), BaseMiddleware::default())
+    }
+
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, Error> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -80,7 +87,7 @@ where
     pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, Error> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {

@@ -22,29 +22,34 @@ impl Default for MissingResolver {
 }
 
 mod private {
-    pub struct Procedure<T, TMiddleware> {
+    pub struct Procedure<T, TMiddleware, TError> {
         pub(crate) resolver: T,
         pub(crate) mw: TMiddleware,
+        pub(crate) phantom: std::marker::PhantomData<TError>,
     }
 }
 
 pub(crate) use private::Procedure;
 
-impl<TMiddleware, T> Procedure<T, TMiddleware>
+impl<T, TMiddleware, TError> Procedure<T, TMiddleware, TError>
 where
     TMiddleware: MiddlewareBuilder,
 {
     pub(crate) fn new(resolver: T, mw: TMiddleware) -> Self {
-        Self { resolver, mw }
+        Self {
+            resolver,
+            mw,
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 
 macro_rules! resolver {
     ($func:ident, $kind:ident, $result_marker:ident) => {
-        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
+        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware, TError>
         where
             R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker>,
+            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = TError>,
         {
             Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
         }
@@ -53,7 +58,7 @@ macro_rules! resolver {
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
-impl<TMiddleware> Procedure<MissingResolver, TMiddleware>
+impl<TMiddleware, TError> Procedure<MissingResolver, TMiddleware, TError>
 where
     TMiddleware: MiddlewareBuilder,
 {
@@ -61,10 +66,18 @@ where
     resolver!(mutation, Mutation, FutureMarkerType);
     resolver!(subscription, Subscription, StreamMarkerType);
 
+    pub fn error(self) -> Procedure<MissingResolver, TMiddleware, TError> {
+        Procedure {
+            resolver: self.resolver,
+            mw: self.mw,
+            phantom: std::marker::PhantomData,
+        }
+    }
+
     pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>, TError> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -79,7 +92,7 @@ where
     pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>, TError> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -91,8 +104,12 @@ where
     }
 }
 
-impl<F, TArg, TResult, TResultMarker, TMiddleware>
-    Procedure<HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
+impl<F, TArg, TResult, TResultMarker, TMiddleware, TError>
+    Procedure<
+        HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>,
+        TMiddleware,
+        TError,
+    >
 where
     F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
     TArg: Type + DeserializeOwned + 'static,

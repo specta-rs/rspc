@@ -4,18 +4,25 @@ use rspc::Router;
 use crate::R;
 
 fn mount_inner() -> Router<()> {
-    R.router()
-        .procedure("demo", R.query(|_ctx, _: ()| async move { "Hello World" }))
+    R.router().procedure(
+        "demo",
+        R.query(|_ctx, _: ()| async move { Ok("Hello World") }),
+    )
 }
 
 fn mount_inner2() -> Router<()> {
-    R.router()
-        .procedure("demo", R.query(|_ctx, _: ()| async move { "Hello World" }))
+    R.router().procedure(
+        "demo",
+        R.query(|_ctx, _: ()| async move { Ok("Hello World") }),
+    )
 }
 
 fn mount() -> Router<()> {
     R.router()
-        .procedure("demo", R.query(|_ctx, _: ()| async move { "Hello World" }))
+        .procedure(
+            "demo",
+            R.query(|_ctx, _: ()| async move { Ok("Hello World") }),
+        )
         .merge("inner.", mount_inner())
         .merge("inner2.", mount_inner2())
         .procedure(

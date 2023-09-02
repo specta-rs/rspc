@@ -23,7 +23,7 @@ async fn main() {
             "hit",
             // This is a query so it can be accessed in browser without frontend. A `mutation`
             // shoudl be used if the method returns a side effect.
-            R.query(|ctx, _: ()| ctx.count.fetch_add(1, Ordering::SeqCst)),
+            R.query(|ctx, _: ()| Ok(ctx.count.fetch_add(1, Ordering::SeqCst))),
         )
         .build()
         .unwrap()

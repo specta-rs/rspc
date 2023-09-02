@@ -48,7 +48,7 @@ workers = ["httpz", "httpz/workers", "httpz/ws"]
 vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
 [dependencies]
-specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
+specta = { workspace = true }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.43", default-features = false }
 futures = { version = "0.3.28", default-features = false }
@@ -80,6 +80,9 @@ rspc_legacy = { package = "rspc", version = "0.1.3" }
 
 [workspace]
 members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "./examples/tauri/src-tauri"]
+
+[workspace.dependencies]
+specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
 
 [patch.crates-io]
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "5948d80f2551780eda2c7bf38450fc796c74cfbf" }

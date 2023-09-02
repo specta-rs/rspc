@@ -33,40 +33,40 @@ async fn main() {
                 })
             })
             .with(|mw, ctx| async move { mw.next(ctx) })
-            .query(|_, _: ()| env!("CARGO_PKG_VERSION")),
+            .query(|_, _: ()| Ok(env!("CARGO_PKG_VERSION"))),
         )
         .procedure(
             "X-Demo-Header",
-            R.query(|ctx, _: ()| ctx.x_demo_header.unwrap_or_else(|| "No header".to_string())),
+            R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
         )
-        .procedure("echo", R.query(|_, v: String| v))
-        // .procedure(
-        //     "error",
-        //     R.query(|_, _: ()| {
-        //         Err(rspc::Error::new(
-        //             rspc::ErrorCode::InternalServerError,
-        //             "Something went wrong".into(),
-        //         )) as Result<String, rspc::Error>
-        //     }),
-        // )
-        // .procedure(
-        //     "error",
-        //     R.mutation(|_, _: ()| {
-        //         Err(rspc::Error::new(
-        //             rspc::ErrorCode::InternalServerError,
-        //             "Something went wrong".into(),
-        //         )) as Result<String, rspc::Error>
-        //     }),
-        // )
+        .procedure("echo", R.query(|_, v: String| Ok(v)))
+        .procedure(
+            "error",
+            R.query(|_, _: ()| {
+                Err(rspc::Error::new(
+                    rspc::ErrorCode::InternalServerError,
+                    "Something went wrong".into(),
+                )) as Result<String, rspc::Error>
+            }),
+        )
+        .procedure(
+            "error",
+            R.mutation(|_, _: ()| {
+                Err(rspc::Error::new(
+                    rspc::ErrorCode::InternalServerError,
+                    "Something went wrong".into(),
+                )) as Result<String, rspc::Error>
+            }),
+        )
         .procedure(
             "transformMe",
-            R.query(|_, _: ()| "Hello, world!".to_string()),
+            R.query(|_, _: ()| Ok("Hello, world!".to_string())),
         )
         .procedure(
             "sendMsg",
             R.mutation(|_, v: String| {
                 println!("Client said '{}'", v);
-                v
+                Ok(v)
             }),
         )
         .procedure(
@@ -83,15 +83,15 @@ async fn main() {
                 }
             }),
         )
-        // .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
-        //     stream! {
-        //         for _ in 0..5 {
-        //             yield Ok("ping".to_string());
-        //             sleep(Duration::from_secs(1)).await;
-        //         }
-        //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-        //     }
-        // }))
+        .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
+            stream! {
+                for _ in 0..5 {
+                    yield Ok("ping".to_string());
+                    sleep(Duration::from_secs(1)).await;
+                }
+                yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
+            }
+        }))
         .procedure(
             "testSubscriptionShutdown",
             R.subscription({
