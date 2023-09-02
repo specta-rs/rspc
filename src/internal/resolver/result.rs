@@ -1,10 +1,12 @@
 use std::{
+    error::Error,
     future::{ready, Future, Ready},
     marker::PhantomData,
     pin::Pin,
     task::{ready, Context, Poll},
 };
 
+use crate::{internal::Body, Blob, IntoResolverError};
 use futures::{
     stream::{once, Once},
     Stream,
@@ -22,8 +24,6 @@ mod private {
     use std::convert::Infallible;
 
     use pin_project_lite::pin_project;
-
-    use crate::{internal::Body, Blob, Error, ErrorCode};
 
     use super::*;
 
@@ -56,7 +56,7 @@ mod private {
 
     pub trait SealedRequestLayer<TMarker> {
         type Result: Type;
-        type Error: Type;
+        type Error: IntoResolverError;
         type Body: Body + Send + 'static;
         type TypeMarker;
 
@@ -77,7 +77,7 @@ mod private {
         S: tokio::io::AsyncBufRead + Send + 'static,
     {
         type Result = ();
-        type Error = Error;
+        type Error = crate::Error;
         type Body = BlobStream<S>;
         type TypeMarker = FutureMarkerType;
 
@@ -91,7 +91,7 @@ mod private {
     impl<TOk, TError> SealedRequestLayer<ResultMarker> for Result<TOk, TError>
     where
         TOk: Serialize + Type,
-        TError: Serialize + Type,
+        TError: Serialize + Type + Error,
     {
         type Result = TOk;
         type Error = TError;
@@ -101,13 +101,10 @@ mod private {
         fn exec(self) -> Self::Body {
             StreamAdapter {
                 stream: once(ready(
-                    self.map_err(|_| {
-                        ExecError::ErrResolverError(Error::new(
-                            ErrorCode::InternalServerError,
-                            "TODO: ResultMarker error handle".to_string(),
-                        ))
-                    })
-                    .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr)),
+                    self.map_err(|e| e.into_resolver_error().into())
+                        .and_then(|v| {
+                            serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                        }),
                 )),
             }
         }
@@ -126,7 +123,7 @@ mod private {
         S: tokio::io::AsyncBufRead + Send + 'static,
     {
         type Result = ();
-        type Error = Error;
+        type Error = crate::Error;
         type Body = FutureBlobStream<TFut, S>;
         type TypeMarker = FutureMarkerType;
 
@@ -145,7 +142,7 @@ mod private {
     where
         TFut: Future<Output = Result<TOk, TError>> + Send + 'static,
         TOk: Serialize + Type + Send + 'static,
-        TError: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = TOk;
         type Error = TError;
@@ -175,18 +172,14 @@ mod private {
     where
         TFut: Future<Output = Result<T, TError>> + Send + 'static,
         T: Serialize + Type + Send + 'static,
+        TError: IntoResolverError,
     {
         type Output = Result<Value, ExecError>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             self.project().fut.poll(cx).map(|v| {
-                v.map_err(|_| {
-                    ExecError::ErrResolverError(Error::new(
-                        ErrorCode::InternalServerError,
-                        "TODO: FutureSerializeResultFuture error handle".to_string(),
-                    ))
-                })
-                .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr))
+                serde_json::to_value(v.map_err(IntoResolverError::into_resolver_error)?)
+                    .map_err(ExecError::SerializingResultErr)
             })
         }
     }
@@ -200,7 +193,7 @@ mod private {
         S::Item: Serialize + Type,
     {
         type Result = S::Item;
-        type Error = Error;
+        type Error = crate::Error;
         type Body = StreamAdapter<MapStream<S>>;
         type TypeMarker = StreamMarkerType;
 
@@ -220,7 +213,7 @@ mod private {
     where
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
-        TError: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
         type Error = TError;
@@ -230,17 +223,14 @@ mod private {
         fn exec(self) -> Self::Body {
             StreamAdapter {
                 stream: match self {
-                    Ok(stream) => MapStream::Stream {
+                    Self::Ok(stream) => MapStream::Stream {
                         stream,
                         mapper: |v| {
                             serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
                         },
                     },
-                    Err(_) => MapStream::Error {
-                        err: Some(ExecError::ErrResolverError(Error::new(
-                            ErrorCode::InternalServerError,
-                            "TODO: ResultStreamMarker error handle".to_string(),
-                        ))),
+                    Self::Err(e) => MapStream::Error {
+                        err: Some(e.into_resolver_error().into()),
                     },
                 },
             }
@@ -256,7 +246,7 @@ mod private {
         S::Item: Serialize + Type,
     {
         type Result = S::Item;
-        type Error = Error;
+        type Error = crate::Error;
         type Body = StreamAdapter<FutureMapStream<TFut, S>>;
         type TypeMarker = StreamMarkerType;
 
@@ -280,7 +270,7 @@ mod private {
         TFut: Future<Output = Result<S, TError>> + Send + 'static,
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
-        TError: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
         type Error = TError;
@@ -291,14 +281,7 @@ mod private {
             StreamAdapter {
                 stream: FutureMapStream::First {
                     fut: self,
-                    fut_mapper: |s| {
-                        s.map_err(|_| {
-                            ExecError::ErrResolverError(Error::new(
-                                ErrorCode::InternalServerError,
-                                "TODO: FutureResultStreamMarker error handle".to_string(),
-                            ))
-                        })
-                    },
+                    fut_mapper: |s| Ok(s.map_err(IntoResolverError::into_resolver_error)?),
                     stream_mapper: |v| {
                         serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
                     },

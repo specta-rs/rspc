@@ -49,8 +49,8 @@ vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
 [dependencies]
 specta = { workspace = true }
-serde = { version = "1", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.43", default-features = false }
+serde = { workspace = true }
+thiserror = { workspace = true }
 futures = { version = "0.3.28", default-features = false }
 pin-project-lite = "0.2.10"
 
@@ -83,6 +83,8 @@ members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "
 
 [workspace.dependencies]
 specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
+serde = { version = "1", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.43", default-features = false }
 
 [patch.crates-io]
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "5948d80f2551780eda2c7bf38450fc796c74cfbf" }

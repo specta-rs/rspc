@@ -6,8 +6,9 @@ use specta::Type;
 
 use crate::R;
 
-#[derive(Serialize, Type)]
+#[derive(thiserror::Error, Serialize, Type, Debug)]
 pub enum MyCustomError {
+    #[error("I am broke")]
     IAmBroke,
 }
 

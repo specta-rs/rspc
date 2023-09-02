@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{internal::middleware::RequestContext, ExecError};
+use crate::{internal::middleware::RequestContext, ExecError, IntoResolverError};
 
 mod private {
     // TODO
@@ -83,10 +83,11 @@ where
     }
 }
 
-impl<TLCtx, TResp> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, crate::Error>
+impl<TLCtx, TResp, TError> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, TError>
 where
     TLCtx: Send + Sync + 'static,
     TResp: Executable2,
+    TError: IntoResolverError,
 {
     type Ctx = TLCtx;
     type Resp = TResp;
@@ -94,7 +95,7 @@ where
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
         match self {
             Ok(mw_result) => Ok(mw_result.explode()?),
-            Err(err) => Err(err.into()),
+            Err(err) => Err(err.into_resolver_error())?,
         }
     }
 }

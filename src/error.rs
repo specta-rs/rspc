@@ -5,6 +5,27 @@ use specta::{ts::TsExportError, Type};
 
 use crate::internal::exec::ResponseError;
 
+pub trait IntoResolverError: Serialize + Type + std::error::Error {
+    fn into_resolver_error(self) -> ResolverError
+    where
+        Self: Sized,
+    {
+        ResolverError {
+            value: serde_json::to_value(&self).unwrap_or_default(),
+            message: self.to_string(),
+        }
+    }
+}
+
+impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
+
+#[derive(thiserror::Error, Debug)]
+#[error("{message}")]
+pub struct ResolverError {
+    value: serde_json::Value,
+    message: String,
+}
+
 // TODO: Context based `ExecError`. Always include the `path` of the procedure on it.
 // TODO: Cleanup this
 #[derive(thiserror::Error, Debug)]
@@ -23,8 +44,8 @@ pub enum ExecError {
     // InvalidJsonRpcVersion,
     // #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
     // UnsupportedMethod(String),
-    #[error("{}", .0.message)]
-    ErrResolverError(#[from] Error),
+    #[error("{0}")]
+    ErrResolverError(#[from] ResolverError),
     #[error("error creating subscription with null id")]
     ErrSubscriptionWithNullId,
     #[error("error creating subscription with duplicate id")]
@@ -64,7 +85,11 @@ impl From<ExecError> for Error {
             //     message: "invalid JSON-RPC version".into(),
             //     cause: None,
             // },
-            ExecError::ErrResolverError(err) => err,
+            ExecError::ErrResolverError(err) => Error {
+                code: ErrorCode::InternalServerError,
+                message: err.message,
+                cause: None,
+            },
             ExecError::ErrSubscriptionWithNullId => Error {
                 code: ErrorCode::BadRequest,
                 message: "error creating subscription with null request id".into(),
@@ -105,7 +130,7 @@ impl From<ExecError> for ResponseError {
                 ExecError::SerializingResultErr(_) => ErrorCode::InternalServerError,
                 #[cfg(feature = "axum")]
                 ExecError::AxumExtractorError => ErrorCode::BadRequest,
-                ExecError::ErrResolverError(err) => err.code,
+                ExecError::ErrResolverError(_) => ErrorCode::InternalServerError,
                 ExecError::ErrSubscriptionWithNullId => ErrorCode::BadRequest,
                 ExecError::ErrSubscriptionDuplicateId => ErrorCode::BadRequest,
                 ExecError::ErrSubscriptionsNotSupported => ErrorCode::BadRequest,
