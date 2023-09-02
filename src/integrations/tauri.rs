@@ -113,7 +113,7 @@ mod test {
         specta_builder!()
             .path(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./packages/tauri/src/types.ts"))
             .export_for_plugin(PLUGIN_NAME)
-            .ok();
+            .unwrap();
     }
 }
 
