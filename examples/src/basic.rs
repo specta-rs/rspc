@@ -9,15 +9,15 @@ pub fn mount() -> Router<()> {
         .procedure("version", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .procedure("echo", R.query(|_, v: String| v))
         .procedure("echoAsync", R.query(|_, _: i32| async move { 42 }))
-        .procedure(
-            "error",
-            R.query(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
-        )
+        // .procedure(
+        //     "error",
+        //     R.query(|_, _: ()| {
+        //         Err(rspc::Error::new(
+        //             rspc::ErrorCode::InternalServerError,
+        //             "Something went wrong".into(),
+        //         )) as Result<String, rspc::Error>
+        //     }),
+        // )
         .procedure(
             "transformMe",
             R.query(|_, _: ()| "Hello, world!".to_string()),

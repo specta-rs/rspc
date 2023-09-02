@@ -3,12 +3,13 @@ mod private {
 
     use serde::{Deserialize, Serialize};
     use serde_json::Value;
+    use specta::Type;
 
     /// The type of a request to rspc.
     ///
     /// @internal
-    #[derive(Debug, Deserialize)]
-    #[cfg_attr(test, derive(specta::Type))]
+
+    #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Type)]
     #[serde(tag = "method", rename_all = "camelCase")]
     pub enum Request {
         Query {
@@ -42,8 +43,8 @@ mod private {
     /// An error that can be returned by rspc.
     ///
     /// @internal
-    #[derive(Debug, Serialize, PartialEq, Eq)]
-    #[cfg_attr(test, derive(specta::Type))]
+    #[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
+    // #[cfg_attr(test, derive(specta::Type))]
     pub struct ResponseError {
         pub code: u16,
         pub message: String,
@@ -53,8 +54,8 @@ mod private {
     /// A value that can be a successful result or an error.
     ///
     /// @internal
-    #[derive(Debug, Serialize, PartialEq, Eq)]
-    #[cfg_attr(test, derive(specta::Type))]
+    #[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
+    // #[cfg_attr(test, derive(specta::Type))]
     #[serde(tag = "type", content = "value", rename_all = "camelCase")]
     pub enum ResponseInner {
         /// The result of a successful operation.
@@ -68,13 +69,19 @@ mod private {
     /// The type of a response from rspc.
     ///
     /// @internal
-    #[derive(Debug, Serialize, PartialEq, Eq)]
-    #[cfg_attr(test, derive(specta::Type))]
+    #[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
+    // #[cfg_attr(test, derive(specta::Type))]
     #[serde(rename_all = "camelCase")]
     pub struct Response {
         pub id: u32,
         #[serde(flatten)]
         pub inner: ResponseInner,
+    }
+
+    #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Type)]
+    pub enum Requests {
+        One(Request),
+        Many(Vec<Request>),
     }
 
     /// The type of an incoming message to the [`Connection`] abstraction.
@@ -83,7 +90,7 @@ mod private {
     #[derive(Debug)]
     #[allow(dead_code)]
     pub enum IncomingMessage {
-        Msg(Result<Value, serde_json::Error>),
+        Msg(Result<serde_json::Value, serde_json::Error>),
         Close,
         Skip,
     }

@@ -1,14 +1,17 @@
 use std::{
     net::{Ipv6Addr, SocketAddr},
     path::PathBuf,
-    time::Duration, sync::atomic::AtomicU16, task::{Poll, Context}, pin::Pin,
+    pin::Pin,
+    sync::atomic::AtomicU16,
+    task::{Context, Poll},
+    time::Duration,
 };
 
-use futures::Stream;
 use async_stream::stream;
 use axum::routing::get;
-use rspc::{integrations::httpz::Request, ErrorCode, ExportConfig, Rspc, Blob};
-use tokio::{time::sleep, fs::File, io::BufReader};
+use futures::Stream;
+use rspc::{integrations::httpz::Request, Blob, ErrorCode, ExportConfig, Rspc};
+use tokio::{fs::File, io::BufReader, time::sleep};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -27,42 +30,41 @@ async fn main() {
         .router()
         .procedure(
             "version",
-            R
-                .with(|mw, ctx| async move {
-                    mw.next(ctx).map(|resp| async move {
-                        println!("Client requested version '{}'", resp);
-                        resp
-                    })
+            R.with(|mw, ctx| async move {
+                mw.next(ctx).map(|resp| async move {
+                    println!("Client requested version '{}'", resp);
+                    resp
                 })
-                .with(|mw, ctx| async move { mw.next(ctx) })
-                .query(|_, _: ()| {
-                    info!("Client requested version");
-                    env!("CARGO_PKG_VERSION")
-                }),
+            })
+            .with(|mw, ctx| async move { mw.next(ctx) })
+            .query(|_, _: ()| {
+                info!("Client requested version");
+                env!("CARGO_PKG_VERSION")
+            }),
         )
         .procedure(
             "X-Demo-Header",
             R.query(|ctx, _: ()| ctx.x_demo_header.unwrap_or_else(|| "No header".to_string())),
         )
         .procedure("echo", R.query(|_, v: String| v))
-        .procedure(
-            "error",
-            R.query(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
-        )
-        .procedure(
-            "error",
-            R.mutation(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
-        )
+        // .procedure(
+        //     "error",
+        //     R.query(|_, _: ()| {
+        //         Err(rspc::Error::new(
+        //             rspc::ErrorCode::InternalServerError,
+        //             "Something went wrong".into(),
+        //         )) as Result<String, rspc::Error>
+        //     }),
+        // )
+        // .procedure(
+        //     "error",
+        //     R.mutation(|_, _: ()| {
+        //         Err(rspc::Error::new(
+        //             rspc::ErrorCode::InternalServerError,
+        //             "Something went wrong".into(),
+        //         )) as Result<String, rspc::Error>
+        //     }),
+        // )
         .procedure(
             "transformMe",
             R.query(|_, _: ()| "Hello, world!".to_string()),
@@ -88,15 +90,15 @@ async fn main() {
                 }
             }),
         )
-        .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
-            stream! {
-                for _ in 0..5 {
-                    yield Ok("ping".to_string());
-                    sleep(Duration::from_secs(1)).await;
-                }
-                yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            }
-        }))
+        // .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
+        //     stream! {
+        //         for _ in 0..5 {
+        //             yield Ok("ping".to_string());
+        //             sleep(Duration::from_secs(1)).await;
+        //         }
+        //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
+        //     }
+        // }))
         .procedure(
             "testSubscriptionShutdown",
             R.subscription({
@@ -111,8 +113,11 @@ async fn main() {
 
                     impl Stream for HandleDrop {
                         type Item = u16;
-    
-                        fn poll_next(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+
+                        fn poll_next(
+                            mut self: Pin<&mut Self>,
+                            _: &mut Context<'_>,
+                        ) -> Poll<Option<Self::Item>> {
                             if self.send {
                                 Poll::Pending
                             } else {
@@ -121,7 +126,7 @@ async fn main() {
                             }
                         }
                     }
-    
+
                     impl Drop for HandleDrop {
                         fn drop(&mut self) {
                             println!("Dropped subscription with id {}", self.id);
@@ -133,13 +138,16 @@ async fn main() {
             }),
         )
         // TODO: This is an unstable feature and should be used with caution!
-        .procedure("serveFile", R.query(|_, _: ()| async move {
-            let file = File::open("./demo.json").await.unwrap();
+        .procedure(
+            "serveFile",
+            R.query(|_, _: ()| async move {
+                let file = File::open("./demo.json").await.unwrap();
 
-            // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
+                // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
 
-            Blob(BufReader::new(file))
-        }))
+                Blob(BufReader::new(file))
+            }),
+        )
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.

@@ -39,7 +39,7 @@ pub(crate) use private::{PinnedOption, PinnedOptionProj};
 mod tests {
     use std::{fs::File, io::Write, path::PathBuf};
 
-    use specta::{ts::export_datatype, DefOpts, Type, TypeDefs};
+    use specta::{ts::export_named_datatype, DefOpts, Type, TypeMap};
 
     use crate::internal::exec;
 
@@ -47,7 +47,7 @@ mod tests {
         ($( $i:path ),* $(,)? ) => {{
             use specta::DataType;
 
-            let mut tys = TypeDefs::default();
+            let mut tys = TypeMap::default();
 
             $({
                 let def = <$i as Type>::definition(DefOpts {
@@ -57,7 +57,7 @@ mod tests {
 
                 if let Ok(def) = def {
                     if let DataType::Named(n) = def {
-                        if let Some(sid) = n.sid {
+                        if let Some(sid) = n.ext().as_ref().map(|e| *e.sid()) {
                             tys.insert(sid, Some(n));
                         }
                     }
@@ -80,12 +80,12 @@ mod tests {
         )
         .unwrap();
 
-        let tys = collect_datatypes! {
+        let tys = collect_datatypes![
             super::procedure::ProcedureDataType,
             // crate::Procedures, // TODO
             exec::Request,
             exec::Response,
-        };
+        ];
 
         for (_, ty) in tys
             .iter()
@@ -93,7 +93,7 @@ mod tests {
         {
             file.write_all(b"\n\n").unwrap();
             file.write_all(
-                export_datatype(&Default::default(), &ty, &tys)
+                export_named_datatype(&Default::default(), &ty, &tys)
                     .unwrap()
                     .as_bytes(),
             )

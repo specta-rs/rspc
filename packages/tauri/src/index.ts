@@ -6,8 +6,8 @@ import {
   _internal_wsLinkInternal,
   _internal_fireResponse,
 } from "@rspc/client";
-import { listen } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
+import { events } from "./types";
 
 /**
  * Link for the rspc Tauri plugin
@@ -26,8 +26,8 @@ function newWsManager() {
     }
   >();
 
-  const listener = listen("plugin:rspc:transport:resp", (event) => {
-    const results: RspcResponse[] = JSON.parse(event.payload as any);
+  const listener = events.transportResp.listen((event) => {
+    const results = event.payload;
 
     for (const result of results) {
       const item = activeMap.get(result.id);
@@ -54,8 +54,6 @@ function newWsManager() {
   return [
     activeMap,
     (data: RspcRequest | RspcRequest[]) =>
-      listener.then(() =>
-        appWindow.emit("plugin:rspc:transport", JSON.stringify(data))
-      ),
+      listener.then(() => events.msg(appWindow).emit(data)),
   ] as const;
 }

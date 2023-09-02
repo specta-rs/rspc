@@ -3,7 +3,7 @@
 mod private {
     use std::{borrow::Cow, collections::BTreeMap};
 
-    use specta::{ts::TsExportError, DataType, DataTypeFrom, DefOpts, Type, TypeDefs};
+    use specta::{ts::TsExportError, DataType, DataTypeFrom, DefOpts, Type, TypeMap};
 
     use crate::internal::{DynLayer, Layer};
 
@@ -25,7 +25,7 @@ mod private {
     impl ProcedureDataType {
         pub fn from_tys<TArg, TResult>(
             key: Cow<'static, str>,
-            type_map: &mut TypeDefs,
+            type_map: &mut TypeMap,
         ) -> Result<Self, TsExportError>
         where
             TArg: Type,

@@ -9,17 +9,22 @@ use std::{
     task::{Context, Poll},
 };
 
-use serde_json::Value;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Window, WindowEvent,
 };
+use tauri_specta::Event;
 use tokio::sync::mpsc;
 
 use crate::{
-    internal::exec::{AsyncRuntime, ConnectionTask, Executor, IncomingMessage, TokioRuntime},
+    internal::exec::{
+        AsyncRuntime, ConnectionTask, Executor, IncomingMessage, Response, TokioRuntime,
+    },
     BuiltRouter,
 };
+
+#[derive(Clone, Debug, serde::Deserialize, specta::Type, tauri_specta::Event)]
+struct Msg(serde_json::Value);
 
 struct WindowManager<TCtxFn, TCtx>
 where
@@ -72,28 +77,8 @@ where
                 Some(Box::new(move |cx| clear_subscriptions_rx.poll_recv(cx))),
             ));
 
-            window.listen("plugin:rspc:transport", move |event| {
-                let Some(payload) = event.payload() else {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Tauri event payload is empty");
-
-                        return;
-                    };
-
-                // God damn, Tauri is cringe. Why do they string double encode the payload.
-                let payload = match serde_json::from_str::<serde_json::Value>(payload) {
-                    Ok(v) => match v {
-                        Value::String(s) => serde_json::from_str::<serde_json::Value>(&s),
-                        v => Ok(v),
-                    },
-                    Err(_err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("failed to parse JSON-RPC request: {}", _err);
-                        return;
-                    }
-                };
-
-                tx.send(IncomingMessage::Msg(payload)).ok();
+            Msg::listen(&window, move |event| {
+                tx.send(IncomingMessage::Msg(Ok(event.payload.0))).ok();
             });
         }
     }
@@ -110,6 +95,28 @@ where
     }
 }
 
+const PLUGIN_NAME: &str = "rspc";
+
+macro_rules! specta_builder {
+    () => {
+        tauri_specta::ts::builder().events(tauri_specta::collect_events![Msg, TransportResp])
+    };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn export_types() {
+        specta_builder!()
+            .path(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./packages/tauri/src/types.ts"))
+            .export_for_plugin(PLUGIN_NAME)
+            .ok();
+    }
+}
+
 pub fn plugin<TCtx>(
     router: Arc<BuiltRouter<TCtx>>,
     ctx_fn: impl Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
@@ -118,7 +125,15 @@ where
     TCtx: Clone + Send + Sync + 'static,
 {
     let manager = WindowManager::new(ctx_fn, router);
-    Builder::new("rspc")
+
+    let plugin_utils = specta_builder!().into_plugin_utils(PLUGIN_NAME);
+
+    Builder::new(PLUGIN_NAME)
+        .invoke_handler(plugin_utils.invoke_handler)
+        .setup(|app| {
+            (plugin_utils.setup)(app);
+            Ok(())
+        })
         .on_page_load(move |window, _page| {
             manager.clone().on_page_load::<TokioRuntime>(window.clone());
 
@@ -141,17 +156,21 @@ struct Socket {
     window: Window,
 }
 
+#[derive(Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
+#[specta(inline)]
+struct TransportResp(Vec<Response>);
+
 // TODO: Can we use utils in `futures` to remove this impl?
-impl futures::Sink<String> for Socket {
+impl futures::Sink<Vec<Response>> for Socket {
     type Error = Infallible;
 
     fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn start_send(self: std::pin::Pin<&mut Self>, item: String) -> Result<(), Self::Error> {
-        self.window
-            .emit("plugin:rspc:transport:resp", item)
+    fn start_send(self: std::pin::Pin<&mut Self>, item: Vec<Response>) -> Result<(), Self::Error> {
+        TransportResp(item)
+            .emit(&self.window)
             .map_err(|_err| {
                 #[cfg(feature = "tracing")]
                 tracing::error!("failed to emit JSON-RPC response: {}", _err);
