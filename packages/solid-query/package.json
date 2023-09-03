@@ -6,22 +6,22 @@
   "author": "Oscar Beaumont",
   "license": "MIT",
   "source": "src/index.tsx",
+  "types": "dist/types/index.d.ts",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
-  "types": "dist/types/index.d.ts",
-  "files": [
-    "dist"
-  ],
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "solid": "./dist/source/index.jsx",
       "import": "./dist/esm/index.js",
       "browser": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts",
       "node": "./dist/cjs/index.js"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "rollup -c -w",
     "build": "rollup -c",

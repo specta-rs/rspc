@@ -4,7 +4,7 @@
     import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 
     // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
-    import type { Procedures } from "../../bindings.ts";
+    import type { Procedures } from "../../../../bindings.ts";
 
     import Example from "./Example.svelte";
 

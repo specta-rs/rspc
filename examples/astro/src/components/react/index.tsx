@@ -1,13 +1,13 @@
+/** @jsxImportSource react */
+
 import { initRspc, httpLink, wsLink } from "@rspc/client";
 import { tauriLink } from "@rspc/tauri";
 import { createReactQueryHooks } from "@rspc/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
-import "react";
-
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
-import type { Procedures } from "../../../bindings";
+import type { Procedures } from "../../../../bindings";
 
 const fetchQueryClient = new QueryClient();
 const fetchClient = initRspc<Procedures>({

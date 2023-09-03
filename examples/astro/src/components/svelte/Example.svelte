@@ -1,6 +1,6 @@
 <script lang="ts">
     import { createSvelteQueryHooks } from "@rspc/svelte-query";
-    import type { Procedures } from "../../bindings.ts";
+    import type { Procedures } from "../../../../bindings.ts";
 
     import ExampleSubscription from "./ExampleSubscription.svelte";
 

@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { createSignal } from "solid-js";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
-import type { Procedures } from "../../../bindings";
+import type { Procedures } from "../../../../bindings";
 
 const fetchQueryClient = new QueryClient();
 const fetchClient = initRspc<Procedures>({
@@ -59,7 +59,6 @@ const tauriClient = initRspc<Procedures>({
 // TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
 // TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
 export const rspc = createSolidQueryHooks<Procedures>();
-// export const rspc2 = createReactQueryHooks<Procedures>(wsClient);
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = createSignal(Date.now().toString());

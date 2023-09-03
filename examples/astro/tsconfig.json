@@ -1,10 +1,6 @@
 {
-  "extends": "../../packages/tsconfig.json",
+  "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
-    "esModuleInterop": true,
-    "jsx": "preserve",
-    "jsxImportSource": "react",
-    "lib": ["ES2017", "DOM"]
-  },
-  "include": ["src"]
+    "jsx": "react-jsx"
+  }
 }
