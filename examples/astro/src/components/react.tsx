@@ -13,7 +13,7 @@ const fetchClient = initRspc<Procedures>({
     // loggerLink(),
 
     httpLink({
-      url: "http://[::]:4000/rspc",
+      url: "http://localhost:4000/rspc",
 
       // You can enable batching -> This is generally a good idea unless your doing HTTP caching
       // batch: true,
@@ -72,6 +72,7 @@ function Example({ name }: { name: string }) {
 
   const [subId, setSubId] = useState<number | null>(null);
   const [enabled, setEnabled] = useState(true);
+
   rspc.useSubscription(["testSubscriptionShutdown"], {
     enabled,
     onData(msg) {
@@ -88,9 +89,7 @@ function Example({ name }: { name: string }) {
       <h1>{name}</h1>
       <p>Using rspc version: {version}</p>
       <p>Echo response: {echo}</p>
-      <p>
-        Error returned: {error?.code} {error?.message}
-      </p>
+      <p>Error returned: {JSON.stringify(error)} </p>
       <p>Transformed Query: {transformMe}</p>
       <ExampleSubscription key={rerenderProp} rerenderProp={rerenderProp} />
       <button onClick={() => setRendererProp(Date.now().toString())}>

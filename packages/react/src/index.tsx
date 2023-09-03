@@ -93,7 +93,11 @@ export function createReactQueryHooks<P extends ProceduresDef>(
 
     return tanstack.useQuery(
       mapQueryKey(keyAndInput as any) as any,
-      () => client!.query(keyAndInput),
+      () =>
+        client!.query(keyAndInput).then((res) => {
+          if (res.status === "ok") return res.data;
+          else throw res.error;
+        }),
       {
         ...rawOpts,
       }
@@ -155,7 +159,10 @@ export function createReactQueryHooks<P extends ProceduresDef>(
 
     return tanstack.useMutation(async (input: any) => {
       const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation([actualKey, input] as any);
+      return client!.mutation([actualKey, input] as any).then((res) => {
+        if (res.status === "ok") return res.data;
+        else throw res.error;
+      });
     }, rawOpts as any);
   }
 
