@@ -16,8 +16,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import * as tanstack from "@tanstack/react-query";
-import { ProceduresDef, ProcedureDef } from "@rspc/client";
-import { AlphaClient } from "@rspc/client";
+import { AlphaClient, ProceduresDef, ProcedureDef } from "@rspc/client";
 import * as rspc from "@rspc/client";
 
 // TODO: Remove this once off plane
@@ -36,7 +35,6 @@ export interface SubscriptionOptions<P extends ProcedureDef> {
   enabled?: boolean;
   onStarted?: () => void;
   onData: (data: P["result"]) => void;
-  // TODO: Not `| Error`
   onError?: (err: P["error"] | rspc.Error) => void;
 }
 
@@ -50,15 +48,16 @@ export type HooksOpts<P extends ProceduresDef> = {
   context: React.Context<Context<P>>;
 };
 
-export function createReactQueryHooks<P extends ProceduresDef>(
-  client: AlphaClient<P>,
-  opts?: HooksOpts<P>
-) {
+export function createReactQueryHooks<P extends ProceduresDef>() {
   type TBaseOptions = BaseOptions<P>;
 
-  const mapQueryKey: (keyAndInput: KeyAndInput) => KeyAndInput =
-    (client as any).mapQueryKey || ((x) => x);
-  const Context = opts?.context || createContext<Context<P>>(undefined!);
+  const mapQueryKey: (
+    keyAndInput: KeyAndInput,
+    client: AlphaClient<P>
+  ) => KeyAndInput = (keyAndInput, client) =>
+    (client as any).mapQueryKey?.(keyAndInput) || keyAndInput;
+
+  const Context = createContext<Context<P>>(undefined!);
 
   function useContext() {
     const ctx = _useContext(Context);
@@ -69,7 +68,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     return ctx;
   }
 
-  function useQuery<K extends P["queries"]["key"] & string>(
+  function useQuery<K extends rspc.inferQueries<P>["key"] & string>(
     keyAndInput: [
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
@@ -86,22 +85,83 @@ export function createReactQueryHooks<P extends ProceduresDef>(
       TBaseOptions
   ) {
     const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
 
-    return tanstack.useQuery(
-      mapQueryKey(keyAndInput as any) as any,
-      () =>
-        client!.query(keyAndInput).then((res) => {
+    const client = opts?.rspc?.client ?? useContext().client;
+
+    return tanstack.useQuery({
+      queryKey: mapQueryKey(keyAndInput as any, client) as any,
+      queryFn: () =>
+        client.query(keyAndInput).then((res) => {
           if (res.status === "ok") return res.data;
           else throw res.error;
         }),
-      {
-        ...rawOpts,
-      }
-    );
+      ...rawOpts,
+    });
+  }
+
+  function useMutation<
+    K extends rspc.inferMutations<P>["key"] & string,
+    TContext = unknown
+  >(
+    key: K | [K],
+    opts?: UseMutationOptions<
+      rspc.inferMutationResult<P, K>,
+      rspc.inferMutationError<P, K>,
+      rspc.inferMutationInput<P, K> extends never
+        ? undefined
+        : rspc.inferMutationInput<P, K>,
+      TContext
+    > &
+      TBaseOptions
+  ) {
+    const { rspc, ...rawOpts } = opts ?? {};
+
+    const client = opts?.rspc?.client ?? useContext().client;
+
+    return tanstack.useMutation({
+      mutationFn: async (input: any) => {
+        const actualKey = Array.isArray(key) ? key[0] : key;
+        return client.mutation([actualKey, input] as any).then((res) => {
+          if (res.status === "ok") return res.data;
+          else return Promise.reject(res.error);
+        });
+      },
+      ...rawOpts,
+    });
+  }
+
+  function useSubscription<
+    K extends rspc.inferSubscriptions<P>["key"] & string
+  >(
+    keyAndInput: [
+      key: K,
+      ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
+    ],
+    opts: SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
+  ) {
+    let client = opts?.rspc?.client ?? useContext().client;
+
+    const queryKey = hashQueryKey(keyAndInput);
+    const enabled = opts?.enabled ?? true;
+
+    let isStopped = false;
+
+    return useEffect(() => {
+      if (!enabled) return;
+      const unsubscribe = client.addSubscription<K>(keyAndInput, {
+        onData: (data) => {
+          if (!isStopped) opts.onData(data);
+        },
+        onError: (error) => {
+          if (!isStopped) opts.onError?.(error);
+        },
+      });
+
+      return () => {
+        isStopped = true;
+        unsubscribe();
+      };
+    }, [queryKey, enabled]);
   }
 
   // function useInfiniteQuery<K extends inferInfiniteQueries<P>["key"] & string>(
@@ -135,61 +195,6 @@ export function createReactQueryHooks<P extends ProceduresDef>(
   //     ...(rawOpts as any),
   //   });
   // }
-
-  function useMutation<
-    K extends P["mutations"]["key"] & string,
-    TContext = unknown
-  >(
-    key: K | [K],
-    opts?: UseMutationOptions<
-      rspc.inferMutationResult<P, K>,
-      rspc.inferMutationError<P, K>,
-      rspc.inferMutationInput<P, K> extends never
-        ? undefined
-        : rspc.inferMutationInput<P, K>,
-      TContext
-    > &
-      TBaseOptions
-  ) {
-    const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
-
-    return tanstack.useMutation(async (input: any) => {
-      const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation([actualKey, input] as any).then((res) => {
-        if (res.status === "ok") return res.data;
-        else throw res.error;
-      });
-    }, rawOpts as any);
-  }
-
-  function useSubscription<
-    K extends rspc.inferSubscriptions<P>["key"] & string
-  >(
-    keyAndInput: [
-      key: K,
-      ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
-    ],
-    opts: SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
-  ) {
-    let client = opts?.rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
-    const queryKey = hashQueryKey(keyAndInput);
-    const enabled = opts?.enabled ?? true;
-
-    return useEffect(() => {
-      if (!enabled) return;
-      return client!.addSubscription<K>(keyAndInput, {
-        onData: opts.onData,
-        onError: opts.onError,
-      });
-    }, [queryKey, enabled]);
-  }
 
   return {
     _rspc_def: undefined! as P, // This allows inferring the operations type from TS helpers

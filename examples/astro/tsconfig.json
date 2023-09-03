@@ -3,6 +3,7 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "jsx": "preserve",
+    "jsxImportSource": "react",
     "lib": ["ES2017", "DOM"]
   },
   "include": ["src"]

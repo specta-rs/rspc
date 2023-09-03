@@ -5,10 +5,13 @@
       "path": "packages/client"
     },
     {
-      "path": "packages/react"
+      "path": "packages/react-query"
     },
     {
-      "path": "packages/solid"
+      "path": "packages/solid-query"
+    },
+    {
+      "path": "packages/svelte-query"
     },
     {
       "path": "packages/tauri"

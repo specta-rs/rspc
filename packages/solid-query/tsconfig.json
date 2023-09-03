@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "lib": ["esnext", "dom"],
+    "rootDir": "src",
+    "declarationDir": "dist/types"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist/**/*"],
+  "references": [
+    {
+      "path": "../client"
+    }
+  ]
+}

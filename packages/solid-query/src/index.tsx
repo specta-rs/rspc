@@ -1,0 +1,223 @@
+import * as rspc from "@rspc/client";
+import { AlphaClient, ProcedureDef, ProceduresDef } from "@rspc/client";
+import * as tanstack from "@tanstack/solid-query";
+import {
+  // CreateInfiniteQueryOptions,
+  // CreateInfiniteQueryResult,
+  CreateMutationOptions,
+  CreateQueryOptions,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/solid-query";
+import {
+  JSX,
+  useContext as _useContext,
+  createContext,
+  createEffect,
+  on,
+  onCleanup,
+} from "solid-js";
+
+export interface BaseOptions<TProcedures extends ProceduresDef> {
+  rspc?: {
+    client?: AlphaClient<TProcedures>;
+  };
+}
+
+export interface SubscriptionOptions<P extends ProcedureDef> {
+  enabled?: boolean;
+  onStarted?: () => void;
+  onData: (data: P["result"]) => void;
+  onError?: (err: P["error"] | rspc.Error) => void;
+}
+
+export interface Context<TProcedures extends ProceduresDef> {
+  client: AlphaClient<TProcedures>;
+  queryClient: QueryClient;
+}
+
+type KeyAndInput = [string] | [string, any];
+
+export function createSolidQueryHooks<P extends ProceduresDef>() {
+  type TBaseOptions = BaseOptions<P>;
+
+  const mapQueryKey: (
+    keyAndInput: KeyAndInput,
+    client: AlphaClient<P>
+  ) => KeyAndInput = (keyAndInput, client) =>
+    (client as any).mapQueryKey?.(keyAndInput) || keyAndInput;
+
+  const Context = createContext<Context<P>>(undefined!);
+
+  function useContext() {
+    const ctx = _useContext(Context);
+    if (ctx?.queryClient === undefined)
+      throw new Error(
+        "The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree."
+      );
+    return ctx;
+  }
+
+  function createQuery<K extends P["queries"]["key"] & string>(
+    keyAndInput: () => [
+      key: K,
+      ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
+    ],
+    opts?: Omit<
+      CreateQueryOptions<
+        rspc.inferQueryResult<P, K>,
+        rspc.inferQueryError<P, K>,
+        rspc.inferQueryResult<P, K>,
+        () => [K, rspc.inferQueryInput<P, K>]
+      >,
+      "queryKey" | "queryFn"
+    > &
+      TBaseOptions
+  ) {
+    const { rspc, ...rawOpts } = opts ?? {};
+
+    const client = opts?.rspc?.client ?? useContext().client;
+
+    return tanstack.createQuery({
+      queryKey: () => mapQueryKey(keyAndInput() as any, client) as any,
+      queryFn: () =>
+        client.query(keyAndInput()).then((res) => {
+          if (res.status === "ok") return res.data;
+          else return Promise.reject(res.error);
+        }),
+      ...rawOpts,
+    });
+  }
+
+  function createMutation<
+    K extends P["mutations"]["key"] & string,
+    TContext = unknown
+  >(
+    key: K | [K],
+    opts?: CreateMutationOptions<
+      rspc.inferMutationResult<P, K>,
+      rspc.inferMutationError<P, K>,
+      rspc.inferMutationInput<P, K> extends never
+        ? undefined
+        : rspc.inferMutationInput<P, K>,
+      TContext
+    > &
+      TBaseOptions
+  ) {
+    const { rspc, ...rawOpts } = opts ?? {};
+
+    const client = opts?.rspc?.client ?? useContext().client;
+
+    return tanstack.createMutation({
+      mutationFn: async (input) => {
+        const actualKey = Array.isArray(key) ? key[0] : key;
+        return client.mutation([actualKey, input] as any).then((res) => {
+          if (res.status === "ok") return res.data;
+          else return Promise.reject(res.error);
+        });
+      },
+      ...rawOpts,
+    });
+  }
+
+  function createSubscription<
+    K extends rspc.inferSubscriptions<P>["key"] & string
+  >(
+    keyAndInput: () => [
+      key: K,
+      ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
+    ],
+    opts: () => SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
+  ) {
+    return createEffect(
+      on(
+        () => [keyAndInput(), opts?.()] as const,
+        ([keyAndInput, opts]) => {
+          const client = opts?.rspc?.client ?? useContext().client;
+
+          if (!(opts?.enabled ?? true)) return;
+
+          let isStopped = false;
+
+          // TODO: solid-start useRequest
+
+          const unsubscribe = client.addSubscription(keyAndInput, {
+            onData: (data) => {
+              if (!isStopped) opts.onData(data);
+            },
+            onError: (error) => {
+              if (!isStopped) opts.onError?.(error);
+            },
+          });
+
+          onCleanup(() => {
+            isStopped = true;
+            unsubscribe();
+          });
+        }
+      )
+    );
+  }
+
+  // function createInfiniteQuery<
+  //   K extends rspc.inferInfiniteQueries<P>["key"] & string
+  // >(
+  //   keyAndInput: () => [
+  //     key: K,
+  //     ...input: Omit<
+  //       rspc._inferInfiniteQueryProcedureHandlerInput<P, K>,
+  //       "cursor"
+  //     >
+  //   ],
+  //   opts?: Omit<
+  //     tanstack.CreateInfiniteQueryOptions<
+  //       rspc.inferInfiniteQueryResult<P, K>,
+  //       rspc.inferInfiniteQueryError<P, K>,
+  //       rspc.inferInfiniteQueryResult<P, K>,
+  //       rspc.inferInfiniteQueryResult<P, K>,
+  //       () => [K, Omit<rspc.inferQueryInput<P, K>, "cursor">]
+  //     >,
+  //     "queryKey" | "queryFn"
+  //   > &
+  //     TBaseOptions
+  // ) {
+  //   const { rspc, ...rawOpts } = opts ?? {};
+  //   let client = rspc?.client;
+  //   if (!client) {
+  //     client = useContext().client;
+  //   }
+
+  //   return tanstack.createInfiniteQuery({
+  //     queryKey: keyAndInput,
+  //     queryFn: () => {
+  //       throw new Error("TODO"); // TODO: Finish this
+  //     },
+  //     ...(rawOpts as any),
+  //   });
+  // }
+
+  return {
+    _rspc_def: undefined! as P, // This allows inferring the operations type from TS helpers
+    Provider: (props: {
+      children?: JSX.Element;
+      client: AlphaClient<P>;
+      queryClient: QueryClient;
+    }) => (
+      <Context.Provider
+        value={{
+          client: props.client,
+          queryClient: props.queryClient,
+        }}
+      >
+        <QueryClientProvider client={props.queryClient}>
+          {props.children}
+        </QueryClientProvider>
+      </Context.Provider>
+    ),
+    useContext,
+    createQuery,
+    // createInfiniteQuery,
+    createMutation,
+    createSubscription,
+  };
+}
