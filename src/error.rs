@@ -5,29 +5,36 @@ use specta::{ts::TsExportError, Type};
 
 use crate::internal::exec::ResponseError;
 
-pub trait IntoResolverError: Serialize + Type + std::error::Error {
-    fn into_resolver_error(self) -> ResolverError
-    where
-        Self: Sized,
-    {
-        ResolverError {
-            value: serde_json::to_value(&self).unwrap_or_default(),
-            message: self.to_string(),
+mod private {
+    use super::*;
+
+    pub trait IntoResolverError: Serialize + Type + std::error::Error {
+        fn into_resolver_error(self) -> ResolverError
+        where
+            Self: Sized,
+        {
+            ResolverError {
+                value: serde_json::to_value(&self).unwrap_or_default(),
+                message: self.to_string(),
+            }
         }
+    }
+
+    #[derive(Serialize, Type, thiserror::Error, Debug)]
+    pub enum Infallible {}
+
+    impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
+
+    #[derive(thiserror::Error, Debug)]
+    #[error("{message}")]
+    pub struct ResolverError {
+        pub(crate) value: serde_json::Value,
+        pub(crate) message: String,
     }
 }
 
-#[derive(Serialize, Type, thiserror::Error, Debug)]
-pub enum Infallible {}
-
-impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
-
-#[derive(thiserror::Error, Debug)]
-#[error("{message}")]
-pub struct ResolverError {
-    value: serde_json::Value,
-    message: String,
-}
+// TODO: `ResolverError` should probs be public from rspc-core but not rspc
+pub(crate) use private::{Infallible, IntoResolverError, ResolverError};
 
 // TODO: Context based `ExecError`. Always include the `path` of the procedure on it.
 // TODO: Cleanup this
@@ -250,17 +257,6 @@ impl ErrorCode {
             499 => Some(ErrorCode::ClientClosedRequest),
             500 => Some(ErrorCode::InternalServerError),
             _ => None,
-        }
-    }
-}
-
-#[cfg(feature = "anyhow")]
-impl From<anyhow::Error> for Error {
-    fn from(_value: anyhow::Error) -> Self {
-        Error {
-            code: ErrorCode::InternalServerError,
-            message: "internal server error".to_string(),
-            cause: None, // TODO: Make this work
         }
     }
 }
