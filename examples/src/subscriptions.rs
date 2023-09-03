@@ -27,7 +27,7 @@ pub fn mount() -> Router<()> {
         R.subscription(|_ctx, _args: ()| async move {
             stream! {
                 for _ in 0..5 {
-                    yield Ok("ping".to_string());
+                    yield Ok("ping".to_string()) as Result<_, rspc::Error>;
                     sleep(Duration::from_secs(1)).await;
                 }
             }

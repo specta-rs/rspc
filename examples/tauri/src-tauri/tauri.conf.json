@@ -2,7 +2,7 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @rspc/examples-astro -- dev",
     "beforeBuildCommand": "pnpm --filter @rspc/examples-astro -- build",
-    "devPath": "http://localhost:3001",
+    "devPath": "http://localhost:3000",
     "distDir": "../../astro/dist",
     "withGlobalTauri": true
   },

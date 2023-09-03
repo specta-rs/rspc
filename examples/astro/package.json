@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@rspc/client": "workspace:*",
-    "@rspc/react": "workspace:*",
-    "@rspc/solid": "workspace:*",
+    "@rspc/react-query": "workspace:*",
+    "@rspc/solid-query": "workspace:*",
     "@rspc/tauri": "workspace:^",
     "@tanstack/react-query": "^4.29.25",
     "@tanstack/solid-query": "^4.29.25",

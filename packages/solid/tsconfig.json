@@ -3,8 +3,15 @@
   "compilerOptions": {
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "lib": ["esnext", "dom"]
+    "lib": ["esnext", "dom"],
+    "rootDir": "src",
+    "declarationDir": "dist"
   },
   "include": ["src/**/*"],
-  "exclude": ["dist/**/*"]
+  "exclude": ["dist/**/*"],
+  "references": [
+    {
+      "path": "../client"
+    }
+  ]
 }

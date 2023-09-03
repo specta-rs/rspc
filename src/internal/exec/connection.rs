@@ -13,8 +13,8 @@ use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
 use super::{
-    AsyncRuntime, Executor, IncomingMessage, Request, Response, RspcTask, SubscriptionManager,
-    SubscriptionSet,
+    AsyncRuntime, Executor, IncomingMessage, Request, Requests, Response, RspcTask,
+    SubscriptionManager, SubscriptionSet,
 };
 use crate::internal::{
     exec::{self, ResponseInner},
@@ -175,7 +175,7 @@ pin_project! {
         // Socket
         #[pin]
         socket: S,
-        tx_queue: Option<String>,
+        tx_queue: Option<Vec<Response>>,
 
         // External signal which when called will clear all active subscriptions.
         // This is used by Tauri on window change as the "connection" never shuts down like a websocket would on page reload.
@@ -188,7 +188,7 @@ pin_project! {
 impl<
         R: AsyncRuntime,
         TCtx: Clone + Send + 'static,
-        S: Sink<String, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
+        S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
         E: std::fmt::Debug + std::error::Error,
     > ConnectionTask<R, TCtx, S, E>
 {
@@ -231,18 +231,7 @@ impl<
                 batch.batch_timer.as_mut().set(PinnedOption::None);
 
                 if !queue.is_empty() {
-                    match serde_json::to_string(&queue) {
-                        Ok(s) => *this.tx_queue = Some(s),
-                        // This error isn't really handled and that is because if `queue` which is a `Vec<Response>` fails serialization, well we are gonna wanna send a `Response` with the error which will also most likely fail serialization.
-                        // It's important to note the user provided types are converted to `serde_json::Value` prior to being put into this type so this will only ever fail on internal types.
-                        Err(err) => {
-                            #[allow(clippy::panic)]
-                            {
-                                #[cfg(debug_assertions)]
-                                panic!("rspc internal serialization error: {}", err);
-                            }
-                        }
-                    }
+                    *this.tx_queue = Some(queue)
                 }
             }
         }
@@ -286,7 +275,7 @@ impl<
         match ready!(this.socket.as_mut().poll_next(cx)) {
             Some(Ok(msg)) => {
                 let res = match msg {
-                    IncomingMessage::Msg(json) => json,
+                    IncomingMessage::Msg(res) => res,
                     IncomingMessage::Close => return PollResult::Complete.into(),
                     IncomingMessage::Skip => return PollResult::Progressed.into(),
                 };
@@ -370,7 +359,7 @@ impl<
 impl<
         R: AsyncRuntime,
         TCtx: Clone + Send + 'static,
-        S: Sink<String, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
+        S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
         E: std::fmt::Debug + std::error::Error,
     > Future for ConnectionTask<R, TCtx, S, E>
 {

@@ -22,9 +22,10 @@ async fn main() {
         .procedure(
             "getCookie",
             R.query(|ctx, _: ()| {
-                ctx.cookies
+                Ok(ctx
+                    .cookies
                     .get("myDemoCookie")
-                    .map(|c| c.value().to_string())
+                    .map(|c| c.value().to_string()))
             }),
         )
         .procedure(
@@ -34,6 +35,8 @@ async fn main() {
                 cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
                 cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
                 ctx.cookies.add(cookie);
+
+                Ok(())
             }),
         )
         .build()

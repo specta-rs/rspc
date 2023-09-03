@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import { RSPCError, Client, createClient, NoOpTransport } from "@rspc/client";
-import { createSolidQueryHooks } from "@rspc/solid";
+import { createSolidQueryHooks } from "@rspc/solid-query";
 import { QueryClient } from "@tanstack/solid-query";
 import { Procedures } from "./bindings";
 

@@ -1,6 +1,6 @@
 import { initRspc, httpLink, wsLink } from "@rspc/client";
 import { tauriLink } from "@rspc/tauri";
-import { createReactQueryHooks } from "@rspc/react";
+import { createReactQueryHooks } from "@rspc/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 

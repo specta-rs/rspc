@@ -1,11 +1,11 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, marker::PhantomData};
 
 use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::internal::{
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
-    procedure::{BuildProceduresCtx, ProcedureDataType},
+    procedure::{BuildProceduresCtx, ProcedureDef},
     resolver::{
         FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
         StreamMarkerType,
@@ -13,11 +13,11 @@ use crate::internal::{
 };
 
 /// TODO: Explain
-pub struct MissingResolver;
+pub struct MissingResolver<TError>(PhantomData<TError>);
 
-impl Default for MissingResolver {
+impl<TError> Default for MissingResolver<TError> {
     fn default() -> Self {
-        Self
+        Self(Default::default())
     }
 }
 
@@ -30,7 +30,7 @@ mod private {
 
 pub(crate) use private::Procedure;
 
-impl<TMiddleware, T> Procedure<T, TMiddleware>
+impl<T, TMiddleware> Procedure<T, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
@@ -44,7 +44,7 @@ macro_rules! resolver {
         pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
         where
             R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker>,
+            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = TError>,
         {
             Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
         }
@@ -53,7 +53,7 @@ macro_rules! resolver {
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
-impl<TMiddleware> Procedure<MissingResolver, TMiddleware>
+impl<TMiddleware, TError> Procedure<MissingResolver<TError>, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
@@ -61,10 +61,17 @@ where
     resolver!(mutation, Mutation, FutureMarkerType);
     resolver!(subscription, Subscription, StreamMarkerType);
 
+    pub fn error(self) -> Procedure<MissingResolver<TError>, TMiddleware> {
+        Procedure {
+            resolver: self.resolver,
+            mw: self.mw,
+        }
+    }
+
     pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -79,7 +86,7 @@ where
     pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -114,10 +121,11 @@ where
         };
 
         let key_str = key.to_string();
-        let type_def = ProcedureDataType::from_tys::<TMiddleware::Arg<TArg>, TResult::Result>(
-            key,
-            ctx.ty_store,
-        )
+        let type_def = ProcedureDef::from_tys::<
+            TMiddleware::Arg<TArg>,
+            TResult::Result,
+            TResult::Error,
+        >(key, ctx.ty_store)
         .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
         m.append(

@@ -8,45 +8,39 @@ struct Ctx {
     x_demo_header: Option<String>,
 }
 
-const R: Rspc<Ctx> = Rspc::new();
+#[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
+#[error("{0}")]
+struct Error(&'static str);
+
+const R: Rspc<Ctx, Error> = Rspc::new();
 
 #[tokio::main]
 async fn main() {
     let router = R
         .router()
-        .procedure("version", R.query(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .procedure("version", R.query(|_, _: ()| Ok(env!("CARGO_PKG_VERSION"))))
         .procedure(
             "X-Demo-Header",
-            R.query(|ctx, _: ()| ctx.x_demo_header.unwrap_or_else(|| "No header".to_string())),
+            R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
         )
-        .procedure("echo", R.query(|_, v: String| v))
+        .procedure("echo", R.query(|_, v: String| Ok(v)))
         .procedure(
             "error",
-            R.query(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
+            R.query(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
         )
         .procedure(
             "error",
-            R.mutation(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
+            R.mutation(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
         )
         .procedure(
             "transformMe",
-            R.query(|_, _: ()| "Hello, world!".to_string()),
+            R.query(|_, _: ()| Ok("Hello, world!".to_string())),
         )
         .procedure(
             "sendMsg",
             R.mutation(|_, v: String| {
                 println!("Client said '{}'", v);
-                v
+                Ok(v)
             }),
         )
         .procedure(

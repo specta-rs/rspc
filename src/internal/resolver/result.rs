@@ -5,6 +5,7 @@ use std::{
     task::{ready, Context, Poll},
 };
 
+use crate::{internal::Body, Blob, Infallible, IntoResolverError};
 use futures::{
     stream::{once, Once},
     Stream,
@@ -13,17 +14,13 @@ use serde::Serialize;
 use serde_json::Value;
 use specta::Type;
 
-use crate::{Error, ExecError};
+use crate::ExecError;
 
 #[doc(hidden)]
 pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 
 mod private {
-    use std::convert::Infallible;
-
     use pin_project_lite::pin_project;
-
-    use crate::{internal::Body, Blob};
 
     use super::*;
 
@@ -56,6 +53,7 @@ mod private {
 
     pub trait SealedRequestLayer<TMarker> {
         type Result: Type;
+        type Error: IntoResolverError;
         type Body: Body + Send + 'static;
         type TypeMarker;
 
@@ -65,25 +63,6 @@ mod private {
     impl<TMarker, T: SealedRequestLayer<TMarker>> RequestLayer<TMarker> for T {}
 
     // For queries and mutations
-
-    #[doc(hidden)]
-    pub enum SerializeMarker {}
-    impl<T> SealedRequestLayer<SerializeMarker> for T
-    where
-        T: Serialize + Type,
-    {
-        type Result = T;
-        type Body = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>;
-        type TypeMarker = FutureMarkerType;
-
-        fn exec(self) -> Self::Body {
-            StreamAdapter {
-                stream: once(ready(
-                    serde_json::to_value(self).map_err(ExecError::SerializingResultErr),
-                )),
-            }
-        }
-    }
 
     // TODO: Allow `Blob<T>` with `futures::AsyncRead`/`futures:AsyncBufRead` traits
 
@@ -95,6 +74,7 @@ mod private {
         S: tokio::io::AsyncBufRead + Send + 'static,
     {
         type Result = ();
+        type Error = crate::Infallible;
         type Body = BlobStream<S>;
         type TypeMarker = FutureMarkerType;
 
@@ -105,54 +85,43 @@ mod private {
 
     #[doc(hidden)]
     pub enum ResultMarker {}
-    impl<T> SealedRequestLayer<ResultMarker> for Result<T, Error>
+    impl<TOk, TError> SealedRequestLayer<ResultMarker> for Result<TOk, TError>
     where
-        T: Serialize + Type,
+        TOk: Serialize + Type,
+        TError: IntoResolverError,
     {
-        type Result = T;
+        type Result = TOk;
+        type Error = TError;
         type Body = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>;
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
-                stream: once(ready(self.map_err(ExecError::ErrResolverError).and_then(
-                    |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-                ))),
+                stream: once(ready(
+                    self.map_err(|e| e.into_resolver_error().into())
+                        .and_then(|v| {
+                            serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                        }),
+                )),
             }
         }
     }
 
     #[doc(hidden)]
-    pub enum FutureSerializeMarker {}
-    impl<F> SealedRequestLayer<FutureSerializeMarker> for F
-    where
-        F: Future + Send + 'static,
-        F::Output: Serialize + Type + Send + 'static,
-    {
-        type Result = F::Output;
-        type Body = StreamAdapter<Once<FutureSerializeFuture<F>>>;
-        type TypeMarker = FutureMarkerType;
-
-        fn exec(self) -> Self::Body {
-            StreamAdapter {
-                stream: once(FutureSerializeFuture { fut: self }),
-            }
-        }
-    }
-
-    #[doc(hidden)]
-    pub struct FutureBlobAsyncBufReadMarker<S>(
-        PhantomData<S>,
+    pub struct FutureBlobAsyncBufReadMarker<S, TError>(
+        PhantomData<(S, TError)>,
         // Prevents this type from being instantiated
         Infallible,
     );
     #[cfg(feature = "tokio")]
-    impl<TFut, S> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S>> for TFut
+    impl<TFut, S, TError> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S, TError>> for TFut
     where
         TFut: Future<Output = Blob<S>> + Send + 'static,
         S: tokio::io::AsyncBufRead + Send + 'static,
+        TError: IntoResolverError,
     {
         type Result = ();
+        type Error = TError;
         type Body = FutureBlobStream<TFut, S>;
         type TypeMarker = FutureMarkerType;
 
@@ -165,38 +134,17 @@ mod private {
         }
     }
 
-    pin_project! {
-        #[project = FutureSerializeFutureProj]
-        pub struct FutureSerializeFuture<TFut> {
-            #[pin]
-            fut: TFut,
-        }
-    }
-
-    impl<TFut> Future for FutureSerializeFuture<TFut>
-    where
-        TFut: Future + Send + 'static,
-        TFut::Output: Serialize + Type + Send + 'static,
-    {
-        type Output = Result<Value, ExecError>;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            self.project()
-                .fut
-                .poll(cx)
-                .map(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr))
-        }
-    }
-
     #[doc(hidden)]
     pub enum FutureResultMarker {}
-    impl<TFut, T> SealedRequestLayer<FutureResultMarker> for TFut
+    impl<TFut, TOk, TError> SealedRequestLayer<FutureResultMarker> for TFut
     where
-        TFut: Future<Output = Result<T, Error>> + Send + 'static,
-        T: Serialize + Type + Send + 'static,
+        TFut: Future<Output = Result<TOk, TError>> + Send + 'static,
+        TOk: Serialize + Type + Send + 'static,
+        TError: IntoResolverError,
     {
-        type Result = T;
-        type Body = StreamAdapter<Once<FutureSerializeResultFuture<TFut, T>>>;
+        type Result = TOk;
+        type Error = TError;
+        type Body = StreamAdapter<Once<FutureSerializeResultFuture<TFut, TOk>>>;
         type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Body {
@@ -218,31 +166,33 @@ mod private {
         }
     }
 
-    impl<TFut, T> Future for FutureSerializeResultFuture<TFut, T>
+    impl<TFut, T, TError> Future for FutureSerializeResultFuture<TFut, T>
     where
-        TFut: Future<Output = Result<T, Error>> + Send + 'static,
+        TFut: Future<Output = Result<T, TError>> + Send + 'static,
         T: Serialize + Type + Send + 'static,
+        TError: IntoResolverError,
     {
         type Output = Result<Value, ExecError>;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             self.project().fut.poll(cx).map(|v| {
-                v.map_err(ExecError::ErrResolverError)
-                    .and_then(|v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr))
+                serde_json::to_value(v.map_err(IntoResolverError::into_resolver_error)?)
+                    .map_err(ExecError::SerializingResultErr)
             })
         }
     }
 
     // For subscriptions
 
-    #[doc(hidden)]
-    pub enum StreamMarker {}
-    impl<S> SealedRequestLayer<StreamMarker> for S
+    pub struct StreamMarker<TError>(PhantomData<TError>, Infallible);
+    impl<S, TError> SealedRequestLayer<StreamMarker<TError>> for S
     where
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
+        type Error = TError;
         type Body = StreamAdapter<MapStream<S>>;
         type TypeMarker = StreamMarkerType;
 
@@ -258,26 +208,28 @@ mod private {
 
     #[doc(hidden)]
     pub enum ResultStreamMarker {}
-    impl<S> SealedRequestLayer<ResultStreamMarker> for Result<S, Error>
+    impl<S, TError> SealedRequestLayer<ResultStreamMarker> for Result<S, TError>
     where
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
+        type Error = TError;
         type Body = StreamAdapter<MapStream<S>>;
         type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
                 stream: match self {
-                    Ok(stream) => MapStream::Stream {
+                    Self::Ok(stream) => MapStream::Stream {
                         stream,
                         mapper: |v| {
                             serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
                         },
                     },
-                    Err(err) => MapStream::Error {
-                        err: Some(ExecError::ErrResolverError(err)),
+                    Self::Err(e) => MapStream::Error {
+                        err: Some(e.into_resolver_error().into()),
                     },
                 },
             }
@@ -285,35 +237,16 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum StreamResultMarker {}
-    impl<TStream, T> SealedRequestLayer<StreamResultMarker> for TStream
-    where
-        TStream: Stream<Item = Result<T, Error>> + Send + Sync + 'static,
-        T: Serialize + Type,
-    {
-        type Result = T;
-        type Body = StreamAdapter<MapStream<TStream>>;
-        type TypeMarker = StreamMarkerType;
-
-        fn exec(self) -> Self::Body {
-            StreamAdapter {
-                stream: MapStream::Stream {
-                    stream: self,
-                    mapper: |v| serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-                },
-            }
-        }
-    }
-
-    #[doc(hidden)]
-    pub enum FutureStreamMarker {}
-    impl<TFut, S> SealedRequestLayer<FutureStreamMarker> for TFut
+    pub struct FutureStreamMarker<TError>(PhantomData<TError>, Infallible);
+    impl<TFut, S, TError> SealedRequestLayer<FutureStreamMarker<TError>> for TFut
     where
         TFut: Future<Output = S> + Send + 'static,
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
+        type Error = TError;
         type Body = StreamAdapter<FutureMapStream<TFut, S>>;
         type TypeMarker = StreamMarkerType;
 
@@ -332,13 +265,15 @@ mod private {
 
     #[doc(hidden)]
     pub enum FutureResultStreamMarker {}
-    impl<TFut, S> SealedRequestLayer<FutureResultStreamMarker> for TFut
+    impl<TFut, S, TError> SealedRequestLayer<FutureResultStreamMarker> for TFut
     where
-        TFut: Future<Output = Result<S, Error>> + Send + 'static,
+        TFut: Future<Output = Result<S, TError>> + Send + 'static,
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
+        type Error = TError;
         type Body = StreamAdapter<FutureMapStream<TFut, S>>;
         type TypeMarker = StreamMarkerType;
 
@@ -346,32 +281,7 @@ mod private {
             StreamAdapter {
                 stream: FutureMapStream::First {
                     fut: self,
-                    fut_mapper: |s| s.map_err(ExecError::ErrResolverError),
-                    stream_mapper: |v| {
-                        serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
-                    },
-                },
-            }
-        }
-    }
-
-    #[doc(hidden)]
-    pub enum FutureStreamResultMarker {}
-    impl<TFut, TStream, T> SealedRequestLayer<FutureStreamResultMarker> for TFut
-    where
-        TFut: Future<Output = TStream> + Send + 'static,
-        TStream: Stream<Item = Result<T, Error>> + Send + Sync + 'static,
-        T: Serialize + Type,
-    {
-        type Result = T;
-        type Body = StreamAdapter<FutureMapStream<TFut, TStream>>;
-        type TypeMarker = StreamMarkerType;
-
-        fn exec(self) -> Self::Body {
-            StreamAdapter {
-                stream: FutureMapStream::First {
-                    fut: self,
-                    fut_mapper: Ok,
+                    fut_mapper: |s| Ok(s.map_err(IntoResolverError::into_resolver_error)?),
                     stream_mapper: |v| {
                         serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
                     },

@@ -10,6 +10,9 @@ serde_json = { version = "1.0.103", features = ["raw_value"] }
 rspc = { path = "../..", features = ["vercel"] }
 vercel_runtime = { version = "^1.0.2" }
 async-stream = "0.3.5"
+thiserror = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true }
 
 [[bin]]
 name = "rspc"

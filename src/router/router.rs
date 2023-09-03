@@ -1,7 +1,7 @@
 use std::{borrow::Cow, panic::Location};
 
 use serde::de::DeserializeOwned;
-use specta::{Type, TypeDefs};
+use specta::{Type, TypeMap};
 
 use crate::{
     internal::{
@@ -113,7 +113,7 @@ where
         let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
         let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
         let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
-        let mut typ_store = TypeDefs::new(); // TODO: Take in as arg
+        let mut typ_store = TypeMap::new(); // TODO: Take in as arg
 
         let mut ctx = BuildProceduresCtx {
             ty_store: &mut typ_store,

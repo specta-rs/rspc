@@ -2,12 +2,12 @@ use std::pin::pin;
 
 use futures::{SinkExt, StreamExt};
 use httpz::{
-    http::{Response, StatusCode},
+    http,
     ws::{Message, WebsocketUpgrade},
     HttpResponse,
 };
 
-use crate::internal::exec::{ConnectionTask, Executor, IncomingMessage, TokioRuntime};
+use crate::internal::exec::{ConnectionTask, Executor, IncomingMessage, Response, TokioRuntime};
 
 use super::TCtxFunc;
 
@@ -25,8 +25,8 @@ where
         tracing::debug!("Websocket are not supported on your webserver!");
 
         // TODO: Make this error be picked up on the frontend and expose it with a logical name
-        return Ok(Response::builder()
-            .status(StatusCode::INTERNAL_SERVER_ERROR)
+        return Ok(http::Response::builder()
+            .status(http::StatusCode::INTERNAL_SERVER_ERROR)
             .body(vec![])?);
     } else {
         #[cfg(feature = "tracing")]
@@ -40,8 +40,8 @@ where
             #[cfg(feature = "tracing")]
             tracing::error!("Error executing context function: {}", _err);
 
-            return Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
+            return Ok(http::Response::builder()
+                .status(http::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(vec![])?);
         }
     };
@@ -49,7 +49,9 @@ where
     let cookies = req.cookies(); // TODO: Reorder args of next func so cookies goes first
     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |_, socket| async move {
         let socket = socket
-            .with(|v: String| async move { Ok(Message::Text(v)) as Result<_, httpz::Error> })
+            .with(|v: Vec<Response>| async move {
+                Ok(Message::Text(serde_json::to_string(&v).unwrap())) as Result<_, httpz::Error>
+            })
             .map(|v| {
                 v.map(|v| match v {
                     Message::Text(v) => IncomingMessage::Msg(serde_json::from_str(&v)),
@@ -69,9 +71,8 @@ where
                     }
                 })
             });
-        let socket = pin!(socket);
 
-        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, executor, socket, None).await;
+        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, executor, pin!(socket), None).await;
     })
     .into_response()
 }
