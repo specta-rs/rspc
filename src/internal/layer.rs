@@ -3,7 +3,7 @@ use std::{future::ready, pin::Pin};
 use serde_json::Value;
 
 use super::Body;
-use crate::{internal::middleware::RequestContext, ExecError};
+use crate::internal::middleware::RequestContext;
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
 pub(crate) type FutureValueOrStream<'a> = Pin<Box<dyn Body + Send + 'a>>;
@@ -12,7 +12,7 @@ pub(crate) type FutureValueOrStream<'a> = Pin<Box<dyn Body + Send + 'a>>;
 pub trait Layer<TLayerCtx: 'static>: SealedLayer<TLayerCtx> {}
 
 mod private {
-    use crate::internal::Once;
+    use crate::{internal::Once, ExecError};
 
     use super::*;
 

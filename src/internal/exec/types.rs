@@ -5,6 +5,8 @@ mod private {
     use serde_json::Value;
     use specta::Type;
 
+    use crate::{ExecError, ProcedureError, ResolverError};
+
     /// The type of a request to rspc.
     ///
     /// @internal
@@ -40,17 +42,6 @@ mod private {
         },
     }
 
-    /// An error that can be returned by rspc.
-    ///
-    /// @internal
-    #[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
-    // #[cfg_attr(test, derive(specta::Type))]
-    pub struct ResponseError {
-        pub code: u16,
-        pub message: String,
-        pub data: Option<Value>,
-    }
-
     /// A value that can be a successful result or an error.
     ///
     /// @internal
@@ -61,7 +52,7 @@ mod private {
         /// The result of a successful operation.
         Value(Value),
         /// The result of a failed operation.
-        Error(ResponseError),
+        Error(ProcedureError),
         /// A message to indicate that the operation is complete.
         Complete,
     }

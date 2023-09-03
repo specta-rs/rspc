@@ -5,6 +5,7 @@ import {
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
   inferProcedureResult,
+  inferQueryError,
 } from ".";
 import { RSPCError, Link, OperationContext, Operation, LinkResult } from ".";
 

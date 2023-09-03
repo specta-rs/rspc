@@ -100,7 +100,7 @@ mod private {
                 stream: once(ready(
                     self.map_err(|e| e.into_resolver_error().into())
                         .and_then(|v| {
-                            serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
+                            Ok(serde_json::to_value(v).map_err(ExecError::SerializingResultErr)?)
                         }),
                 )),
             }

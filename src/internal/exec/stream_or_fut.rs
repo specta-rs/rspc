@@ -57,21 +57,15 @@ impl RequestFuture {
     }
 
     fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Response> {
-        match self.stream.as_mut().poll_next(cx) {
-            Poll::Ready(Some(Ok(result))) => Poll::Ready(Response {
-                id: self.id,
-                inner: ResponseInner::Value(result),
-            }),
-            Poll::Ready(Some(Err(err))) => Poll::Ready(Response {
-                id: self.id,
-                inner: ResponseInner::Error(err.into()),
-            }),
-            Poll::Ready(None) => Poll::Ready(Response {
-                id: self.id,
-                inner: ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
-            }),
-            Poll::Pending => Poll::Pending,
-        }
+        Poll::Ready(Response {
+            id: self.id,
+            inner: match self.stream.as_mut().poll_next(cx) {
+                Poll::Ready(Some(Ok(result))) => ResponseInner::Value(result),
+                Poll::Ready(Some(Err(err))) => ResponseInner::Error(err.into()),
+                Poll::Ready(None) => ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
+                Poll::Pending => return Poll::Pending,
+            },
+        })
     }
 }
 
