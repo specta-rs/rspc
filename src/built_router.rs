@@ -8,7 +8,7 @@ use std::{
 };
 
 use specta::{
-    ts::{self, TsExportError},
+    ts::{self, FormatterFn, TsExportError},
     TypeMap,
 };
 
@@ -21,6 +21,7 @@ use crate::{
 pub struct ExportConfig {
     export_path: PathBuf,
     header: Cow<'static, str>,
+    formatter: Option<FormatterFn>,
 }
 
 impl ExportConfig {
@@ -28,12 +29,20 @@ impl ExportConfig {
         ExportConfig {
             export_path: export_path.into(),
             header: Cow::Borrowed(""),
+            formatter: None,
         }
     }
 
-    pub fn set_header(self, header: impl Into<Cow<'static, str>>) -> Self {
+    pub fn header(self, header: impl Into<Cow<'static, str>>) -> Self {
         Self {
             header: header.into(),
+            ..self
+        }
+    }
+
+    pub fn formatter(self, formatter: FormatterFn) -> Self {
+        Self {
+            formatter: Some(formatter),
             ..self
         }
     }
@@ -86,7 +95,7 @@ where
         if let Some(export_dir) = cfg.export_path.parent() {
             fs::create_dir_all(export_dir)?;
         }
-        let mut file = File::create(cfg.export_path)?;
+        let mut file = File::create(&cfg.export_path)?;
         if cfg.header != "" {
             writeln!(file, "{}", cfg.header)?;
         }
@@ -167,6 +176,13 @@ where
                     &types
                 )?
             )?;
+        }
+
+        file.flush()?;
+        drop(file);
+
+        if let Some(formatter) = cfg.formatter {
+            (formatter)(cfg.export_path)?;
         }
 
         Ok(())
