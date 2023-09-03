@@ -2,6 +2,10 @@ use rspc::Router;
 
 use crate::R;
 
+#[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
+#[error("{0}")]
+struct Error(&'static str);
+
 // We merge this router into the main router in `main.rs`.
 // This router shows how to do basic queries and mutations and how they tak
 pub fn mount() -> Router<()> {
@@ -11,12 +15,8 @@ pub fn mount() -> Router<()> {
         .procedure("echoAsync", R.query(|_, _: i32| async move { Ok(42) }))
         .procedure(
             "error",
-            R.query(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
+            R.error::<Error>()
+                .query(|_, _: ()| Err::<String, _>(Error("Something went wrong"))),
         )
         .procedure(
             "transformMe",

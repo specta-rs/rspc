@@ -30,7 +30,7 @@ default = ["typescript"]
 tauri = ["dep:tauri", "tokio", "tauri/wry", "tauri-specta"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
-anyhow = ["dep:anyhow"]
+# anyhow = ["dep:anyhow"]
 tokio = ["dep:tokio", "specta/tokio"]
 typescript = ["specta/typescript", "tauri-specta/typescript"] # TODO: Use this in the actual codebase
 
@@ -49,8 +49,8 @@ vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
 [dependencies]
 specta = { workspace = true }
-serde = { version = "1", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.43", default-features = false }
+serde = { workspace = true }
+thiserror = { workspace = true }
 futures = { version = "0.3.28", default-features = false }
 pin-project-lite = "0.2.10"
 
@@ -63,7 +63,7 @@ tauri = { version = "1.4.1", default-features = false, optional = true }
 tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "1073c8da4e4fccbeebfb389b2f093ac711cd35df", default-features = false, optional = true }
 tracing = { version = "0.1.37", default-features = false, optional = true }
 worker = { version = "0.0.17", default-features = false, optional = true }
-anyhow = { version = "1", default-features = false, optional = true }
+# anyhow = { version = "1", default-features = false, optional = true } # TODO: Should we bring this back with the new typed error handling?
 tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }
 streamunordered = "0.5.2"
 
@@ -83,6 +83,8 @@ members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "
 
 [workspace.dependencies]
 specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
+serde = { version = "1", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.43", default-features = false }
 
 [patch.crates-io]
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "5948d80f2551780eda2c7bf38450fc796c74cfbf" }

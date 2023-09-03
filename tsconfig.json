@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/client"
+    },
+    {
+      "path": "packages/react"
+    },
+    {
+      "path": "packages/solid"
+    },
+    {
+      "path": "packages/tauri"
+    }
+  ]
+}

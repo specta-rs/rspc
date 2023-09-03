@@ -1,11 +1,11 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, marker::PhantomData};
 
 use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::internal::{
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
-    procedure::{BuildProceduresCtx, ProcedureDataType},
+    procedure::{BuildProceduresCtx, ProcedureDef},
     resolver::{
         FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
         StreamMarkerType,
@@ -13,40 +13,35 @@ use crate::internal::{
 };
 
 /// TODO: Explain
-pub struct MissingResolver;
+pub struct MissingResolver<TError>(PhantomData<TError>);
 
-impl Default for MissingResolver {
+impl<TError> Default for MissingResolver<TError> {
     fn default() -> Self {
-        Self
+        Self(Default::default())
     }
 }
 
 mod private {
-    pub struct Procedure<T, TMiddleware, TError> {
+    pub struct Procedure<T, TMiddleware> {
         pub(crate) resolver: T,
         pub(crate) mw: TMiddleware,
-        pub(crate) phantom: std::marker::PhantomData<TError>,
     }
 }
 
 pub(crate) use private::Procedure;
 
-impl<T, TMiddleware, TError> Procedure<T, TMiddleware, TError>
+impl<T, TMiddleware> Procedure<T, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
     pub(crate) fn new(resolver: T, mw: TMiddleware) -> Self {
-        Self {
-            resolver,
-            mw,
-            phantom: std::marker::PhantomData,
-        }
+        Self { resolver, mw }
     }
 }
 
 macro_rules! resolver {
     ($func:ident, $kind:ident, $result_marker:ident) => {
-        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware, TError>
+        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
         where
             R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
             R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = TError>,
@@ -58,7 +53,7 @@ macro_rules! resolver {
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
-impl<TMiddleware, TError> Procedure<MissingResolver, TMiddleware, TError>
+impl<TMiddleware, TError> Procedure<MissingResolver<TError>, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
@@ -66,18 +61,17 @@ where
     resolver!(mutation, Mutation, FutureMarkerType);
     resolver!(subscription, Subscription, StreamMarkerType);
 
-    pub fn error(self) -> Procedure<MissingResolver, TMiddleware, TError> {
+    pub fn error(self) -> Procedure<MissingResolver<TError>, TMiddleware> {
         Procedure {
             resolver: self.resolver,
             mw: self.mw,
-            phantom: std::marker::PhantomData,
         }
     }
 
     pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>, TError> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -92,7 +86,7 @@ where
     pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<TMiddleware, Mw>, TError> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -104,12 +98,8 @@ where
     }
 }
 
-impl<F, TArg, TResult, TResultMarker, TMiddleware, TError>
-    Procedure<
-        HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>,
-        TMiddleware,
-        TError,
-    >
+impl<F, TArg, TResult, TResultMarker, TMiddleware>
+    Procedure<HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
 where
     F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
     TArg: Type + DeserializeOwned + 'static,
@@ -131,10 +121,11 @@ where
         };
 
         let key_str = key.to_string();
-        let type_def = ProcedureDataType::from_tys::<TMiddleware::Arg<TArg>, TResult::Result>(
-            key,
-            ctx.ty_store,
-        )
+        let type_def = ProcedureDef::from_tys::<
+            TMiddleware::Arg<TArg>,
+            TResult::Result,
+            TResult::Error,
+        >(key, ctx.ty_store)
         .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
         m.append(

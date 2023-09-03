@@ -81,7 +81,7 @@ mod tests {
         .unwrap();
 
         let tys = collect_datatypes![
-            super::procedure::ProcedureDataType,
+            super::procedure::ProceduresDef,
             // crate::Procedures, // TODO
             exec::Request,
             exec::Response,

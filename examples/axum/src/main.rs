@@ -10,7 +10,9 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::Stream;
-use rspc::{integrations::httpz::Request, Blob, ErrorCode, ExportConfig, Rspc};
+use rspc::{integrations::httpz::Request, Blob, ExportConfig, Rspc};
+use serde::Serialize;
+use specta::Type;
 use tokio::{fs::File, io::BufReader, time::sleep};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
@@ -20,7 +22,17 @@ struct Ctx {
     x_demo_header: Option<String>,
 }
 
-const R: Rspc<Ctx> = Rspc::new();
+#[derive(thiserror::Error, Serialize, Type, Debug)]
+#[error("{0}")]
+struct Error(&'static str);
+
+const R: Rspc<Ctx, Error> = Rspc::new();
+
+#[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
+pub enum MyCustomError {
+    #[error("I am broke")]
+    IAmBroke,
+}
 
 #[tokio::main]
 async fn main() {
@@ -49,21 +61,11 @@ async fn main() {
         .procedure("echo", R.query(|_, v: String| Ok(v)))
         .procedure(
             "error",
-            R.query(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
+            R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
         )
         .procedure(
             "error",
-            R.mutation(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            }),
+            R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
         )
         .procedure(
             "transformMe",
@@ -90,15 +92,18 @@ async fn main() {
                 }
             }),
         )
-        .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
-            stream! {
-                for _ in 0..5 {
-                    yield Ok("ping".to_string());
-                    sleep(Duration::from_secs(1)).await;
+        .procedure(
+            "errorPings",
+            R.subscription(|_ctx, _args: ()| {
+                stream! {
+                    for _ in 0..5 {
+                        yield Ok("ping".to_string());
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    yield Err(Error("Something went wrong".into()));
                 }
-                yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            }
-        }))
+            }),
+        )
         .procedure(
             "testSubscriptionShutdown",
             R.subscription({
@@ -147,6 +152,11 @@ async fn main() {
 
                 Blob(BufReader::new(file))
             }),
+        )
+        .procedure(
+            "customErr",
+            R.error::<MyCustomError>()
+                .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
         )
         .build()
         .unwrap()
