@@ -13,11 +13,14 @@
     "esModuleInterop": true,
     "importHelpers": true,
     "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
     "paths": {
       "@rspc/client": ["../client/src"],
       "@rspc/client/full": ["../client/src/full"],
-      "@rspc/react": ["../react/src"],
-      "@rspc/solid": ["../solid/src"],
+      "@rspc/react-query": ["../react/src"],
+      "@rspc/solid-query": ["../solid/src"],
       "@rspc/tauri": ["../tauri/src"]
     }
   },

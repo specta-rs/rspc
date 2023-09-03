@@ -11,7 +11,7 @@
   "license": "MIT",
   "devDependencies": {
     "@rspc/client": "^0.1.2",
-    "@rspc/solid": "^0.1.2",
+    "@rspc/solid-query": "^0.1.2",
     "@rspc/tauri": "^0.1.2",
     "@tanstack/solid-query": "^4.10.1",
     "@tauri-apps/api": "^1.1.0",

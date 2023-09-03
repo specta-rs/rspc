@@ -1,5 +1,5 @@
 {
-  "name": "@rspc/solid",
+  "name": "@rspc/solid-query",
   "version": "1.0.0-rc.1",
   "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
   "keywords": [],

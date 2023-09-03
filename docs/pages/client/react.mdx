@@ -10,7 +10,7 @@ To get started first install the required packages.
 
 ```bash copy
 npm i @rspc/client # The core client
-pnpm i @rspc/react # The React integration
+pnpm i @rspc/react-query # The React Query integration
 ```
 
 Then you can do the following:
@@ -18,7 +18,7 @@ Then you can do the following:
 ```tsx copy filename="index.ts"
 import { QueryClient } from "@tanstack/react-query";
 import { FetchTransport, createClient } from "@rspc/client";
-import { createReactQueryHooks } from "@rspc/react";
+import { createReactQueryHooks } from "@rspc/react-query";
 
 import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 

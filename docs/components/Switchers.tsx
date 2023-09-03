@@ -136,7 +136,7 @@ export function Interpolate({ children }: PropsWithChildren) {
           var text = node.data
             .replace("pnpm", activePackageManager.name.toLowerCase())
             .replace(
-              "@rspc/react",
+              "@rspc/react-query",
               `@rspc/${activeFramework.name.toLowerCase()}`
             );
           if (text != node.data) {
@@ -159,7 +159,7 @@ export function Interpolate({ children }: PropsWithChildren) {
           .replace(activePackageManager.name.toLowerCase(), "pnpm")
           .replace(
             `@rspc/${activeFramework.name.toLowerCase()}`,
-            "@rspc/react"
+            "@rspc/react-query"
           );
       }
     };
