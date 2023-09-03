@@ -121,9 +121,12 @@ where
         };
 
         let key_str = key.to_string();
-        let type_def =
-            ProcedureDef::from_tys::<TMiddleware::Arg<TArg>, TResult::Result>(key, ctx.ty_store)
-                .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
+        let type_def = ProcedureDef::from_tys::<
+            TMiddleware::Arg<TArg>,
+            TResult::Result,
+            TResult::Error,
+        >(key, ctx.ty_store)
+        .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
         m.append(
             key_str,

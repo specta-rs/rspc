@@ -54,6 +54,8 @@ mod private {
         pub input: DataType,
         #[specta(type = serde_json::Value)]
         pub result: DataType,
+        #[specta(type = serde_json::Value)]
+        pub error: DataType,
     }
 
     fn never() -> DataType {
@@ -68,13 +70,14 @@ mod private {
     }
 
     impl ProcedureDef {
-        pub fn from_tys<TArg, TResult>(
+        pub fn from_tys<TArg, TResult, TError>(
             key: Cow<'static, str>,
             type_map: &mut TypeMap,
         ) -> Result<Self, TsExportError>
         where
             TArg: Type,
             TResult: Type,
+            TError: Type,
         {
             Ok(ProcedureDef {
                 key,
@@ -91,6 +94,13 @@ mod private {
                     t => t,
                 },
                 result: TResult::reference(
+                    DefOpts {
+                        parent_inline: false,
+                        type_map,
+                    },
+                    &[],
+                )?,
+                error: TError::reference(
                     DefOpts {
                         parent_inline: false,
                         type_map,

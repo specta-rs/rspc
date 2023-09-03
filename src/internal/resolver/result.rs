@@ -6,7 +6,7 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use crate::{internal::Body, Blob, IntoResolverError};
+use crate::{internal::Body, Blob, Infallible, IntoResolverError};
 use futures::{
     stream::{once, Once},
     Stream,
@@ -21,8 +21,6 @@ use crate::ExecError;
 pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 
 mod private {
-    use std::convert::Infallible;
-
     use pin_project_lite::pin_project;
 
     use super::*;
@@ -77,7 +75,7 @@ mod private {
         S: tokio::io::AsyncBufRead + Send + 'static,
     {
         type Result = ();
-        type Error = crate::Error;
+        type Error = crate::Infallible;
         type Body = BlobStream<S>;
         type TypeMarker = FutureMarkerType;
 
@@ -111,19 +109,20 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub struct FutureBlobAsyncBufReadMarker<S>(
-        PhantomData<S>,
+    pub struct FutureBlobAsyncBufReadMarker<S, TError>(
+        PhantomData<(S, TError)>,
         // Prevents this type from being instantiated
         Infallible,
     );
     #[cfg(feature = "tokio")]
-    impl<TFut, S> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S>> for TFut
+    impl<TFut, S, TError> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S, TError>> for TFut
     where
         TFut: Future<Output = Blob<S>> + Send + 'static,
         S: tokio::io::AsyncBufRead + Send + 'static,
+        TError: IntoResolverError,
     {
         type Result = ();
-        type Error = crate::Error;
+        type Error = TError;
         type Body = FutureBlobStream<TFut, S>;
         type TypeMarker = FutureMarkerType;
 
@@ -186,14 +185,15 @@ mod private {
 
     // For subscriptions
 
-    pub enum StreamMarker {}
-    impl<S> SealedRequestLayer<StreamMarker> for S
+    pub struct StreamMarker<TError>(PhantomData<TError>, Infallible);
+    impl<S, TError> SealedRequestLayer<StreamMarker<TError>> for S
     where
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
-        type Error = crate::Error;
+        type Error = TError;
         type Body = StreamAdapter<MapStream<S>>;
         type TypeMarker = StreamMarkerType;
 
@@ -238,15 +238,16 @@ mod private {
     }
 
     #[doc(hidden)]
-    pub enum FutureStreamMarker {}
-    impl<TFut, S> SealedRequestLayer<FutureStreamMarker> for TFut
+    pub struct FutureStreamMarker<TError>(PhantomData<TError>, Infallible);
+    impl<TFut, S, TError> SealedRequestLayer<FutureStreamMarker<TError>> for TFut
     where
         TFut: Future<Output = S> + Send + 'static,
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
+        TError: IntoResolverError,
     {
         type Result = S::Item;
-        type Error = crate::Error;
+        type Error = TError;
         type Body = StreamAdapter<FutureMapStream<TFut, S>>;
         type TypeMarker = StreamMarkerType;
 
