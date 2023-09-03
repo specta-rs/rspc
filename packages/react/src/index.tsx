@@ -8,31 +8,17 @@ import {
 } from "react";
 import {
   QueryClient,
-  useQuery as __useQuery,
-  useInfiniteQuery as __useInfiniteQuery,
-  useMutation as __useMutation,
-  UseQueryResult,
   UseQueryOptions,
-  UseMutationResult,
   UseMutationOptions,
   UseInfiniteQueryResult,
   UseInfiniteQueryOptions,
   hashQueryKey,
   QueryClientProvider,
 } from "@tanstack/react-query";
-import {
-  _inferProcedureHandlerInput,
-  inferInfiniteQueries,
-  _inferInfiniteQueryProcedureHandlerInput,
-  inferInfiniteQueryResult,
-  inferQueryInput,
-  inferQueryResult,
-  inferMutationResult,
-  inferMutationInput,
-  ProceduresDef,
-  inferProcedureResult,
-} from "@rspc/client";
-import { AlphaClient, RSPCError } from "@rspc/client";
+import * as tanstack from "@tanstack/react-query";
+import { ProceduresDef, ProcedureDef } from "@rspc/client";
+import { AlphaClient } from "@rspc/client";
+import * as rspc from "@rspc/client";
 
 // TODO: Remove this once off plane
 export { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -46,12 +32,12 @@ export interface BaseOptions<TProcedures extends ProceduresDef> {
   };
 }
 
-export interface SubscriptionOptions<TOutput> {
+export interface SubscriptionOptions<P extends ProcedureDef> {
   enabled?: boolean;
   onStarted?: () => void;
-  onData: (data: TOutput) => void;
+  onData: (data: P["result"]) => void;
   // TODO: Not `| Error`
-  onError?: (err: RSPCError | Error) => void;
+  onError?: (err: P["error"] | rspc.Error) => void;
 }
 
 export interface Context<TProcedures extends ProceduresDef> {
@@ -83,37 +69,35 @@ export function createReactQueryHooks<P extends ProceduresDef>(
     return ctx;
   }
 
-  function useQuery<
-    K extends P["queries"]["key"] & string,
-    TQueryFnData = inferQueryResult<P, K>,
-    TData = inferQueryResult<P, K>
-  >(
+  function useQuery<K extends P["queries"]["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<P, "queries", K>
+      ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
     ],
     opts?: Omit<
       UseQueryOptions<
-        TQueryFnData,
-        RSPCError,
-        TData,
-        [K, inferQueryInput<P, K>]
+        rspc.inferQueryResult<P, K>,
+        rspc.inferQueryError<P, K>,
+        rspc.inferQueryResult<P, K>,
+        [K, rspc.inferQueryInput<P, K>]
       >,
       "queryKey" | "queryFn"
     > &
       TBaseOptions
-  ): UseQueryResult<TData, RSPCError> {
+  ) {
     const { rspc, ...rawOpts } = opts ?? {};
     let client = rspc?.client;
     if (!client) {
       client = useContext().client;
     }
 
-    return __useQuery({
-      queryKey: mapQueryKey(keyAndInput as any) as any,
-      queryFn: () => client!.query(keyAndInput),
-      ...rawOpts,
-    });
+    return tanstack.useQuery(
+      mapQueryKey(keyAndInput as any) as any,
+      () => client!.query(keyAndInput),
+      {
+        ...rawOpts,
+      }
+    );
   }
 
   // function useInfiniteQuery<K extends inferInfiniteQueries<P>["key"] & string>(
@@ -154,43 +138,35 @@ export function createReactQueryHooks<P extends ProceduresDef>(
   >(
     key: K | [K],
     opts?: UseMutationOptions<
-      inferMutationResult<P, K>,
-      RSPCError,
-      inferMutationInput<P, K> extends never
+      rspc.inferMutationResult<P, K>,
+      rspc.inferMutationError<P, K>,
+      rspc.inferMutationInput<P, K> extends never
         ? undefined
-        : inferMutationInput<P, K>,
+        : rspc.inferMutationInput<P, K>,
       TContext
     > &
       TBaseOptions
-  ): UseMutationResult<
-    inferMutationResult<P, K>,
-    RSPCError,
-    inferMutationInput<P, K> extends never
-      ? undefined
-      : inferMutationInput<P, K>,
-    TContext
-  > {
+  ) {
     const { rspc, ...rawOpts } = opts ?? {};
     let client = rspc?.client;
     if (!client) {
       client = useContext().client;
     }
 
-    return __useMutation(async (input: any) => {
+    return tanstack.useMutation(async (input: any) => {
       const actualKey = Array.isArray(key) ? key[0] : key;
       return client!.mutation([actualKey, input] as any);
     }, rawOpts as any);
   }
 
   function useSubscription<
-    K extends P["subscriptions"]["key"] & string,
-    TData = inferProcedureResult<P, "subscriptions", K>
+    K extends rspc.inferSubscriptions<P>["key"] & string
   >(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<P, "subscriptions", K>
+      ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
     ],
-    opts: SubscriptionOptions<TData> & TBaseOptions
+    opts: SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
   ) {
     let client = opts?.rspc?.client;
     if (!client) {
@@ -201,7 +177,7 @@ export function createReactQueryHooks<P extends ProceduresDef>(
 
     return useEffect(() => {
       if (!enabled) return;
-      return client!.addSubscription<K, TData>(keyAndInput, {
+      return client!.addSubscription<K>(keyAndInput, {
         onData: opts.onData,
         onError: opts.onError,
       });

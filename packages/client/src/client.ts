@@ -4,17 +4,21 @@ import {
   inferMutationResult,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
-  inferProcedureResult,
   inferQueryError,
+  inferQuery,
+  ProcedureDef,
+  inferMutation,
+  inferMutationError,
+  inferSubscription,
 } from ".";
-import { RSPCError, Link, OperationContext, Operation, LinkResult } from ".";
+import { Link, OperationContext, Operation, LinkResult } from ".";
 
 // TODO
-export interface SubscriptionOptions<TOutput> {
+export interface SubscriptionOptions<P extends ProcedureDef> {
   // onStarted?: () => void;
-  onData: (data: TOutput) => void;
+  onData: (data: P["result"]) => void;
   // TODO: Probs remove `| Error` here
-  onError?: (err: RSPCError | Error) => void;
+  onError?: (err: P["error"] | Error) => void;
 }
 
 type KeyAndInput = [string] | [string, any];
@@ -26,22 +30,30 @@ type OperationOpts = {
 };
 
 // TODO
-interface ClientArgs {
-  links: Link[];
-  onError?: (err: RSPCError) => void | Promise<void>;
+interface ClientArgs<P extends ProceduresDef> {
+  links: Link<P>[];
+  onError?: OnErrorHandler<P>;
 }
 
-export function initRspc<P extends ProceduresDef>(args: ClientArgs) {
+export function initRspc<P extends ProceduresDef>(args: ClientArgs<P>) {
   return new AlphaClient<P>(args);
 }
 
+type Result<TOk, TErr> =
+  | { status: "ok"; data: TOk }
+  | { status: "error"; error: TErr };
+
+type OnErrorHandler<P extends ProceduresDef> = (
+  err: P[keyof ProceduresDef]["error"]
+) => void | Promise<void>;
+
 export class AlphaClient<P extends ProceduresDef> {
   public _rspc_def: ProceduresDef = undefined!;
-  private links: Link[];
-  private onError?: (err: RSPCError) => void | Promise<void>;
+  private links: Link<P>[];
+  private onError?: OnErrorHandler<P>;
   private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput; // TODO: Do something so a single React.context can handle multiple of these
 
-  constructor(args: ClientArgs) {
+  constructor(args: ClientArgs<P>) {
     if (args.links.length === 0) {
       throw new Error("Must provide at least one link");
     }
@@ -50,104 +62,106 @@ export class AlphaClient<P extends ProceduresDef> {
     this.onError = args.onError;
   }
 
-  async query<K extends P["queries"]["key"] & string>(
+  query<K extends P["queries"]["key"] & string>(
     keyAndInput: [
       key: K,
       ...input: _inferProcedureHandlerInput<P, "queries", K>
     ],
     opts?: OperationOpts
-  ): Promise<inferQueryResult<P, K>> {
-    try {
-      const keyAndInput2 = this.mapQueryKey
-        ? this.mapQueryKey(keyAndInput as any)
-        : keyAndInput;
+  ): Promise<Result<inferQueryResult<P, K>, inferQueryError<P, K>>> {
+    const keyAndInput2 = this.mapQueryKey
+      ? this.mapQueryKey(keyAndInput as any)
+      : keyAndInput;
 
-      const result = exec(
-        {
-          method: "query",
-          input: keyAndInput2[1],
-          path: keyAndInput2[0],
-          context: opts?.context || {},
-        },
-        this.links
+    const result = exec<P>(
+      {
+        method: "query",
+        input: keyAndInput2[1],
+        path: keyAndInput2[0],
+        context: opts?.context || {},
+      },
+      this.links
+    );
+
+    opts?.signal?.addEventListener("abort", result.abort);
+
+    return new Promise((res) => {
+      result.exec(
+        (data) => res({ status: "ok", data }),
+        (error) => {
+          this.onError?.(error);
+
+          res({ status: "error", error });
+        }
       );
-      opts?.signal?.addEventListener("abort", result.abort);
-
-      return await new Promise(result.exec);
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      throw err;
-    }
+    });
   }
 
-  async mutation<K extends P["mutations"]["key"] & string>(
+  mutation<K extends P["mutations"]["key"] & string>(
     keyAndInput: [
       key: K,
       ...input: _inferProcedureHandlerInput<P, "mutations", K>
     ],
     opts?: OperationOpts
-  ): Promise<inferMutationResult<P, K>> {
-    try {
-      const keyAndInput2 = this.mapQueryKey
-        ? this.mapQueryKey(keyAndInput as any)
-        : keyAndInput;
+  ): Promise<Result<inferMutationResult<P, K>, inferMutationError<P, K>>> {
+    const keyAndInput2 = this.mapQueryKey
+      ? this.mapQueryKey(keyAndInput as any)
+      : keyAndInput;
 
-      const result = exec(
-        {
-          method: "mutation",
-          input: keyAndInput2[1],
-          path: keyAndInput2[0],
-          context: opts?.context || {},
-        },
-        this.links
+    const result = exec<P>(
+      {
+        method: "mutation",
+        input: keyAndInput2[1],
+        path: keyAndInput2[0],
+        context: opts?.context || {},
+      },
+      this.links
+    );
+    opts?.signal?.addEventListener("abort", result.abort);
+
+    return new Promise((res) => {
+      result.exec(
+        (data) => res({ status: "ok", data }),
+        (error) => {
+          this.onError?.(error);
+
+          res({ status: "error", error });
+        }
       );
-      opts?.signal?.addEventListener("abort", result.abort);
-
-      return await new Promise(result.exec);
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      throw err;
-    }
+    });
   }
 
   // TODO: Handle resubscribing if the subscription crashes similar to what Tanstack Query does
-  addSubscription<
-    K extends P["subscriptions"]["key"] & string,
-    TData = inferProcedureResult<P, "subscriptions", K>
-  >(
+  addSubscription<K extends P["subscriptions"]["key"] & string>(
     keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
-    opts: SubscriptionOptions<TData> & { context?: OperationContext }
-  ): () => void {
-    try {
-      const keyAndInput2 = this.mapQueryKey
-        ? this.mapQueryKey(keyAndInput as any)
-        : keyAndInput;
-
-      const result = exec(
-        {
-          method: "subscription",
-          input: keyAndInput2[1],
-          path: keyAndInput2[0],
-          context: opts?.context || {},
-        },
-        this.links
-      );
-
-      result.exec(
-        (data) => opts?.onData(data),
-        (err) => opts?.onError?.(err)
-      );
-      return result.abort;
-    } catch (err) {
-      if (this.onError) {
-        this.onError(err as RSPCError);
-      }
-      return () => {};
+    opts: SubscriptionOptions<inferSubscription<P, K>> & {
+      context?: OperationContext;
     }
+  ): () => void {
+    const keyAndInput2 = this.mapQueryKey
+      ? this.mapQueryKey(keyAndInput as any)
+      : keyAndInput;
+
+    const result = exec<P>(
+      {
+        method: "subscription",
+        input: keyAndInput2[1],
+        path: keyAndInput2[0],
+        context: opts?.context || {},
+      },
+      this.links
+    );
+
+    result.exec(
+      (data) => opts?.onData(data),
+      (error) => {
+        this.onError?.(error);
+
+        opts?.onError?.(error);
+      }
+    );
+
+    return result.abort;
   }
 
   // TODO: Remove this once middleware system is in place
@@ -159,10 +173,10 @@ export class AlphaClient<P extends ProceduresDef> {
   }
 }
 
-function exec(op: Operation, links: Link[]) {
+function exec<P extends ProceduresDef>(op: Operation, links: Link<P>[]) {
   if (!links[0]) throw new Error("No links provided");
 
-  let prevLinkResult: LinkResult = {
+  let prevLinkResult: LinkResult<P> = {
     exec: () => {
       throw new Error(
         "rspc: no terminating link was attached! Did you forget to add a 'httpLink' or 'wsLink' link?"

@@ -1,28 +1,27 @@
 import {
   Link,
-  Request as RspcRequest,
-  Response as RspcResponse,
-  RSPCError,
   _internal_wsLinkInternal,
   _internal_fireResponse,
+  ProceduresDef,
 } from "@rspc/client";
+import * as rspc from "@rspc/client";
 import { appWindow } from "@tauri-apps/api/window";
 import { events } from "./types";
 
 /**
  * Link for the rspc Tauri plugin
  */
-export function tauriLink(): Link {
+export function tauriLink<P extends ProceduresDef>(): Link<P> {
   return _internal_wsLinkInternal(newWsManager());
 }
 
-function newWsManager() {
+function newWsManager<P extends ProceduresDef>() {
   const activeMap = new Map<
     number,
     {
       oneshot: boolean;
-      resolve: (result: any) => void;
-      reject: (error: Error | RSPCError) => void;
+      resolve: (result: P[keyof ProceduresDef]["result"]) => void;
+      reject: (error: P[keyof ProceduresDef]["error"] | rspc.Error) => void;
     }
   >();
 
@@ -39,7 +38,7 @@ function newWsManager() {
         return;
       }
 
-      _internal_fireResponse(result, {
+      _internal_fireResponse<P>(result, {
         resolve: item.resolve,
         reject: item.reject,
       });
@@ -53,7 +52,7 @@ function newWsManager() {
 
   return [
     activeMap,
-    (data: RspcRequest | RspcRequest[]) =>
+    (data: rspc.Request | rspc.Request[]) =>
       listener.then(() => events.msg(appWindow).emit(data)),
   ] as const;
 }

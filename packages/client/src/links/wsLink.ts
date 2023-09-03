@@ -1,7 +1,7 @@
-import { RSPCError } from "../error";
 import { Link } from "./link";
-import { Request as RspcRequest, Response as RspcResponse } from "../bindings";
+import * as rspc from "../bindings";
 import { _internal_fireResponse } from "../internal";
+import { ProceduresDef } from "../bindings";
 
 const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 
@@ -20,7 +20,7 @@ type WsLinkOpts = {
  */
 // TODO: Deal with duplicate subscription id -> Retry -> Make the backend just give it a new ID in the response
 // TODO: Reconnect all active subscriptions on connection restart
-export function wsLink(opts: WsLinkOpts): Link {
+export function wsLink<P extends ProceduresDef>(opts: WsLinkOpts): Link<P> {
   return _internal_wsLinkInternal(newWsManager(opts));
 }
 
@@ -28,18 +28,19 @@ export function wsLink(opts: WsLinkOpts): Link {
 /**
  * @internal
  */
-export function _internal_wsLinkInternal([activeMap, send]: ReturnType<
-  typeof newWsManager
->): Link {
+export function _internal_wsLinkInternal<P extends ProceduresDef>([
+  activeMap,
+  send,
+]: ReturnType<typeof newWsManager>): Link<P> {
   let idCounter = 0; // TODO: Deal with integer overflow
 
-  const batch: RspcRequest[] = []; // TODO: Change this to be `BatchedItem` and refactor
+  const batch: rspc.Request[] = []; // TODO: Change this to be `BatchedItem` and refactor
   let batchQueued = false;
   const queueBatch = () => {
     if (!batchQueued) {
       batchQueued = true;
       setTimeout(() => {
-        let batches: RspcRequest[][];
+        let batches: rspc.Request[][];
         if (batch.length > 10) {
           batches = [];
           let batchIdx = 0;
@@ -111,22 +112,22 @@ export function _internal_wsLinkInternal([activeMap, send]: ReturnType<
   };
 }
 
-function newWsManager(opts: WsLinkOpts) {
+function newWsManager<P extends ProceduresDef>(opts: WsLinkOpts) {
   const WebSocket = opts.WebSocket || globalThis.WebSocket.bind(globalThis);
   const activeMap = new Map<
     number,
     {
       // Should delete after first response
       oneshot: boolean;
-      resolve: (result: any) => void;
-      reject: (error: Error | RSPCError) => void;
+      resolve: (result: P[keyof ProceduresDef]["result"]) => void;
+      reject: (error: P[keyof ProceduresDef]["error"] | rspc.Error) => void;
     }
   >();
 
   let ws: WebSocket;
   const attachEventListeners = () => {
     ws.addEventListener("message", (event) => {
-      const results: RspcResponse[] = JSON.parse(event.data);
+      const results: rspc.Response[] = JSON.parse(event.data);
       for (const result of results) {
         const item = activeMap.get(result.id);
 
@@ -137,7 +138,7 @@ function newWsManager(opts: WsLinkOpts) {
           return;
         }
 
-        _internal_fireResponse(result, {
+        _internal_fireResponse<P>(result, {
           resolve: item.resolve,
           reject: item.reject,
         });
@@ -193,7 +194,7 @@ function newWsManager(opts: WsLinkOpts) {
 
   return [
     activeMap,
-    (data: RspcRequest | RspcRequest[]) =>
+    (data: rspc.Request | rspc.Request[]) =>
       awaitWebsocketReady().then(() => ws.send(JSON.stringify(data))),
   ] as const;
 }

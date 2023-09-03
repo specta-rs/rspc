@@ -1,5 +1,5 @@
-import { ResponseInner, Response as RspcResponse } from "..";
-import { RSPCError } from "../error";
+import { ProceduresDef } from "..";
+import * as rspc from "../bindings";
 import { BatchedItem, _internal_fireResponse } from "../internal";
 import { Link, Operation } from "./link";
 
@@ -44,59 +44,61 @@ type HttpLinkOpts = {
 /**
  * HTTP Fetch link for rspc
  */
-export function httpLink(opts: HttpLinkOpts): Link {
+export function httpLink<P extends ProceduresDef>(opts: HttpLinkOpts): Link<P> {
   const fetchFn = opts.fetch || globalThis.fetch.bind(globalThis);
   const abortController =
     opts.AbortController || globalThis.AbortController.bind(globalThis);
 
   if (!opts.url.endsWith("/")) opts.url += "/";
 
-  let dispatch: (op: BatchedItem) => void = (item: BatchedItem) => {
+  let dispatch: (op: BatchedItem<P>) => void = (item) => {
     const [url, init] = requestParams(opts, item);
-    doFetch<ResponseInner>(fetchFn, opts.url + url, init).then((body) => {
+    doFetch<rspc.Response>(fetchFn, opts.url + url, init).then((body) => {
       if (body === undefined) {
         return;
       }
 
-      if (body instanceof RSPCError) {
-        item.reject(body);
-
-        return;
+      if ("code" in body) {
+        return item.reject(body);
       }
 
       if (item.abort.signal?.aborted) {
         return;
       }
 
-      _internal_fireResponse(body, item);
+      _internal_fireResponse<P>(body, item);
     });
   };
 
   if ("batch" in opts) {
-    const doFetchBatched = async (batch: BatchedItem[]) => {
+    const doFetchBatched = async (batch: BatchedItem<P>[]) => {
       let idCounter = 0;
-      const map = new Map<number, BatchedItem>();
+      const map = new Map<number, BatchedItem<P>>();
 
-      const body = await doFetch<RspcResponse[]>(fetchFn, opts.url + "_batch", {
-        method: "POST",
-        headers: generateHeaders(opts, { ops: batch.map((b) => b.op) }),
-        body: JSON.stringify(
-          batch.map((item) => {
-            let id = idCounter++;
-            map.set(id, item);
-            const {
-              op: { context, ...op },
-            } = item;
-            return { id, ...op };
-          })
-        ),
-        // We don't handle the abort signal for a batch so a single req doesn't kill entire batch.
-      });
+      const body = await doFetch<rspc.Response[]>(
+        fetchFn,
+        opts.url + "_batch",
+        {
+          method: "POST",
+          headers: generateHeaders(opts, { ops: batch.map((b) => b.op) }),
+          body: JSON.stringify(
+            batch.map((item) => {
+              let id = idCounter++;
+              map.set(id, item);
+              const {
+                op: { context, ...op },
+              } = item;
+              return { id, ...op };
+            })
+          ),
+          // We don't handle the abort signal for a batch so a single req doesn't kill entire batch.
+        }
+      );
       if (body === undefined) {
         return;
       }
 
-      if (body instanceof RSPCError) {
+      if ("code" in body) {
         for (const item of batch) {
           item.reject(body);
         }
@@ -107,7 +109,10 @@ export function httpLink(opts: HttpLinkOpts): Link {
       if (body.length !== map.size) {
         console.error("rspc: batch response length mismatch!");
         for (const item of batch) {
-          item?.reject(new RSPCError(500, "batch response length mismatch!"));
+          item?.reject({
+            code: "InternalServerError",
+            message: "batch response length mismatch!",
+          });
         }
         return;
       }
@@ -123,9 +128,9 @@ export function httpLink(opts: HttpLinkOpts): Link {
       }
     };
 
-    const batch: BatchedItem[] = [];
+    const batch: BatchedItem<P>[] = [];
     let batchQueued = false;
-    dispatch = (op: BatchedItem) => {
+    dispatch = (op: BatchedItem<P>) => {
       if (
         (typeof opts.batch === "boolean" && opts.batch) ||
         (typeof opts.batch === "object" &&
@@ -208,21 +213,30 @@ async function doFetch<T>(
   init: RequestInit,
   // Signal is not used for batches
   signal?: AbortSignal
-): Promise<T | RSPCError | undefined> {
+): Promise<T | rspc.Error | undefined> {
   const resp = await fetchFn(url, init);
   if (resp.status !== 200) {
-    return new RSPCError(500, "server responded with non-200 status");
+    return {
+      code: "InternalServerError" as const,
+      message: "server responded with non-200 status",
+    };
   }
 
   if (resp.headers.get("Content-Type") !== "application/json") {
-    return new RSPCError(500, "server responded with non-json response");
+    return {
+      code: "InternalServerError" as const,
+      message: "server responded with non-json response",
+    };
   }
 
   let body: T;
   try {
     body = await resp.json();
   } catch (err) {
-    return new RSPCError(500, "server responded with invalid-json response");
+    return {
+      code: "InternalServerError" as const,
+      message: "server responded with invalid-json response",
+    };
   }
 
   if (signal?.aborted) {
@@ -233,9 +247,9 @@ async function doFetch<T>(
 }
 
 // Generate the params for a non-batch request
-function requestParams(
+function requestParams<P extends ProceduresDef>(
   opts: HttpLinkOpts,
-  { op, abort }: BatchedItem
+  { op, abort }: BatchedItem<P>
 ): [string, RequestInit] {
   const headers = generateHeaders(opts, { op: op });
 
