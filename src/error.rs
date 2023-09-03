@@ -17,7 +17,7 @@ pub trait IntoResolverError: Serialize + Type + std::error::Error {
     }
 }
 
-#[derive(Type, Serialize, Debug, thiserror::Error)]
+#[derive(Serialize, Type, thiserror::Error, Debug)]
 pub enum Infallible {}
 
 impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}

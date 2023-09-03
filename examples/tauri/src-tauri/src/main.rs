@@ -18,7 +18,11 @@ struct Ctx {
     x_demo_header: Option<String>,
 }
 
-const R: Rspc<Ctx> = Rspc::new();
+#[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
+#[error("{0}")]
+struct Error(&'static str);
+
+const R: Rspc<Ctx, Error> = Rspc::new();
 
 #[tokio::main]
 async fn main() {
@@ -43,19 +47,13 @@ async fn main() {
         .procedure(
             "error",
             R.query(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
+                Err::<String, _>(Error("Something went wrong"))
             }),
         )
         .procedure(
             "error",
             R.mutation(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
+                Err::<String, _>(Error("Something went wrong"))
             }),
         )
         .procedure(

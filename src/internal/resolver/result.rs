@@ -1,5 +1,4 @@
 use std::{
-    error::Error,
     future::{ready, Future, Ready},
     marker::PhantomData,
     pin::Pin,
@@ -89,7 +88,7 @@ mod private {
     impl<TOk, TError> SealedRequestLayer<ResultMarker> for Result<TOk, TError>
     where
         TOk: Serialize + Type,
-        TError: Serialize + Type + Error,
+        TError: IntoResolverError,
     {
         type Result = TOk;
         type Error = TError;
