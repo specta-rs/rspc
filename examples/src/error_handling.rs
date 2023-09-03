@@ -12,12 +12,6 @@ pub enum MyCustomError {
     IAmBroke,
 }
 
-// impl From<MyCustomError> for Error {
-//     fn from(_: MyCustomError) -> Self {
-//         Error::new(ErrorCode::InternalServerError, "I am broke".into())
-//     }
-// }
-
 #[derive(Debug)]
 pub enum CustomRustError {
     GenericError,
@@ -66,8 +60,6 @@ pub fn mount() -> Router<()> {
         .procedure(
             "asyncCustomError",
             R.error::<MyCustomError>()
-                .mutation(|_, _args: ()| async move {
-                    Err(MyCustomError::IAmBroke) as Result<String, _>
-                }),
+                .mutation(|_, _args: ()| async move { Err::<String, _>(MyCustomError::IAmBroke) }),
         )
 }

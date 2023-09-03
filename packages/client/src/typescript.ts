@@ -1,20 +1,4 @@
-import { ProcedureDef } from ".";
-
-// TODO: This should come from Rust via Specta
-export type OperationType =
-  | "query"
-  | "mutation"
-  | "subscription"
-  | "subscriptionStop";
-
-/**
- * This type represents the Typescript bindings which are generated from the router by Rust.
- */
-export type ProceduresDef = {
-  queries: ProcedureDef;
-  mutations: ProcedureDef;
-  subscriptions: ProcedureDef;
-};
+import { ProceduresDef } from ".";
 
 /**
  * A type which allows inferring the type of the bindings

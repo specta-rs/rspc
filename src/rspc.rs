@@ -42,10 +42,7 @@ where
 
 macro_rules! resolver {
     ($func:ident, $kind:ident, $result_marker:ident) => {
-        pub fn $func<R, RMarker>(
-            self,
-            resolver: R,
-        ) -> Procedure<RMarker, BaseMiddleware<TCtx>, Error>
+        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
         where
             R: ResolverFunction<TCtx, RMarker>,
             R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = Error>,
@@ -66,14 +63,14 @@ where
         Router::_internal_new()
     }
 
-    pub fn error<TError>(self) -> Procedure<MissingResolver, BaseMiddleware<TCtx>, TError> {
+    pub fn error<TError>(self) -> Procedure<MissingResolver<TError>, BaseMiddleware<TCtx>> {
         Procedure::new(MissingResolver::default(), BaseMiddleware::default())
     }
 
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, Error> {
+    ) -> Procedure<MissingResolver<Error>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
@@ -87,7 +84,7 @@ where
     pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>, Error> {
+    ) -> Procedure<MissingResolver<Error>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {

@@ -44,8 +44,6 @@ pub enum ExecError {
     // InvalidJsonRpcVersion,
     // #[error("method '{0}' is not supported by this endpoint.")] // TODO: Better error message
     // UnsupportedMethod(String),
-    #[error("{0}")]
-    ErrResolverError(#[from] ResolverError),
     #[error("error creating subscription with null id")]
     ErrSubscriptionWithNullId,
     #[error("error creating subscription with duplicate id")]
@@ -54,6 +52,8 @@ pub enum ExecError {
     ErrSubscriptionsNotSupported,
     #[error("error a procedure returned an empty stream")]
     ErrStreamEmpty,
+    #[error("{0}")]
+    ResolverError(#[from] ResolverError),
 }
 
 impl From<ExecError> for Error {
@@ -85,7 +85,7 @@ impl From<ExecError> for Error {
             //     message: "invalid JSON-RPC version".into(),
             //     cause: None,
             // },
-            ExecError::ErrResolverError(err) => Error {
+            ExecError::ResolverError(err) => Error {
                 code: ErrorCode::InternalServerError,
                 message: err.message,
                 cause: None,
@@ -130,7 +130,7 @@ impl From<ExecError> for ResponseError {
                 ExecError::SerializingResultErr(_) => ErrorCode::InternalServerError,
                 #[cfg(feature = "axum")]
                 ExecError::AxumExtractorError => ErrorCode::BadRequest,
-                ExecError::ErrResolverError(_) => ErrorCode::InternalServerError,
+                ExecError::ResolverError(_) => ErrorCode::InternalServerError,
                 ExecError::ErrSubscriptionWithNullId => ErrorCode::BadRequest,
                 ExecError::ErrSubscriptionDuplicateId => ErrorCode::BadRequest,
                 ExecError::ErrSubscriptionsNotSupported => ErrorCode::BadRequest,

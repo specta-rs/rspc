@@ -8,12 +8,12 @@ use std::{
 };
 
 use specta::{
-    ts::{self, datatype, TsExportError},
-    DataType, TypeMap,
+    ts::{self, TsExportError},
+    TypeMap,
 };
 
 use crate::{
-    internal::procedure::{ProcedureStore, ProcedureTodo},
+    internal::procedure::{ProcedureStore, ProcedureTodo, ProceduresDef},
     ExportError,
 };
 
@@ -98,22 +98,20 @@ where
             )
         );
 
-        let queries_ts =
-            generate_procedures_ts(&config, self.queries.store.iter(), &self.typ_store());
-        let mutations_ts =
-            generate_procedures_ts(&config, self.mutations.store.iter(), &self.typ_store());
-        let subscriptions_ts =
-            generate_procedures_ts(&config, self.subscriptions.store.iter(), &self.typ_store());
-
         // TODO: Specta API + `ExportConfig` option for a formatter
         writeln!(
             file,
-            r#"
-export type Procedures = {{
-    queries: {queries_ts},
-    mutations: {mutations_ts},
-    subscriptions: {subscriptions_ts}
-}};"#
+            "{}",
+            ts::export_named_datatype(
+                &config,
+                &ProceduresDef::new(
+                    self.queries.store.values(),
+                    self.mutations.store.values(),
+                    self.subscriptions.store.values()
+                )
+                .to_named(),
+                &self.typ_store()
+            )?
         )?;
 
         // We sort by name to detect duplicate types BUT also to ensure the output is deterministic. The SID can change between builds so is not suitable for this.
@@ -160,7 +158,7 @@ export type Procedures = {{
             writeln!(
                 file,
                 "\n{}",
-                ts::named_datatype(
+                ts::export_named_datatype(
                     &config,
                     match types.get(sid) {
                         Some(Some(v)) => v,
@@ -172,38 +170,5 @@ export type Procedures = {{
         }
 
         Ok(())
-    }
-}
-
-// TODO: Move this out into a Specta API
-fn generate_procedures_ts<'a, Ctx: 'a>(
-    config: &specta::ts::ExportConfig,
-    procedures: impl ExactSizeIterator<Item = (&'a String, &'a ProcedureTodo<Ctx>)>,
-    type_store: &TypeMap,
-) -> String {
-    match procedures.len() {
-        0 => "never".to_string(),
-        _ => procedures
-            .map(|(key, operation)| {
-                let input = match &operation.ty.input {
-                    DataType::Tuple(specta::TupleType::Unnamed) =>
-                    // This condition is met with an empty enum or `()`.
-                    {
-                        "never".into()
-                    }
-                    #[allow(clippy::unwrap_used)] // TODO
-                    ty => datatype(config, ty, type_store).unwrap(),
-                };
-                #[allow(clippy::unwrap_used)] // TODO
-                let result_ts = datatype(config, &operation.ty.result, type_store).unwrap();
-
-                // TODO: Specta API
-                format!(
-                    r#"
-        {{ key: "{key}", input: {input}, result: {result_ts} }}"#
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(" | "),
     }
 }
