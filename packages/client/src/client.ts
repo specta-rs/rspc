@@ -5,20 +5,19 @@ import {
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
   inferQueryError,
-  inferQuery,
   ProcedureDef,
-  inferMutation,
   inferMutationError,
   inferSubscription,
 } from ".";
 import { Link, OperationContext, Operation, LinkResult } from ".";
+import * as rspc from "./bindings";
 
 // TODO
 export interface SubscriptionOptions<P extends ProcedureDef> {
   // onStarted?: () => void;
   onData: (data: P["result"]) => void;
   // TODO: Probs remove `| Error` here
-  onError?: (err: P["error"] | Error) => void;
+  onError?: (err: P["error"] | rspc.Error) => void;
 }
 
 type KeyAndInput = [string] | [string, any];
@@ -68,7 +67,9 @@ export class AlphaClient<P extends ProceduresDef> {
       ...input: _inferProcedureHandlerInput<P, "queries", K>
     ],
     opts?: OperationOpts
-  ): Promise<Result<inferQueryResult<P, K>, inferQueryError<P, K>>> {
+  ): Promise<
+    Result<inferQueryResult<P, K>, inferQueryError<P, K> | rspc.Error>
+  > {
     const keyAndInput2 = this.mapQueryKey
       ? this.mapQueryKey(keyAndInput as any)
       : keyAndInput;
@@ -103,7 +104,9 @@ export class AlphaClient<P extends ProceduresDef> {
       ...input: _inferProcedureHandlerInput<P, "mutations", K>
     ],
     opts?: OperationOpts
-  ): Promise<Result<inferMutationResult<P, K>, inferMutationError<P, K>>> {
+  ): Promise<
+    Result<inferMutationResult<P, K>, inferMutationError<P, K> | rspc.Error>
+  > {
     const keyAndInput2 = this.mapQueryKey
       ? this.mapQueryKey(keyAndInput as any)
       : keyAndInput;

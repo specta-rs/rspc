@@ -1,5 +1,3 @@
-/** @jsxImportSource react */
-
 import { initRspc, httpLink, wsLink } from "@rspc/client";
 import { tauriLink } from "@rspc/tauri";
 import { createReactQueryHooks } from "@rspc/react-query";

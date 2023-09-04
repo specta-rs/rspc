@@ -90,7 +90,7 @@ export type inferQueryResult<
 export type inferQueryError<
   TProcedures extends ProceduresLike,
   T extends inferQueries<TProcedures>["key"][0]
-> = inferQuery<inferProcedures<TProcedures>, T>["error"] | rspc.Error;
+> = inferQuery<inferProcedures<TProcedures>, T>["error"];
 
 // TODO
 export type inferMutations<TProcedures extends ProceduresLike> =
@@ -118,7 +118,7 @@ export type inferMutationResult<
 export type inferMutationError<
   TProcedures extends ProceduresLike,
   T extends inferMutations<TProcedures>["key"][0]
-> = inferMutation<inferProcedures<TProcedures>, T>["error"] | rspc.Error;
+> = inferMutation<inferProcedures<TProcedures>, T>["error"];
 
 // TODO
 export type inferSubscriptions<TProcedures extends ProceduresLike> =
@@ -146,7 +146,7 @@ export type inferSubscriptionResult<
 export type inferSubscriptionError<
   TProcedures extends ProceduresLike,
   T extends inferSubscriptions<TProcedures>["key"][0]
-> = inferSubscription<inferProcedures<TProcedures>, T>["result"] | rspc.Error;
+> = inferSubscription<inferProcedures<TProcedures>, T>["result"];
 
 // TODO
 
@@ -180,7 +180,7 @@ export type inferInfiniteQueryResult<
 export type inferInfiniteQueryError<
   TProcedures extends ProceduresLike,
   K extends inferInfiniteQueries<TProcedures>["key"]
-> = inferInfiniteQuery<TProcedures, K>["error"] | rspc.Error;
+> = inferInfiniteQuery<TProcedures, K>["error"];
 
 // TODO
 export type _inferInfiniteQueryProcedureHandlerInput<

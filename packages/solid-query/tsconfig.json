@@ -1,20 +1,14 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
-    "lib": ["esnext", "dom"],
+    "composite": true,
     "rootDir": "src",
-    "declarationDir": "dist/types"
+    "lib": ["esnext", "dom"],
+    "declarationDir": "dist/types",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js"
   },
   "include": ["src/**/*"],
   "exclude": ["dist/**/*"],
-  "references": [
-    {
-      "path": "../client"
-    },
-    {
-      "path": "../query-core"
-    }
-  ]
+  "references": [{ "path": "../client" }, { "path": "../query-core" }]
 }

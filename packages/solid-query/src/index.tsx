@@ -2,6 +2,8 @@ import * as Solid from "solid-js";
 import * as tanstack from "@tanstack/solid-query";
 import * as rspc from "@rspc/query-core";
 
+export * from "@rspc/query-core";
+
 export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
   const Context = Solid.createContext<rspc.Context<P> | null>(null);
 
@@ -29,7 +31,12 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
     ],
     opts?: CreateQueryOptions<K>
   ) {
-    return tanstack.createQuery(helpers.useQueryArgs(keyAndInput, opts));
+    return tanstack.createQuery<
+      rspc.inferQueryResult<P, K>,
+      rspc.inferQueryError<P, K>,
+      rspc.inferQueryResult<P, K>,
+      () => [K, rspc.inferQueryInput<P, K>]
+    >(helpers.useQueryArgs(keyAndInput, opts));
   }
 
   type CreateMutationOptions<

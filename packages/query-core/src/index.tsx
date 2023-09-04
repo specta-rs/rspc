@@ -74,7 +74,7 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
     O extends QueryOptionsOmit<
       QueryObserverOptions<
         rspc.inferQueryResult<P, K>,
-        rspc.inferQueryError<P, K>,
+        rspc.inferQueryError<P, K> | rspc.Error,
         rspc.inferQueryResult<P, K>,
         rspc.inferQueryResult<P, K>,
         [K, rspc.inferQueryInput<P, K>]
@@ -105,7 +105,7 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
     O extends Omit<
       MutationObserverOptions<
         rspc.inferMutationResult<P, K>,
-        rspc.inferMutationError<P, K>,
+        rspc.inferMutationError<P, K> | rspc.Error,
         rspc.inferMutationInput<P, K> extends never
           ? undefined
           : rspc.inferMutationInput<P, K>,

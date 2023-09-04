@@ -3,7 +3,6 @@
 import * as tanstack from "@tanstack/react-query";
 import * as rspc from "@rspc/query-core";
 import React from "react";
-// TODO: Remove this once off plane
 
 export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
   const Context = React.createContext<rspc.Context<P>>(undefined!);
@@ -18,7 +17,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
       rspc.QueryOptionsOmit<
         tanstack.UseQueryOptions<
           rspc.inferQueryResult<P, K>,
-          rspc.inferQueryError<P, K>,
+          rspc.inferQueryError<P, K> | rspc.Error,
           rspc.inferQueryResult<P, K>,
           [K, rspc.inferQueryInput<P, K>]
         >
@@ -32,7 +31,12 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
     ],
     opts?: UseQueryOptions<K>
   ) {
-    return tanstack.useQuery(helpers.useQueryArgs(keyAndInput, opts));
+    return tanstack.useQuery<
+      rspc.inferQueryResult<P, K>,
+      rspc.inferQueryError<P, K> | rspc.Error,
+      rspc.inferQueryResult<P, K>,
+      [K, rspc.inferQueryInput<P, K>]
+    >(helpers.useQueryArgs(keyAndInput, opts));
   }
 
   type UseMutationOptions<
@@ -42,7 +46,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
     P,
     tanstack.UseMutationOptions<
       rspc.inferMutationResult<P, K>,
-      rspc.inferMutationError<P, K>,
+      rspc.inferMutationError<P, K> | rspc.Error,
       rspc.inferMutationInput<P, K> extends never
         ? undefined
         : rspc.inferMutationInput<P, K>,
@@ -54,7 +58,14 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
     K extends rspc.inferMutations<P>["key"] & string,
     TContext = unknown
   >(key: K | [K], opts?: UseMutationOptions<K, TContext>) {
-    return tanstack.useMutation(helpers.useMutationArgs(key, opts));
+    return tanstack.useMutation<
+      rspc.inferMutationResult<P, K>,
+      rspc.inferMutationError<P, K> | rspc.Error,
+      rspc.inferMutationInput<P, K> extends never
+        ? undefined
+        : rspc.inferMutationInput<P, K>,
+      TContext
+    >(helpers.useMutationArgs(key, opts));
   }
 
   function useSubscription<

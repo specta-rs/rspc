@@ -3,25 +3,28 @@ import { client } from "../src/rspc";
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
 
-interface UsingServerSideProps {
-  data?: string;
-  error?: string;
-}
+type UsingServerSideProps =
+  | {
+      data: string;
+    }
+  | {
+      error: string;
+    };
 
 export const getServerSideProps: GetServerSideProps<
   UsingServerSideProps
 > = async () => {
-  try {
-    return { props: { data: await client.query(["version"]) } };
-  } catch (error) {
-    return { props: { error: (error as Error)?.message } };
-  }
+  const result = await client.query(["version"]);
+
+  const props =
+    result.status === "ok"
+      ? { data: result.data }
+      : { error: result.error.message };
+
+  return { props };
 };
 
-const UsingServerSideProps: NextPage<UsingServerSideProps> = ({
-  data,
-  error,
-}) => (
+const UsingServerSideProps: NextPage<UsingServerSideProps> = (props) => (
   <div className={styles.container}>
     <Head>
       <title>Using getServerSideProps | RSPC Example with Next.js</title>
@@ -32,8 +35,10 @@ const UsingServerSideProps: NextPage<UsingServerSideProps> = ({
         <code>getServerSideProps</code>
       </h1>
       <p className={styles.description}>
-        {data && `The server version is: ${data}`}
-        {error}
+        {"data" in props &&
+          props.data &&
+          `The server version is: ${props.data}`}
+        {"error" in props && props.error}
       </p>
     </main>
   </div>

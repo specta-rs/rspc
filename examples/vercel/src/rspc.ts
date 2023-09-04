@@ -25,10 +25,4 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const {
-  useContext,
-  useMutation,
-  useQuery,
-  useSubscription,
-  Provider: RSPCProvider,
-} = createReactQueryHooks<Procedures>(client);
+export const rspc = createReactQueryHooks<Procedures>();
