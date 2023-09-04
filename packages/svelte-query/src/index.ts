@@ -1,78 +1,56 @@
 import { onDestroy } from "svelte";
-import { ProceduresDef } from "@rspc/client";
 import * as tanstack from "@tanstack/svelte-query";
-import {
-  // CreateInfiniteQueryOptions,
-  // CreateInfiniteQueryResult,
-  CreateMutationOptions,
-  CreateQueryOptions,
-} from "@tanstack/svelte-query";
-import * as rspc from "@rspc/client";
-import {
-  SubscriptionOptions,
-  BaseOptions,
-  handleSubscription,
-  throwOnError,
-  createQueryHookHelpers,
-} from "@rspc/query-core";
+import * as rspc from "@rspc/query-core";
 import { getRspcClientContext } from "./context";
 
-export function createSvelteQueryHooks<P extends ProceduresDef>() {
-  type TBaseOptions = BaseOptions<P>;
-
-  const helpers = createQueryHookHelpers({
+export function createSvelteQueryHooks<P extends rspc.ProceduresDef>() {
+  const helpers = rspc.createQueryHookHelpers({
     useContext: getRspcClientContext<P>,
   });
 
-  function createQuery<K extends P["queries"]["key"] & string>(
+  type CreateQueryOptions<K extends rspc.inferQueries<P>["key"] & string> =
+    rspc.HookOptions<
+      P,
+      rspc.QueryOptionsOmit<
+        tanstack.CreateQueryOptions<
+          rspc.inferQueryResult<P, K>,
+          rspc.inferQueryError<P, K>,
+          rspc.inferQueryResult<P, K>,
+          [K, rspc.inferQueryInput<P, K>]
+        >
+      >
+    >;
+
+  function createQuery<K extends rspc.inferQueries<P>["key"] & string>(
     keyAndInput: [
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
     ],
-    opts?: Omit<
-      CreateQueryOptions<
-        rspc.inferQueryResult<P, K>,
-        rspc.inferQueryError<P, K>,
-        rspc.inferQueryResult<P, K>,
-        [K, rspc.inferQueryInput<P, K>]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
+    opts?: CreateQueryOptions<K>
   ) {
-    const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
-
-    return tanstack.createQuery({
-      queryKey: helpers.mapQueryKey(keyAndInput as any, client),
-      queryFn: () => client.query(keyAndInput).then(throwOnError),
-      ...rawOpts,
-    });
+    return tanstack.createQuery(helpers.useQueryArgs(keyAndInput, opts));
   }
 
-  function createMutation<
-    K extends P["mutations"]["key"] & string,
+  type CreateMutationOptions<
+    K extends rspc.inferMutations<P>["key"] & string,
     TContext = unknown
-  >(
-    key: K | [K],
-    opts?: CreateMutationOptions<
+  > = rspc.HookOptions<
+    P,
+    tanstack.CreateMutationOptions<
       rspc.inferMutationResult<P, K>,
       rspc.inferMutationError<P, K>,
       rspc.inferMutationInput<P, K> extends never
         ? undefined
         : rspc.inferMutationInput<P, K>,
       TContext
-    > &
-      TBaseOptions
-  ) {
-    const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
+    >
+  >;
 
-    return tanstack.createMutation({
-      mutationFn: async (input) => {
-        const actualKey = Array.isArray(key) ? key[0] : key;
-        return client.mutation([actualKey, input] as any).then(throwOnError);
-      },
-      ...rawOpts,
-    });
+  function createMutation<
+    K extends rspc.inferMutations<P>["key"] & string,
+    TContext = unknown
+  >(key: K | [K], opts?: CreateMutationOptions<K, TContext>) {
+    return tanstack.createMutation(helpers.useMutationArgs(key, opts));
   }
 
   function createSubscription<
@@ -82,11 +60,14 @@ export function createSvelteQueryHooks<P extends ProceduresDef>() {
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
     ],
-    opts: SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
+    opts: rspc.HookOptions<
+      P,
+      rspc.SubscriptionOptions<rspc.inferSubscription<P, K>>
+    >
   ) {
     const [client, rawOpts] = helpers.useExtractOps(opts);
 
-    const cleanup = handleSubscription({
+    const cleanup = helpers.handleSubscription({
       client,
       keyAndInput,
       opts: rawOpts,

@@ -32,7 +32,7 @@
   "devDependencies": {
     "@rspc/client": "workspace:*",
     "@sveltejs/package": "^2.2.2",
-    "@tanstack/svelte-query": "^4.29.25",
+    "@tanstack/svelte-query": "^4.33.0",
     "tslib": "^2.6.0",
     "typescript": "^5.1.6",
     "vitest": "^0.33.0"

@@ -82,13 +82,13 @@ importers:
         specifier: workspace:^
         version: link:../../packages/tauri
       '@tanstack/react-query':
-        specifier: ^4.29.25
-        version: 4.29.25(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.33.0
+        version: 4.33.0(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/solid-query':
-        specifier: ^4.29.25
-        version: 4.29.25(solid-js@1.7.8)
+        specifier: ^4.33.0
+        version: 4.33.0(solid-js@1.7.8)
       '@tanstack/svelte-query':
-        specifier: ^4.29.25
+        specifier: ^4.33.0
         version: 4.33.0(svelte@4.2.0)
       react:
         specifier: ^18.0.0
@@ -111,7 +111,7 @@ importers:
         version: 3.0.0(solid-js@1.7.8)(vite@4.4.9)
       '@astrojs/svelte':
         specifier: ^4.0.0
-        version: 4.0.0(astro@3.0.7)(svelte@4.2.0)(typescript@5.1.6)(vite@4.4.9)
+        version: 4.0.0(astro@3.0.7)(svelte@4.2.0)(typescript@5.2.2)(vite@4.4.9)
       '@astrojs/tailwind':
         specifier: ^5.0.0
         version: 5.0.0(astro@3.0.7)(tailwindcss@3.3.3)
@@ -137,8 +137,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/react-query
       '@tanstack/react-query':
-        specifier: ^4.29.25
-        version: 4.29.25(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.33.0
+        version: 4.33.0(react-dom@18.2.0)(react@18.2.0)
       next:
         specifier: ^13.4.10
         version: 13.4.10(react-dom@18.2.0)(react@18.2.0)
@@ -187,8 +187,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/react-query
       '@tanstack/react-query':
-        specifier: ^4.29.25
-        version: 4.29.25(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.33.0
+        version: 4.33.0(react-dom@18.2.0)(react@18.2.0)
       next:
         specifier: ^13.4.10
         version: 13.4.10(react-dom@18.2.0)(react@18.2.0)
@@ -236,8 +236,8 @@ importers:
         specifier: workspace:*
         version: link:../client
       '@tanstack/query-core':
-        specifier: ^4.29.25
-        version: 4.29.25
+        specifier: ^4.33.0
+        version: 4.33.0
       tslib:
         specifier: ^2.6.0
         version: 2.6.0
@@ -261,8 +261,8 @@ importers:
         specifier: workspace:*
         version: link:../client
       '@tanstack/react-query':
-        specifier: ^4.29.25
-        version: 4.29.25(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.33.0
+        version: 4.33.0(react-dom@18.2.0)(react@18.2.0)
       '@types/react':
         specifier: ^18.2.15
         version: 18.2.15
@@ -292,8 +292,8 @@ importers:
         specifier: workspace:*
         version: link:../client
       '@tanstack/solid-query':
-        specifier: ^4.29.25
-        version: 4.29.25(solid-js@1.7.8)
+        specifier: ^4.33.0
+        version: 4.33.0(solid-js@1.7.8)
       rollup:
         specifier: ^3.26.3
         version: 3.26.3
@@ -329,7 +329,7 @@ importers:
         specifier: ^2.2.2
         version: 2.2.2(svelte@4.2.0)(typescript@5.1.6)
       '@tanstack/svelte-query':
-        specifier: ^4.29.25
+        specifier: ^4.33.0
         version: 4.33.0(svelte@4.2.0)
       tslib:
         specifier: ^2.6.0
@@ -448,7 +448,7 @@ packages:
       - vite
     dev: true
 
-  /@astrojs/svelte@4.0.0(astro@3.0.7)(svelte@4.2.0)(typescript@5.1.6)(vite@4.4.9):
+  /@astrojs/svelte@4.0.0(astro@3.0.7)(svelte@4.2.0)(typescript@5.2.2)(vite@4.4.9):
     resolution: {integrity: sha512-HTn6p2U8GnbiDFxfyaUUCPLGW1P/RAEC0jeg4Zk0IGQd1szSvHwuZst99/k8oRoIytH5eLWSRuiYMI4j5vdA6w==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
@@ -458,7 +458,7 @@ packages:
       '@sveltejs/vite-plugin-svelte': 2.4.5(svelte@4.2.0)(vite@4.4.9)
       astro: 3.0.7
       svelte: 4.2.0
-      svelte2tsx: 0.6.21(svelte@4.2.0)(typescript@5.1.6)
+      svelte2tsx: 0.6.21(svelte@4.2.0)(typescript@5.2.2)
     transitivePeerDependencies:
       - supports-color
       - typescript
@@ -2850,14 +2850,11 @@ packages:
       tslib: 2.6.0
     dev: false
 
-  /@tanstack/query-core@4.29.25:
-    resolution: {integrity: sha512-DI4y4VC6Uw4wlTpOocEXDky69xeOScME1ezLKsj+hOk7DguC9fkqXtp6Hn39BVb9y0b5IBrY67q6kIX623Zj4Q==}
-
   /@tanstack/query-core@4.33.0:
     resolution: {integrity: sha512-qYu73ptvnzRh6se2nyBIDHGBQvPY1XXl3yR769B7B6mIDD7s+EZhdlWHQ67JI6UOTFRaI7wupnTnwJ3gE0Mr/g==}
 
-  /@tanstack/react-query@4.29.25(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-c1+Ezu+XboYrdAMdusK2fTdRqXPMgPAnyoTrzHOZQqr8Hqz6PNvV9DSKl8agUo6nXX4np7fdWabIprt+838dLg==}
+  /@tanstack/react-query@4.33.0(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-97nGbmDK0/m0B86BdiXzx3EW9RcDYKpnyL2+WwyuLHEgpfThYAnXFaMMmnTDuAO4bQJXEhflumIEUfKmP7ESGA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
@@ -2868,17 +2865,17 @@ packages:
       react-native:
         optional: true
     dependencies:
-      '@tanstack/query-core': 4.29.25
+      '@tanstack/query-core': 4.33.0
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       use-sync-external-store: 1.2.0(react@18.2.0)
 
-  /@tanstack/solid-query@4.29.25(solid-js@1.7.8):
-    resolution: {integrity: sha512-+dX9FsEb+Gu8CtUnL3iJqqmHE26FE0DhYvVXT/yTAF8bLMgwHp4m98jDJMel4wxN2YdbURiBdiYpQXCzNMtaLg==}
+  /@tanstack/solid-query@4.33.0(solid-js@1.7.8):
+    resolution: {integrity: sha512-+AB28zc30XE+NvRf5nJmOGcMEqYNpKcr+C7GUfs1VlHn/pXZ/xLEoD4rnBPFpZ8tVLCFmIzNwIMd9mrn8IinEg==}
     peerDependencies:
       solid-js: ^1.5.7
     dependencies:
-      '@tanstack/query-core': 4.29.25
+      '@tanstack/query-core': 4.33.0
       solid-js: 1.7.8
 
   /@tanstack/svelte-query@4.33.0(svelte@4.2.0):
@@ -3753,7 +3750,7 @@ packages:
       normalize-path: 3.0.0
       readdirp: 3.6.0
     optionalDependencies:
-      fsevents: 2.3.2
+      fsevents: 2.3.3
     dev: true
 
   /chownr@1.1.4:
@@ -4898,8 +4895,8 @@ packages:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
     dev: true
 
-  /fsevents@2.3.2:
-    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+  /fsevents@2.3.3:
+    resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
     requiresBuild: true
@@ -7243,7 +7240,7 @@ packages:
     engines: {node: '>=14.18.0', npm: '>=8.0.0'}
     hasBin: true
     optionalDependencies:
-      fsevents: 2.3.2
+      fsevents: 2.3.3
     dev: true
 
   /rollup@3.28.1:
@@ -7251,7 +7248,7 @@ packages:
     engines: {node: '>=14.18.0', npm: '>=8.0.0'}
     hasBin: true
     optionalDependencies:
-      fsevents: 2.3.2
+      fsevents: 2.3.3
     dev: true
 
   /run-parallel@1.2.0:
@@ -7708,6 +7705,18 @@ packages:
       typescript: 5.1.6
     dev: true
 
+  /svelte2tsx@0.6.21(svelte@4.2.0)(typescript@5.2.2):
+    resolution: {integrity: sha512-v+vvbiy6WDmEQdIkJpvHYxJYG/obALfH0P6CTreYO350q/9+QmFTNCOJvx0O1o59Zpzx1Bqe+qlDxP/KtJSZEA==}
+    peerDependencies:
+      svelte: ^3.55 || ^4.0.0-next.0 || ^4.0
+      typescript: ^4.9.4 || ^5.0.0
+    dependencies:
+      dedent-js: 1.0.1
+      pascal-case: 3.1.2
+      svelte: 4.2.0
+      typescript: 5.2.2
+    dev: true
+
   /svelte@4.2.0:
     resolution: {integrity: sha512-kVsdPjDbLrv74SmLSUzAsBGquMs4MPgWGkGLpH+PjOYnFOziAvENVzgJmyOCV2gntxE32aNm8/sqNKD6LbIpeQ==}
     engines: {node: '>=16'}
@@ -7972,6 +7981,12 @@ packages:
 
   /typescript@5.1.6:
     resolution: {integrity: sha512-zaWCozRZ6DLEWAWFrVDz1H6FVXzUSfTy5FUMWsQlU8Ym5JP9eO4xkTIROFCQvhQf61z6O/G6ugw3SgAnvvm+HA==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+    dev: true
+
+  /typescript@5.2.2:
+    resolution: {integrity: sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==}
     engines: {node: '>=14.17'}
     hasBin: true
     dev: true
@@ -8297,7 +8312,7 @@ packages:
       postcss: 8.4.26
       rollup: 3.26.3
     optionalDependencies:
-      fsevents: 2.3.2
+      fsevents: 2.3.3
     dev: true
 
   /vite@4.4.9(@types/node@20.4.2):
@@ -8333,7 +8348,7 @@ packages:
       postcss: 8.4.29
       rollup: 3.28.1
     optionalDependencies:
-      fsevents: 2.3.2
+      fsevents: 2.3.3
     dev: true
 
   /vitefu@0.2.4(vite@4.4.9):

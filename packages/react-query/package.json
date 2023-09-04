@@ -27,12 +27,12 @@
     "@rspc/query-core": "workspace:*"
   },
   "devDependencies": {
-    "tsup": "^7.1.0",
     "@rspc/client": "workspace:*",
-    "@tanstack/react-query": "^4.29.25",
+    "@tanstack/react-query": "^4.33.0",
     "@types/react": "^18.2.15",
     "react": "^18.2.0",
     "tslib": "^2.6.0",
+    "tsup": "^7.1.0",
     "typescript": "^5.1.6",
     "vitest": "^0.33.0"
   },

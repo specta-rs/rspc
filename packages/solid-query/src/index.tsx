@@ -1,88 +1,57 @@
-import * as rspc from "@rspc/client";
-import { ProceduresDef } from "@rspc/client";
-import * as tanstack from "@tanstack/solid-query";
-import {
-  // CreateInfiniteQueryOptions,
-  // CreateInfiniteQueryResult,
-  CreateMutationOptions,
-  CreateQueryOptions,
-  QueryClientProvider,
-} from "@tanstack/solid-query";
-import {
-  ParentProps,
-  createContext,
-  createEffect,
-  on,
-  onCleanup,
-} from "solid-js";
 import * as Solid from "solid-js";
-import {
-  SubscriptionOptions,
-  BaseOptions,
-  Context,
-  handleSubscription,
-  throwOnError,
-  createQueryHookHelpers,
-} from "@rspc/query-core";
+import * as tanstack from "@tanstack/solid-query";
+import * as rspc from "@rspc/query-core";
 
-export function createSolidQueryHooks<P extends ProceduresDef>() {
-  type TBaseOptions = BaseOptions<P>;
+export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
+  const Context = Solid.createContext<rspc.Context<P> | null>(null);
 
-  const Context = createContext<Context<P> | null>(null);
-
-  const helpers = createQueryHookHelpers({
+  const helpers = rspc.createQueryHookHelpers({
     useContext: () => Solid.useContext(Context),
   });
 
-  function createQuery<K extends P["queries"]["key"] & string>(
+  type CreateQueryOptions<K extends rspc.inferQueries<P>["key"] & string> =
+    rspc.HookOptions<
+      P,
+      rspc.QueryOptionsOmit<
+        tanstack.CreateQueryOptions<
+          rspc.inferQueryResult<P, K>,
+          rspc.inferQueryError<P, K>,
+          rspc.inferQueryResult<P, K>,
+          () => [K, rspc.inferQueryInput<P, K>]
+        >
+      >
+    >;
+
+  function createQuery<K extends rspc.inferQueries<P>["key"] & string>(
     keyAndInput: () => [
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
     ],
-    opts?: Omit<
-      CreateQueryOptions<
-        rspc.inferQueryResult<P, K>,
-        rspc.inferQueryError<P, K>,
-        rspc.inferQueryResult<P, K>,
-        () => [K, rspc.inferQueryInput<P, K>]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
+    opts?: CreateQueryOptions<K>
   ) {
-    const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
-
-    return tanstack.createQuery({
-      queryKey: () => helpers.mapQueryKey(keyAndInput() as any, client),
-      queryFn: () => client.query(keyAndInput()).then(throwOnError),
-      ...rawOpts,
-    });
+    return tanstack.createQuery(helpers.useQueryArgs(keyAndInput, opts));
   }
 
-  function createMutation<
-    K extends P["mutations"]["key"] & string,
-    TContext = unknown
-  >(
-    key: K | [K],
-    opts?: CreateMutationOptions<
+  type CreateMutationOptions<
+    K extends rspc.inferMutations<P>["key"] & string,
+    TContext
+  > = rspc.HookOptions<
+    P,
+    tanstack.CreateMutationOptions<
       rspc.inferMutationResult<P, K>,
       rspc.inferMutationError<P, K>,
       rspc.inferMutationInput<P, K> extends never
         ? undefined
         : rspc.inferMutationInput<P, K>,
       TContext
-    > &
-      TBaseOptions
-  ) {
-    const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
+    >
+  >;
 
-    return tanstack.createMutation({
-      mutationFn: async (input) => {
-        const actualKey = Array.isArray(key) ? key[0] : key;
-        return client.mutation([actualKey, input] as any).then(throwOnError);
-      },
-      ...rawOpts,
-    });
+  function createMutation<
+    K extends rspc.inferMutations<P>["key"] & string,
+    TContext = unknown
+  >(key: K | [K], opts?: CreateMutationOptions<K, TContext>) {
+    return tanstack.createMutation(helpers.useMutationArgs(key, opts));
   }
 
   function createSubscription<
@@ -92,23 +61,26 @@ export function createSolidQueryHooks<P extends ProceduresDef>() {
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
     ],
-    opts: () => SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
+    opts: () => rspc.HookOptions<
+      P,
+      rspc.SubscriptionOptions<rspc.inferSubscription<P, K>>
+    >
   ) {
-    return createEffect(
-      on(
+    return Solid.createEffect(
+      Solid.on(
         () => [keyAndInput(), opts?.()] as const,
         ([keyAndInput, opts]) => {
           const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
 
           // TODO: solid-start useRequest
 
-          const cleanup = handleSubscription<P, K>({
+          const cleanup = helpers.handleSubscription({
             client,
             keyAndInput,
             opts: rawOpts,
           });
 
-          onCleanup(() => cleanup?.());
+          Solid.onCleanup(() => cleanup?.());
         }
       )
     );
@@ -153,16 +125,16 @@ export function createSolidQueryHooks<P extends ProceduresDef>() {
 
   return {
     _rspc_def: undefined! as P, // This allows inferring the operations type from TS helpers
-    Provider: (props: ParentProps<Context<P>>) => (
+    Provider: (props: Solid.ParentProps<rspc.Context<P>>) => (
       <Context.Provider
         value={{
           client: props.client,
           queryClient: props.queryClient,
         }}
       >
-        <QueryClientProvider client={props.queryClient}>
+        <tanstack.QueryClientProvider client={props.queryClient}>
           {props.children}
-        </QueryClientProvider>
+        </tanstack.QueryClientProvider>
       </Context.Provider>
     ),
     useContext: helpers.useContext,

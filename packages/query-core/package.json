@@ -24,10 +24,10 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "tsup": "^7.1.0",
     "@rspc/client": "workspace:*",
-    "@tanstack/query-core": "^4.29.25",
+    "@tanstack/query-core": "^4.33.0",
     "tslib": "^2.6.0",
+    "tsup": "^7.1.0",
     "typescript": "^5.1.6",
     "vitest": "^0.33.0"
   },

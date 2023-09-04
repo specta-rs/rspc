@@ -1,93 +1,60 @@
 "use client";
 
-import {
-  createContext,
-  ReactElement,
-  useContext as _useContext,
-  useEffect,
-  PropsWithChildren,
-} from "react";
-import {
-  QueryClient,
-  UseQueryOptions,
-  UseMutationOptions,
-  // UseInfiniteQueryResult,
-  // UseInfiniteQueryOptions,
-  hashQueryKey,
-  QueryClientProvider,
-} from "@tanstack/react-query";
 import * as tanstack from "@tanstack/react-query";
-import { AlphaClient, ProceduresDef } from "@rspc/client";
-import * as rspc from "@rspc/client";
-import {
-  SubscriptionOptions,
-  BaseOptions,
-  Context,
-  handleSubscription,
-  throwOnError,
-  createQueryHookHelpers,
-} from "@rspc/query-core";
+import * as rspc from "@rspc/query-core";
 import React from "react";
 // TODO: Remove this once off plane
 
-export function createReactQueryHooks<P extends ProceduresDef>() {
-  type TBaseOptions = BaseOptions<P>;
+export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
+  const Context = React.createContext<rspc.Context<P>>(undefined!);
 
-  const Context = createContext<Context<P>>(undefined!);
-
-  const helpers = createQueryHookHelpers({
+  const helpers = rspc.createQueryHookHelpers({
     useContext: () => React.useContext(Context),
   });
+
+  type UseQueryOptions<K extends rspc.inferQueries<P>["key"] & string> =
+    rspc.HookOptions<
+      P,
+      rspc.QueryOptionsOmit<
+        tanstack.UseQueryOptions<
+          rspc.inferQueryResult<P, K>,
+          rspc.inferQueryError<P, K>,
+          rspc.inferQueryResult<P, K>,
+          [K, rspc.inferQueryInput<P, K>]
+        >
+      >
+    >;
 
   function useQuery<K extends rspc.inferQueries<P>["key"] & string>(
     keyAndInput: [
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
     ],
-    opts?: Omit<
-      UseQueryOptions<
-        rspc.inferQueryResult<P, K>,
-        rspc.inferQueryError<P, K>,
-        rspc.inferQueryResult<P, K>,
-        [K, rspc.inferQueryInput<P, K>]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
+    opts?: UseQueryOptions<K>
   ) {
-    const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
-
-    return tanstack.useQuery({
-      queryKey: helpers.mapQueryKey(keyAndInput as any, client),
-      queryFn: () => client.query(keyAndInput).then(throwOnError),
-      ...rawOpts,
-    });
+    return tanstack.useQuery(helpers.useQueryArgs(keyAndInput, opts));
   }
 
-  function useMutation<
+  type UseMutationOptions<
     K extends rspc.inferMutations<P>["key"] & string,
     TContext = unknown
-  >(
-    key: K | [K],
-    opts?: UseMutationOptions<
+  > = rspc.HookOptions<
+    P,
+    tanstack.UseMutationOptions<
       rspc.inferMutationResult<P, K>,
       rspc.inferMutationError<P, K>,
       rspc.inferMutationInput<P, K> extends never
         ? undefined
         : rspc.inferMutationInput<P, K>,
       TContext
-    > &
-      TBaseOptions
-  ) {
-    const [client, rawOpts] = helpers.useExtractOps(opts ?? {});
+    >
+  >;
 
-    return tanstack.useMutation({
-      mutationFn: async (input: any) => {
-        const actualKey = Array.isArray(key) ? key[0] : key;
-        return client.mutation([actualKey, input] as any).then(throwOnError);
-      },
-      ...rawOpts,
-    });
+  function useMutation<
+    K extends rspc.inferMutations<P>["key"] & string,
+    TContext = unknown
+  >(key: K | [K], opts?: UseMutationOptions<K, TContext>) {
+    return tanstack.useMutation(helpers.useMutationArgs(key, opts));
   }
 
   function useSubscription<
@@ -97,18 +64,21 @@ export function createReactQueryHooks<P extends ProceduresDef>() {
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>
     ],
-    opts: SubscriptionOptions<rspc.inferSubscription<P, K>> & TBaseOptions
+    opts: rspc.HookOptions<
+      P,
+      rspc.SubscriptionOptions<rspc.inferSubscription<P, K>>
+    >
   ) {
     const [client, rawOpts] = helpers.useExtractOps(opts);
 
-    return useEffect(
+    return React.useEffect(
       () =>
-        handleSubscription({
+        helpers.handleSubscription({
           client,
           keyAndInput,
           opts: rawOpts,
         }),
-      [hashQueryKey(keyAndInput), opts.enabled ?? true]
+      [tanstack.hashQueryKey(keyAndInput), opts.enabled ?? true]
     );
   }
 
@@ -150,16 +120,16 @@ export function createReactQueryHooks<P extends ProceduresDef>() {
       children,
       client,
       queryClient,
-    }: PropsWithChildren<Context<P>>) => (
+    }: React.PropsWithChildren<rspc.Context<P>>) => (
       <Context.Provider
         value={{
           client,
           queryClient,
         }}
       >
-        <QueryClientProvider client={queryClient}>
+        <tanstack.QueryClientProvider client={queryClient}>
           {children}
-        </QueryClientProvider>
+        </tanstack.QueryClientProvider>
       </Context.Provider>
     ),
     useContext: helpers.useContext,
