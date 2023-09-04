@@ -1,6 +1,5 @@
 {
   "name": "@rspc/examples-nextjs",
-  "version": "0.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001"

@@ -1,7 +1,6 @@
 {
   "name": "@rspc/examples-astro",
-  "version": "0.0.1",
-  "description": "A project to test the RSPC frontend libraries",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "astro dev",
