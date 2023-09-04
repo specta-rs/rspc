@@ -5,6 +5,7 @@ import {
   ReactElement,
   useContext as _useContext,
   useEffect,
+  PropsWithChildren,
 } from "react";
 import {
   QueryClient,
@@ -149,12 +150,7 @@ export function createReactQueryHooks<P extends ProceduresDef>() {
       children,
       client,
       queryClient,
-    }: {
-      children?: ReactElement;
-      client: AlphaClient<P>;
-      // TODO: Remove this arg and infer from React context?
-      queryClient: QueryClient;
-    }) => (
+    }: PropsWithChildren<Context<P>>) => (
       <Context.Provider
         value={{
           client,
