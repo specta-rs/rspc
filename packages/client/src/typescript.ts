@@ -90,7 +90,7 @@ export type inferQueryResult<
 export type inferQueryError<
   TProcedures extends ProceduresLike,
   T extends inferQueries<TProcedures>["key"][0]
-> = inferQuery<inferProcedures<TProcedures>, T>["error"];
+> = inferQuery<inferProcedures<TProcedures>, T>["error"] | rspc.Error;
 
 // TODO
 export type inferMutations<TProcedures extends ProceduresLike> =
@@ -118,7 +118,7 @@ export type inferMutationResult<
 export type inferMutationError<
   TProcedures extends ProceduresLike,
   T extends inferMutations<TProcedures>["key"][0]
-> = inferMutation<inferProcedures<TProcedures>, T>["error"];
+> = inferMutation<inferProcedures<TProcedures>, T>["error"] | rspc.Error;
 
 // TODO
 export type inferSubscriptions<TProcedures extends ProceduresLike> =
@@ -146,7 +146,7 @@ export type inferSubscriptionResult<
 export type inferSubscriptionError<
   TProcedures extends ProceduresLike,
   T extends inferSubscriptions<TProcedures>["key"][0]
-> = inferSubscription<inferProcedures<TProcedures>, T>["result"];
+> = inferSubscription<inferProcedures<TProcedures>, T>["result"] | rspc.Error;
 
 // TODO
 

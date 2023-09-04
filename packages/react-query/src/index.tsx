@@ -17,7 +17,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
       rspc.QueryOptionsOmit<
         tanstack.UseQueryOptions<
           rspc.inferQueryResult<P, K>,
-          rspc.inferQueryError<P, K> | rspc.Error,
+          rspc.inferQueryError<P, K>,
           rspc.inferQueryResult<P, K>,
           [K, rspc.inferQueryInput<P, K>]
         >
@@ -33,7 +33,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
   ) {
     return tanstack.useQuery<
       rspc.inferQueryResult<P, K>,
-      rspc.inferQueryError<P, K> | rspc.Error,
+      rspc.inferQueryError<P, K>,
       rspc.inferQueryResult<P, K>,
       [K, rspc.inferQueryInput<P, K>]
     >(helpers.useQueryArgs(keyAndInput, opts));
@@ -46,7 +46,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
     P,
     tanstack.UseMutationOptions<
       rspc.inferMutationResult<P, K>,
-      rspc.inferMutationError<P, K> | rspc.Error,
+      rspc.inferMutationError<P, K>,
       rspc.inferMutationInput<P, K> extends never
         ? undefined
         : rspc.inferMutationInput<P, K>,
@@ -60,7 +60,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
   >(key: K | [K], opts?: UseMutationOptions<K, TContext>) {
     return tanstack.useMutation<
       rspc.inferMutationResult<P, K>,
-      rspc.inferMutationError<P, K> | rspc.Error,
+      rspc.inferMutationError<P, K>,
       rspc.inferMutationInput<P, K> extends never
         ? undefined
         : rspc.inferMutationInput<P, K>,

@@ -67,9 +67,7 @@ export class AlphaClient<P extends ProceduresDef> {
       ...input: _inferProcedureHandlerInput<P, "queries", K>
     ],
     opts?: OperationOpts
-  ): Promise<
-    Result<inferQueryResult<P, K>, inferQueryError<P, K> | rspc.Error>
-  > {
+  ): Promise<Result<inferQueryResult<P, K>, inferQueryError<P, K>>> {
     const keyAndInput2 = this.mapQueryKey
       ? this.mapQueryKey(keyAndInput as any)
       : keyAndInput;
@@ -104,9 +102,7 @@ export class AlphaClient<P extends ProceduresDef> {
       ...input: _inferProcedureHandlerInput<P, "mutations", K>
     ],
     opts?: OperationOpts
-  ): Promise<
-    Result<inferMutationResult<P, K>, inferMutationError<P, K> | rspc.Error>
-  > {
+  ): Promise<Result<inferMutationResult<P, K>, inferMutationError<P, K>>> {
     const keyAndInput2 = this.mapQueryKey
       ? this.mapQueryKey(keyAndInput as any)
       : keyAndInput;
