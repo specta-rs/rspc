@@ -2,8 +2,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
-    "postinstall": "pnpm build",
+    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build && pnpm typecheck",
     "test": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm test",
     "typecheck": "pnpm tsc -b",
     "docs": "pnpm --filter @rspc/docs -- ",
