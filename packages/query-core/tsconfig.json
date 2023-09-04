@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "declarationDir": "dist",
+    "jsx": "react-jsx",
+    "lib": ["esnext", "dom"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist/**/*", "src/**/*.test.ts", "src/**/*.test.tsx"],
+  "references": [{ "path": "../client" }]
+}

@@ -93,9 +93,7 @@ where
     type Resp = TResp;
 
     fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
-        match self {
-            Ok(mw_result) => Ok(mw_result.explode()?),
-            Err(err) => Err(err.into_resolver_error())?,
-        }
+        self.map_err(|e| e.into_resolver_error().into())
+            .and_then(|r| r.explode())
     }
 }

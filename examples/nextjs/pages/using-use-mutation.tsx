@@ -1,14 +1,12 @@
 import { NextPage } from "next";
 import Head from "next/head";
-import { useMutation } from "../src/rspc";
+import { rspc } from "../src/rspc";
 import styles from "../styles/Home.module.css";
 
 const UsingUseMutation: NextPage = () => {
-  const { mutate, data, isLoading, error } = useMutation("sendMsg");
+  const { mutate, data, isLoading, error } = rspc.useMutation("sendMsg");
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ): Promise<void> => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     mutate(event.currentTarget.message.value);
   };
@@ -37,7 +35,7 @@ const UsingUseMutation: NextPage = () => {
         <p className={styles.description}>
           {isLoading && "Loading data ..."}
           {data && `Server received message: ${data}`}
-          {error?.message}
+          {error && JSON.stringify(error)}
         </p>
       </main>
     </div>

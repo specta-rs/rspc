@@ -1,0 +1,45 @@
+{
+  "name": "@rspc/svelte-query",
+  "version": "1.0.0-rc.1",
+  "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "source": "src/index.tsx",
+  "types": "dist/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "svelte": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "dist/index.d.ts",
+      "import": "dist/index.js",
+      "svelte": "dist/index.js",
+      "default": "dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "svelte-package --input ./src --output ./dist",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@rspc/query-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@rspc/client": "workspace:*",
+    "@sveltejs/package": "^2.2.2",
+    "@tanstack/svelte-query": "^4.33.0",
+    "tslib": "^2.6.0",
+    "typescript": "^5.1.6",
+    "vitest": "^0.33.0"
+  },
+  "peerDependencies": {
+    "@rspc/client": "workspace:*",
+    "@tanstack/svelte-query": "^4.6.0",
+    "svelte": ">=3 <5"
+  }
+}

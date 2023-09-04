@@ -1,3 +1,4 @@
+import { ProceduresDef } from "../bindings";
 import { Link } from "./link";
 
 // TODO: Pretty log output like tRPC's logger link
@@ -12,7 +13,9 @@ export type LoggerLinkOpts = {
  * This must go before the terminating link for it to work!
  *
  */
-export function loggerLink(opts?: LoggerLinkOpts): Link {
+export function loggerLink<P extends ProceduresDef>(
+  opts?: LoggerLinkOpts
+): Link<P> {
   const { enabled = true } = opts ?? {};
   const isEnabled = () => (typeof enabled === "function" ? enabled() : enabled);
 

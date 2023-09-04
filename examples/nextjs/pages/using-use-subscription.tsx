@@ -1,13 +1,13 @@
 import { NextPage } from "next";
 import Head from "next/head";
 import { useState } from "react";
-import { useSubscription } from "../src/rspc";
+import { rspc } from "../src/rspc";
 import styles from "../styles/Home.module.css";
 
 const UsingUseSubscription: NextPage = () => {
   const [pings, setPings] = useState(0);
 
-  useSubscription(["pings"], {
+  rspc.useSubscription(["pings"], {
     onData: () => setPings((currentPings) => currentPings + 1),
   });
 

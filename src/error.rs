@@ -3,7 +3,11 @@ use std::{error, fmt, sync::Arc};
 use serde::Serialize;
 use specta::{ts::TsExportError, Type};
 
-use crate::internal::exec::ResponseError;
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
+pub enum ProcedureError {
+    Exec(Error),
+    Resolver(serde_json::Value),
+}
 
 mod private {
     use super::*;
@@ -25,11 +29,17 @@ mod private {
 
     impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
 
-    #[derive(thiserror::Error, Debug)]
+    #[derive(thiserror::Error, Debug, Clone)]
     #[error("{message}")]
     pub struct ResolverError {
         pub(crate) value: serde_json::Value,
         pub(crate) message: String,
+    }
+
+    impl From<ResolverError> for ProcedureError {
+        fn from(v: ResolverError) -> Self {
+            Self::Resolver(v.value)
+        }
     }
 }
 
@@ -62,13 +72,13 @@ pub enum ExecError {
     ErrSubscriptionsNotSupported,
     #[error("error a procedure returned an empty stream")]
     ErrStreamEmpty,
-    #[error("{0}")]
-    ResolverError(#[from] ResolverError),
+    #[error("resolver: {0}")]
+    Resolver(#[from] ResolverError),
 }
 
-impl From<ExecError> for Error {
-    fn from(v: ExecError) -> Error {
-        match v {
+impl From<ExecError> for ProcedureError {
+    fn from(v: ExecError) -> Self {
+        Self::Exec(match v {
             ExecError::OperationNotFound => Error {
                 code: ErrorCode::NotFound,
                 message: "the requested operation is not supported by this server".to_string(),
@@ -95,11 +105,6 @@ impl From<ExecError> for Error {
             //     message: "invalid JSON-RPC version".into(),
             //     cause: None,
             // },
-            ExecError::ResolverError(err) => Error {
-                code: ErrorCode::InternalServerError,
-                message: err.message,
-                cause: None,
-            },
             ExecError::ErrSubscriptionWithNullId => Error {
                 code: ErrorCode::BadRequest,
                 message: "error creating subscription with null request id".into(),
@@ -120,7 +125,8 @@ impl From<ExecError> for Error {
                 message: "error a procedure returned an empty stream".into(),
                 cause: None,
             },
-        }
+            ExecError::Resolver(err) => return err.into(),
+        })
     }
 }
 
@@ -131,29 +137,6 @@ impl From<ExecError> for Error {
 //     }
 // }
 
-impl From<ExecError> for ResponseError {
-    fn from(err: ExecError) -> Self {
-        Self {
-            code: match &err {
-                ExecError::OperationNotFound => ErrorCode::NotFound,
-                ExecError::DeserializingArgErr(_) => ErrorCode::BadRequest,
-                ExecError::SerializingResultErr(_) => ErrorCode::InternalServerError,
-                #[cfg(feature = "axum")]
-                ExecError::AxumExtractorError => ErrorCode::BadRequest,
-                ExecError::ResolverError(_) => ErrorCode::InternalServerError,
-                ExecError::ErrSubscriptionWithNullId => ErrorCode::BadRequest,
-                ExecError::ErrSubscriptionDuplicateId => ErrorCode::BadRequest,
-                ExecError::ErrSubscriptionsNotSupported => ErrorCode::BadRequest,
-                ExecError::ErrStreamEmpty => ErrorCode::InternalServerError,
-            }
-            .to_status_code(),
-            // TODO: Don't expose the error to the frontend by default
-            message: err.to_string(),
-            data: None,
-        }
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
 pub enum ExportError {
@@ -163,7 +146,7 @@ pub enum ExportError {
     TsExportErr(#[from] TsExportError),
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
+#[derive(Clone, Debug, Serialize, Type)]
 #[allow(dead_code)]
 pub struct Error {
     pub(crate) code: ErrorCode,
@@ -171,6 +154,14 @@ pub struct Error {
     #[serde(skip)]
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
+
+impl PartialEq for Error {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code && self.message == other.message
+    }
+}
+
+impl Eq for Error {}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

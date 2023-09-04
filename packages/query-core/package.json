@@ -1,0 +1,38 @@
+{
+  "name": "@rspc/query-core",
+  "version": "1.0.0-rc.3",
+  "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@rspc/client": "workspace:*",
+    "@tanstack/query-core": "^4.33.0",
+    "tslib": "^2.6.0",
+    "tsup": "^7.1.0",
+    "typescript": "^5.1.6",
+    "vitest": "^0.33.0"
+  },
+  "peerDependencies": {
+    "@rspc/client": "workspace:*",
+    "@tanstack/query-core": "^4.26.0"
+  }
+}

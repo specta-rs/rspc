@@ -1,10 +1,10 @@
 import { NextPage } from "next";
 import Head from "next/head";
-import { useQuery } from "../src/rspc";
+import { rspc } from "../src/rspc";
 import styles from "../styles/Home.module.css";
 
 const UsingUseQuery: NextPage = () => {
-  const { data, isLoading, error } = useQuery(["echo", "Hello!"]);
+  const { data, isLoading, error } = rspc.useQuery(["echo", "Hello!"]);
 
   return (
     <div className={styles.container}>
@@ -19,7 +19,7 @@ const UsingUseQuery: NextPage = () => {
         <p className={styles.description}>
           {isLoading && "Loading data ..."}
           {data && `RSPC says: ${data}`}
-          {error?.message}
+          {error && JSON.stringify(error)}
         </p>
       </main>
     </div>

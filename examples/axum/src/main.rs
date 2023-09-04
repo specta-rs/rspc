@@ -194,7 +194,7 @@ async fn main() {
         .layer(cors);
 
     let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 4000));
-    println!("listening on http://{}/rspc/version", addr);
+    println!("listening on http://{}/rspc", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

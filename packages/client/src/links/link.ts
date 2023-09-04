@@ -1,4 +1,5 @@
-import { RSPCError } from "..";
+import * as rspc from "../bindings";
+import { ProceduresDef } from "../bindings";
 
 /**
  * A map of data that can be used by links to store metadata about the current operation.
@@ -25,10 +26,10 @@ export type Operation = {
  *
  * @internal
  */
-export type LinkResult = {
+export type LinkResult<P extends ProceduresDef> = {
   exec: (
-    resolve: (result: any) => void,
-    reject: (error: Error | RSPCError) => void
+    resolve: (result: P[keyof ProceduresDef]["result"]) => void,
+    reject: (error: P[keyof ProceduresDef]["error"] | rspc.Error) => void
   ) => void;
   abort: () => void;
 };
@@ -38,9 +39,9 @@ export type LinkResult = {
  *
  * @internal
  */
-export interface LinkOperation {
+export interface LinkOperation<P extends ProceduresDef> {
   op: Operation;
-  next(op: { op: Operation }): LinkResult;
+  next(op: { op: Operation }): LinkResult<P>;
 }
 
 /**
@@ -48,4 +49,6 @@ export interface LinkOperation {
  *
  * @internal
  */
-export type Link = (p: LinkOperation) => LinkResult;
+export type Link<P extends ProceduresDef> = (
+  p: LinkOperation<P>
+) => LinkResult<P>;

@@ -1,7 +1,6 @@
 export * from "./bindings";
 export * from "./typescript";
 export * from "./client";
-export * from "./error";
 export * from "./observable";
 export * from "./links/link";
 export * from "./links/httpLink";

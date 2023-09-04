@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { useState } from "react";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
-import type { Procedures } from "../../../bindings";
+import type { Procedures } from "../../../../bindings";
 
 const fetchQueryClient = new QueryClient();
 const fetchClient = initRspc<Procedures>({
@@ -13,7 +13,7 @@ const fetchClient = initRspc<Procedures>({
     // loggerLink(),
 
     httpLink({
-      url: "http://[::]:4000/rspc",
+      url: "http://localhost:4000/rspc",
 
       // You can enable batching -> This is generally a good idea unless your doing HTTP caching
       // batch: true,
@@ -57,21 +57,22 @@ const tauriClient = initRspc<Procedures>({
 
 // TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
 // TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
-export const rspc = createReactQueryHooks<Procedures>(fetchClient);
+export const rspc = createReactQueryHooks<Procedures>();
 // export const rspc2 = createReactQueryHooks<Procedures>(wsClient);
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = useState(Date.now().toString());
-  const { data: version } = rspc.useQuery(["version"]);
-  const { data: transformMe } = rspc.useQuery(["transformMe"]);
-  const { data: echo } = rspc.useQuery(["echo", "Hello From Frontend!"]);
-  const { mutate, isLoading } = rspc.useMutation("sendMsg");
-  const { error } = rspc.useQuery(["error"], {
+  const version = rspc.useQuery(["version"]);
+  const transformMe = rspc.useQuery(["transformMe"]);
+  const echo = rspc.useQuery(["echo", "Hello From Frontend!"]);
+  const sendMsg = rspc.useMutation("sendMsg");
+  const errorQuery = rspc.useQuery(["error"], {
     retry: false,
   });
 
   const [subId, setSubId] = useState<number | null>(null);
   const [enabled, setEnabled] = useState(true);
+
   rspc.useSubscription(["testSubscriptionShutdown"], {
     enabled,
     onData(msg) {
@@ -86,17 +87,18 @@ function Example({ name }: { name: string }) {
       }}
     >
       <h1>{name}</h1>
-      <p>Using rspc version: {version}</p>
-      <p>Echo response: {echo}</p>
-      <p>
-        Error returned: {error?.code} {error?.message}
-      </p>
-      <p>Transformed Query: {transformMe}</p>
+      <p>Using rspc version: {version.data}</p>
+      <p>Echo response: {echo.data}</p>
+      <p>Error returned: {JSON.stringify(errorQuery.error)} </p>
+      <p>Transformed Query: {transformMe.data}</p>
       <ExampleSubscription key={rerenderProp} rerenderProp={rerenderProp} />
       <button onClick={() => setRendererProp(Date.now().toString())}>
         Rerender subscription
       </button>
-      <button onClick={() => mutate("Hello!")} disabled={isLoading}>
+      <button
+        onClick={() => sendMsg.mutate("Hello!")}
+        disabled={sendMsg.isLoading}
+      >
         Send Msg!
       </button>
       <br />
@@ -136,7 +138,6 @@ export default function App() {
       >
         <h1>React</h1>
         <QueryClientProvider client={fetchQueryClient}>
-          {/* TODO: rspc.Provider implies fetchClient??? */}
           <rspc.Provider client={fetchClient} queryClient={fetchQueryClient}>
             <Example name="Fetch Transport" />
           </rspc.Provider>

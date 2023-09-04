@@ -1,4 +1,5 @@
 import { ProceduresDef } from ".";
+import * as rspc from "./bindings";
 
 /**
  * A type which allows inferring the type of the bindings
@@ -48,6 +49,12 @@ export type inferProcedureResult<
   K extends inferProcedureKey<TProcedures, TOperation>
 > = inferProcedure<TProcedures, TOperation, K>["result"];
 
+export type inferProcedureError<
+  TProcedures extends ProceduresLike,
+  TOperation extends keyof ProceduresDef,
+  K extends inferProcedureKey<TProcedures, TOperation>
+> = inferProcedure<TProcedures, TOperation, K>["error"] | Error;
+
 // TODO
 export type _inferProcedureHandlerInput<
   TProcedures extends ProceduresLike,
@@ -58,40 +65,88 @@ export type _inferProcedureHandlerInput<
   : [inferProcedure<TProcedures, TOperation, K>["input"]];
 
 // TODO
+export type inferQueries<TProcedures extends ProceduresLike> =
+  inferProcedures<TProcedures>["queries"];
+
+// TODO
+export type inferQuery<
+  TProcedures extends ProceduresLike,
+  T extends inferQueries<TProcedures>["key"][0]
+> = inferProcedure<inferProcedures<TProcedures>, "queries", T>;
+
+// TODO
 export type inferQueryInput<
   TProcedures extends ProceduresLike,
-  T extends inferProcedures<TProcedures>["queries"]["key"][0]
-> = inferProcedureInput<inferProcedures<TProcedures>, "queries", T>;
+  T extends inferQueries<TProcedures>["key"][0]
+> = inferQuery<inferProcedures<TProcedures>, T>["input"];
 
 // TODO
 export type inferQueryResult<
   TProcedures extends ProceduresLike,
-  T extends inferProcedures<TProcedures>["queries"]["key"][0]
-> = inferProcedureResult<inferProcedures<TProcedures>, "queries", T>;
+  T extends inferQueries<TProcedures>["key"][0]
+> = inferQuery<inferProcedures<TProcedures>, T>["result"];
+
+// TODO
+export type inferQueryError<
+  TProcedures extends ProceduresLike,
+  T extends inferQueries<TProcedures>["key"][0]
+> = inferQuery<inferProcedures<TProcedures>, T>["error"] | rspc.Error;
+
+// TODO
+export type inferMutations<TProcedures extends ProceduresLike> =
+  inferProcedures<TProcedures>["mutations"];
+
+// TODO
+export type inferMutation<
+  TProcedures extends ProceduresLike,
+  T extends inferMutations<TProcedures>["key"][0]
+> = inferProcedure<inferProcedures<TProcedures>, "mutations", T>;
 
 // TODO
 export type inferMutationInput<
   TProcedures extends ProceduresLike,
-  T extends inferProcedures<TProcedures>["mutations"]["key"][0]
-> = inferProcedureInput<inferProcedures<TProcedures>, "mutations", T>;
+  T extends inferMutations<TProcedures>["key"][0]
+> = inferMutation<inferProcedures<TProcedures>, T>["input"];
 
 // TODO
 export type inferMutationResult<
   TProcedures extends ProceduresLike,
-  T extends inferProcedures<TProcedures>["mutations"]["key"][0]
-> = inferProcedureResult<inferProcedures<TProcedures>, "mutations", T>;
+  T extends inferMutations<TProcedures>["key"][0]
+> = inferMutation<inferProcedures<TProcedures>, T>["result"];
+
+// TODO
+export type inferMutationError<
+  TProcedures extends ProceduresLike,
+  T extends inferMutations<TProcedures>["key"][0]
+> = inferMutation<inferProcedures<TProcedures>, T>["error"] | rspc.Error;
+
+// TODO
+export type inferSubscriptions<TProcedures extends ProceduresLike> =
+  inferProcedures<TProcedures>["subscriptions"];
+
+// TODO
+export type inferSubscription<
+  TProcedures extends ProceduresLike,
+  T extends inferSubscriptions<TProcedures>["key"][0]
+> = inferProcedure<inferProcedures<TProcedures>, "subscriptions", T>;
 
 // TODO
 export type inferSubscriptionInput<
   TProcedures extends ProceduresLike,
-  T extends inferProcedures<TProcedures>["subscriptions"]["key"][0]
-> = inferProcedureInput<inferProcedures<TProcedures>, "subscriptions", T>;
+  T extends inferSubscriptions<TProcedures>["key"][0]
+> = inferSubscription<inferProcedures<TProcedures>, T>["input"];
 
 // TODO
 export type inferSubscriptionResult<
   TProcedures extends ProceduresLike,
-  T extends inferProcedures<TProcedures>["subscriptions"]["key"][0]
-> = inferProcedureResult<inferProcedures<TProcedures>, "subscriptions", T>;
+  T extends inferSubscriptions<TProcedures>["key"][0]
+> = inferSubscription<inferProcedures<TProcedures>, T>["result"];
+
+// TODO
+export type inferSubscriptionError<
+  TProcedures extends ProceduresLike,
+  T extends inferSubscriptions<TProcedures>["key"][0]
+> = inferSubscription<inferProcedures<TProcedures>, T>["result"] | rspc.Error;
 
 // TODO
 
@@ -120,6 +175,12 @@ export type inferInfiniteQueryResult<
   TProcedures extends ProceduresLike,
   K extends inferInfiniteQueries<TProcedures>["key"]
 > = inferInfiniteQuery<TProcedures, K>["result"];
+
+// TODO
+export type inferInfiniteQueryError<
+  TProcedures extends ProceduresLike,
+  K extends inferInfiniteQueries<TProcedures>["key"]
+> = inferInfiniteQuery<TProcedures, K>["error"];
 
 // TODO
 export type _inferInfiniteQueryProcedureHandlerInput<

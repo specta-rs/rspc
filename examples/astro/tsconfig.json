@@ -1,9 +1,12 @@
 {
-  "extends": "../../packages/tsconfig.json",
+  "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
-    "esModuleInterop": true,
-    "jsx": "preserve",
-    "lib": ["ES2017", "DOM"]
+    "jsx": "react-jsx"
   },
-  "include": ["src"]
+  "references": [
+    { "path": "../../packages/client" },
+    { "path": "../../packages/react-query" },
+    { "path": "../../packages/solid-query" },
+    { "path": "../../packages/svelte-query" }
+  ]
 }

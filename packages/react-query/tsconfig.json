@@ -1,16 +1,13 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
+    "composite": true,
     "rootDir": "src",
+    "lib": ["esnext", "dom"],
     "declarationDir": "dist",
-    "jsx": "react-jsx",
-    "lib": ["esnext", "dom"]
+    "jsx": "react-jsx"
   },
   "include": ["src/**/*"],
   "exclude": ["dist/**/*", "src/**/*.test.ts", "src/**/*.test.tsx"],
-  "references": [
-    {
-      "path": "../client"
-    }
-  ]
+  "references": [{ "path": "../client" }, { "path": "../query-core" }]
 }

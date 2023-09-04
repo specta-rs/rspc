@@ -1,37 +1,39 @@
-import { Operation, RSPCError, ResponseInner } from ".";
+import { Operation, ProceduresDef, ResponseInner } from ".";
+import * as rspc from "./bindings";
 
-export type BatchedItem = {
+export type BatchedItem<P extends ProceduresDef> = {
   op: Operation;
-  resolve: (result: any) => void;
-  reject: (error: Error | RSPCError) => void;
+  resolve: (result: P[keyof ProceduresDef]["result"]) => void;
+  reject: (error: P[keyof ProceduresDef]["error"] | rspc.Error) => void;
   abort: AbortController;
 };
 
 /**
  * @internal
  */
-export async function _internal_fireResponse(
+export async function _internal_fireResponse<P extends ProceduresDef>(
   resp: ResponseInner,
   i:
-    | BatchedItem
+    | BatchedItem<P>
     | {
-        resolve: (result: any) => void;
-        reject: (error: Error | RSPCError) => void;
+        resolve: (result: P[keyof ProceduresDef]["result"]) => void;
+        reject: (error: P[keyof ProceduresDef]["error"] | rspc.Error) => void;
       }
 ) {
   if ("abort" in i && i.abort.signal?.aborted) {
     return;
   }
 
-  if (resp.type === "value") {
-    i.resolve(resp.value);
-  } else if (resp.type === "error") {
-    i.reject(new RSPCError(resp.value.code, resp.value.message));
-  } else if (resp.type === "complete") {
-    // TODO
-  } else {
-    console.error("rspc: response type mismatch!");
-    i.reject(new RSPCError(500, "response type mismatch"));
+  switch (resp.type) {
+    case "value":
+      return i.resolve(resp.value);
+    case "error":
+      if ("Exec" in resp.value) i.reject(resp.value.Exec);
+      else i.reject(resp.value.Resolver);
+      return;
+    case "complete":
+      // TODO
+      return;
   }
 }
 

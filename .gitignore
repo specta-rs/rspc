@@ -42,3 +42,5 @@ demo2.bindings.ts
 
 # /_ - I use it for stashing WIP stuff
 /_
+
+.svelte-kit/
