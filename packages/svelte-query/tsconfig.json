@@ -12,6 +12,9 @@
   "references": [
     {
       "path": "../client"
+    },
+    {
+      "path": "../query-core"
     }
   ]
 }

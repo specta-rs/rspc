@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
+    "composite": true,
     "rootDir": "src",
     "declarationDir": "dist",
     "jsx": "react-jsx",
@@ -11,9 +12,6 @@
   "references": [
     {
       "path": "../client"
-    },
-    {
-      "path": "../query-core"
     }
   ]
 }

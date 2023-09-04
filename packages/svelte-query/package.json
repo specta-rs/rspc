@@ -26,6 +26,9 @@
     "build": "svelte-package --input ./src --output ./dist",
     "test": "vitest"
   },
+  "dependencies": {
+    "@rspc/query-core": "workspace:*"
+  },
   "devDependencies": {
     "@rspc/client": "workspace:*",
     "@sveltejs/package": "^2.2.2",

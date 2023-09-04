@@ -39,7 +39,7 @@ export function initRspc<P extends ProceduresDef>(args: ClientArgs<P>) {
   return new AlphaClient<P>(args);
 }
 
-type Result<TOk, TErr> =
+export type Result<TOk, TErr> =
   | { status: "ok"; data: TOk }
   | { status: "error"; error: TErr };
 

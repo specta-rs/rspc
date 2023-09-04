@@ -27,6 +27,9 @@
     "build": "rollup -c",
     "test": "vitest"
   },
+  "dependencies": {
+    "@rspc/query-core": "workspace:*"
+  },
   "devDependencies": {
     "@rspc/client": "workspace:*",
     "@tanstack/solid-query": "^4.29.25",

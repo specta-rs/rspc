@@ -1,28 +1,17 @@
 import { AlphaClient, ProceduresDef } from "@rspc/client";
-import { QueryClient } from "@tanstack/svelte-query";
 import { getContext, setContext } from "svelte";
+import { Context } from "@rspc/query-core";
 
 const _contextKey = "$$_rspcClient";
 
-type Context<P extends ProceduresDef> = {
-  client: AlphaClient<P>;
-  queryClient: QueryClient;
-};
-
 /** Retrieves a Client from Svelte's context */
-export const getRspcClientContext = <P extends ProceduresDef>(): Context<P> => {
-  const ctx = getContext(_contextKey);
-
-  if (!ctx) {
-    throw new Error(
-      "No rspc Client was found in Svelte context. Did you forget to wrap your component with RspcProvider?"
-    );
-  }
-
-  return ctx as Context<P>;
+export const getRspcClientContext = <
+  P extends ProceduresDef
+>(): Context<P> | null => {
+  const ctx = getContext(_contextKey) ?? null;
+  return ctx as Context<P> | null;
 };
 
 /** Sets a Client on Svelte's context */
-export const setRspcClientContext = (client: AlphaClient<any>): void => {
+export const setRspcClientContext = (client: AlphaClient<any>) =>
   setContext(_contextKey, client);
-};
