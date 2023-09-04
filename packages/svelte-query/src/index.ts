@@ -2,9 +2,6 @@ import { onDestroy } from "svelte";
 import * as tanstack from "@tanstack/svelte-query";
 import * as rspc from "@rspc/query-core";
 import { getRspcClientContext } from "./context";
-
-export * from "@rspc/query-core";
-
 export function createSvelteQueryHooks<P extends rspc.ProceduresDef>() {
   const helpers = rspc.createQueryHookHelpers({
     useContext: getRspcClientContext<P>,

@@ -2,8 +2,6 @@ import * as Solid from "solid-js";
 import * as tanstack from "@tanstack/solid-query";
 import * as rspc from "@rspc/query-core";
 
-export * from "@rspc/query-core";
-
 export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
   const Context = Solid.createContext<rspc.Context<P> | null>(null);
 
