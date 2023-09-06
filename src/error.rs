@@ -24,11 +24,6 @@ mod private {
         }
     }
 
-    #[derive(Serialize, Type, thiserror::Error, Debug)]
-    pub enum Infallible {}
-
-    impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
-
     #[derive(thiserror::Error, Debug, Clone)]
     #[error("{message}")]
     pub struct ResolverError {
@@ -43,8 +38,13 @@ mod private {
     }
 }
 
+#[derive(Serialize, Type, thiserror::Error, Debug)]
+pub enum Infallible {}
+
+impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
+
 // TODO: `ResolverError` should probs be public from rspc-core but not rspc
-pub(crate) use private::{Infallible, IntoResolverError, ResolverError};
+pub(crate) use private::{IntoResolverError, ResolverError};
 
 // TODO: Context based `ExecError`. Always include the `path` of the procedure on it.
 // TODO: Cleanup this
