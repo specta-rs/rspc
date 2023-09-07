@@ -5,19 +5,14 @@ use specta::Type;
 
 use super::RequestLayer;
 
-#[doc(hidden)]
-pub trait ResolverFunction<TLCtx, TMarker>:
-    SealedResolverFunction<TMarker> + Fn(TLCtx, Self::Arg) -> Self::Result
-{
-}
-
 mod private {
     use crate::internal::middleware::ProcedureKind;
 
     use super::*;
 
-    // TODO: Rename
-    pub trait SealedResolverFunction<TMarker>: Send + Sync + 'static {
+    pub trait ResolverFunction<TLCtx, TMarker>:
+        Fn(TLCtx, Self::Arg) -> Self::Result + Send + Sync + 'static
+    {
         // TODO: Can a bunch of these assoicated types be removed?
 
         type Arg: DeserializeOwned + Type + 'static;
@@ -34,20 +29,12 @@ mod private {
         pub(crate) PhantomData<(B, C, D, E)>,
     );
 
-    impl<
-            TMarker,
-            TLCtx,
-            T: SealedResolverFunction<TMarker> + Fn(TLCtx, Self::Arg) -> Self::Result,
-        > ResolverFunction<TLCtx, TMarker> for T
-    {
-    }
-
     // TODO: This is always `RequestLayerMarker` which breaks shit
 
     // TODO: Remove TResultMarker
 
     impl<TLayerCtx, TArg, TResult, TResultMarker, F>
-        SealedResolverFunction<HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
+        ResolverFunction<TLayerCtx, HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
     where
         F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
@@ -67,4 +54,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{HasResolver, SealedResolverFunction};
+pub(crate) use private::{HasResolver, ResolverFunction};
