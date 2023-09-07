@@ -58,8 +58,7 @@ mod private {
 
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value {
             // TODO: Error handling
-            // serde_json::to_value((self.0)(ctx, serde_json::from_value(req.).unwrap())).unwrap()
-            todo!();
+            serde_json::to_value((self.0)(ctx, serde_json::from_value(input).unwrap())).unwrap()
         }
     }
 
