@@ -44,26 +44,23 @@ mod tracing_only {
     }
 }
 
-pub(crate) struct ResolverLayer<T, TArg> {
+pub(crate) struct ResolverLayer<T> {
     func: T,
-    phantom: PhantomData<fn() -> TArg>,
 }
 
-impl<T, TArg> ResolverLayer<T, TArg> {
+impl<T> ResolverLayer<T> {
     pub(crate) fn new(func: T) -> Self {
-        Self {
-            func,
-            phantom: PhantomData,
-        }
+        Self { func }
     }
 }
 
 // TODO: For `T: ResolverFunction` or something like that to simplify the generics
-impl<T, TArg, TLayerCtx, S> SealedLayer<TLayerCtx> for ResolverLayer<T, TArg>
+impl<T, TLayerCtx, S> SealedLayer<TLayerCtx> for ResolverLayer<T>
 where
+    // TODO: Remove this closure here and go straight through
     TLayerCtx: Send + Sync + 'static,
-    TArg: Type + DeserializeOwned + 'static,
-    T: Fn(TLayerCtx, TArg, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
+    // TArg: Type + DeserializeOwned + 'static,
+    T: Fn(TLayerCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
     S: Body + Send + 'static,
 {
     // TODO: This has to be monomorphised. Can we move the hook back into the MW handler future.

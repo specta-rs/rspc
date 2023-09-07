@@ -10,7 +10,7 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::Stream;
-use rspc::{integrations::httpz::Request, Blob, ExportConfig, Rspc};
+use rspc::{integrations::httpz::Request, Blob, ExportConfig, Infallible, Rspc};
 use serde::Serialize;
 use specta::Type;
 use tokio::{fs::File, io::BufReader, time::sleep};
@@ -22,11 +22,11 @@ struct Ctx {
     x_demo_header: Option<String>,
 }
 
-#[derive(thiserror::Error, Serialize, Type, Debug)]
-#[error("{0}")]
-struct Error(&'static str);
+// #[derive(thiserror::Error, Serialize, Type, Debug)]
+// #[error("{0}")]
+// struct Error(&'static str);
 
-const R: Rspc<Ctx, Error> = Rspc::new();
+const R: Rspc<Ctx, Infallible> = Rspc::new();
 
 #[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
 pub enum MyCustomError {
@@ -40,108 +40,103 @@ async fn main() {
 
     let router = R
         .router()
-        .procedure(
-            "version",
-            R.with(|mw, ctx| async move {
-                mw.next(ctx).map(|resp| async move {
-                    println!("Client requested version '{}'", resp);
-                    resp
-                })
-            })
-            .with(|mw, ctx| async move { mw.next(ctx) })
-            .query(|_, _: ()| {
-                info!("Client requested version");
-                Ok(env!("CARGO_PKG_VERSION"))
-            }),
-        )
-        .procedure(
-            "X-Demo-Header",
-            R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
-        )
+        // .procedure(
+        //     "version",
+        //     R.with(|mw, ctx| async move {
+        //         mw.next(ctx).map(|resp| async move {
+        //             println!("Client requested version '{}'", resp);
+        //             resp
+        //         })
+        //     })
+        //     .with(|mw, ctx| async move { mw.next(ctx) })
+        //     .query(|_, _: ()| {
+        //         info!("Client requested version");
+        //         Ok(env!("CARGO_PKG_VERSION"))
+        //     }),
+        // )
+        // .procedure(
+        //     "X-Demo-Header",
+        //     R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
+        // )
         .procedure("echo", R.query(|_, v: String| Ok(v)))
-        .procedure(
-            "error",
-            R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
-        )
-        .procedure(
-            "error",
-            R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
-        )
-        .procedure(
-            "transformMe",
-            R.query(|_, _: ()| Ok("Hello, world!".to_string())),
-        )
-        .procedure(
-            "sendMsg",
-            R.mutation(|_, v: String| {
-                println!("Client said '{}'", v);
-                Ok(v)
-            }),
-        )
-        .procedure(
-            "pings",
-            R.subscription(|_, _: ()| {
-                println!("Client subscribed to 'pings'");
-                stream! {
-                    yield "start".to_string();
-                    for i in 0..5 {
-                        info!("Sending ping {}", i);
-                        yield i.to_string();
-                        sleep(Duration::from_secs(1)).await;
-                    }
-                }
-            }),
-        )
-        .procedure(
-            "errorPings",
-            R.subscription(|_ctx, _args: ()| {
-                stream! {
-                    for _ in 0..5 {
-                        yield Ok("ping".to_string());
-                        sleep(Duration::from_secs(1)).await;
-                    }
-                    yield Err(Error("Something went wrong".into()));
-                }
-            }),
-        )
-        .procedure(
-            "testSubscriptionShutdown",
-            R.subscription({
-                static COUNT: AtomicU16 = AtomicU16::new(0);
-                |_, _: ()| {
-                    let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-                    pub struct HandleDrop {
-                        id: u16,
-                        send: bool,
-                    }
-
-                    impl Stream for HandleDrop {
-                        type Item = u16;
-
-                        fn poll_next(
-                            mut self: Pin<&mut Self>,
-                            _: &mut Context<'_>,
-                        ) -> Poll<Option<Self::Item>> {
-                            if self.send {
-                                Poll::Pending
-                            } else {
-                                self.send = true;
-                                Poll::Ready(Some(self.id))
-                            }
-                        }
-                    }
-
-                    impl Drop for HandleDrop {
-                        fn drop(&mut self) {
-                            println!("Dropped subscription with id {}", self.id);
-                        }
-                    }
-
-                    HandleDrop { id, send: false }
-                }
-            }),
-        )
+        // .procedure(
+        //     "error",
+        //     R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+        // )
+        // .procedure(
+        //     "error",
+        //     R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+        // )
+        // .procedure(
+        //     "transformMe",
+        //     R.query(|_, _: ()| Ok("Hello, world!".to_string())),
+        // )
+        // .procedure(
+        //     "sendMsg",
+        //     R.mutation(|_, v: String| {
+        //         println!("Client said '{}'", v);
+        //         Ok(v)
+        //     }),
+        // )
+        // .procedure(
+        //     "pings",
+        //     R.subscription(|_, _: ()| {
+        //         println!("Client subscribed to 'pings'");
+        //         stream! {
+        //             yield "start".to_string();
+        //             for i in 0..5 {
+        //                 info!("Sending ping {}", i);
+        //                 yield i.to_string();
+        //                 sleep(Duration::from_secs(1)).await;
+        //             }
+        //         }
+        //     }),
+        // )
+        // .procedure(
+        //     "errorPings",
+        //     R.subscription(|_ctx, _args: ()| {
+        //         stream! {
+        //             for _ in 0..5 {
+        //                 yield Ok("ping".to_string());
+        //                 sleep(Duration::from_secs(1)).await;
+        //             }
+        //             yield Err(Error("Something went wrong".into()));
+        //         }
+        //     }),
+        // )
+        // .procedure(
+        //     "testSubscriptionShutdown",
+        //     R.subscription({
+        //         static COUNT: AtomicU16 = AtomicU16::new(0);
+        //         |_, _: ()| {
+        //             let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        //             pub struct HandleDrop {
+        //                 id: u16,
+        //                 send: bool,
+        //             }
+        //             impl Stream for HandleDrop {
+        //                 type Item = u16;
+        //                 fn poll_next(
+        //                     mut self: Pin<&mut Self>,
+        //                     _: &mut Context<'_>,
+        //                 ) -> Poll<Option<Self::Item>> {
+        //                     if self.send {
+        //                         Poll::Pending
+        //                     } else {
+        //                         self.send = true;
+        //                         Poll::Ready(Some(self.id))
+        //                     }
+        //                 }
+        //             }
+        //             impl Drop for HandleDrop {
+        //                 fn drop(&mut self) {
+        //                     println!("Dropped subscription with id {}", self.id);
+        //                 }
+        //             }
+        //             HandleDrop { id, send: false }
+        //         }
+        //     }),
+        // )
         // TODO: This is an unstable feature and should be used with caution!
         // .procedure(
         //     "serveFile",
@@ -151,11 +146,11 @@ async fn main() {
         //         Blob(BufReader::new(file))
         //     }),
         // )
-        .procedure(
-            "customErr",
-            R.error::<MyCustomError>()
-                .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
-        )
+        // .procedure(
+        //     "customErr",
+        //     R.error::<MyCustomError>()
+        //         .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
+        // )
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.

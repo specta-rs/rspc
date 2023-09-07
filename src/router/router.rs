@@ -7,7 +7,7 @@ use crate::{
     internal::{
         middleware::MiddlewareBuilder,
         procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
-        resolver::{HasResolver, RequestLayer},
+        resolver::{HasResolver, IntoTypeDef, RequestLayer, ResolverFunctionGood},
     },
     BuildError, BuildResult, BuiltRouter,
 };
@@ -35,21 +35,19 @@ where
         }
     }
 
+    // TODO: Get `TError` from `Router`?
     #[track_caller]
-    pub fn procedure<F, TArg, TResult, TResultMarker, TMiddleware>(
+    pub fn procedure<F, TMiddleware, M, TError>(
         mut self,
         key: &'static str,
-        procedure: Procedure<
-            HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>,
-            TMiddleware,
-        >,
+        procedure: Procedure<HasResolver<F, TMiddleware::LayerCtx, TError, M>, TMiddleware>,
     ) -> Self
     where
-        F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        TArg: Type + DeserializeOwned + 'static,
-        TResult: RequestLayer<TResultMarker> + 'static,
-        TResultMarker: 'static,
+        F: ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
+        HasResolver<F, TMiddleware::LayerCtx, TError, M>: IntoTypeDef,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
+        M: 'static,
+        TError: 'static,
     {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {

@@ -24,8 +24,8 @@ mod private {
     pin_project! {
         // TODO: Try and remove
         pub struct StreamAdapter<S> {
-            #[pin]
-            stream: S,
+            #[pin] // TODO: Remove `pub(crate)`
+            pub(crate) stream: S,
         }
     }
 
@@ -322,3 +322,6 @@ mod private {
 }
 
 pub(crate) use private::RequestLayer;
+
+// TODO: Temporary
+pub(crate) use private::StreamAdapter;

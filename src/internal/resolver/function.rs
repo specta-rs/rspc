@@ -6,54 +6,146 @@ use specta::Type;
 use super::RequestLayer;
 
 mod private {
-    use crate::internal::middleware::ProcedureKind;
+    use std::borrow::Cow;
+
+    use serde::Serialize;
+    use serde_json::Value;
+    use specta::{ts::TsExportError, TypeMap};
+
+    use crate::{
+        internal::{
+            middleware::{MiddlewareBuilder, ProcedureKind, RequestContext},
+            procedure::{BuildProceduresCtx, ProcedureDef, ProcedureStore},
+            Body,
+        },
+        IntoResolverError,
+    };
 
     use super::*;
 
+    pub trait ResolverFunctionGood<TLCtx, TError>: Send + Sync + 'static {
+        // type Stream<'a>: Body + Send + 'a;
+
+        // TODO: The return type can't be `Value` cause streams and stuff
+        fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value;
+    }
+
+    // TODO: Allow transforming `ResolverFunctionGood` into a boxed variant
+
+    // TODO: `M` being hardcoded -> maybe not?
+    impl<F, TLCtx, TArg, TOk, TError> ResolverFunctionGood<TLCtx, TError>
+        for HasResolver<F, TLCtx, TError, M<TArg, TOk, TError>>
+    where
+        F: Fn(TLCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
+        TArg: DeserializeOwned + Type + 'static,
+        TOk: Serialize + Type + 'static,
+        TError: IntoResolverError + 'static,
+        TLCtx: Send + Sync + 'static,
+    {
+        // type Stream<'a> = Once<Ready<Result<Value, ExecError>>>;
+
+        fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value {
+            // TODO: Error handling
+            // serde_json::to_value((self.0)(ctx, serde_json::from_value(req.).unwrap())).unwrap()
+            todo!();
+        }
+    }
+
+    // pub struct EraseFunction<F, TLCtx, TArg, TResult>(
+    //     F,
+    //     PhantomData<fn() -> (TLCtx, TArg, TResult)>,
+    // );
+
+    // impl<F, TLCtx, TArg, TResult> EraseFunction<F, TLCtx, TArg, TResult> {}
+
+    // TODO: Remove this cause it's not helping with monomorphization
+    // TODO: If this stays around can it be `pub(crate)`???
+    pub trait IntoTypeDef {
+        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, TsExportError>;
+
+        fn exec(&self);
+    }
+
+    // TODO: dyn-erase types at barrier of this
     pub trait ResolverFunction<TLCtx, TError, TMarker>:
         Fn(TLCtx, Self::Arg) -> Self::Result + Send + Sync + 'static
     {
-        // TODO: Can a bunch of these assoicated types be removed?
-
+        // TODO: Can all of these assoicated types be removed?
         type Arg: DeserializeOwned + Type + 'static;
         type Result;
 
+        // TODO: Make `&self`?
         fn into_marker(self, kind: ProcedureKind) -> TMarker;
     }
 
     // TODO: Docs + rename cause it's not a marker, it's runtime
-    pub struct HasResolver<A, B, C, D, E>(
-        pub(crate) A,
+    // TODO: Can this be done better?
+    // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
+    // TODO: Remove `TError` from this
+    pub struct HasResolver<F, TLCtx, TError, M>(
+        pub(crate) F,
         pub(crate) ProcedureKind,
-        pub(crate) PhantomData<(B, C, D, E)>,
+        pub(crate) PhantomData<fn() -> (TLCtx, M, TError)>,
     );
+
+    // TODO: move into `const` blocks
+    struct M<TArg, TOk, TError>(PhantomData<(TArg, TOk, TError)>);
+
+    // TODO: Remove `M` being hardcoded
+    impl<F, TLCtx, TArg, TOk, TError> IntoTypeDef
+        for HasResolver<F, TLCtx, TError, M<TArg, TOk, TError>>
+    where
+        F: Fn(TLCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
+        TArg: DeserializeOwned + Type + 'static,
+        TOk: Serialize + Type,
+        TError: IntoResolverError,
+        TLCtx: Send + Sync + 'static,
+    {
+        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, TsExportError> {
+            ProcedureDef::from_tys::<TMiddleware::Arg<TArg>, TOk, TError>(key, ty_store)
+        }
+
+        fn exec(&self) {}
+    }
 
     // TODO: Expand all generic names cause they probs will show up in user-facing compile errors
 
+    // Result<_, _>
     const _: () = {
-        impl<TLayerCtx, TArg, TResult, TResultMarker, F, TError>
+        impl<TLayerCtx, TArg, F, TOk, TError>
             ResolverFunction<
                 TLayerCtx,
                 TError,
-                HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>,
+                HasResolver<F, TLayerCtx, TError, M<TArg, TOk, TError>>,
             > for F
         where
-            F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+            F: Fn(TLayerCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
             TArg: DeserializeOwned + Type + 'static,
-            TResult: RequestLayer<TResultMarker, Error = TError>,
+            TOk: Serialize + Type,
+            TError: IntoResolverError,
             TLayerCtx: Send + Sync + 'static,
         {
             type Arg = TArg;
-            type Result = TResult;
+            type Result = Result<TOk, TError>;
 
             fn into_marker(
                 self,
                 kind: ProcedureKind,
-            ) -> HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker> {
+            ) -> HasResolver<F, TLayerCtx, TError, M<TArg, TOk, TError>> {
                 HasResolver(self, kind, PhantomData)
             }
         }
     };
+
+    // TODO: Finish off the rest of the impls once stuff is sorted out a bit.
 }
 
-pub(crate) use private::{HasResolver, ResolverFunction};
+pub(crate) use private::{HasResolver, IntoTypeDef, ResolverFunction, ResolverFunctionGood};

@@ -1,12 +1,17 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, future::ready, marker::PhantomData};
 
+use futures::stream::{self, Once};
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use specta::Type;
 
 use crate::internal::{
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
     procedure::{BuildProceduresCtx, ProcedureDef},
-    resolver::{HasResolver, RequestLayer, ResolverFunction, ResolverLayer},
+    resolver::{
+        HasResolver, IntoTypeDef, RequestLayer, ResolverFunction, ResolverFunctionGood,
+        ResolverLayer, StreamAdapter,
+    },
 };
 
 /// TODO: Explain
@@ -19,6 +24,9 @@ impl<TError> Default for MissingResolver<TError> {
 }
 
 mod private {
+    use super::*;
+
+    // TODO: Would this be useful public?
     pub struct Procedure<T, TMiddleware> {
         pub(crate) resolver: T,
         pub(crate) mw: TMiddleware,
@@ -94,20 +102,33 @@ where
     }
 }
 
-impl<F, TArg, TResult, TResultMarker, TMiddleware>
-    Procedure<HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>, TMiddleware>
+// TArg, TResult, TResultMarker,
+// HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>
+// TResolver: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
+// TArg: Type + DeserializeOwned + 'static,
+// TResult: RequestLayer<TResultMarker> + 'static,
+// TResultMarker: 'static,
+impl<TResolver, M, TMiddleware, TError>
+    Procedure<HasResolver<TResolver, TMiddleware::LayerCtx, TError, M>, TMiddleware>
 where
-    F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
-    TArg: Type + DeserializeOwned + 'static,
-    TResult: RequestLayer<TResultMarker> + 'static,
-    TResultMarker: 'static,
+    TResolver: ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
+    // This bound is *really* lately applied so it's error will be shocking
+    HasResolver<TResolver, TMiddleware::LayerCtx, TError, M>: IntoTypeDef,
     TMiddleware: MiddlewareBuilder,
+    // TODO: Remove the following bounds?
+    // TResolver: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
 {
     pub(crate) fn build(
         self,
         key: Cow<'static, str>,
         ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
     ) {
+        let key_str = key.to_string();
+        let type_def = self
+            .resolver
+            .into_procedure_def::<TMiddleware>(key, &mut ctx.ty_store)
+            .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
+
         let HasResolver(resolver, kind, _) = self.resolver;
 
         let m = match kind {
@@ -116,18 +137,14 @@ where
             ProcedureKind::Subscription => &mut ctx.subscriptions,
         };
 
-        let key_str = key.to_string();
-        let type_def = ProcedureDef::from_tys::<
-            TMiddleware::Arg<TArg>,
-            TResult::Result,
-            TResult::Error,
-        >(key, ctx.ty_store)
-        .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
-
         m.append(
             key_str,
-            self.mw.build(ResolverLayer::new(move |ctx, input, _| {
-                Ok((resolver)(ctx, input).exec())
+            // TODO: Take in `serde_json::Value for argument at this stage
+            self.mw.build(ResolverLayer::new(move |ctx, value, req| {
+                // TODO: Lol this is so bad
+                Ok(StreamAdapter {
+                    stream: stream::once(ready(Ok(resolver.exec(ctx, value, req)))),
+                })
             })),
             type_def,
         );
