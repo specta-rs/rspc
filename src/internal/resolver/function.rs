@@ -10,13 +10,12 @@ mod private {
 
     use super::*;
 
-    pub trait ResolverFunction<TLCtx, TMarker>:
+    pub trait ResolverFunction<TLCtx, TError, TMarker>:
         Fn(TLCtx, Self::Arg) -> Self::Result + Send + Sync + 'static
     {
         // TODO: Can a bunch of these assoicated types be removed?
 
         type Arg: DeserializeOwned + Type + 'static;
-        type RequestMarker;
         type Result;
 
         fn into_marker(self, kind: ProcedureKind) -> TMarker;
@@ -32,17 +31,19 @@ mod private {
     // TODO: Expand all generic names cause they probs will show up in user-facing compile errors
 
     const _: () = {
-        impl<TLayerCtx, TArg, TResult, TResultMarker, F>
-            ResolverFunction<TLayerCtx, HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>>
-            for F
+        impl<TLayerCtx, TArg, TResult, TResultMarker, F, TError>
+            ResolverFunction<
+                TLayerCtx,
+                TError,
+                HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>,
+            > for F
         where
             F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
             TArg: DeserializeOwned + Type + 'static,
-            TResult: RequestLayer<TResultMarker>,
+            TResult: RequestLayer<TResultMarker, Error = TError>,
             TLayerCtx: Send + Sync + 'static,
         {
             type Arg = TArg;
-            type RequestMarker = TResultMarker;
             type Result = TResult;
 
             fn into_marker(

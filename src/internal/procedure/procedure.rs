@@ -40,8 +40,7 @@ macro_rules! resolver {
     ($func:ident, $kind:ident) => {
         pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
         where
-            R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, Error = TError>,
+            R: ResolverFunction<TMiddleware::LayerCtx, TError, RMarker>,
         {
             Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
         }
