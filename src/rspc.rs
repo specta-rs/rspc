@@ -6,7 +6,7 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        resolver::{RequestLayer, ResolverFunction},
+        resolver::{HasResolver, ResolverFunction, ResolverFunctionGood},
     },
     Infallible, IntoResolverError, Router,
 };
@@ -46,12 +46,15 @@ where
 // TODO: Deduplicate with the other one?
 macro_rules! resolver {
     ($func:ident, $kind:ident) => {
-        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
+        pub fn $func<R, M>(
+            self,
+            resolver: R,
+        ) -> Procedure<HasResolver<R, TCtx, TError, M>, BaseMiddleware<TCtx>>
         where
-            R: ResolverFunction<TCtx, TError, RMarker>,
+            HasResolver<R, TCtx, TError, M>: ResolverFunctionGood<TCtx, TError>,
         {
             Procedure::new(
-                resolver.into_marker(ProcedureKind::$kind),
+                HasResolver::new(resolver), // .into_marker(ProcedureKind::$kind),
                 BaseMiddleware::default(),
             )
         }

@@ -20,6 +20,8 @@ mod private {
 
     use super::*;
 
+    // TODO: Allow transforming into a boxed variant of the function
+
     // TODO: Docs + rename cause it's not a marker, it's runtime
     // TODO: Can this be done better?
     // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
@@ -28,6 +30,16 @@ mod private {
         resolver: F,
         pub(crate) kind: ProcedureKind,
         phantom: PhantomData<fn() -> (TLCtx, M, TError)>,
+    }
+
+    impl<F, TLCtx, TError, M> HasResolver<F, TLCtx, TError, M> {
+        pub fn new(resolver: F) -> Self {
+            Self {
+                resolver,
+                kind: ProcedureKind::Query,
+                phantom: PhantomData,
+            }
+        }
     }
 
     // TODO: If this stays around can it be `pub(crate)`???
@@ -43,8 +55,6 @@ mod private {
         // TODO: The return type can't be `Value` cause streams and stuff
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value;
     }
-
-    // TODO: Allow transforming `ResolverFunctionGood` into a boxed variant
 
     // TODO: `M` being hardcoded -> maybe not?
     impl<F, TLCtx, TArg, TOk, TError> ResolverFunctionGood<TLCtx, TError>
@@ -72,6 +82,9 @@ mod private {
                 .unwrap()
         }
     }
+
+    // TODO: BREAK
+    // TODO: Replace `ResolverFunction` with `ResolverFunctionGood`
 
     // TODO: dyn-erase types at barrier of this
     pub trait ResolverFunction<TLCtx, TError, TMarker>:
