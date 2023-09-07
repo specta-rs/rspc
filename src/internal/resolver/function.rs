@@ -33,17 +33,17 @@ mod private {
     }
 
     impl<F, TLCtx, TError, M> HasResolver<F, TLCtx, TError, M> {
-        pub fn new(resolver: F) -> Self {
+        pub fn new(resolver: F, kind: ProcedureKind) -> Self {
             Self {
                 resolver,
-                kind: ProcedureKind::Query,
+                kind,
                 phantom: PhantomData,
             }
         }
     }
 
     // TODO: If this stays around can it be `pub(crate)`???
-    pub trait ResolverFunctionGood<TLCtx, TError>: Send + Sync + 'static {
+    pub trait ResolverFunction<TLCtx, TError>: Send + Sync + 'static {
         // type Stream<'a>: Body + Send + 'a;
 
         fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
@@ -57,7 +57,7 @@ mod private {
     }
 
     // TODO: `M` being hardcoded -> maybe not?
-    impl<F, TLCtx, TArg, TOk, TError> ResolverFunctionGood<TLCtx, TError>
+    impl<F, TLCtx, TArg, TOk, TError> ResolverFunction<TLCtx, TError>
         for HasResolver<F, TLCtx, TError, M<TArg, TOk, TError>>
     where
         F: Fn(TLCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
@@ -83,58 +83,12 @@ mod private {
         }
     }
 
-    // TODO: BREAK
-    // TODO: Replace `ResolverFunction` with `ResolverFunctionGood`
-
-    // TODO: dyn-erase types at barrier of this
-    pub trait ResolverFunction<TLCtx, TError, TMarker>:
-        Fn(TLCtx, Self::Arg) -> Self::Result + Send + Sync + 'static
-    {
-        // TODO: Can all of these assoicated types be removed?
-        type Arg: DeserializeOwned + Type + 'static;
-        type Result;
-
-        // TODO: Make `&self`?
-        fn into_marker(self, kind: ProcedureKind) -> TMarker;
-    }
-
     // TODO: move into `const` blocks
     pub struct M<TArg, TOk, TError>(PhantomData<(TArg, TOk, TError)>);
 
     // TODO: Expand all generic names cause they probs will show up in user-facing compile errors
 
-    // Result<_, _>
-    const _: () = {
-        impl<TLayerCtx, TArg, F, TOk, TError>
-            ResolverFunction<
-                TLayerCtx,
-                TError,
-                HasResolver<F, TLayerCtx, TError, M<TArg, TOk, TError>>,
-            > for F
-        where
-            F: Fn(TLayerCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
-            TArg: DeserializeOwned + Type + 'static,
-            TOk: Serialize + Type,
-            TError: IntoResolverError,
-            TLayerCtx: Send + Sync + 'static,
-        {
-            type Arg = TArg;
-            type Result = Result<TOk, TError>;
-
-            fn into_marker(
-                self,
-                kind: ProcedureKind,
-            ) -> HasResolver<F, TLayerCtx, TError, M<TArg, TOk, TError>> {
-                HasResolver {
-                    resolver: self,
-                    kind,
-                    phantom: PhantomData,
-                }
-            }
-        }
-    };
-
     // TODO: Finish off the rest of the impls once stuff is sorted out a bit.
 }
 
-pub(crate) use private::{HasResolver, ResolverFunction, ResolverFunctionGood};
+pub(crate) use private::{HasResolver, ResolverFunction};

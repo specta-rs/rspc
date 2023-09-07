@@ -6,7 +6,7 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        resolver::{HasResolver, ResolverFunction, ResolverFunctionGood},
+        resolver::{HasResolver, ResolverFunction},
     },
     Infallible, IntoResolverError, Router,
 };
@@ -51,10 +51,10 @@ macro_rules! resolver {
             resolver: R,
         ) -> Procedure<HasResolver<R, TCtx, TError, M>, BaseMiddleware<TCtx>>
         where
-            HasResolver<R, TCtx, TError, M>: ResolverFunctionGood<TCtx, TError>,
+            HasResolver<R, TCtx, TError, M>: ResolverFunction<TCtx, TError>,
         {
             Procedure::new(
-                HasResolver::new(resolver), // .into_marker(ProcedureKind::$kind),
+                HasResolver::new(resolver, ProcedureKind::$kind),
                 BaseMiddleware::default(),
             )
         }

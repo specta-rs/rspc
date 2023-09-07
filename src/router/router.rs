@@ -1,13 +1,12 @@
 use std::{borrow::Cow, panic::Location};
 
-use serde::de::DeserializeOwned;
-use specta::{Type, TypeMap};
+use specta::TypeMap;
 
 use crate::{
     internal::{
         middleware::MiddlewareBuilder,
         procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
-        resolver::{HasResolver, RequestLayer, ResolverFunctionGood},
+        resolver::{HasResolver, ResolverFunction},
     },
     BuildError, BuildResult, BuiltRouter,
 };
@@ -44,7 +43,7 @@ where
     ) -> Self
     where
         HasResolver<F, TMiddleware::LayerCtx, TError, M>:
-            ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
+            ResolverFunction<TMiddleware::LayerCtx, TError>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
         M: 'static,
         TError: 'static,

@@ -1,17 +1,11 @@
 use std::{borrow::Cow, future::ready, marker::PhantomData};
 
-use futures::stream::{self, Once};
-use serde::de::DeserializeOwned;
-use serde_json::Value;
-use specta::Type;
+use futures::stream;
 
 use crate::internal::{
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
-    procedure::{BuildProceduresCtx, ProcedureDef},
-    resolver::{
-        HasResolver, RequestLayer, ResolverFunction, ResolverFunctionGood, ResolverLayer,
-        StreamAdapter,
-    },
+    procedure::BuildProceduresCtx,
+    resolver::{HasResolver, ResolverFunction, ResolverLayer, StreamAdapter},
 };
 
 /// TODO: Explain
@@ -46,11 +40,15 @@ where
 
 macro_rules! resolver {
     ($func:ident, $kind:ident) => {
-        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
+        pub fn $func<R, M>(
+            self,
+            resolver: R,
+        ) -> Procedure<HasResolver<R, TMiddleware::LayerCtx, TError, M>, TMiddleware>
         where
-            R: ResolverFunction<TMiddleware::LayerCtx, TError, RMarker>,
+            HasResolver<R, TMiddleware::LayerCtx, TError, M>:
+                ResolverFunction<TMiddleware::LayerCtx, TError>,
         {
-            Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
+            Procedure::new(HasResolver::new(resolver, ProcedureKind::$kind), self.mw)
         }
     };
 }
@@ -102,21 +100,13 @@ where
     }
 }
 
-// TArg, TResult, TResultMarker,
-// HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>
-// TResolver: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
-// TArg: Type + DeserializeOwned + 'static,
-// TResult: RequestLayer<TResultMarker> + 'static,
-// TResultMarker: 'static,
 impl<F, M, TMiddleware, TError>
     Procedure<HasResolver<F, TMiddleware::LayerCtx, TError, M>, TMiddleware>
 where
     // This bound is *really* lately applied so it's error will be shocking
     HasResolver<F, TMiddleware::LayerCtx, TError, M>:
-        ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
+        ResolverFunction<TMiddleware::LayerCtx, TError>,
     TMiddleware: MiddlewareBuilder,
-    // TODO: Remove the following bounds?
-    // TResolver: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
 {
     pub(crate) fn build(
         self,
