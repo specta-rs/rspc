@@ -6,7 +6,7 @@ use crate::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        resolver::{FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType},
+        resolver::{RequestLayer, ResolverFunction},
     },
     Infallible, IntoResolverError, Router,
 };
@@ -43,12 +43,13 @@ where
     }
 }
 
+// TODO: Deduplicate with the other one?
 macro_rules! resolver {
-    ($func:ident, $kind:ident, $result_marker:ident) => {
+    ($func:ident, $kind:ident) => {
         pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
         where
             R: ResolverFunction<TCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = TError>,
+            R::Result: RequestLayer<R::RequestMarker, Error = TError>,
         {
             Procedure::new(
                 resolver.into_marker(ProcedureKind::$kind),
@@ -100,7 +101,7 @@ where
         )
     }
 
-    resolver!(query, Query, FutureMarkerType);
-    resolver!(mutation, Mutation, FutureMarkerType);
-    resolver!(subscription, Subscription, StreamMarkerType);
+    resolver!(query, Query);
+    resolver!(mutation, Mutation);
+    resolver!(subscription, Subscription);
 }

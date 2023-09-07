@@ -16,9 +16,6 @@ use specta::Type;
 
 use crate::ExecError;
 
-#[doc(hidden)]
-pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
-
 mod private {
     use pin_project_lite::pin_project;
 
@@ -45,28 +42,19 @@ mod private {
         }
     }
 
-    // Markers
-    #[doc(hidden)]
-    pub enum StreamMarkerType {}
-    #[doc(hidden)]
-    pub enum FutureMarkerType {}
-
-    pub trait SealedRequestLayer<TMarker> {
+    pub trait RequestLayer<TMarker> {
         type Result: Type;
         type Error: IntoResolverError;
         type Body: Body + Send + 'static;
-        type TypeMarker;
 
         fn exec(self) -> Self::Body;
     }
-
-    impl<TMarker, T: SealedRequestLayer<TMarker>> RequestLayer<TMarker> for T {}
 
     // For queries and mutations
 
     #[doc(hidden)]
     pub enum ResultMarker {}
-    impl<TOk, TError> SealedRequestLayer<ResultMarker> for Result<TOk, TError>
+    impl<TOk, TError> RequestLayer<ResultMarker> for Result<TOk, TError>
     where
         TOk: Serialize + Type,
         TError: IntoResolverError,
@@ -74,7 +62,6 @@ mod private {
         type Result = TOk;
         type Error = TError;
         type Body = StreamAdapter<Once<Ready<Result<Value, ExecError>>>>;
-        type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
@@ -90,7 +77,7 @@ mod private {
 
     #[doc(hidden)]
     pub enum FutureResultMarker {}
-    impl<TFut, TOk, TError> SealedRequestLayer<FutureResultMarker> for TFut
+    impl<TFut, TOk, TError> RequestLayer<FutureResultMarker> for TFut
     where
         TFut: Future<Output = Result<TOk, TError>> + Send + 'static,
         TOk: Serialize + Type + Send + 'static,
@@ -99,7 +86,6 @@ mod private {
         type Result = TOk;
         type Error = TError;
         type Body = StreamAdapter<Once<FutureSerializeResultFuture<TFut, TOk>>>;
-        type TypeMarker = FutureMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
@@ -139,7 +125,7 @@ mod private {
     // For subscriptions
 
     pub struct StreamMarker<TError>(PhantomData<TError>, Infallible);
-    impl<S, TError> SealedRequestLayer<StreamMarker<TError>> for S
+    impl<S, TError> RequestLayer<StreamMarker<TError>> for S
     where
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
@@ -148,7 +134,6 @@ mod private {
         type Result = S::Item;
         type Error = TError;
         type Body = StreamAdapter<MapStream<S>>;
-        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
@@ -162,7 +147,7 @@ mod private {
 
     #[doc(hidden)]
     pub enum ResultStreamMarker {}
-    impl<S, TError> SealedRequestLayer<ResultStreamMarker> for Result<S, TError>
+    impl<S, TError> RequestLayer<ResultStreamMarker> for Result<S, TError>
     where
         S: Stream + Send + Sync + 'static,
         S::Item: Serialize + Type,
@@ -171,7 +156,6 @@ mod private {
         type Result = S::Item;
         type Error = TError;
         type Body = StreamAdapter<MapStream<S>>;
-        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
@@ -192,7 +176,7 @@ mod private {
 
     #[doc(hidden)]
     pub struct FutureStreamMarker<TError>(PhantomData<TError>, Infallible);
-    impl<TFut, S, TError> SealedRequestLayer<FutureStreamMarker<TError>> for TFut
+    impl<TFut, S, TError> RequestLayer<FutureStreamMarker<TError>> for TFut
     where
         TFut: Future<Output = S> + Send + 'static,
         S: Stream + Send + Sync + 'static,
@@ -202,7 +186,6 @@ mod private {
         type Result = S::Item;
         type Error = TError;
         type Body = StreamAdapter<FutureMapStream<TFut, S>>;
-        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
@@ -219,7 +202,7 @@ mod private {
 
     #[doc(hidden)]
     pub enum FutureResultStreamMarker {}
-    impl<TFut, S, TError> SealedRequestLayer<FutureResultStreamMarker> for TFut
+    impl<TFut, S, TError> RequestLayer<FutureResultStreamMarker> for TFut
     where
         TFut: Future<Output = Result<S, TError>> + Send + 'static,
         S: Stream + Send + Sync + 'static,
@@ -229,7 +212,6 @@ mod private {
         type Result = S::Item;
         type Error = TError;
         type Body = StreamAdapter<FutureMapStream<TFut, S>>;
-        type TypeMarker = StreamMarkerType;
 
         fn exec(self) -> Self::Body {
             StreamAdapter {
@@ -339,4 +321,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{FutureMarkerType, StreamMarkerType};
+pub(crate) use private::RequestLayer;

@@ -6,10 +6,7 @@ use specta::Type;
 use crate::internal::{
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
     procedure::{BuildProceduresCtx, ProcedureDef},
-    resolver::{
-        FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
-        StreamMarkerType,
-    },
+    resolver::{HasResolver, RequestLayer, ResolverFunction, ResolverLayer},
 };
 
 /// TODO: Explain
@@ -40,11 +37,11 @@ where
 }
 
 macro_rules! resolver {
-    ($func:ident, $kind:ident, $result_marker:ident) => {
+    ($func:ident, $kind:ident) => {
         pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, TMiddleware>
         where
             R: ResolverFunction<TMiddleware::LayerCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = TError>,
+            R::Result: RequestLayer<R::RequestMarker, Error = TError>,
         {
             Procedure::new(resolver.into_marker(ProcedureKind::$kind), self.mw)
         }
@@ -57,9 +54,9 @@ impl<TMiddleware, TError> Procedure<MissingResolver<TError>, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
-    resolver!(query, Query, FutureMarkerType);
-    resolver!(mutation, Mutation, FutureMarkerType);
-    resolver!(subscription, Subscription, StreamMarkerType);
+    resolver!(query, Query);
+    resolver!(mutation, Mutation);
+    resolver!(subscription, Subscription);
 
     pub fn error(self) -> Procedure<MissingResolver<TError>, TMiddleware> {
         Procedure {

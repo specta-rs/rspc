@@ -66,6 +66,7 @@ where
     T: Fn(TLayerCtx, TArg, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
     S: Body + Send + 'static,
 {
+    // TODO: This has to be monomorphised. Can we move the hook back into the MW handler future.
     #[cfg(feature = "tracing")]
     type Stream<'a> = tracing_only::Instrumented<S>;
 

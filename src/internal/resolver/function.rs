@@ -29,29 +29,30 @@ mod private {
         pub(crate) PhantomData<(B, C, D, E)>,
     );
 
-    // TODO: This is always `RequestLayerMarker` which breaks shit
+    // TODO: Expand all generic names cause they probs will show up in user-facing compile errors
 
-    // TODO: Remove TResultMarker
+    const _: () = {
+        impl<TLayerCtx, TArg, TResult, TResultMarker, F>
+            ResolverFunction<TLayerCtx, HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>>
+            for F
+        where
+            F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+            TArg: DeserializeOwned + Type + 'static,
+            TResult: RequestLayer<TResultMarker>,
+            TLayerCtx: Send + Sync + 'static,
+        {
+            type Arg = TArg;
+            type RequestMarker = TResultMarker;
+            type Result = TResult;
 
-    impl<TLayerCtx, TArg, TResult, TResultMarker, F>
-        ResolverFunction<TLayerCtx, HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
-    where
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        TArg: DeserializeOwned + Type + 'static,
-        TResult: RequestLayer<TResultMarker>,
-        TLayerCtx: Send + Sync + 'static,
-    {
-        type Arg = TArg;
-        type RequestMarker = TResultMarker;
-        type Result = TResult;
-
-        fn into_marker(
-            self,
-            kind: ProcedureKind,
-        ) -> HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker> {
-            HasResolver(self, kind, PhantomData)
+            fn into_marker(
+                self,
+                kind: ProcedureKind,
+            ) -> HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker> {
+                HasResolver(self, kind, PhantomData)
+            }
         }
-    }
+    };
 }
 
 pub(crate) use private::{HasResolver, ResolverFunction};
