@@ -40,13 +40,9 @@ where
 
 macro_rules! resolver {
     ($func:ident, $kind:ident) => {
-        pub fn $func<R, M>(
-            self,
-            resolver: R,
-        ) -> Procedure<HasResolver<R, TMiddleware::LayerCtx, TError, M>, TMiddleware>
+        pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, M>, TMiddleware>
         where
-            HasResolver<R, TMiddleware::LayerCtx, TError, M>:
-                ResolverFunction<TMiddleware::LayerCtx, TError>,
+            HasResolver<R, M>: ResolverFunction<TMiddleware::LayerCtx, TError>,
         {
             Procedure::new(HasResolver::new(resolver, ProcedureKind::$kind), self.mw)
         }
@@ -100,19 +96,17 @@ where
     }
 }
 
-impl<F, M, TMiddleware, TError>
-    Procedure<HasResolver<F, TMiddleware::LayerCtx, TError, M>, TMiddleware>
-where
-    // This bound is *really* lately applied so it's error will be shocking
-    HasResolver<F, TMiddleware::LayerCtx, TError, M>:
-        ResolverFunction<TMiddleware::LayerCtx, TError>,
-    TMiddleware: MiddlewareBuilder,
-{
-    pub(crate) fn build(
+impl<F, M, TMiddleware> Procedure<HasResolver<F, M>, TMiddleware> {
+    pub(crate) fn build<TError>(
         self,
         key: Cow<'static, str>,
         ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
-    ) {
+    )
+    // TODO: Applying these sorta bounds here is cursed but it helps for refactoring
+    where
+        HasResolver<F, M>: ResolverFunction<TMiddleware::LayerCtx, TError>,
+        TMiddleware: MiddlewareBuilder,
+    {
         let key_str = key.to_string();
         let type_def = self
             .resolver

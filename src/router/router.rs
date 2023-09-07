@@ -39,11 +39,10 @@ where
     pub fn procedure<F, TMiddleware, M, TError>(
         mut self,
         key: &'static str,
-        procedure: Procedure<HasResolver<F, TMiddleware::LayerCtx, TError, M>, TMiddleware>,
+        procedure: Procedure<HasResolver<F, M>, TMiddleware>,
     ) -> Self
     where
-        HasResolver<F, TMiddleware::LayerCtx, TError, M>:
-            ResolverFunction<TMiddleware::LayerCtx, TError>,
+        HasResolver<F, M>: ResolverFunction<TMiddleware::LayerCtx, TError>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
         M: 'static,
         TError: 'static,

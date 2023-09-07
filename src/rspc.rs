@@ -46,12 +46,9 @@ where
 // TODO: Deduplicate with the other one?
 macro_rules! resolver {
     ($func:ident, $kind:ident) => {
-        pub fn $func<R, M>(
-            self,
-            resolver: R,
-        ) -> Procedure<HasResolver<R, TCtx, TError, M>, BaseMiddleware<TCtx>>
+        pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, M>, BaseMiddleware<TCtx>>
         where
-            HasResolver<R, TCtx, TError, M>: ResolverFunction<TCtx, TError>,
+            HasResolver<R, M>: ResolverFunction<TCtx, TError>,
         {
             Procedure::new(
                 HasResolver::new(resolver, ProcedureKind::$kind),

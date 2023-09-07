@@ -26,13 +26,13 @@ mod private {
     // TODO: Can this be done better?
     // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
     // TODO: Remove `TError` from this
-    pub struct HasResolver<F, TLCtx, TError, M> {
+    pub struct HasResolver<F, M> {
         resolver: F,
         pub(crate) kind: ProcedureKind,
-        phantom: PhantomData<fn() -> (TLCtx, M, TError)>,
+        phantom: PhantomData<fn() -> M>,
     }
 
-    impl<F, TLCtx, TError, M> HasResolver<F, TLCtx, TError, M> {
+    impl<F, M> HasResolver<F, M> {
         pub fn new(resolver: F, kind: ProcedureKind) -> Self {
             Self {
                 resolver,
@@ -58,7 +58,7 @@ mod private {
 
     // TODO: `M` being hardcoded -> maybe not?
     impl<F, TLCtx, TArg, TOk, TError> ResolverFunction<TLCtx, TError>
-        for HasResolver<F, TLCtx, TError, M<TArg, TOk, TError>>
+        for HasResolver<F, M<TArg, TOk, TError>>
     where
         F: Fn(TLCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
