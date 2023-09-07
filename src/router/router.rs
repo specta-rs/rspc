@@ -7,7 +7,7 @@ use crate::{
     internal::{
         middleware::MiddlewareBuilder,
         procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
-        resolver::{HasResolver, IntoTypeDef, RequestLayer, ResolverFunctionGood},
+        resolver::{HasResolver, RequestLayer, ResolverFunctionGood},
     },
     BuildError, BuildResult, BuiltRouter,
 };
@@ -43,8 +43,8 @@ where
         procedure: Procedure<HasResolver<F, TMiddleware::LayerCtx, TError, M>, TMiddleware>,
     ) -> Self
     where
-        F: ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
-        HasResolver<F, TMiddleware::LayerCtx, TError, M>: IntoTypeDef,
+        HasResolver<F, TMiddleware::LayerCtx, TError, M>:
+            ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
         M: 'static,
         TError: 'static,

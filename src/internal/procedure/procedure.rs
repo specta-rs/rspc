@@ -9,8 +9,8 @@ use crate::internal::{
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
     procedure::{BuildProceduresCtx, ProcedureDef},
     resolver::{
-        HasResolver, IntoTypeDef, RequestLayer, ResolverFunction, ResolverFunctionGood,
-        ResolverLayer, StreamAdapter,
+        HasResolver, RequestLayer, ResolverFunction, ResolverFunctionGood, ResolverLayer,
+        StreamAdapter,
     },
 };
 
@@ -108,12 +108,12 @@ where
 // TArg: Type + DeserializeOwned + 'static,
 // TResult: RequestLayer<TResultMarker> + 'static,
 // TResultMarker: 'static,
-impl<TResolver, M, TMiddleware, TError>
-    Procedure<HasResolver<TResolver, TMiddleware::LayerCtx, TError, M>, TMiddleware>
+impl<F, M, TMiddleware, TError>
+    Procedure<HasResolver<F, TMiddleware::LayerCtx, TError, M>, TMiddleware>
 where
-    TResolver: ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
     // This bound is *really* lately applied so it's error will be shocking
-    HasResolver<TResolver, TMiddleware::LayerCtx, TError, M>: IntoTypeDef,
+    HasResolver<F, TMiddleware::LayerCtx, TError, M>:
+        ResolverFunctionGood<TMiddleware::LayerCtx, TError>,
     TMiddleware: MiddlewareBuilder,
     // TODO: Remove the following bounds?
     // TResolver: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
@@ -129,9 +129,7 @@ where
             .into_procedure_def::<TMiddleware>(key, &mut ctx.ty_store)
             .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
-        let HasResolver(resolver, kind, _) = self.resolver;
-
-        let m = match kind {
+        let m = match &self.resolver.1 {
             ProcedureKind::Query => &mut ctx.queries,
             ProcedureKind::Mutation => &mut ctx.mutations,
             ProcedureKind::Subscription => &mut ctx.subscriptions,
@@ -143,7 +141,7 @@ where
             self.mw.build(ResolverLayer::new(move |ctx, value, req| {
                 // TODO: Lol this is so bad
                 Ok(StreamAdapter {
-                    stream: stream::once(ready(Ok(resolver.exec(ctx, value, req)))),
+                    stream: stream::once(ready(Ok(self.resolver.exec(ctx, value, req)))),
                 })
             })),
             type_def,

@@ -3,8 +3,6 @@ use std::marker::PhantomData;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use super::RequestLayer;
-
 mod private {
     use std::borrow::Cow;
 
@@ -15,16 +13,22 @@ mod private {
     use crate::{
         internal::{
             middleware::{MiddlewareBuilder, ProcedureKind, RequestContext},
-            procedure::{BuildProceduresCtx, ProcedureDef, ProcedureStore},
-            Body,
+            procedure::ProcedureDef,
         },
         IntoResolverError,
     };
 
     use super::*;
 
+    // TODO: If this stays around can it be `pub(crate)`???
     pub trait ResolverFunctionGood<TLCtx, TError>: Send + Sync + 'static {
         // type Stream<'a>: Body + Send + 'a;
+
+        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, TsExportError>;
 
         // TODO: The return type can't be `Value` cause streams and stuff
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value;
@@ -44,30 +48,19 @@ mod private {
     {
         // type Stream<'a> = Once<Ready<Result<Value, ExecError>>>;
 
+        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, TsExportError> {
+            ProcedureDef::from_tys::<TMiddleware::Arg<TArg>, TOk, TError>(key, ty_store)
+        }
+
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value {
             // TODO: Error handling
             // serde_json::to_value((self.0)(ctx, serde_json::from_value(req.).unwrap())).unwrap()
             todo!();
         }
-    }
-
-    // pub struct EraseFunction<F, TLCtx, TArg, TResult>(
-    //     F,
-    //     PhantomData<fn() -> (TLCtx, TArg, TResult)>,
-    // );
-
-    // impl<F, TLCtx, TArg, TResult> EraseFunction<F, TLCtx, TArg, TResult> {}
-
-    // TODO: Remove this cause it's not helping with monomorphization
-    // TODO: If this stays around can it be `pub(crate)`???
-    pub trait IntoTypeDef {
-        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
-            &self,
-            key: Cow<'static, str>,
-            ty_store: &mut TypeMap,
-        ) -> Result<ProcedureDef, TsExportError>;
-
-        fn exec(&self);
     }
 
     // TODO: dyn-erase types at barrier of this
@@ -82,6 +75,7 @@ mod private {
         fn into_marker(self, kind: ProcedureKind) -> TMarker;
     }
 
+    // TODO: Renamed struct
     // TODO: Docs + rename cause it's not a marker, it's runtime
     // TODO: Can this be done better?
     // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
@@ -93,28 +87,7 @@ mod private {
     );
 
     // TODO: move into `const` blocks
-    struct M<TArg, TOk, TError>(PhantomData<(TArg, TOk, TError)>);
-
-    // TODO: Remove `M` being hardcoded
-    impl<F, TLCtx, TArg, TOk, TError> IntoTypeDef
-        for HasResolver<F, TLCtx, TError, M<TArg, TOk, TError>>
-    where
-        F: Fn(TLCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
-        TArg: DeserializeOwned + Type + 'static,
-        TOk: Serialize + Type,
-        TError: IntoResolverError,
-        TLCtx: Send + Sync + 'static,
-    {
-        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
-            &self,
-            key: Cow<'static, str>,
-            ty_store: &mut TypeMap,
-        ) -> Result<ProcedureDef, TsExportError> {
-            ProcedureDef::from_tys::<TMiddleware::Arg<TArg>, TOk, TError>(key, ty_store)
-        }
-
-        fn exec(&self) {}
-    }
+    pub struct M<TArg, TOk, TError>(PhantomData<(TArg, TOk, TError)>);
 
     // TODO: Expand all generic names cause they probs will show up in user-facing compile errors
 
@@ -148,4 +121,4 @@ mod private {
     // TODO: Finish off the rest of the impls once stuff is sorted out a bit.
 }
 
-pub(crate) use private::{HasResolver, IntoTypeDef, ResolverFunction, ResolverFunctionGood};
+pub(crate) use private::{HasResolver, ResolverFunction, ResolverFunctionGood};
