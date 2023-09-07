@@ -143,16 +143,14 @@ async fn main() {
             }),
         )
         // TODO: This is an unstable feature and should be used with caution!
-        .procedure(
-            "serveFile",
-            R.query(|_, _: ()| async move {
-                let file = File::open("./demo.json").await.unwrap();
-
-                // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
-
-                Blob(BufReader::new(file))
-            }),
-        )
+        // .procedure(
+        //     "serveFile",
+        //     R.query(|_, _: ()| async move {
+        //         let file = File::open("./demo.json").await.unwrap();
+        //         // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
+        //         Blob(BufReader::new(file))
+        //     }),
+        // )
         .procedure(
             "customErr",
             R.error::<MyCustomError>()

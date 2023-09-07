@@ -64,25 +64,6 @@ mod private {
 
     // For queries and mutations
 
-    // TODO: Allow `Blob<T>` with `futures::AsyncRead`/`futures:AsyncBufRead` traits
-
-    #[doc(hidden)]
-    pub enum BlobAsyncBufReadMarker {}
-    #[cfg(feature = "tokio")]
-    impl<S> SealedRequestLayer<BlobAsyncBufReadMarker> for Blob<S>
-    where
-        S: tokio::io::AsyncBufRead + Send + 'static,
-    {
-        type Result = ();
-        type Error = crate::Infallible;
-        type Body = BlobStream<S>;
-        type TypeMarker = FutureMarkerType;
-
-        fn exec(self) -> Self::Body {
-            BlobStream { stream: self.0 }
-        }
-    }
-
     #[doc(hidden)]
     pub enum ResultMarker {}
     impl<TOk, TError> SealedRequestLayer<ResultMarker> for Result<TOk, TError>
@@ -103,33 +84,6 @@ mod private {
                             Ok(serde_json::to_value(v).map_err(ExecError::SerializingResultErr)?)
                         }),
                 )),
-            }
-        }
-    }
-
-    #[doc(hidden)]
-    pub struct FutureBlobAsyncBufReadMarker<S, TError>(
-        PhantomData<(S, TError)>,
-        // Prevents this type from being instantiated
-        Infallible,
-    );
-    #[cfg(feature = "tokio")]
-    impl<TFut, S, TError> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S, TError>> for TFut
-    where
-        TFut: Future<Output = Blob<S>> + Send + 'static,
-        S: tokio::io::AsyncBufRead + Send + 'static,
-        TError: IntoResolverError,
-    {
-        type Result = ();
-        type Error = TError;
-        type Body = FutureBlobStream<TFut, S>;
-        type TypeMarker = FutureMarkerType;
-
-        fn exec(self) -> Self::Body {
-            FutureBlobStream {
-                fut: self,
-                map: |v| v.0,
-                phantom: PhantomData,
             }
         }
     }
@@ -381,60 +335,6 @@ mod private {
                 Self::First { .. } => (0, None),
                 Self::Second { stream, .. } => stream.size_hint(),
             }
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    pin_project! {
-        #[project = FutureBlobStreamProj]
-        pub struct FutureBlobStream<F, S>
-        where
-            F: Future
-        {
-            #[pin]
-            fut: F,
-            map: fn(F::Output) -> S,
-            phantom: PhantomData<S>
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    impl<S: tokio::io::AsyncBufRead, F: Future> Body for FutureBlobStream<F, S> {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            _cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
-            todo!("blob unimplemented");
-        }
-
-        #[inline]
-        fn size_hint(&self) -> (usize, Option<usize>) {
-            (0, None)
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    pin_project! {
-        #[project = BlobStreamProj]
-        pub struct BlobStream<S> {
-            #[pin]
-            stream: S,
-            // buf: Vec<u8>,
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    impl<S: tokio::io::AsyncBufRead> Body for BlobStream<S> {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            _cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
-            todo!("blob unimplemented");
-        }
-
-        #[inline]
-        fn size_hint(&self) -> (usize, Option<usize>) {
-            (0, None)
         }
     }
 }
