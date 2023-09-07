@@ -129,7 +129,7 @@ where
             .into_procedure_def::<TMiddleware>(key, &mut ctx.ty_store)
             .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
-        let m = match &self.resolver.1 {
+        let m = match &self.resolver.kind {
             ProcedureKind::Query => &mut ctx.queries,
             ProcedureKind::Mutation => &mut ctx.mutations,
             ProcedureKind::Subscription => &mut ctx.subscriptions,

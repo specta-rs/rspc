@@ -20,6 +20,16 @@ mod private {
 
     use super::*;
 
+    // TODO: Docs + rename cause it's not a marker, it's runtime
+    // TODO: Can this be done better?
+    // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
+    // TODO: Remove `TError` from this
+    pub struct HasResolver<F, TLCtx, TError, M> {
+        resolver: F,
+        pub(crate) kind: ProcedureKind,
+        phantom: PhantomData<fn() -> (TLCtx, M, TError)>,
+    }
+
     // TODO: If this stays around can it be `pub(crate)`???
     pub trait ResolverFunctionGood<TLCtx, TError>: Send + Sync + 'static {
         // type Stream<'a>: Body + Send + 'a;
@@ -58,7 +68,8 @@ mod private {
 
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value {
             // TODO: Error handling
-            serde_json::to_value((self.0)(ctx, serde_json::from_value(input).unwrap())).unwrap()
+            serde_json::to_value((self.resolver)(ctx, serde_json::from_value(input).unwrap()))
+                .unwrap()
         }
     }
 
@@ -73,17 +84,6 @@ mod private {
         // TODO: Make `&self`?
         fn into_marker(self, kind: ProcedureKind) -> TMarker;
     }
-
-    // TODO: Renamed struct
-    // TODO: Docs + rename cause it's not a marker, it's runtime
-    // TODO: Can this be done better?
-    // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
-    // TODO: Remove `TError` from this
-    pub struct HasResolver<F, TLCtx, TError, M>(
-        pub(crate) F,
-        pub(crate) ProcedureKind,
-        pub(crate) PhantomData<fn() -> (TLCtx, M, TError)>,
-    );
 
     // TODO: move into `const` blocks
     pub struct M<TArg, TOk, TError>(PhantomData<(TArg, TOk, TError)>);
@@ -112,7 +112,11 @@ mod private {
                 self,
                 kind: ProcedureKind,
             ) -> HasResolver<F, TLayerCtx, TError, M<TArg, TOk, TError>> {
-                HasResolver(self, kind, PhantomData)
+                HasResolver {
+                    resolver: self,
+                    kind,
+                    phantom: PhantomData,
+                }
             }
         }
     };
