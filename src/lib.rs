@@ -1,4 +1,4 @@
-//! rspc: A blazingly fast and easy to use TRPC-like server for Rust.
+//! rspc: A blazingly fast and easy to use tRPC-like server for Rust.
 //!
 //! Checkout the official docs <https://rspc.dev>
 //!
