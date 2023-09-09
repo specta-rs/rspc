@@ -1,7 +1,7 @@
 {
   "name": "@rspc/query-core",
   "version": "1.0.0-rc.3",
-  "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
+  "description": "A blazingly fast and easy to use tRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
