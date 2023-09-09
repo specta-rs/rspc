@@ -6,47 +6,28 @@ use specta::Type;
 mod private {
     use std::borrow::Cow;
 
+    use futures::Stream;
     use serde::Serialize;
     use serde_json::Value;
     use specta::{ts::TsExportError, TypeMap};
 
     use crate::{
         internal::{
-            middleware::{MiddlewareBuilder, ProcedureKind, RequestContext},
+            middleware::{ProcedureKind, RequestContext},
             procedure::ProcedureDef,
+            resolver::IntoQueryMutationResponse,
         },
         IntoResolverError,
     };
 
     use super::*;
 
-    // TODO: Allow transforming into a boxed variant of the function
-
-    // TODO: Docs + rename cause it's not a marker, it's runtime
-    // TODO: Can this be done better?
-    // TODO: Remove `TLCtx` from this - It's being used to contain stuff but there would be a better way
-    // TODO: Remove `TError` from this
-    pub struct HasResolver<F, M> {
-        resolver: F,
-        pub(crate) kind: ProcedureKind,
-        phantom: PhantomData<fn() -> M>,
-    }
-
-    impl<F, M> HasResolver<F, M> {
-        pub fn new(resolver: F, kind: ProcedureKind) -> Self {
-            Self {
-                resolver,
-                kind,
-                phantom: PhantomData,
-            }
-        }
-    }
-
-    // TODO: If this stays around can it be `pub(crate)`???
-    pub trait ResolverFunction<TLCtx, TError>: Send + Sync + 'static {
+    /// TODO
+    pub trait ResolverFunction<TLCtx>: Send + Sync + 'static {
+        // TODO: How da hell if this needs to be dyn-safe. It needs to end up boxed too, basically but then that prevents boxing anything refering to it
         // type Stream<'a>: Body + Send + 'a;
 
-        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
+        fn into_procedure_def(
             &self,
             key: Cow<'static, str>,
             ty_store: &mut TypeMap,
@@ -56,39 +37,62 @@ mod private {
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value;
     }
 
-    // TODO: `M` being hardcoded -> maybe not?
-    impl<F, TLCtx, TArg, TOk, TError> ResolverFunction<TLCtx, TError>
-        for HasResolver<F, M<TArg, TOk, TError>>
+    // TODO: Allow transforming into a boxed variant of the function
+
+    // TODO: Rename `Resolver`?
+    pub struct HasResolver<F, TResult, M> {
+        resolver: F,
+        pub(crate) kind: ProcedureKind,
+        phantom: PhantomData<fn() -> (TResult, M)>,
+    }
+
+    impl<F, TResult, M> HasResolver<F, TResult, M> {
+        pub(crate) fn new(resolver: F, kind: ProcedureKind) -> Self {
+            Self {
+                resolver,
+                kind,
+                phantom: PhantomData,
+            }
+        }
+    }
+
+    pub struct M<TArg, TResultMarker>(PhantomData<(TArg, TResultMarker)>);
+    impl<F, TLCtx, TResult, TResultMarker, TArg> ResolverFunction<TLCtx>
+        for HasResolver<F, TResult, M<TArg, TResultMarker>>
     where
-        F: Fn(TLCtx, TArg) -> Result<TOk, TError> + Send + Sync + 'static,
+        F: Fn(TLCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
-        TOk: Serialize + Type + 'static,
-        TError: IntoResolverError + 'static,
         TLCtx: Send + Sync + 'static,
+        TResult: 'static,
+        TResultMarker: 'static,
     {
         // type Stream<'a> = Once<Ready<Result<Value, ExecError>>>;
 
-        fn into_procedure_def<TMiddleware: MiddlewareBuilder>(
+        fn into_procedure_def(
             &self,
             key: Cow<'static, str>,
             ty_store: &mut TypeMap,
         ) -> Result<ProcedureDef, TsExportError> {
-            ProcedureDef::from_tys::<TMiddleware::Arg<TArg>, TOk, TError>(key, ty_store)
+            // ProcedureDef::from_tys::<TArg, TOk, TError>(key, ty_store)
+            todo!();
         }
 
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value {
             // TODO: Error handling
-            serde_json::to_value((self.resolver)(ctx, serde_json::from_value(input).unwrap()))
-                .unwrap()
+            // serde_json::to_value((self.resolver)(ctx, serde_json::from_value(input).unwrap()))
+            //     .unwrap()
+            todo!();
         }
     }
 
-    // TODO: move into `const` blocks
-    pub struct M<TArg, TOk, TError>(PhantomData<(TArg, TOk, TError)>);
+    pub trait QueryMutationFn<TErr, M> {}
 
-    // TODO: Expand all generic names cause they probs will show up in user-facing compile errors
-
-    // TODO: Finish off the rest of the impls once stuff is sorted out a bit.
+    impl<F, TResult, M, TMarker, TErr> QueryMutationFn<TErr, TMarker> for HasResolver<F, TResult, M>
+    where
+        TResult: IntoQueryMutationResponse<TMarker, TErr>,
+        TResult::Ok: Serialize + Type + 'static,
+    {
+    }
 }
 
-pub(crate) use private::{HasResolver, ResolverFunction};
+pub(crate) use private::{HasResolver, QueryMutationFn, ResolverFunction};

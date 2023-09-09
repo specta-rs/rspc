@@ -36,13 +36,14 @@ where
 
     // TODO: Get `TError` from `Router`?
     #[track_caller]
-    pub fn procedure<F, TMiddleware, M, TError>(
+    pub fn procedure<F, TMiddleware, M, TResult, TError>(
         mut self,
         key: &'static str,
-        procedure: Procedure<HasResolver<F, M>, TMiddleware>,
+        procedure: Procedure<HasResolver<F, TResult, M>, TMiddleware>,
     ) -> Self
     where
-        HasResolver<F, M>: ResolverFunction<TMiddleware::LayerCtx, TError>,
+        // TODO: `HasResolver` or `Box<...>`?
+        HasResolver<F, TResult, M>: ResolverFunction<TMiddleware::LayerCtx>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
         M: 'static,
         TError: 'static,

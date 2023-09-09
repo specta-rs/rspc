@@ -22,11 +22,11 @@ struct Ctx {
     x_demo_header: Option<String>,
 }
 
-// #[derive(thiserror::Error, Serialize, Type, Debug)]
-// #[error("{0}")]
-// struct Error(&'static str);
+#[derive(thiserror::Error, Serialize, Type, Debug)]
+#[error("{0}")]
+struct Error(&'static str);
 
-const R: Rspc<Ctx, Infallible> = Rspc::new();
+const R: Rspc<Ctx, Error> = Rspc::new();
 
 #[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
 pub enum MyCustomError {
@@ -54,30 +54,39 @@ async fn main() {
         //         Ok(env!("CARGO_PKG_VERSION"))
         //     }),
         // )
-        // .procedure(
-        //     "X-Demo-Header",
-        //     R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
-        // )
+        .procedure(
+            "X-Demo-Header",
+            R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
+        )
         .procedure("echo", R.query(|_, v: String| Ok(v)))
+        .procedure("echo2", R.query(|_, v: String| async move { Ok(v) }))
         // .procedure(
-        //     "error",
-        //     R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+        //     "wontCompile",
+        //     R.query(|_, v: String| async move { Ok::<_, String>(v) }),
         // )
         // .procedure(
-        //     "error",
-        //     R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+        //     "wontCompile2",
+        //     R.query(|_, v: String| async move { Ok(..0) }),
         // )
-        // .procedure(
-        //     "transformMe",
-        //     R.query(|_, _: ()| Ok("Hello, world!".to_string())),
-        // )
-        // .procedure(
-        //     "sendMsg",
-        //     R.mutation(|_, v: String| {
-        //         println!("Client said '{}'", v);
-        //         Ok(v)
-        //     }),
-        // )
+        .procedure(
+            "error",
+            R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+        )
+        .procedure(
+            "error",
+            R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+        )
+        .procedure(
+            "transformMe",
+            R.query(|_, _: ()| Ok("Hello, world!".to_string())),
+        )
+        .procedure(
+            "sendMsg",
+            R.mutation(|_, v: String| {
+                println!("Client said '{}'", v);
+                Ok(v)
+            }),
+        )
         // .procedure(
         //     "pings",
         //     R.subscription(|_, _: ()| {

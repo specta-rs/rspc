@@ -1,12 +1,17 @@
 use std::marker::PhantomData;
 
+use futures::Stream;
+
+use serde::Serialize;
+use specta::Type;
+
 use crate::{
     internal::{
         middleware::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        resolver::{HasResolver, ResolverFunction},
+        resolver::{HasResolver, IntoQueryMutationResponse, QueryMutationFn, ResolverFunction},
     },
     Infallible, IntoResolverError, Router,
 };
@@ -43,18 +48,56 @@ where
     }
 }
 
-// TODO: Deduplicate with the other one?
+// // TODO: Rename
+// pub struct Todo<TResult, TOk, TError, TMarker>(PhantomData<(TResult, TOk, TError, TMarker)>)
+// where
+//     TResult: IntoQueryMutationResponse<TMarker>,
+//     TResult::Stream: Stream<Item = Result<TOk, TError>>;
+
+// TODO: Subscriptions are different
+// TResult: IntoQueryMutationResponse<TMarker, TErr>,
+// TResult::Ok: Serialize + Type + 'static,
+// TResult::Err: IntoResolverError + 'static,
+// TResult::Stream: Stream<Item = Result<TResult, TError>>,
+// TODO: Move these bounds onto the generic def on impl block
+// TError: 'static,
+
 macro_rules! resolver {
     ($func:ident, $kind:ident) => {
-        pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, M>, BaseMiddleware<TCtx>>
+        // TODO: Only a single marker?
+        pub fn $func<R, TResult, M, TMarker>(
+            self,
+            resolver: R,
+        ) -> Procedure<HasResolver<R, TResult, M>, BaseMiddleware<TCtx>>
         where
-            HasResolver<R, M>: ResolverFunction<TCtx, TError>,
+            HasResolver<R, TResult, M>: ResolverFunction<TCtx> + QueryMutationFn<TError, TMarker>,
         {
-            Procedure::new(
-                HasResolver::new(resolver, ProcedureKind::$kind),
-                BaseMiddleware::default(),
-            )
+            // let resolver = Box::new(resolver);
+
+            // TODO: Get type_def somehow
+            // let ty: fn() = || {
+            //     todo!();
+            // };
+
+            let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
+
+            // TODO: Cfg debug
+            // let resolver: Box<dyn ResolverFunction<TCtx, TError>> = Box::new(resolver);
+
+            Procedure::new(resolver, BaseMiddleware::default())
         }
+
+        // pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, M>, BaseMiddleware<TCtx>>
+        // where
+        //     HasResolver<R, M>: ResolverFunction<TCtx, TError>,
+        // {
+        //     let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
+
+        //     // let resolver: Box<dyn ResolverFunction<TCtx, TError>> =
+        //     //     Box::new(HasResolver::new(resolver, ProcedureKind::$kind));
+
+        //     Procedure::new(resolver, BaseMiddleware::default())
+        // }
     };
 }
 

@@ -13,7 +13,7 @@ use specta::{
 };
 
 use crate::{
-    internal::procedure::{ProcedureStore, ProcedureTodo, ProceduresDef},
+    internal::procedure::{ProcedureStore, ProceduresDef},
     ExportError,
 };
 
@@ -75,17 +75,19 @@ where
     }
 
     #[cfg(feature = "unstable")]
-    pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+    pub fn queries(&self) -> &BTreeMap<String, crate::internal::procedure::ProcedureTodo<TCtx>> {
         &self.queries.store
     }
 
     #[cfg(feature = "unstable")]
-    pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+    pub fn mutations(&self) -> &BTreeMap<String, crate::internal::procedure::ProcedureTodo<TCtx>> {
         &self.mutations.store
     }
 
     #[cfg(feature = "unstable")]
-    pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+    pub fn subscriptions(
+        &self,
+    ) -> &BTreeMap<String, crate::internal::procedure::ProcedureTodo<TCtx>> {
         &self.subscriptions.store
     }
 

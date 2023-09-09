@@ -17,17 +17,11 @@ impl<TError> Default for MissingResolver<TError> {
     }
 }
 
-mod private {
-    use super::*;
-
-    // TODO: Would this be useful public?
-    pub struct Procedure<T, TMiddleware> {
-        pub(crate) resolver: T,
-        pub(crate) mw: TMiddleware,
-    }
+/// TODO
+pub struct Procedure<T, TMiddleware> {
+    pub(crate) resolver: T,
+    pub(crate) mw: TMiddleware,
 }
-
-pub(crate) use private::Procedure;
 
 impl<T, TMiddleware> Procedure<T, TMiddleware>
 where
@@ -40,12 +34,13 @@ where
 
 macro_rules! resolver {
     ($func:ident, $kind:ident) => {
-        pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, M>, TMiddleware>
-        where
-            HasResolver<R, M>: ResolverFunction<TMiddleware::LayerCtx, TError>,
-        {
-            Procedure::new(HasResolver::new(resolver, ProcedureKind::$kind), self.mw)
-        }
+        // TODO: Bring this back
+        // pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, TResult, M>, TMiddleware>
+        // where
+        //     HasResolver<R, TResultM>: ResolverFunction<TMiddleware::LayerCtx, TError>,
+        // {
+        //     Procedure::new(HasResolver::new(resolver, ProcedureKind::$kind), self.mw)
+        // }
     };
 }
 
@@ -96,21 +91,21 @@ where
     }
 }
 
-impl<F, M, TMiddleware> Procedure<HasResolver<F, M>, TMiddleware> {
-    pub(crate) fn build<TError>(
+impl<F, M, TResult, TMiddleware> Procedure<HasResolver<F, TResult, M>, TMiddleware> {
+    pub(crate) fn build(
         self,
         key: Cow<'static, str>,
         ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
     )
     // TODO: Applying these sorta bounds here is cursed but it helps for refactoring
     where
-        HasResolver<F, M>: ResolverFunction<TMiddleware::LayerCtx, TError>,
+        HasResolver<F, TResult, M>: ResolverFunction<TMiddleware::LayerCtx>,
         TMiddleware: MiddlewareBuilder,
     {
         let key_str = key.to_string();
         let type_def = self
             .resolver
-            .into_procedure_def::<TMiddleware>(key, &mut ctx.ty_store)
+            .into_procedure_def(key, &mut ctx.ty_store)
             .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
         let m = match &self.resolver.kind {

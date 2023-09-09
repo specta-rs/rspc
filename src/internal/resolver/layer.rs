@@ -1,7 +1,4 @@
-use serde::de::DeserializeOwned;
 use serde_json::Value;
-use specta::Type;
-use std::marker::PhantomData;
 
 use crate::{
     internal::{middleware::RequestContext, Body, SealedLayer},

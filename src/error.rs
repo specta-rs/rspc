@@ -12,7 +12,7 @@ pub enum ProcedureError {
 mod private {
     use super::*;
 
-    pub trait IntoResolverError: Serialize + Type + std::error::Error {
+    pub trait IntoResolverError: Serialize + Type + std::error::Error + 'static {
         fn into_resolver_error(self) -> ResolverError
         where
             Self: Sized,
@@ -41,7 +41,7 @@ mod private {
 #[derive(Serialize, Type, thiserror::Error, Debug)]
 pub enum Infallible {}
 
-impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
+impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error + 'static {}
 
 // TODO: `ResolverError` should probs be public from rspc-core but not rspc
 pub(crate) use private::{IntoResolverError, ResolverError};
