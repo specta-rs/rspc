@@ -58,6 +58,6 @@ let router = <rspc::Router>::new()
 - Middleware - With support for context switching
 - Merging routers - Great for separating code between files
 
-### Inspiration
+## Inspiration
 
 This project is based off [tRPC](https://trpc.io) and was inspired by the bridge system [Jamie Pine](https://github.com/jamiepine) designed for [Spacedrive](https://www.spacedrive.com). A huge thanks to everyone who helped inspire this project!
