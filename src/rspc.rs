@@ -78,7 +78,7 @@ where
     TCtx: Send + Sync + 'static,
     TError: IntoResolverError,
 {
-    pub fn router(&self) -> Router<TCtx> {
+    pub fn router(&self) -> Router<TCtx, TError> {
         Router::_internal_new()
     }
 

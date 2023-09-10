@@ -1,4 +1,4 @@
-use std::{borrow::Cow, panic::Location};
+use std::{borrow::Cow, marker::PhantomData, panic::Location};
 
 use specta::TypeMap;
 
@@ -14,15 +14,13 @@ use crate::{
 
 type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut BuildProceduresCtx<'_, TCtx>)>;
 
-pub struct Router<TCtx>
-where
-    TCtx: Send + Sync + 'static,
-{
+pub struct Router<TCtx, TError> {
     procedures: Vec<(Cow<'static, str>, ProcedureBuildFn<TCtx>)>,
     errors: Vec<BuildError>,
+    phantom: PhantomData<TError>,
 }
 
-impl<TCtx> Router<TCtx>
+impl<TCtx, TError> Router<TCtx, TError>
 where
     TCtx: Send + Sync + 'static,
 {
@@ -32,12 +30,12 @@ where
         Self {
             procedures: Vec::new(),
             errors: Vec::new(),
+            phantom: PhantomData,
         }
     }
 
-    // TODO: Get `TError` from `Router`?
     #[track_caller]
-    pub fn procedure<F, TMiddleware, TError, M>(
+    pub fn procedure<F, TMiddleware, M>(
         mut self,
         key: &'static str,
         procedure: Procedure<HasResolver<F, TError, M>, TMiddleware>,
@@ -45,7 +43,6 @@ where
     where
         HasResolver<F, TError, M>: Layer<TMiddleware::LayerCtx>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
-        M: 'static,
     {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {
@@ -88,7 +85,7 @@ where
 
     #[track_caller]
     #[allow(unused_mut)]
-    pub fn merge(mut self, prefix: &'static str, mut r: Router<TCtx>) -> Self {
+    pub fn merge(mut self, prefix: &'static str, mut r: Router<TCtx, TError>) -> Self {
         if let Some(cause) = is_valid_name(prefix) {
             self.errors.push(BuildError {
                 cause,
