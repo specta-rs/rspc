@@ -7,10 +7,11 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::{internal::Body, ExecError};
+use crate::{internal::Body, ExecError, IntoResolverError};
 
-use futures::Stream;
+use futures::{ready, Stream};
 use pin_project_lite::pin_project;
+use serde::Serialize;
 use serde_json::Value;
 
 #[cfg(feature = "tracing")]
@@ -22,12 +23,17 @@ type Inner = ();
 pin_project! {
     pub struct StreamToBody<S> {
         #[pin]
-        stream: S,
-        span: Option<Inner>
+        pub(super) stream: S,
+        pub(super) span: Option<Inner>
     }
 }
 
-impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> Body for StreamToBody<S> {
+impl<
+        S: Stream<Item = Result<T, TErr>> + Send + 'static,
+        T: Serialize + 'static,
+        TErr: IntoResolverError,
+    > Body for StreamToBody<S>
+{
     fn poll_next(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -37,7 +43,13 @@ impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> Body for Strea
         #[cfg(feature = "tracing")]
         let _span = this.span.as_ref().map(|s| s.enter());
 
-        this.stream.poll_next(cx)
+        match ready!(this.stream.poll_next(cx)) {
+            Some(Ok(v)) => Poll::Ready(Some(
+                serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            )),
+            Some(Err(e)) => Poll::Ready(Some(Err(ExecError::Resolver(e.into_resolver_error())))),
+            None => Poll::Ready(None),
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

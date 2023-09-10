@@ -5,29 +5,49 @@
 //!
 //! This module is sealed so although it contains public types they will not end up in the public API.
 
-use std::future::{Future, Ready};
+use std::future::{ready, Future, Ready};
 
-use futures::{stream::Once, Stream};
+use futures::{
+    stream::{once, Once},
+    Stream,
+};
 
 /// `IntoResponse` will transform a specific response type into a normalised response type for a `query` or `mutation`.
-pub trait IntoQueryMutationResponse<M, TErr> {
-    type Stream: Stream<Item = Result<Self::Ok, TErr>>;
+pub trait IntoQueryMutationResponse<'a, M, TErr> {
+    type Stream: Stream<Item = Result<Self::Ok, TErr>> + Send + 'a;
     type Ok;
+
+    fn to_stream(self) -> Self::Stream;
 }
 
 const _: () = {
     pub enum Marker {}
-    impl<T, TErr> IntoQueryMutationResponse<Marker, TErr> for Result<T, TErr> {
+    impl<'a, T, TErr> IntoQueryMutationResponse<'a, Marker, TErr> for Result<T, TErr>
+    where
+        T: Send + 'static,
+        TErr: Send + 'static,
+    {
         type Stream = Once<Ready<Result<T, TErr>>>;
         type Ok = T;
+
+        fn to_stream(self) -> Self::Stream {
+            once(ready(self))
+        }
     }
 };
 
 const _: () = {
     pub enum Marker {}
-    impl<T, TErr, F: Future<Output = Result<T, TErr>>> IntoQueryMutationResponse<Marker, TErr> for F {
+    impl<'a, T, TErr, F> IntoQueryMutationResponse<'a, Marker, TErr> for F
+    where
+        F: Future<Output = Result<T, TErr>> + Send + 'a,
+    {
         type Stream = Once<F>;
         type Ok = T;
+
+        fn to_stream(self) -> Self::Stream {
+            once(self)
+        }
     }
 };
 

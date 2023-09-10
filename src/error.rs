@@ -18,7 +18,8 @@ mod private {
             Self: Sized,
         {
             ResolverError {
-                value: serde_json::to_value(&self).unwrap_or_default(),
+                // TODO: Error handling
+                value: serde_json::to_value(&self).unwrap(),
                 message: self.to_string(),
             }
         }

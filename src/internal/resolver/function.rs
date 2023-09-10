@@ -17,10 +17,12 @@ use crate::{
         middleware::{ProcedureKind, RequestContext},
         procedure::ProcedureDef,
         resolver::IntoQueryMutationResponse,
-        Layer, Once,
+        Layer,
     },
     ExecError, IntoResolverError,
 };
+
+use super::StreamToBody;
 
 // TODO: Rename `Resolver`?
 pub struct HasResolver<F, TErr, M> {
@@ -46,13 +48,13 @@ where
     F: Fn(TLCtx, TArg) -> TResult + Send + Sync + 'static,
     TArg: DeserializeOwned + Type + 'static,
     TLCtx: Send + Sync + 'static,
-    TResult: IntoQueryMutationResponse<TResultMarker, TErr>,
+    // TODO: Is this `'static` going to eat hours of my future when it subtly breaks something?
+    TResult: IntoQueryMutationResponse<'static, TResultMarker, TErr>,
     TResult::Ok: Serialize + Type + 'static,
     TErr: IntoResolverError + 'static,
     TResultMarker: 'static,
 {
-    // TODO: This is a placeholder
-    type Stream<'a> = Once<Ready<Result<Value, ExecError>>>;
+    type Stream<'a> = StreamToBody<TResult::Stream>;
 
     fn into_procedure_def(
         &self,
@@ -68,10 +70,18 @@ where
         input: Value,
         req: RequestContext,
     ) -> Result<Self::Stream<'_>, ExecError> {
-        // TODO: Error handling
-        let y = (self.resolver)(ctx, serde_json::from_value(input).unwrap());
+        let y = (self.resolver)(
+            ctx,
+            serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+        )
+        .to_stream();
 
-        // TODO: Make this actually work
-        Ok(Once::new(ready(Ok(Value::String("TODO".into())))))
+        Ok(StreamToBody {
+            stream: y,
+            #[cfg(feature = "tracing")]
+            span: req.span(),
+            #[cfg(not(feature = "tracing"))]
+            span: None,
+        })
     }
 }
