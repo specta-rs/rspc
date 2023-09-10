@@ -6,7 +6,7 @@ use specta::{
     TypeMap,
 };
 
-use crate::internal::{DynLayer, Layer};
+use crate::internal::{boxed, DynLayer, Layer};
 
 /// @internal
 #[derive(DataTypeFrom)]
@@ -131,7 +131,7 @@ mod private {
         pub(crate) store: ProcedureMap<TCtx>,
     }
 
-    impl<TCtx: 'static> ProcedureStore<TCtx> {
+    impl<TCtx: Send + 'static> ProcedureStore<TCtx> {
         pub const fn new(name: &'static str) -> Self {
             Self {
                 name,
@@ -163,7 +163,7 @@ mod private {
             self.store.insert(
                 key,
                 ProcedureTodo {
-                    exec: exec.erase(),
+                    exec: boxed(exec),
                     ty,
                 },
             );

@@ -1,6 +1,6 @@
 use std::{
     future::Future,
-    pin::Pin,
+    pin::{pin, Pin},
     sync::Arc,
     task::{Context, Poll},
 };
@@ -27,7 +27,7 @@ pub struct RequestFuture {
 
     // You will notice this is a `Stream` not a `Future` like would be implied by the struct.
     // rspc's whole middleware system only uses `Stream`'s cause it makes life easier so we change to & from a `Future` at the start/end.
-    stream: Pin<Box<dyn Body + Send>>,
+    stream: Box<dyn Body + Send>,
 }
 
 impl RequestFuture {
@@ -57,9 +57,11 @@ impl RequestFuture {
     }
 
     fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Response> {
+        // SAFETY: `self.stream` is heap allocated so it's pointer will be fixed.
+        let inner = unsafe { Pin::new_unchecked(self.stream.as_mut()) };
         Poll::Ready(Response {
             id: self.id,
-            inner: match self.stream.as_mut().poll_next(cx) {
+            inner: match inner.poll_next(cx) {
                 Poll::Ready(Some(Ok(result))) => ResponseInner::Value(result),
                 Poll::Ready(Some(Err(err))) => ResponseInner::Error(err.into()),
                 Poll::Ready(None) => ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
@@ -129,7 +131,7 @@ enum Inner<TCtx> {
         // We MUST hold the `Arc` so it doesn't get dropped while the stream exists from it.
         _arc: Arc<BuiltRouter<TCtx>>,
         // The stream to poll
-        reference: Pin<Box<dyn Body + Send>>,
+        reference: Box<dyn Body + Send>,
     },
     Future(RequestFuture),
     // When the underlying stream yields `None` we map it to a "complete" message and change to this state.
@@ -152,7 +154,9 @@ impl<TCtx: 'static> Stream for RspcTask<TCtx> {
                 ref mut reference,
                 ..
             } => {
-                Poll::Ready(Some(match ready!(reference.as_mut().poll_next(cx)) {
+                // SAFETY: `reference` is heap allocated so it's pointer will be fixed.
+                let inner = unsafe { Pin::new_unchecked(reference.as_mut()) };
+                Poll::Ready(Some(match ready!(inner.poll_next(cx)) {
                     Some(r) => exec::Response {
                         id: *id,
                         inner: match r {

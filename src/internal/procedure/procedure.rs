@@ -3,6 +3,7 @@ use std::{borrow::Cow, future::ready, marker::PhantomData};
 use futures::stream;
 
 use crate::internal::{
+    boxed,
     middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
     procedure::BuildProceduresCtx,
     resolver::{HasResolver, ResolverFunction, ResolverLayer, StreamAdapter},
@@ -114,16 +115,18 @@ impl<F, M, TResult, TMiddleware> Procedure<HasResolver<F, TResult, M>, TMiddlewa
             ProcedureKind::Subscription => &mut ctx.subscriptions,
         };
 
-        m.append(
-            key_str,
-            // TODO: Take in `serde_json::Value for argument at this stage
-            self.mw.build(ResolverLayer::new(move |ctx, value, req| {
-                // TODO: Lol this is so bad
-                Ok(StreamAdapter {
-                    stream: stream::once(ready(Ok(self.resolver.exec(ctx, value, req)))),
-                })
-            })),
-            type_def,
-        );
+        let layer = ResolverLayer::new(move |ctx, value, req| {
+            // TODO: no shot this will fly
+            Ok(StreamAdapter {
+                stream: stream::once(ready(Ok(self.resolver.exec(ctx, value, req)))),
+            })
+        });
+
+        // TODO: Do this earlier when constructing `HasResolver`
+        // Trade runtime performance for reduced monomorphization
+        #[cfg(debug_assertions)]
+        let layer = boxed(layer);
+
+        m.append(key_str, self.mw.build(layer), type_def);
     }
 }

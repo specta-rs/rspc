@@ -36,7 +36,7 @@ where
 
     // TODO: Get `TError` from `Router`?
     #[track_caller]
-    pub fn procedure<F, TMiddleware, M, TResult, TError>(
+    pub fn procedure<F, TMiddleware, M, TResult>(
         mut self,
         key: &'static str,
         procedure: Procedure<HasResolver<F, TResult, M>, TMiddleware>,
@@ -46,7 +46,6 @@ where
         HasResolver<F, TResult, M>: ResolverFunction<TMiddleware::LayerCtx>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
         M: 'static,
-        TError: 'static,
     {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(BuildError {

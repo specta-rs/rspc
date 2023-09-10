@@ -20,7 +20,6 @@ mod private {
             exec::{AsyncRuntime, Request, RequestFuture, Response, ResponseInner, RspcTask},
             middleware::{ProcedureKind, RequestContext},
             procedure::{ProcedureStore, ProcedureTodo},
-            FutureValueOrStream,
         },
         BuiltRouter, ExecError,
     };

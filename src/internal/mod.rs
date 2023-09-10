@@ -12,7 +12,7 @@ mod body;
 mod layer;
 
 pub(crate) use body::*;
-pub use layer::*;
+pub(crate) use layer::*;
 
 mod private {
     pin_project_lite::pin_project! {

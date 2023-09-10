@@ -30,6 +30,22 @@ pub trait Body {
     }
 }
 
+impl Body for Box<dyn Body + Send + '_> {
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Value, ExecError>>> {
+        // TODO: I don't like this unsafe but I don't want a wrapper type if it can be avoided. Review in future!
+        // SAFETY: This should be fine because the `Body` is heap allocated so the `Pin` will be stable.
+        let inner = unsafe { Pin::new_unchecked(&mut **Pin::into_inner_unchecked(self)) };
+        inner.poll_next(cx)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (&**self).size_hint()
+    }
+}
+
 // This type was taken from futures_util so all credit to it's original authors!
 pin_project! {
     /// A stream which emits single element and then EOF.

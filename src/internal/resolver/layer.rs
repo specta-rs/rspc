@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::{
-    internal::{middleware::RequestContext, Body, SealedLayer},
+    internal::{middleware::RequestContext, Body, Layer},
     ExecError,
 };
 
@@ -52,7 +52,7 @@ impl<T> ResolverLayer<T> {
 }
 
 // TODO: For `T: ResolverFunction` or something like that to simplify the generics
-impl<T, TLayerCtx, S> SealedLayer<TLayerCtx> for ResolverLayer<T>
+impl<T, TLayerCtx, S> Layer<TLayerCtx> for ResolverLayer<T>
 where
     // TODO: Remove this closure here and go straight through
     TLayerCtx: Send + Sync + 'static,

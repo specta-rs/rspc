@@ -56,15 +56,13 @@ mod private {
         }
     }
 
-    pub struct M<TArg, TResultMarker>(PhantomData<(TArg, TResultMarker)>);
-    impl<F, TLCtx, TResult, TResultMarker, TArg> ResolverFunction<TLCtx>
-        for HasResolver<F, TResult, M<TArg, TResultMarker>>
+    pub struct M<TArg>(PhantomData<TArg>);
+    impl<F, TLCtx, TResult, TArg> ResolverFunction<TLCtx> for HasResolver<F, TResult, M<TArg>>
     where
         F: Fn(TLCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
         TLCtx: Send + Sync + 'static,
         TResult: 'static,
-        TResultMarker: 'static,
     {
         // type Stream<'a> = Once<Ready<Result<Value, ExecError>>>;
 
@@ -74,7 +72,9 @@ mod private {
             ty_store: &mut TypeMap,
         ) -> Result<ProcedureDef, TsExportError> {
             // ProcedureDef::from_tys::<TArg, TOk, TError>(key, ty_store)
-            todo!();
+
+            // TODO: Fix this
+            ProcedureDef::from_tys::<TArg, (), ()>(key, ty_store)
         }
 
         fn exec(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Value {

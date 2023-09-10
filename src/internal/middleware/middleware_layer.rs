@@ -13,7 +13,7 @@ mod private {
         internal::{
             middleware::Middleware,
             middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
-            Body, Layer, PinnedOption, PinnedOptionProj, SealedLayer,
+            Body, Layer, PinnedOption, PinnedOptionProj,
         },
         ExecError,
     };
@@ -25,7 +25,7 @@ mod private {
         pub(crate) phantom: PhantomData<TLayerCtx>,
     }
 
-    impl<TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
+    impl<TLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
         for MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
     where
         TLayerCtx: Send + Sync + 'static,
