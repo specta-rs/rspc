@@ -2,10 +2,8 @@
 
 mod function;
 mod into_response;
-mod layer;
 mod result;
 
 pub(crate) use function::*;
 pub(crate) use into_response::*;
-pub(crate) use layer::*;
 pub(crate) use result::*;

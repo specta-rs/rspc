@@ -1,41 +1,46 @@
+//! TODO
+//!
+//! TODO: Rename this file
+
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
 
-use crate::internal::Body;
-use futures::Stream;
+use crate::{internal::Body, ExecError};
 
+use futures::Stream;
+use pin_project_lite::pin_project;
 use serde_json::Value;
 
-use crate::ExecError;
+#[cfg(feature = "tracing")]
+type Inner = tracing::Span;
 
-mod private {
-    use pin_project_lite::pin_project;
+#[cfg(not(feature = "tracing"))]
+type Inner = ();
 
-    use super::*;
-
-    pin_project! {
-        // TODO: Try and remove this?
-        pub struct StreamAdapter<S> {
-            #[pin] // TODO: Remove `pub(crate)`
-            pub(crate) stream: S,
-        }
-    }
-
-    impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> Body for StreamAdapter<S> {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
-            self.project().stream.poll_next(cx)
-        }
-
-        fn size_hint(&self) -> (usize, Option<usize>) {
-            (0, None)
-        }
+pin_project! {
+    pub struct StreamToBody<S> {
+        #[pin]
+        stream: S,
+        span: Option<Inner>
     }
 }
 
-// TODO: Temporary
-pub(crate) use private::StreamAdapter;
+impl<S: Stream<Item = Result<Value, ExecError>> + Send + 'static> Body for StreamToBody<S> {
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Value, ExecError>>> {
+        let this = self.project();
+
+        #[cfg(feature = "tracing")]
+        let _span = this.span.as_ref().map(|s| s.enter());
+
+        this.stream.poll_next(cx)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.stream.size_hint()
+    }
+}

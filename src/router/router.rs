@@ -4,9 +4,10 @@ use specta::TypeMap;
 
 use crate::{
     internal::{
-        middleware::MiddlewareBuilder,
+        middleware::{MiddlewareBuilder, ProcedureKind},
         procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
-        resolver::{HasResolver, ResolverFunction},
+        resolver::HasResolver,
+        Layer,
     },
     BuildError, BuildResult, BuiltRouter,
 };
@@ -36,14 +37,13 @@ where
 
     // TODO: Get `TError` from `Router`?
     #[track_caller]
-    pub fn procedure<F, TMiddleware, M, TResult>(
+    pub fn procedure<F, TMiddleware, TError, M>(
         mut self,
         key: &'static str,
-        procedure: Procedure<HasResolver<F, TResult, M>, TMiddleware>,
+        procedure: Procedure<HasResolver<F, TError, M>, TMiddleware>,
     ) -> Self
     where
-        // TODO: `HasResolver` or `Box<...>`?
-        HasResolver<F, TResult, M>: ResolverFunction<TMiddleware::LayerCtx>,
+        HasResolver<F, TError, M>: Layer<TMiddleware::LayerCtx>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
         M: 'static,
     {
@@ -59,7 +59,28 @@ where
 
         self.procedures.push((
             Cow::Borrowed(key),
-            Box::new(|full_key, ctx| procedure.build(full_key, ctx)),
+            Box::new(move |key, ctx| {
+                let key_str = key.to_string();
+                let type_def = procedure
+                    .resolver
+                    .into_procedure_def(key, &mut ctx.ty_store)
+                    .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
+
+                let m = match &procedure.resolver.kind {
+                    ProcedureKind::Query => &mut ctx.queries,
+                    ProcedureKind::Mutation => &mut ctx.mutations,
+                    ProcedureKind::Subscription => &mut ctx.subscriptions,
+                };
+
+                let layer = procedure.resolver;
+
+                // // TODO: Do this earlier when constructing `HasResolver` if possible?
+                // // Trade runtime performance for reduced monomorphization
+                // #[cfg(debug_assertions)]
+                // let layer = boxed(layer);
+
+                m.append(key_str, procedure.mw.build(layer), type_def);
+            }),
         ));
 
         self

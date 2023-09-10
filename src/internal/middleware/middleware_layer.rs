@@ -1,5 +1,6 @@
 mod private {
     use std::{
+        borrow::Cow,
         marker::PhantomData,
         pin::Pin,
         task::{ready, Context, Poll},
@@ -8,31 +9,41 @@ mod private {
     use futures::Future;
     use pin_project_lite::pin_project;
     use serde_json::Value;
+    use specta::{ts::TsExportError, TypeMap};
 
     use crate::{
         internal::{
             middleware::Middleware,
             middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
+            procedure::ProcedureDef,
             Body, Layer, PinnedOption, PinnedOptionProj,
         },
         ExecError,
     };
 
     #[doc(hidden)]
-    pub struct MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware> {
-        pub(crate) next: TMiddleware,
+    pub struct MiddlewareLayer<TLayerCtx, TNextLayer, TNewMiddleware> {
+        pub(crate) next: TNextLayer,
         pub(crate) mw: TNewMiddleware,
         pub(crate) phantom: PhantomData<TLayerCtx>,
     }
 
-    impl<TLayerCtx, TMiddleware, TNewMiddleware> Layer<TLayerCtx>
-        for MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
+    impl<TLayerCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
+        for MiddlewareLayer<TLayerCtx, TNextMiddleware, TNewMiddleware>
     where
         TLayerCtx: Send + Sync + 'static,
-        TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
+        TNextMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
         TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
     {
-        type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
+        type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TNextMiddleware>;
+
+        fn into_procedure_def(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, TsExportError> {
+            self.next.into_procedure_def(key, ty_store)
+        }
 
         fn call(
             &self,

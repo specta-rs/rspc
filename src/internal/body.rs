@@ -50,7 +50,8 @@ impl Body for Box<dyn Body + Send + '_> {
 pin_project! {
     /// A stream which emits single element and then EOF.
     #[must_use = "streams do nothing unless polled"]
-    pub(crate) struct Once<Fut> {
+    // TODO: `pub(crate)` again?
+    pub struct Once<Fut> {
         #[pin]
         future: Option<Fut>
     }

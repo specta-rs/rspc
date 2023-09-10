@@ -1,12 +1,7 @@
-use std::{borrow::Cow, future::ready, marker::PhantomData};
+use std::marker::PhantomData;
 
-use futures::stream;
-
-use crate::internal::{
-    boxed,
-    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
-    procedure::BuildProceduresCtx,
-    resolver::{HasResolver, ResolverFunction, ResolverLayer, StreamAdapter},
+use crate::internal::middleware::{
+    ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
 };
 
 /// TODO: Explain
@@ -89,44 +84,5 @@ where
                 mw,
             },
         )
-    }
-}
-
-impl<F, M, TResult, TMiddleware> Procedure<HasResolver<F, TResult, M>, TMiddleware> {
-    pub(crate) fn build(
-        self,
-        key: Cow<'static, str>,
-        ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
-    )
-    // TODO: Applying these sorta bounds here is cursed but it helps for refactoring
-    where
-        HasResolver<F, TResult, M>: ResolverFunction<TMiddleware::LayerCtx>,
-        TMiddleware: MiddlewareBuilder,
-    {
-        let key_str = key.to_string();
-        let type_def = self
-            .resolver
-            .into_procedure_def(key, &mut ctx.ty_store)
-            .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
-
-        let m = match &self.resolver.kind {
-            ProcedureKind::Query => &mut ctx.queries,
-            ProcedureKind::Mutation => &mut ctx.mutations,
-            ProcedureKind::Subscription => &mut ctx.subscriptions,
-        };
-
-        let layer = ResolverLayer::new(move |ctx, value, req| {
-            // TODO: no shot this will fly
-            Ok(StreamAdapter {
-                stream: stream::once(ready(Ok(self.resolver.exec(ctx, value, req)))),
-            })
-        });
-
-        // TODO: Do this earlier when constructing `HasResolver`
-        // Trade runtime performance for reduced monomorphization
-        #[cfg(debug_assertions)]
-        let layer = boxed(layer);
-
-        m.append(key_str, self.mw.build(layer), type_def);
     }
 }

@@ -1,17 +1,13 @@
 use std::marker::PhantomData;
 
-use futures::Stream;
-
-use serde::Serialize;
-use specta::Type;
-
 use crate::{
     internal::{
         middleware::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
         procedure::{MissingResolver, Procedure},
-        resolver::{HasResolver, IntoQueryMutationResponse, QueryMutationFn, ResolverFunction},
+        resolver::HasResolver,
+        Layer,
     },
     Infallible, IntoResolverError, Router,
 };
@@ -54,50 +50,26 @@ where
 //     TResult: IntoQueryMutationResponse<TMarker>,
 //     TResult::Stream: Stream<Item = Result<TOk, TError>>;
 
-// TODO: Subscriptions are different
-// TResult: IntoQueryMutationResponse<TMarker, TErr>,
-// TResult::Ok: Serialize + Type + 'static,
-// TResult::Err: IntoResolverError + 'static,
-// TResult::Stream: Stream<Item = Result<TResult, TError>>,
-// TODO: Move these bounds onto the generic def on impl block
-// TError: 'static,
-
 macro_rules! resolver {
+    // TODO: Subscriptions are different
     ($func:ident, $kind:ident) => {
-        // TODO: Only a single marker?
-        pub fn $func<R, TResult, M, TMarker>(
+        pub fn $func<R, M>(
             self,
             resolver: R,
-        ) -> Procedure<HasResolver<R, TResult, M>, BaseMiddleware<TCtx>>
+        ) -> Procedure<HasResolver<R, TError, M>, BaseMiddleware<TCtx>>
         where
-            HasResolver<R, TResult, M>: ResolverFunction<TCtx> + QueryMutationFn<TError, TMarker>,
+            // TODO: Subscription's won't work
+            HasResolver<R, TError, M>: Layer<TCtx>,
         {
-            // let resolver = Box::new(resolver);
-
-            // TODO: Get type_def somehow
-            // let ty: fn() = || {
-            //     todo!();
-            // };
-
             let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
 
-            // TODO: Cfg debug
-            // let resolver: Box<dyn ResolverFunction<TCtx, TError>> = Box::new(resolver);
+            // TODO: Make this work
+            // // Trade runtime performance for reduced monomorphization
+            // #[cfg(debug_assertions)]
+            // let resolver = boxed(resolver);
 
             Procedure::new(resolver, BaseMiddleware::default())
         }
-
-        // pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, M>, BaseMiddleware<TCtx>>
-        // where
-        //     HasResolver<R, M>: ResolverFunction<TCtx, TError>,
-        // {
-        //     let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
-
-        //     // let resolver: Box<dyn ResolverFunction<TCtx, TError>> =
-        //     //     Box::new(HasResolver::new(resolver, ProcedureKind::$kind));
-
-        //     Procedure::new(resolver, BaseMiddleware::default())
-        // }
     };
 }
 
