@@ -29,7 +29,7 @@ struct Msg(serde_json::Value);
 struct WindowManager<TCtxFn, TCtx>
 where
     TCtx: Send + Sync + 'static,
-    TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
     executor: Executor<TCtx>,
     ctx_fn: TCtxFn,
@@ -39,7 +39,7 @@ where
 impl<TCtxFn, TCtx> WindowManager<TCtxFn, TCtx>
 where
     TCtx: Clone + Send + Sync + 'static,
-    TCtxFn: Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
@@ -68,7 +68,7 @@ where
 
             let (tx, rx) = mpsc::unbounded_channel();
             R::spawn(ConnectionTask::<R, _, _, _>::new(
-                (self.ctx_fn)(window.clone()),
+                (self.ctx_fn)(&window),
                 self.executor.clone(),
                 Socket {
                     recv: rx,
@@ -119,7 +119,7 @@ mod test {
 
 pub fn plugin<TCtx>(
     router: Arc<BuiltRouter<TCtx>>,
-    ctx_fn: impl Fn(Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+    ctx_fn: impl Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<tauri::Wry>
 where
     TCtx: Clone + Send + Sync + 'static,
