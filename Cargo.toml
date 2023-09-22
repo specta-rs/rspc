@@ -27,12 +27,12 @@ harness = false
 
 [features]
 default = ["typescript"]
-tauri = ["dep:tauri", "tokio", "tauri/wry", "tauri-specta"]
+tauri = ["dep:tauri", "tokio", "tauri/wry", "tauri-specta", "tauri-specta/typescript"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
 # anyhow = ["dep:anyhow"]
 tokio = ["dep:tokio", "specta/tokio"]
-typescript = ["specta/typescript", "tauri-specta/typescript"] # TODO: Use this in the actual codebase
+typescript = ["specta/typescript"] # TODO: Use this in the actual codebase
 
 unstable = [] # APIs where one line of code can blow up your whole app
 
