@@ -19,7 +19,6 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub mod unstable;
 
-mod blob;
 mod built_router;
 mod error;
 mod router;
@@ -32,10 +31,3 @@ pub use router::*;
 
 pub mod integrations;
 pub mod internal;
-
-#[cfg(feature = "unstable")]
-#[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
-pub use blob::Blob;
-
-#[cfg(not(feature = "unstable"))]
-pub(crate) use blob::Blob;

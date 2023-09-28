@@ -5,7 +5,7 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use crate::{internal::Body, Blob, Infallible, IntoResolverError};
+use crate::{internal::Body, Infallible, IntoResolverError};
 use futures::{
     stream::{once, Once},
     Stream,
@@ -63,26 +63,6 @@ mod private {
     impl<TMarker, T: SealedRequestLayer<TMarker>> RequestLayer<TMarker> for T {}
 
     // For queries and mutations
-
-    // TODO: Allow `Blob<T>` with `futures::AsyncRead`/`futures:AsyncBufRead` traits
-
-    #[doc(hidden)]
-    pub enum BlobAsyncBufReadMarker {}
-    #[cfg(feature = "tokio")]
-    impl<S> SealedRequestLayer<BlobAsyncBufReadMarker> for Blob<S>
-    where
-        S: tokio::io::AsyncBufRead + Send + 'static,
-    {
-        type Result = ();
-        type Error = crate::Infallible;
-        type Body = BlobStream<S>;
-        type TypeMarker = FutureMarkerType;
-
-        fn exec(self) -> Self::Body {
-            BlobStream { stream: self.0 }
-        }
-    }
-
     #[doc(hidden)]
     pub enum ResultMarker {}
     impl<TOk, TError> SealedRequestLayer<ResultMarker> for Result<TOk, TError>
@@ -103,33 +83,6 @@ mod private {
                             Ok(serde_json::to_value(v).map_err(ExecError::SerializingResultErr)?)
                         }),
                 )),
-            }
-        }
-    }
-
-    #[doc(hidden)]
-    pub struct FutureBlobAsyncBufReadMarker<S, TError>(
-        PhantomData<(S, TError)>,
-        // Prevents this type from being instantiated
-        Infallible,
-    );
-    #[cfg(feature = "tokio")]
-    impl<TFut, S, TError> SealedRequestLayer<FutureBlobAsyncBufReadMarker<S, TError>> for TFut
-    where
-        TFut: Future<Output = Blob<S>> + Send + 'static,
-        S: tokio::io::AsyncBufRead + Send + 'static,
-        TError: IntoResolverError,
-    {
-        type Result = ();
-        type Error = TError;
-        type Body = FutureBlobStream<TFut, S>;
-        type TypeMarker = FutureMarkerType;
-
-        fn exec(self) -> Self::Body {
-            FutureBlobStream {
-                fut: self,
-                map: |v| v.0,
-                phantom: PhantomData,
             }
         }
     }

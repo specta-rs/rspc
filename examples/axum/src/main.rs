@@ -10,10 +10,10 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::Stream;
-use rspc::{integrations::httpz::Request, Blob, ExportConfig, Rspc};
+use rspc::{integrations::httpz::Request, ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
-use tokio::{fs::File, io::BufReader, time::sleep};
+use tokio::{sync::broadcast, time::sleep};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -143,21 +143,43 @@ async fn main() {
             }),
         )
         // TODO: This is an unstable feature and should be used with caution!
-        .procedure(
-            "serveFile",
-            R.query(|_, _: ()| async move {
-                let file = File::open("./demo.json").await.unwrap();
-
-                // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
-
-                Blob(BufReader::new(file))
-            }),
-        )
+        // .procedure(
+        //     "serveFile",
+        //     R.query(|_, _: ()| async move {
+        //         let file = File::open("./demo.json").await.unwrap();
+        //         // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
+        //         Blob(BufReader::new(file))
+        //     }),
+        // )
         .procedure(
             "customErr",
             R.error::<MyCustomError>()
                 .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
         )
+        .procedure("batchingTest", {
+            let (tx, _) = broadcast::channel(10);
+
+            tokio::spawn({
+                let tx = tx.clone();
+
+                async move {
+                    let mut timer = tokio::time::interval(Duration::from_secs(1));
+                    loop {
+                        timer.tick().await;
+                        tx.send("ping".to_string()).ok();
+                    }
+                }
+            });
+
+            R.subscription(move |_, _: ()| {
+                let mut rx = tx.subscribe();
+                stream! {
+                    while let Ok(msg) = rx.recv().await {
+                        yield msg;
+                    }
+                }
+            })
+        })
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.
