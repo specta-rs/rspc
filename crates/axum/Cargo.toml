@@ -6,5 +6,5 @@ edition = "2021"
 publish = false
 
 [dependencies]
-axum = "0.6.19"
+axum = "0.6.20"
 rspc = { path = "../../" }
