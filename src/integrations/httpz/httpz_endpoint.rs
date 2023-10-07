@@ -41,22 +41,20 @@ where
             move |req: httpz::Request| {
                 // TODO: It would be nice if these clones weren't per request.
                 // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
-                let executor = self.clone();
+                let router = self.clone();
                 let ctx_fn = ctx_fn.clone();
 
                 async move {
                     match (req.method(), &req.uri().path()[1..]) {
                         (&Method::GET, "ws") => {
-                            handle_websocket(executor, ctx_fn, req).into_response()
+                            handle_websocket(router, ctx_fn, req).into_response()
                         }
-                        (&Method::GET, _) => {
-                            handle_http(executor, ctx_fn, req).await.into_response()
+                        (&Method::GET, _) => handle_http(router, ctx_fn, req).await.into_response(),
+                        (&Method::POST, "_batch") => {
+                            handle_http_batch(router, ctx_fn, req).await.into_response()
                         }
-                        (&Method::POST, "_batch") => handle_http_batch(executor, ctx_fn, req)
-                            .await
-                            .into_response(),
                         (&Method::POST, _) => {
-                            handle_http(executor, ctx_fn, req).await.into_response()
+                            handle_http(router, ctx_fn, req).await.into_response()
                         }
                         _ => Ok(Response::builder()
                             .status(StatusCode::METHOD_NOT_ALLOWED)
@@ -70,7 +68,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove all panics lol
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Arc<Router<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -134,7 +132,7 @@ where
     };
 
     let response =
-        match executor.execute(ctx, request, None::<&mut Connection>) {
+        match router.execute(ctx, request, None::<&mut Connection>) {
             ExecutorResult::Future(fut) => fut.await,
             ExecutorResult::Response(response) => response,
             ExecutorResult::Task(task) => todo!(),
@@ -178,7 +176,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
 async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Arc<Router<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -213,7 +211,7 @@ where
 
             let mut responses = Vec::with_capacity(requests.len());
             for req in requests {
-                match executor.execute(ctx.clone(), req, None::<&mut Connection>) {
+                match router.execute(ctx.clone(), req, None::<&mut Connection>) {
                     ExecutorResult::Future(fut) => {
                         fut_responses.push(fut);
                     }

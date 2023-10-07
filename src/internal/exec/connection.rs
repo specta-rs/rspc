@@ -105,7 +105,7 @@ pin_project! {
     #[project = ConnectionProj]
     struct Connection<TCtx> {
         ctx: TCtx,
-        executor: Arc<Router<TCtx>>,
+        router: Arc<Router<TCtx>>,
         conn: exec2::Connection,
 
         #[pin]
@@ -124,7 +124,7 @@ where
         let mut resps = Vec::with_capacity(reqs.len());
         for req in reqs {
             match self
-                .executor
+                .router
                 .execute(self.ctx.clone(), req, Some(&mut self.conn))
             {
                 ExecutorResult::Future(fut) => {
@@ -209,14 +209,14 @@ impl<
     #[allow(dead_code)]
     pub fn new(
         ctx: TCtx,
-        executor: Arc<Router<TCtx>>,
+        router: Arc<Router<TCtx>>,
         socket: S,
         clear_subscriptions_rx: ClearSubscriptionsRx,
     ) -> Self {
         Self {
             conn: Connection {
                 ctx,
-                executor,
+                router,
                 conn: exec2::Connection::new(),
                 streams: StreamUnordered::new(),
                 sub_id_to_stream: HashMap::new(),

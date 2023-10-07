@@ -29,7 +29,7 @@ where
     TCtx: Send + Sync + 'static,
     TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
-    executor: Executor<TCtx>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, mpsc::UnboundedSender<()>>>,
 }
@@ -41,7 +41,7 @@ where
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
-            executor: Executor::new(router),
+        	router,
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
         })
@@ -68,7 +68,7 @@ where
 
             tauri::async_runtime::spawn(ConnectionTask::<R, _, _, _>::new(
                 (self.ctx_fn)(&window),
-                self.executor.clone(),
+                self.router.clone(),
                 Socket {
                     recv: rx,
                     window: window.clone(),

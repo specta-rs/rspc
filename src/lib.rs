@@ -20,13 +20,13 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub mod unstable;
 
-mod built_router;
+mod router_builder;
 mod error;
 mod router;
 mod rspc;
 
 pub use crate::rspc::*;
-pub use built_router::*;
+pub use router_builder::*;
 pub use error::*;
 pub use router::*;
 

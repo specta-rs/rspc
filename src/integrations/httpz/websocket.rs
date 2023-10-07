@@ -15,7 +15,7 @@ use crate::{
 use super::TCtxFunc;
 
 pub(crate) fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Arc<Router<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -75,7 +75,7 @@ where
                 })
             });
 
-        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, executor, pin!(socket), None).await;
+        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, router, pin!(socket), None).await;
     })
     .into_response()
 }
