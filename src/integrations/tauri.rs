@@ -41,7 +41,7 @@ where
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
-        	router,
+            router,
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
         })

@@ -7,39 +7,26 @@ mod private {
 
     use crate::{ExecError, ProcedureError, ResolverError};
 
+    #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Type)]
+    pub struct RequestData {
+        /// A unique ID used to identify the request
+        /// It is the client's responsibility to ensure that this ID is unique.
+        /// When using the HTTP Link this will always be `0`.
+        pub id: u32,
+        pub path: Cow<'static, str>,
+        pub input: Option<Value>,
+    }
+
     /// The type of a request to rspc.
     ///
     /// @internal
-
     #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Type)]
     #[serde(tag = "method", rename_all = "camelCase")]
     pub enum Request {
-        Query {
-            /// A unique ID used to identify the request
-            /// It is the client's responsibility to ensure that this ID is unique.
-            /// When using the HTTP Link this will always be `0`.
-            id: u32,
-            path: Cow<'static, str>,
-            input: Option<Value>,
-        },
-        Mutation {
-            /// A unique ID used to identify the request
-            /// It is the client's responsibility to ensure that this ID is unique.
-            /// When using the HTTP Link this will always be `0`.
-            id: u32,
-            path: Cow<'static, str>,
-            input: Option<Value>,
-        },
-        Subscription {
-            /// A unique ID used to identify the request
-            /// It is the client's responsibility to ensure that this ID is unique.
-            id: u32,
-            path: Cow<'static, str>,
-            input: Option<Value>,
-        },
-        SubscriptionStop {
-            id: u32,
-        },
+        Query(RequestData),
+        Mutation(RequestData),
+        Subscription(RequestData),
+        SubscriptionStop { id: u32 },
     }
 
     /// A value that can be a successful result or an error.

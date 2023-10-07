@@ -14,11 +14,15 @@ use std::{
 use serde_json::Value;
 
 use crate::{
-    internal::{middleware::RequestContext, procedure::ProcedureTodo, Body},
-    Router,
+    internal::{
+        middleware::{ProcedureKind, RequestContext},
+        procedure::ProcedureTodo,
+        Body,
+    },
+    ProcedureMap, Router,
 };
 
-use super::ExecutorResult;
+use super::{ExecutorResult, RequestData};
 
 pub(crate) struct ArcRef<T: 'static> {
     // The lifetime here is invalid. This type is actually valid as long as the `Arc` in `self.mem` is ok.
@@ -81,59 +85,53 @@ impl<T> Drop for ArcRef<T> {
 
 // BELOW ARE HELPERS FOR SAFELY GETTING THE `ArcRef`
 
-pub(crate) fn get_query<TCtx: 'static>(
-    arc: Arc<Router<TCtx>>,
+fn get_procedure<TCtx: 'static>(
+    router: Arc<Router<TCtx>>,
     ctx: TCtx,
-    input: Option<Value>,
-    req: RequestContext,
+    data: RequestData,
+    kind: ProcedureKind,
+    procedures: fn(&Arc<Router<TCtx>>) -> &ProcedureMap<TCtx>,
 ) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
-    let procedures: *const _ = &arc.queries;
+    let req = RequestContext::new(data.id, kind, data.path);
+    let procedures: *const _ = procedures(&router);
     // SAFETY: This is basically extending the lifetime to `'static`. This is safe cause we hold on to the `Arc` which owns the memory at the same time.
     let procedures = unsafe { &*procedures };
 
-    let stream =
-        procedures
-            .get(req.path.as_ref())?
-            .exec
-            .dyn_call(ctx, input.unwrap_or(Value::Null), req);
+    let stream = procedures.get(req.path.as_ref())?.exec.dyn_call(
+        ctx,
+        data.input.unwrap_or(Value::Null),
+        req,
+    );
 
-    Some(unsafe { ArcRef::new(arc, stream) })
+    Some(unsafe { ArcRef::new(router, stream) })
+}
+
+pub(crate) fn get_query<TCtx: 'static>(
+    router: Arc<Router<TCtx>>,
+    ctx: TCtx,
+    data: RequestData,
+) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
+    get_procedure(router, ctx, data, ProcedureKind::Query, |router| {
+        &router.queries
+    })
 }
 
 pub(crate) fn get_mutation<TCtx: 'static>(
-    arc: Arc<Router<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx: TCtx,
-    input: Option<Value>,
-    req: RequestContext,
+    data: RequestData,
 ) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
-    let procedures: *const _ = &arc.mutations;
-    // SAFETY: This is basically extending the lifetime to `'static`. This is safe cause we hold on to the `Arc` which owns the memory at the same time.
-    let procedures = unsafe { &*procedures };
-
-    let stream =
-        procedures
-            .get(req.path.as_ref())?
-            .exec
-            .dyn_call(ctx, input.unwrap_or(Value::Null), req);
-
-    Some(unsafe { ArcRef::new(arc, stream) })
+    get_procedure(router, ctx, data, ProcedureKind::Mutation, |router| {
+        &router.mutations
+    })
 }
 
 pub(crate) fn get_subscription<TCtx: 'static>(
-    arc: Arc<Router<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx: TCtx,
-    input: Option<Value>,
-    req: RequestContext,
+    data: RequestData,
 ) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
-    let procedures: *const _ = &arc.subscriptions;
-    // SAFETY: This is basically extending the lifetime to `'static`. This is safe cause we hold on to the `Arc` which owns the memory at the same time.
-    let procedures = unsafe { &*procedures };
-
-    let stream =
-        procedures
-            .get(req.path.as_ref())?
-            .exec
-            .dyn_call(ctx, input.unwrap_or(Value::Null), req);
-
-    Some(unsafe { ArcRef::new(arc, stream) })
+    get_procedure(router, ctx, data, ProcedureKind::Subscription, |router| {
+        &router.subscriptions
+    })
 }

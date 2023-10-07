@@ -98,7 +98,7 @@ where
                 .unwrap_or(Ok(None as Option<Value>))
                 .unwrap();
 
-            exec::Request::Query { id: 0, path, input }
+            exec::Request::Query(exec::RequestData { id: 0, path, input })
         }
         Method::POST => {
             let input = (!req.body().is_empty())
@@ -106,7 +106,7 @@ where
                 .unwrap_or(Ok(None))
                 .unwrap();
 
-            exec::Request::Mutation { id: 0, path, input }
+            exec::Request::Mutation(exec::RequestData { id: 0, path, input })
         }
         _ => unreachable!(),
     };

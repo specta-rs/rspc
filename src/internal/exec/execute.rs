@@ -30,6 +30,8 @@ use crate::{
     ExecError, ProcedureMap, Router,
 };
 
+use super::RequestData;
+
 // TODO: The big problem with removing `TCtx` everywhere is that it is required in `Box<dyn DynLayer<TCtx>` which is the thing we must hold to ensure the `unsafe` parts are safe.
 // TODO: Just bumping the reference count will ensure it's not unsafely dropped but will also likely result in a memory leak cause without knowing the type one of the request-types can't take care of dropping it's data if it needs to be dropped.
 
@@ -75,57 +77,35 @@ impl<TCtx: Send + 'static> Router<TCtx> {
         // );
 
         match req {
-            Request::Query { id, path, input } => map_fut(
-                id,
-                arc_ref::get_query(
-                    self.clone(),
-                    ctx,
-                    input,
-                    RequestContext::new(id, ProcedureKind::Query, path),
-                ),
-            ),
-            Request::Mutation { id, path, input } => map_fut(
-                id,
-                arc_ref::get_mutation(
-                    self.clone(),
-                    ctx,
-                    input,
-                    RequestContext::new(id, ProcedureKind::Mutation, path),
-                ),
-            ),
-            Request::Subscription { id, path, input } => match conn {
-                Some(mut conn) => {
-                    if conn.subscriptions.contains_key(&id) {
-                        return ExecutorResult::Response(Response {
-                            id: id,
-                            inner: ResponseInner::Error(
-                                ExecError::ErrSubscriptionDuplicateId.into(),
-                            ),
-                        });
-                    }
+            Request::Query(data) => map_fut(data.id, arc_ref::get_query(self.clone(), ctx, data)),
+            Request::Mutation(data) => {
+                map_fut(data.id, arc_ref::get_mutation(self.clone(), ctx, data))
+            }
+            Request::Subscription(data) => {
+                let id = data.id;
 
-                    match get_subscription(
-                        self.clone(),
-                        ctx,
-                        input,
-                        RequestContext::new(id, ProcedureKind::Subscription, path),
-                    ) {
-                        Some(stream) => ExecutorResult::Task(Task {
-                            id,
-                            stream,
-                            done: 0,
-                        }),
-                        None => ExecutorResult::Response(Response {
-                            id,
-                            inner: ResponseInner::Error(ExecError::OperationNotFound.into()),
-                        }),
+                match conn {
+                    None => Err(ExecError::ErrSubscriptionsNotSupported),
+                    Some(conn) if conn.subscriptions.contains_key(&data.id) => {
+                        Err(ExecError::ErrSubscriptionDuplicateId)
                     }
+                    Some(_) => get_subscription(self.clone(), ctx, data)
+                        .ok_or(ExecError::OperationNotFound)
+                        .map(|stream| {
+                            ExecutorResult::Task(Task {
+                                id,
+                                stream,
+                                done: 0,
+                            })
+                        }),
                 }
-                None => ExecutorResult::Response(Response {
-                    id,
-                    inner: ResponseInner::Error(ExecError::ErrSubscriptionsNotSupported.into()),
-                }),
-            },
+                .unwrap_or_else(|e| {
+                    ExecutorResult::Response(Response {
+                        id,
+                        inner: ResponseInner::Error(e.into()),
+                    })
+                })
+            }
             Request::SubscriptionStop { id } => {
                 if let Some(mut conn) = conn {
                     conn.subscriptions.remove(&id);
