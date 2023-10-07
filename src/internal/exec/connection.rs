@@ -3,22 +3,23 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
     time::{Duration, Instant},
 };
 
-use futures::{ready, Sink, Stream};
+use futures::{future::Either, ready, Sink, Stream};
 use pin_project_lite::pin_project;
 use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
-use super::{
-    AsyncRuntime, Executor, IncomingMessage, Request, Requests, Response, RspcTask,
-    SubscriptionManager, SubscriptionSet,
-};
-use crate::internal::{
-    exec::{self, ResponseInner},
-    PinnedOption, PinnedOptionProj,
+use super::{AsyncRuntime, ExecutorResult, IncomingMessage, Request, Requests, Response, Task};
+use crate::{
+    internal::{
+        exec::{self, ResponseInner},
+        exec2, PinnedOption, PinnedOptionProj,
+    },
+    BuiltRouter,
 };
 
 // Time to wait for more messages before sending them over the websocket connection.
@@ -39,37 +40,38 @@ enum PollResult {
     Complete,
 }
 
-struct ConnectionSubscriptionManager<'a, TCtx> {
-    pub map: &'a mut SubscriptionSet,
-    pub to_abort: Option<Vec<u32>>,
-    pub queued: Option<Vec<RspcTask<TCtx>>>,
-}
+// struct ConnectionSubscriptionManager<'a, TCtx> {
+//     pub map: &'a mut SubscriptionSet,
+//     pub to_abort: Option<Vec<u32>>,
+//     pub queued: Option<Vec<RspcTask<TCtx>>>,
+// }
 
-impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
-    for ConnectionSubscriptionManager<'a, TCtx>
-{
-    type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
+// impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
+//     for ConnectionSubscriptionManager<'a, TCtx>
+// {
+//     type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
 
-    fn queue(&mut self, stream: RspcTask<TCtx>) {
-        match &mut self.queued {
-            Some(queued) => {
-                queued.push(stream);
-            }
-            None => self.queued = Some(vec![stream]),
-        }
-    }
+//     fn queue(&mut self, stream: RspcTask<TCtx>) {
+//         match &mut self.queued {
+//             Some(queued) => {
+//                 queued.push(stream);
+//             }
+//             None => self.queued = Some(vec![stream]),
+//         }
+//     }
 
-    fn subscriptions(&mut self) -> Self::Set<'_> {
-        self.map
-    }
+//     fn subscriptions(&mut self) -> Self::Set<'_> {
+//         self.map
+//     }
 
-    fn abort_subscription(&mut self, id: u32) {
-        self.to_abort.get_or_insert_with(Vec::new).push(id);
-    }
-}
+//     fn abort_subscription(&mut self, id: u32) {
+//         self.to_abort.get_or_insert_with(Vec::new).push(id);
+//     }
+// }
 
 pin_project! {
     #[project = BatchFutProj]
+    #[deprecated = "todo: can we come up with a batching system without timers???"]
     struct Batcher<R: AsyncRuntime> {
         batch: Vec<exec::Response>,
         #[pin]
@@ -97,14 +99,17 @@ impl<R: AsyncRuntime> Batcher<R> {
     }
 }
 
+// type MyTask = Either<Once<RequestTask>, ()>; // TODO: This requires `RequestTask` to be public and not sealed which I am not the biggest fan of?
+
 pin_project! {
     #[project = ConnectionProj]
     struct Connection<TCtx> {
         ctx: TCtx,
-        executor: Executor<TCtx>,
-        map: SubscriptionSet,
+        executor: Arc<BuiltRouter<TCtx>>,
+        conn: exec2::Connection,
+
         #[pin]
-        streams: StreamUnordered<RspcTask<TCtx>>,
+        streams: StreamUnordered<Task>,
 
         // TODO: Remove these cause disgusting messes
         sub_id_to_stream: HashMap<u32, usize>,
@@ -116,37 +121,46 @@ where
     TCtx: Clone + Send + 'static,
 {
     pub fn exec(&mut self, reqs: Vec<Request>) -> Vec<Response> {
-        let mut manager = Some(ConnectionSubscriptionManager {
-            map: &mut self.map,
-            to_abort: None,
-            queued: None,
-        });
-
-        let resps = self
-            .executor
-            .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
-                let fut_id = fut.id();
-                let token = self.streams.insert(fut.into());
-                self.sub_id_to_stream.insert(fut_id, token);
-            });
-
-        let manager = manager.expect("rspc unreachable");
-        if let Some(to_abort) = manager.to_abort {
-            for sub_id in to_abort {
-                if let Some(token) = self.sub_id_to_stream.remove(&sub_id) {
-                    Pin::new(&mut self.streams).remove(token);
-                    manager.map.take(&sub_id);
+        let mut resps = Vec::with_capacity(reqs.len());
+        for req in reqs {
+            match self
+                .executor
+                .execute(self.ctx.clone(), req, Some(&mut self.conn))
+            {
+                ExecutorResult::Future(fut) => {
+                    let fut_id = fut.id;
+                    // let token = self.streams.insert(fut.into());
+                    // self.sub_id_to_stream.insert(fut_id, token);
+                    todo!();
                 }
+                ExecutorResult::Response(resp) => {
+                    resps.push(resp);
+                }
+                ExecutorResult::Task(task) => todo!(),
+                ExecutorResult::None => {}
             }
         }
 
-        if let Some(queued) = manager.queued {
-            for stream in queued {
-                let sub_id = stream.id();
-                let token = self.streams.insert(stream);
-                self.sub_id_to_stream.insert(sub_id, token);
-            }
-        }
+        // TODO: Fix all of this!
+        // let manager = manager.expect("rspc unreachable");
+        // if let Some(to_abort) = manager.to_abort {
+        //     for sub_id in to_abort {
+        //         if let Some(token) = self.sub_id_to_stream.remove(&sub_id) {
+        //             Pin::new(&mut self.streams).remove(token);
+        //             manager.map.take(&sub_id);
+        //         }
+        //     }
+        // }
+
+        // TODO: Fix all of this!
+        // if let Some(queued) = manager.queued {
+        //     for stream in queued {
+        //         let sub_id = stream.id();
+        //         let token = self.streams.insert(stream);
+        //         self.sub_id_to_stream.insert(sub_id, token);
+        //     }
+        // }
+        todo!();
 
         resps
     }
@@ -195,7 +209,7 @@ impl<
     #[allow(dead_code)]
     pub fn new(
         ctx: TCtx,
-        executor: Executor<TCtx>,
+        executor: Arc<BuiltRouter<TCtx>>,
         socket: S,
         clear_subscriptions_rx: ClearSubscriptionsRx,
     ) -> Self {
@@ -203,7 +217,7 @@ impl<
             conn: Connection {
                 ctx,
                 executor,
-                map: SubscriptionSet::new(),
+                conn: exec2::Connection::new(),
                 streams: StreamUnordered::new(),
                 sub_id_to_stream: HashMap::new(),
             },
@@ -325,9 +339,9 @@ impl<
                     }
                     StreamYield::Finished(f) => {
                         if let Some(stream) = f.take(conn.streams.as_mut()) {
-                            let sub_id = stream.id();
+                            let sub_id = stream.id;
                             conn.sub_id_to_stream.remove(&sub_id);
-                            conn.map.take(&sub_id);
+                            // conn.map.take(&sub_id);
                         }
                     }
                 },
@@ -352,7 +366,7 @@ impl<
         for (_, token) in conn.sub_id_to_stream.drain() {
             conn.streams.as_mut().remove(token);
         }
-        conn.map.drain().for_each(drop);
+        // conn.map.drain().for_each(drop); // TODO: Replace this
     }
 }
 

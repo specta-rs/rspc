@@ -11,7 +11,10 @@ use std::{
 };
 
 use crate::{
-    internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager},
+    internal::{
+        exec::{self, ExecutorResult},
+        exec2::Connection,
+    },
     BuiltRouter,
 };
 
@@ -29,8 +32,6 @@ where
         self: Arc<Self>,
         ctx_fn: TCtxFn,
     ) -> Endpoint<impl HttpEndpoint> {
-        let executor = Executor::new(self);
-
         // TODO: This should be able to call `ctn_fn` prior to the async boundary to avoid cloning it!
         // TODO: Basically httpz would need to be able to return `Response | Future<Response>` basically how rspc executor works.
 
@@ -40,7 +41,7 @@ where
             move |req: httpz::Request| {
                 // TODO: It would be nice if these clones weren't per request.
                 // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
-                let executor = executor.clone();
+                let executor = self.clone();
                 let ctx_fn = ctx_fn.clone();
 
                 async move {
@@ -69,7 +70,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove all panics lol
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx>,
+    executor: Arc<BuiltRouter<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -133,9 +134,10 @@ where
     };
 
     let response =
-        match executor.execute(ctx, request, &mut (None as Option<NoOpSubscriptionManager>)) {
-            ExecutorResult::FutureResponse(fut) => fut.await,
+        match executor.execute(ctx, request, None::<&mut Connection>) {
+            ExecutorResult::Future(fut) => fut.await,
             ExecutorResult::Response(response) => response,
+            ExecutorResult::Task(task) => todo!(),
             ExecutorResult::None => unreachable!(
                 "Executor will only return none for a 'stopSubscription' event which is impossible here"
             ),
@@ -176,7 +178,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
 async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx>,
+    executor: Arc<BuiltRouter<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -208,12 +210,20 @@ where
             };
 
             let fut_responses = FuturesUnordered::new();
-            let mut responses = executor.execute_batch(
-                &ctx,
-                requests,
-                &mut (None as Option<NoOpSubscriptionManager>),
-                |fut| fut_responses.push(fut),
-            );
+
+            let mut responses = Vec::with_capacity(requests.len());
+            for req in requests {
+                match executor.execute(ctx.clone(), req, None::<&mut Connection>) {
+                    ExecutorResult::Future(fut) => {
+                        fut_responses.push(fut);
+                    }
+                    ExecutorResult::Response(resp) => {
+                        responses.push(resp);
+                    }
+                    ExecutorResult::Task(task) => todo!(),
+                    ExecutorResult::None => {}
+                }
+            }
 
             let cookies = {
                 match Arc::try_unwrap(cookie_jar) {

@@ -2,16 +2,18 @@
 
 #![allow(unused_imports)]
 
+pub(crate) mod arc_ref;
 mod async_runtime;
 mod connection;
 mod execute;
-mod stream_or_fut;
+mod request_future;
+mod task;
 mod types;
 
 pub use async_runtime::*;
 pub use connection::*;
 #[allow(unused_imports)]
 pub use execute::*;
-pub use stream_or_fut::*;
+pub(crate) use task::Task;
 #[allow(unused_imports)]
 pub use types::*;

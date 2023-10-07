@@ -1,4 +1,4 @@
-use std::pin::pin;
+use std::{pin::pin, sync::Arc};
 
 use futures::{SinkExt, StreamExt};
 use httpz::{
@@ -7,12 +7,15 @@ use httpz::{
     HttpResponse,
 };
 
-use crate::internal::exec::{ConnectionTask, Executor, IncomingMessage, Response, TokioRuntime};
+use crate::{
+    internal::exec::{ConnectionTask, IncomingMessage, Response, TokioRuntime},
+    BuiltRouter,
+};
 
 use super::TCtxFunc;
 
 pub(crate) fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx>,
+    executor: Arc<BuiltRouter<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse

@@ -87,6 +87,8 @@ mod private {
     }
 }
 
+// TODO: Should some of this stuff be public or private. Removing the `unstable` feature would be nice!
+
 #[cfg(feature = "unstable")]
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub use private::*;

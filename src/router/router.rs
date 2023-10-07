@@ -6,13 +6,13 @@ use specta::{Type, TypeMap};
 use crate::{
     internal::{
         middleware::MiddlewareBuilder,
-        procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
+        procedure::{is_valid_name, Procedure},
         resolver::{HasResolver, RequestLayer},
     },
-    BuildError, BuildResult, BuiltRouter,
+    BuildError, BuildResult, BuiltRouter, ProcedureMap,
 };
 
-type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut BuildProceduresCtx<'_, TCtx>)>;
+type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut BuiltRouter<TCtx>)>;
 
 pub struct Router<TCtx>
 where
@@ -109,30 +109,12 @@ where
             return BuildResult::Err(self.errors);
         }
 
-        // TODO: Eventually take these as an argument so we can access the plugin store from the parent router -> For this we do this for compat
-        let mut queries = ProcedureStore::new("queries"); // TODO: Take in as arg
-        let mut mutations = ProcedureStore::new("mutations"); // TODO: Take in as arg
-        let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
-        let mut typ_store = TypeMap::new(); // TODO: Take in as arg
-
-        let mut ctx = BuildProceduresCtx {
-            ty_store: &mut typ_store,
-            queries: &mut queries,
-            mutations: &mut mutations,
-            subscriptions: &mut subscriptions,
-        };
+        let mut router = BuiltRouter::default();
 
         for (key, build_fn) in self.procedures.into_iter() {
             // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-            (build_fn)(key, &mut ctx);
+            (build_fn)(key, &mut router);
         }
-
-        let router = BuiltRouter {
-            queries,
-            mutations,
-            subscriptions,
-            typ_store,
-        };
 
         BuildResult::Ok(router)
     }

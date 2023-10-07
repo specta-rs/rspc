@@ -123,55 +123,9 @@ mod private {
             &self.ty
         }
     }
-
-    pub type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
-
-    pub struct ProcedureStore<TCtx> {
-        pub(crate) name: &'static str,
-        pub(crate) store: ProcedureMap<TCtx>,
-    }
-
-    impl<TCtx: 'static> ProcedureStore<TCtx> {
-        pub const fn new(name: &'static str) -> Self {
-            Self {
-                name,
-                store: BTreeMap::new(),
-            }
-        }
-
-        // TODO: Using track caller style thing for the panics in this function
-        pub(crate) fn append<L: Layer<TCtx>>(&mut self, key: String, exec: L, ty: ProcedureDef) {
-            // TODO: Cleanup this logic and do better router merging
-            #[allow(clippy::panic)]
-            if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.")
-            {
-                panic!(
-                    "rspc error: attempted to create {} operation named '{}', however this name is not allowed.",
-                    self.name,
-                    key
-                );
-            }
-
-            #[allow(clippy::panic)]
-            if self.store.contains_key(&key) {
-                panic!(
-                    "rspc error: {} operation already has resolver with name '{}'",
-                    self.name, key
-                );
-            }
-
-            self.store.insert(
-                key,
-                ProcedureTodo {
-                    exec: exec.erase(),
-                    ty,
-                },
-            );
-        }
-    }
 }
 
-use crate::BuildErrorCause;
+use crate::{BuildErrorCause, ProcedureMap};
 
 pub(crate) fn is_valid_name(name: &str) -> Option<BuildErrorCause> {
     if name.is_empty() || name.len() > 255 {
@@ -191,4 +145,31 @@ pub(crate) fn is_valid_name(name: &str) -> Option<BuildErrorCause> {
     None
 }
 
-pub(crate) use private::{ProcedureDef, ProcedureStore, ProcedureTodo};
+// TODO: Using track caller style thing for the panics in this function
+pub(crate) fn append<TCtx: 'static, L: Layer<TCtx>>(
+    (map, type_name): (&mut ProcedureMap<TCtx>, &'static str),
+    key: String,
+    exec: L,
+    ty: ProcedureDef,
+) {
+    // TODO: Cleanup this logic and do better router merging
+    #[allow(clippy::panic)]
+    if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
+        panic!("rspc error: attempted to create {type_name} operation named '{key}', however this name is not allowed.");
+    }
+
+    #[allow(clippy::panic)]
+    if map.contains_key(&key) {
+        panic!("rspc error: {type_name} operation already has resolver with name '{key}'");
+    }
+
+    map.insert(
+        key,
+        ProcedureTodo {
+            exec: exec.erase(),
+            ty,
+        },
+    );
+}
+
+pub(crate) use private::{ProcedureDef, ProcedureTodo};

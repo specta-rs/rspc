@@ -145,6 +145,7 @@ export default function App() {
         <rspc.Provider client={wsClient} queryClient={wsQueryClient}>
           <QueryClientProvider client={wsQueryClient}>
             <Example name="Websocket Transport" />
+            <Demo />
           </QueryClientProvider>
         </rspc.Provider>
         <rspc.Provider client={tauriClient} queryClient={tauriQueryClient}>
@@ -155,4 +156,20 @@ export default function App() {
       </div>
     </React.StrictMode>
   );
+}
+
+function Demo() {
+  const a = rspc.useSubscription(["batchingTest"], {
+    onData(msg) {
+      console.log("A", msg);
+    },
+  });
+
+  const b = rspc.useSubscription(["batchingTest"], {
+    onData(msg) {
+      console.log("B", msg);
+    },
+  });
+
+  return null;
 }

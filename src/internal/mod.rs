@@ -4,6 +4,7 @@
 //!
 
 pub mod exec;
+pub mod exec2;
 pub mod middleware;
 pub mod procedure;
 pub mod resolver;

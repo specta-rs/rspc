@@ -16,6 +16,7 @@ mod private {
 
     use super::*;
 
+    // TODO: Can we avoid the `TLayerCtx` by building it into the layer
     pub trait DynLayer<TLayerCtx: 'static>: Send + Sync + 'static {
         fn dyn_call(
             &self,

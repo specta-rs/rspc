@@ -51,8 +51,10 @@ vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 specta = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-futures = { version = "0.3.28", default-features = false }
+futures = { version = "0.3.28", default-features = false } # TODO: Drop for `futures_core` if possible
 pin-project-lite = "0.2.13"
+
+#### TODO: Can all the following deps be moved out of the core crate ###
 
 # Optional
 serde_json = { version = "1", default-features = false }

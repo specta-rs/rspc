@@ -11,6 +11,7 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )]
+// #![deny(unsafe_code)] // TODO: Enable this
 #![allow(clippy::module_inception)]
 #![allow(clippy::type_complexity)] // TODO: Fix this and disable it
 #![cfg_attr(docsrs, feature(doc_cfg))]
