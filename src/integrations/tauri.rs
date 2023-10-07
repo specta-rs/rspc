@@ -17,9 +17,7 @@ use tauri_specta::Event;
 use tokio::sync::mpsc;
 
 use crate::{
-    internal::exec::{
-        AsyncRuntime, ConnectionTask, Executor, IncomingMessage, Response, TokioRuntime,
-    },
+    internal::exec::{AsyncRuntime, ConnectionTask, IncomingMessage, Response, TokioRuntime},
     BuiltRouter,
 };
 
@@ -67,7 +65,8 @@ where
             drop(windows);
 
             let (tx, rx) = mpsc::unbounded_channel();
-            R::spawn(ConnectionTask::<R, _, _, _>::new(
+
+            tauri::async_runtime::spawn(ConnectionTask::<R, _, _, _>::new(
                 (self.ctx_fn)(&window),
                 self.executor.clone(),
                 Socket {
