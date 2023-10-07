@@ -6,11 +6,11 @@
 use std::{any::Any, sync::Arc};
 
 use axum::{body::HttpBody, routing::any};
-use rspc::{BuiltRouter, Router};
+use rspc::{Router, RouterBuilder};
 
 /// TODO
 pub fn endpoint<S, B, TCtx: Send + Sync + 'static>(
-    router: Arc<BuiltRouter<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: impl Any,
 ) -> axum::Router<S, B>
 where

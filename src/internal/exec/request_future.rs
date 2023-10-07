@@ -16,7 +16,7 @@ use crate::{
         middleware::RequestContext,
         Body, PinnedOption, PinnedOptionProj,
     },
-    BuiltRouter, ExecError,
+    ExecError, Router,
 };
 
 use super::arc_ref::ArcRef;

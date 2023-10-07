@@ -18,7 +18,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     internal::exec::{AsyncRuntime, ConnectionTask, IncomingMessage, Response, TokioRuntime},
-    BuiltRouter,
+    Router,
 };
 
 #[derive(Clone, Debug, serde::Deserialize, specta::Type, tauri_specta::Event)]
@@ -39,7 +39,7 @@ where
     TCtx: Clone + Send + Sync + 'static,
     TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
-    pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx>>) -> Arc<Self> {
+    pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
             executor: Executor::new(router),
             ctx_fn,
@@ -117,7 +117,7 @@ mod test {
 }
 
 pub fn plugin<TCtx>(
-    router: Arc<BuiltRouter<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: impl Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<tauri::Wry>
 where

@@ -1,4 +1,4 @@
-use rspc::Router;
+use rspc::RouterBuilder;
 use serde::Serialize;
 use specta::Type;
 
@@ -16,7 +16,7 @@ pub enum MyCustomError {
 
 // We merge this router into the main router in `main.rs`.
 // This router shows how to do error handling
-pub fn mount() -> Router<()> {
+pub fn mount() -> RouterBuilder<()> {
     R.router()
         .procedure("ok", R.query(|_, _args: ()| Ok("Hello World")))
         .procedure(

@@ -4,7 +4,7 @@ use futures::{ready, Stream};
 
 use crate::{
     internal::{exec, Body},
-    BuiltRouter,
+    Router,
 };
 
 use super::arc_ref::ArcRef;

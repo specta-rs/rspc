@@ -15,7 +15,7 @@ use crate::{
         exec::{self, ExecutorResult},
         exec2::Connection,
     },
-    BuiltRouter,
+    Router,
 };
 
 use super::{handle_websocket, CookieJar, TCtxFunc};
@@ -24,7 +24,7 @@ use super::{handle_websocket, CookieJar, TCtxFunc};
 // TODO: Remove all panics lol
 // TODO: Cleanup the code and use more chaining
 
-impl<TCtx> BuiltRouter<TCtx>
+impl<TCtx> Router<TCtx>
 where
     TCtx: Clone + Send + Sync + 'static,
 {
@@ -70,7 +70,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove all panics lol
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Arc<BuiltRouter<TCtx>>,
+    executor: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -178,7 +178,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
 async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Arc<BuiltRouter<TCtx>>,
+    executor: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse

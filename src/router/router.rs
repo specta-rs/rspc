@@ -9,12 +9,12 @@ use crate::{
         procedure::{is_valid_name, Procedure},
         resolver::{HasResolver, RequestLayer},
     },
-    BuildError, BuildResult, BuiltRouter, ProcedureMap,
+    BuildError, BuildResult, ProcedureMap, Router,
 };
 
-type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut BuiltRouter<TCtx>)>;
+type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
 
-pub struct Router<TCtx>
+pub struct RouterBuilder<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
@@ -22,7 +22,7 @@ where
     errors: Vec<BuildError>,
 }
 
-impl<TCtx> Router<TCtx>
+impl<TCtx> RouterBuilder<TCtx>
 where
     TCtx: Send + Sync + 'static,
 {
@@ -71,7 +71,7 @@ where
 
     #[track_caller]
     #[allow(unused_mut)]
-    pub fn merge(mut self, prefix: &'static str, mut r: Router<TCtx>) -> Self {
+    pub fn merge(mut self, prefix: &'static str, mut r: RouterBuilder<TCtx>) -> Self {
         if let Some(cause) = is_valid_name(prefix) {
             self.errors.push(BuildError {
                 cause,
@@ -109,7 +109,7 @@ where
             return BuildResult::Err(self.errors);
         }
 
-        let mut router = BuiltRouter::default();
+        let mut router = Router::default();
 
         for (key, build_fn) in self.procedures.into_iter() {
             // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key

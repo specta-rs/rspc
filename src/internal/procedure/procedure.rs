@@ -14,7 +14,7 @@ use crate::{
             StreamMarkerType,
         },
     },
-    BuiltRouter,
+    Router,
 };
 
 /// TODO: Explain
@@ -114,7 +114,7 @@ where
     TResultMarker: 'static,
     TMiddleware: MiddlewareBuilder,
 {
-    pub(crate) fn build(self, key: Cow<'static, str>, ctx: &mut BuiltRouter<TMiddleware::Ctx>) {
+    pub(crate) fn build(self, key: Cow<'static, str>, ctx: &mut Router<TMiddleware::Ctx>) {
         let HasResolver(resolver, kind, _) = self.resolver;
 
         let m = match kind {

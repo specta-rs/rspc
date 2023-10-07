@@ -53,21 +53,21 @@ impl ExportConfig {
 pub(crate) type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
 
 /// BuiltRouter is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
-pub struct BuiltRouter<TCtx = ()> {
+pub struct Router<TCtx = ()> {
     pub(crate) queries: ProcedureMap<TCtx>,
     pub(crate) mutations: ProcedureMap<TCtx>,
     pub(crate) subscriptions: ProcedureMap<TCtx>,
     pub(crate) typ_store: TypeMap,
 }
 
-impl<TCtx> fmt::Debug for BuiltRouter<TCtx> {
+impl<TCtx> fmt::Debug for Router<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BuiltRouter").finish()
     }
 }
 
 // This is to avoid needing to constrain `TCtx: Default` like the derive macro requires
-impl<TCtx> Default for BuiltRouter<TCtx> {
+impl<TCtx> Default for Router<TCtx> {
     fn default() -> Self {
         Self {
             queries: Default::default(),
@@ -78,7 +78,7 @@ impl<TCtx> Default for BuiltRouter<TCtx> {
     }
 }
 
-impl<TCtx> BuiltRouter<TCtx>
+impl<TCtx> Router<TCtx>
 where
     TCtx: Send + 'static,
 {
@@ -199,7 +199,7 @@ where
 
 // TODO: Plz try and get rid of these. They are escape hatches for Spacedrive's invalidation system that is dearly in need of a makeover.
 #[cfg(feature = "unstable")]
-impl<TCtx> BuiltRouter<TCtx> {
+impl<TCtx> Router<TCtx> {
     pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
         &self.queries
     }

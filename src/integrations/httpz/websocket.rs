@@ -9,13 +9,13 @@ use httpz::{
 
 use crate::{
     internal::exec::{ConnectionTask, IncomingMessage, Response, TokioRuntime},
-    BuiltRouter,
+    Router,
 };
 
 use super::TCtxFunc;
 
 pub(crate) fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Arc<BuiltRouter<TCtx>>,
+    executor: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse

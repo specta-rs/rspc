@@ -27,7 +27,7 @@ use crate::{
         procedure::ProcedureTodo,
         Body, FutureValueOrStream,
     },
-    BuiltRouter, ExecError, ProcedureMap,
+    ExecError, ProcedureMap, Router,
 };
 
 // TODO: The big problem with removing `TCtx` everywhere is that it is required in `Box<dyn DynLayer<TCtx>` which is the thing we must hold to ensure the `unsafe` parts are safe.
@@ -52,7 +52,7 @@ pub enum ExecutorResult {
 }
 
 // TODO: Move this into `build_router.rs` and turn it into a module with all the other `exec::*` types
-impl<TCtx: Send + 'static> BuiltRouter<TCtx> {
+impl<TCtx: Send + 'static> Router<TCtx> {
     /// TODO
     ///
     /// A `None` result means the executor has no response to send back to the client.

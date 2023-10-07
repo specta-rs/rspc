@@ -19,7 +19,7 @@ use crate::{
         exec::{self, ResponseInner},
         exec2, PinnedOption, PinnedOptionProj,
     },
-    BuiltRouter,
+    Router,
 };
 
 // Time to wait for more messages before sending them over the websocket connection.
@@ -105,7 +105,7 @@ pin_project! {
     #[project = ConnectionProj]
     struct Connection<TCtx> {
         ctx: TCtx,
-        executor: Arc<BuiltRouter<TCtx>>,
+        executor: Arc<Router<TCtx>>,
         conn: exec2::Connection,
 
         #[pin]
@@ -209,7 +209,7 @@ impl<
     #[allow(dead_code)]
     pub fn new(
         ctx: TCtx,
-        executor: Arc<BuiltRouter<TCtx>>,
+        executor: Arc<Router<TCtx>>,
         socket: S,
         clear_subscriptions_rx: ClearSubscriptionsRx,
     ) -> Self {

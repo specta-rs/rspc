@@ -1,23 +1,23 @@
 use async_stream::stream;
-use rspc::Router;
+use rspc::RouterBuilder;
 
 use crate::R;
 
-fn mount_inner() -> Router<()> {
+fn mount_inner() -> RouterBuilder<()> {
     R.router().procedure(
         "demo",
         R.query(|_ctx, _: ()| async move { Ok("Hello World") }),
     )
 }
 
-fn mount_inner2() -> Router<()> {
+fn mount_inner2() -> RouterBuilder<()> {
     R.router().procedure(
         "demo",
         R.query(|_ctx, _: ()| async move { Ok("Hello World") }),
     )
 }
 
-fn mount() -> Router<()> {
+fn mount() -> RouterBuilder<()> {
     R.router()
         .procedure(
             "demo",

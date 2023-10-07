@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use crate::{
     internal::{middleware::RequestContext, procedure::ProcedureTodo, Body},
-    BuiltRouter,
+    Router,
 };
 
 use super::ExecutorResult;
@@ -82,7 +82,7 @@ impl<T> Drop for ArcRef<T> {
 // BELOW ARE HELPERS FOR SAFELY GETTING THE `ArcRef`
 
 pub(crate) fn get_query<TCtx: 'static>(
-    arc: Arc<BuiltRouter<TCtx>>,
+    arc: Arc<Router<TCtx>>,
     ctx: TCtx,
     input: Option<Value>,
     req: RequestContext,
@@ -101,7 +101,7 @@ pub(crate) fn get_query<TCtx: 'static>(
 }
 
 pub(crate) fn get_mutation<TCtx: 'static>(
-    arc: Arc<BuiltRouter<TCtx>>,
+    arc: Arc<Router<TCtx>>,
     ctx: TCtx,
     input: Option<Value>,
     req: RequestContext,
@@ -120,7 +120,7 @@ pub(crate) fn get_mutation<TCtx: 'static>(
 }
 
 pub(crate) fn get_subscription<TCtx: 'static>(
-    arc: Arc<BuiltRouter<TCtx>>,
+    arc: Arc<Router<TCtx>>,
     ctx: TCtx,
     input: Option<Value>,
     req: RequestContext,

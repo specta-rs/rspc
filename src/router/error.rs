@@ -2,7 +2,7 @@ use std::{borrow::Cow, panic::Location};
 
 use thiserror::Error;
 
-use crate::BuiltRouter;
+use crate::Router;
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
@@ -40,7 +40,7 @@ pub(crate) enum BuildErrorCause {
 
 /// TODO
 pub enum BuildResult<TCtx: 'static> {
-    Ok(BuiltRouter<TCtx>),
+    Ok(Router<TCtx>),
     Err(Vec<BuildError>),
 }
 
@@ -55,7 +55,7 @@ impl<TCtx: 'static> PartialEq for BuildResult<TCtx> {
 }
 
 impl<TCtx: 'static> BuildResult<TCtx> {
-    pub fn unwrap(self) -> BuiltRouter<TCtx> {
+    pub fn unwrap(self) -> Router<TCtx> {
         match self {
             Self::Ok(router) => router,
             Self::Err(errors) => {
