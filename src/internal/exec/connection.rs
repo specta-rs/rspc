@@ -73,36 +73,6 @@ enum PollResult {
 //     }
 // }
 
-pin_project! {
-    #[project = BatchFutProj]
-    #[deprecated = "todo: can we come up with a batching system without timers???"]
-    struct Batcher<R: AsyncRuntime> {
-        batch: Vec<exec::Response>,
-        #[pin]
-        batch_timer: PinnedOption<R::SleepUtilFut>,
-    }
-}
-
-impl<R: AsyncRuntime> Batcher<R> {
-    fn insert(self: Pin<&mut Self>, element: exec::Response) {
-        let mut this = self.project();
-        this.batch.push(element);
-        this.batch_timer
-            .set(R::sleep_util(Instant::now() + BATCH_TIMEOUT).into());
-    }
-
-    fn append(self: Pin<&mut Self>, other: &mut Vec<exec::Response>) {
-        if other.is_empty() {
-            return;
-        }
-
-        let mut this = self.project();
-        this.batch.append(other);
-        this.batch_timer
-            .set(R::sleep_util(Instant::now() + BATCH_TIMEOUT).into());
-    }
-}
-
 // type MyTask = Either<Once<RequestTask>, ()>; // TODO: This requires `RequestTask` to be public and not sealed which I am not the biggest fan of?
 
 pin_project! {
@@ -170,39 +140,15 @@ where
     }
 }
 
-type ClearSubscriptionsRx = Option<Box<dyn FnMut(&mut Context<'_>) -> Poll<Option<()>> + Send>>;
-
-pin_project! {
-    #[project = ConnectionTaskProj]
-    /// An abstraction around a single "connection" which can execute rspc subscriptions.
-    ///
-    /// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
-    ///
-    /// This future is spawned onto a thread and coordinates everything. It handles:
-    /// - Sending to connection
-    /// - Reading from connection
-    /// - Executing requests and subscriptions
-    /// - Batching responses
-    ///
-    pub(crate) struct ConnectionTask<R: AsyncRuntime, TCtx, S, E> {
-        #[pin]
-        conn: Connection<TCtx>,
-        #[pin]
-        batch: Batcher<R>,
-
-        // Socket
-        #[pin]
-        socket: S,
-        tx_queue: Option<Vec<Response>>,
-
-        // External signal which when called will clear all active subscriptions.
-        // This is used by Tauri on window change as the "connection" never shuts down like a websocket would on page reload.
-        clear_subscriptions_rx: ClearSubscriptionsRx,
-
-        phantom: PhantomData<E>
-    }
-}
-
+/// An abstraction around a single "connection" which can execute rspc subscriptions.
+///
+/// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
+///
+/// This future is spawned onto a thread and coordinates everything. It handles:
+/// - Sending to connection
+/// - Reading from connection
+/// - Executing requests and subscriptions
+/// - Batching responses
 pub async fn run_connection<
     R: AsyncRuntime,
     TCtx: Clone + Send + 'static,
@@ -212,10 +158,8 @@ pub async fn run_connection<
     ctx: TCtx,
     router: Arc<Router<TCtx>>,
     mut socket: S,
-    mut clear_subscriptions_rx: Option<oneshot::Receiver<()>>,
+    mut clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
 ) {
-    let mut clear_subscriptions_rx = OptionFuture::from(clear_subscriptions_rx);
-
     let mut conn = Connection {
         ctx,
         router,
@@ -226,56 +170,50 @@ pub async fn run_connection<
 
     let (mut batch_tx, mut batch_rx) = futures::channel::mpsc::unbounded();
 
-    let (mut batched_tx, mut batched_rx) = futures::channel::mpsc::channel(1);
-
     let (mut done_tx, mut done_rx) = futures::channel::mpsc::channel(1);
 
-    let batcher = async {
+    let batcher = async_stream::stream! {
+        let mut responses = Vec::new();
+
         loop {
-            let mut responses = Vec::new();
+            let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
 
-            loop {
-                let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
+            let exit = loop {
+                pin_mut!(timer);
 
-                let exit = loop {
-                    pin_mut!(timer);
-
-                    futures::select_biased! {
-                        response = batch_rx.next() => {
-                            match response {
-                                Some(response) =>  {
-                                    responses.push(response);
-                                    break false;
-                                },
-                                None => break true
-                            }
+                futures::select_biased! {
+                    response = batch_rx.next() => {
+                        match response {
+                            Some(response) =>  {
+                                responses.push(response);
+                                break false;
+                            },
+                            None => break true
                         }
-                        _ = timer => break true,
                     }
-                };
-
-                if exit {
-                    break;
+                    _ = timer => break true,
                 }
-            }
+            };
 
-            batched_tx.send(responses).await.ok();
+            if exit {
+                break;
+            }
         }
-    }
-    .fuse();
+
+        yield responses;
+    };
     pin_mut!(batcher);
 
     loop {
         futures::select_biased! {
-            recv = clear_subscriptions_rx => {
-                if let Some(Ok(())) = recv {
+            recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(|rx| rx.next())) => {
+                if let Some(Some(())) = recv {
                     for (_, token) in conn.sub_id_to_stream.drain() {
                         Pin::new(&mut conn.streams).remove(token);
                     }
                 }
             }
-            _ = batcher => {}
-            responses = batched_rx.next() => {
+            responses = batcher.next() => {
                 if let Some(responses) = responses {
                     if let Err(_err) = socket.send(responses).await {
                         #[cfg(feature = "tracing")]

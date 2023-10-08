@@ -9,17 +9,15 @@ use std::{
     task::{Context, Poll},
 };
 
+use futures::channel::mpsc;
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Window, WindowEvent,
 };
 use tauri_specta::Event;
-use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use crate::{
-    internal::exec::{
-        run_connection, AsyncRuntime, ConnectionTask, IncomingMessage, Response, TokioRuntime,
-    },
+    internal::exec::{run_connection, AsyncRuntime, IncomingMessage, Response, TokioRuntime},
     Router,
 };
 
@@ -60,25 +58,13 @@ where
             // Shutdown all subscriptions for the previously loaded page is there was one
             // All the previous threads and stuff stays around though so we don't need to recreate it
 
-            shutdown_streams_tx.send(()).ok();
+            shutdown_streams_tx.unbounded_send(()).ok();
         } else {
-            let (clear_subscriptions_tx, mut clear_subscriptions_rx) = mpsc::unbounded_channel();
+            let (clear_subscriptions_tx, mut clear_subscriptions_rx) = mpsc::unbounded();
             windows.insert(window_hash, clear_subscriptions_tx);
             drop(windows);
 
-            let (tx, rx) = mpsc::unbounded_channel();
-
-            // tauri::async_runtime::spawn(ConnectionTask::<R, _, _, _>::new(
-            //     (self.ctx_fn)(&window),
-            //     self.router.clone(),
-            //     Socket {
-            //         recv: rx,
-            //         window: window.clone(),
-            //     },
-            //     Some(Box::new(move |cx| clear_subscriptions_rx.poll_recv(cx))),
-            // ));
-
-            let (_, rrx) = futures::channel::oneshot::channel();
+            let (tx, rx) = mpsc::unbounded();
 
             tauri::async_runtime::spawn(run_connection::<R, _, _, _>(
                 (self.ctx_fn)(&window),
@@ -87,11 +73,12 @@ where
                     recv: rx,
                     window: window.clone(),
                 },
-                Some(rrx),
+                Some(clear_subscriptions_rx),
             ));
 
             Msg::listen(&window, move |event| {
-                tx.send(IncomingMessage::Msg(Ok(event.payload.0))).ok();
+                tx.unbounded_send(IncomingMessage::Msg(Ok(event.payload.0)))
+                    .ok();
             });
         }
     }

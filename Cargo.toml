@@ -26,7 +26,7 @@ name = "benchmarks"
 harness = false
 
 [features]
-default = ["typescript", "tauri", "httpz", "tokio"]
+default = ["typescript"]
 tauri = ["dep:tauri", "tokio", "tauri/wry", "tauri-specta"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
@@ -51,7 +51,7 @@ vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 specta = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-futures = { version = "0.3.28", default-features = false } # TODO: Drop for `futures_core` if possible
+futures = { version = "0.3.28", default-features = false, features = ["alloc", "async-await"] } # TODO: Drop for `futures_core` if possible
 pin-project-lite = "0.2.13"
 
 #### TODO: Can all the following deps be moved out of the core crate ###
@@ -68,6 +68,7 @@ worker = { version = "0.0.17", default-features = false, optional = true }      
 # anyhow = { version = "1", default-features = false, optional = true } # TODO: Should we bring this back with the new typed error handling?
 tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }
 streamunordered = "0.5.3"
+async-stream = "0.3.5"
 
 [dev-dependencies]
 # Tests

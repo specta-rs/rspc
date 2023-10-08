@@ -8,7 +8,7 @@ use httpz::{
 };
 
 use crate::{
-    internal::exec::{run_connection, ConnectionTask, IncomingMessage, Response, TokioRuntime},
+    internal::exec::{run_connection, IncomingMessage, Response, TokioRuntime},
     Router,
 };
 
