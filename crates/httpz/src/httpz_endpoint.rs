@@ -11,10 +11,7 @@ use std::{
 };
 
 use rspc::{
-    internal::{
-        exec::{self, ExecutorResult},
-        exec2::Connection,
-    },
+    internal::exec::{self, Connection, ExecutorResult},
     Router,
 };
 
@@ -126,11 +123,13 @@ where
     };
 
     let response =
-        match router.execute(ctx, request, None::<&mut Connection>) {
-            ExecutorResult::Future(fut) => fut.await,
-            ExecutorResult::Response(response) => response,
-            ExecutorResult::Task(task) => todo!(),
-            ExecutorResult::None => unreachable!(
+        match router.execute(ctx, request, None::<&mut Connection<TCtx>>) {
+        	Some(res) => match res {
+	            ExecutorResult::Future(fut) => fut.await,
+	            ExecutorResult::Response(response) => response,
+	            ExecutorResult::Task(task) => todo!(),
+	        },
+            None => unreachable!(
                 "Executor will only return none for a 'stopSubscription' event which is impossible here"
             ),
         }.inner;
@@ -205,7 +204,15 @@ where
 
             let mut responses = Vec::with_capacity(requests.len());
             for req in requests {
-                match router.execute(ctx.clone(), req, None::<&mut Connection>) {
+                let Some(res) =
+                    router
+                        .clone()
+                        .execute(ctx.clone(), req, None::<&mut Connection<TCtx>>)
+                else {
+                    continue;
+                };
+
+                match res {
                     ExecutorResult::Future(fut) => {
                         fut_responses.push(fut);
                     }
@@ -213,7 +220,6 @@ where
                         responses.push(resp);
                     }
                     ExecutorResult::Task(task) => todo!(),
-                    ExecutorResult::None => {}
                 }
             }
 

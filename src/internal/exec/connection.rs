@@ -15,7 +15,7 @@ use futures::{
     },
     future::{Either, OptionFuture},
     pin_mut, ready,
-    stream::{self, Fuse},
+    stream::{self, Fuse, FuturesUnordered},
     FutureExt, Sink, SinkExt, Stream, StreamExt,
 };
 use pin_project_lite::pin_project;
@@ -26,7 +26,7 @@ use super::{AsyncRuntime, ExecutorResult, IncomingMessage, Request, Requests, Re
 use crate::{
     internal::{
         exec::{self, ResponseInner},
-        exec2, PinnedOption, PinnedOptionProj,
+        PinnedOption, PinnedOptionProj,
     },
     Router,
 };
@@ -80,15 +80,25 @@ enum PollResult {
 
 // type MyTask = Either<Once<RequestTask>, ()>; // TODO: This requires `RequestTask` to be public and not sealed which I am not the biggest fan of?
 
-struct Connection<TCtx> {
+pub(crate) struct TaskShutdown {
+    stream_id: usize,
+    tx: oneshot::Sender<usize>,
+}
+
+impl TaskShutdown {
+    pub fn send(self) -> Result<(), usize> {
+        self.tx.send(self.stream_id)
+    }
+}
+
+pub struct Connection<TCtx> {
     ctx: TCtx,
     router: Arc<Router<TCtx>>,
-    conn: exec2::Connection,
 
     streams: StreamUnordered<Task>,
 
-    // TODO: Remove these cause disgusting messes
-    sub_id_to_stream: HashMap<u32, usize>,
+    subscription_shutdown_rx: FuturesUnordered<oneshot::Receiver<usize>>,
+    pub(crate) subscription_shutdowns: HashMap<u32, TaskShutdown>,
 }
 
 impl<TCtx> Connection<TCtx>
@@ -97,38 +107,35 @@ where
 {
     pub fn exec(&mut self, reqs: Vec<Request>) -> Vec<Response> {
         let mut resps = Vec::with_capacity(reqs.len());
+
         for req in reqs {
-            match self
+            let Some(res) = self
                 .router
-                .execute(self.ctx.clone(), req, Some(&mut self.conn))
-            {
+                .clone()
+                .execute(self.ctx.clone(), req, Some(self))
+            else {
+                continue;
+            };
+
+            match res {
                 ExecutorResult::Task(task) => {
-                    let fut_id = task.id;
-                    let token = self.streams.insert(task);
-                    self.sub_id_to_stream.insert(fut_id, token);
+                    let task_id = task.id;
+                    let stream_id = self.streams.insert(task);
+
+                    let (tx, rx) = oneshot::channel();
+
+                    self.subscription_shutdowns
+                        .insert(task_id, TaskShutdown { stream_id, tx });
+                    self.subscription_shutdown_rx.push(rx);
                 }
                 ExecutorResult::Future(fut) => {
-                    let fut_id = fut.id;
-                    let token = self.streams.insert(fut.into());
-                    self.sub_id_to_stream.insert(fut_id, token);
+                    self.streams.insert(fut.into());
                 }
                 ExecutorResult::Response(resp) => {
                     resps.push(resp);
                 }
-                ExecutorResult::None => {}
             }
         }
-
-        // TODO: Fix all of this!
-        // let manager = manager.expect("rspc unreachable");
-        // if let Some(to_abort) = manager.to_abort {
-        //     for sub_id in to_abort {
-        //         if let Some(token) = self.sub_id_to_stream.remove(&sub_id) {
-        //             Pin::new(&mut self.streams).remove(token);
-        //             manager.map.take(&sub_id);
-        //         }
-        //     }
-        // }
 
         // TODO: Fix all of this!
         // if let Some(queued) = manager.queued {
@@ -208,9 +215,9 @@ pub async fn run_connection<
     let mut conn = Connection {
         ctx,
         router,
-        conn: exec2::Connection::new(),
-        streams: StreamUnordered::new(),
-        sub_id_to_stream: HashMap::new(),
+        streams: Default::default(),
+        subscription_shutdown_rx: Default::default(),
+        subscription_shutdowns: Default::default(),
     };
 
     let (batch_tx, batch_stream) = batch_unbounded::<R, _>(mpsc::unbounded());
@@ -228,8 +235,8 @@ pub async fn run_connection<
         futures::select_biased! {
             recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(StreamExt::next)) => {
                 if let Some(Some(())) = recv {
-                    for (_, token) in conn.sub_id_to_stream.drain() {
-                        Pin::new(&mut conn.streams).remove(token);
+                    for (_, shutdown) in conn.subscription_shutdowns.drain() {
+                        shutdown.tx.send(shutdown.stream_id).ok();
                     }
                 }
             }
@@ -292,12 +299,18 @@ pub async fn run_connection<
                     StreamYield::Finished(f) => {
                         if let Some(stream) = f.take(Pin::new(&mut conn.streams)) {
                             let sub_id = stream.id;
-                            conn.sub_id_to_stream.remove(&sub_id);
-                            // conn.map.take(&sub_id);
+                            conn.subscription_shutdowns.remove(&sub_id);
                         }
                     }
                 }
             }
+            shutdown = conn.subscription_shutdown_rx.select_next_some() => {
+                if let Ok(stream_id) = shutdown {
+                    Pin::new(&mut conn.streams).remove(stream_id);
+                }
+            }
         }
     }
+
+    println!("Connection done!");
 }

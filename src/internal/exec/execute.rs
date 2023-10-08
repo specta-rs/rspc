@@ -11,7 +11,7 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use futures::{future::poll_fn, stream::FuturesUnordered, Stream, StreamExt};
+use futures::{channel::oneshot, future::poll_fn, stream::FuturesUnordered, Stream, StreamExt};
 
 use serde_json::Value;
 
@@ -22,7 +22,6 @@ use crate::{
             request_future::RequestFuture,
             Request, Response, ResponseInner, Task,
         },
-        exec2::Connection,
         middleware::{ProcedureKind, RequestContext},
         procedure::ProcedureTodo,
         Body, FutureValueOrStream,
@@ -30,7 +29,7 @@ use crate::{
     ExecError, ProcedureMap, Router,
 };
 
-use super::{task, RequestData};
+use super::{task, Connection, RequestData};
 
 /// TODO
 ///
@@ -43,10 +42,6 @@ pub enum ExecutorResult {
     Future(RequestFuture),
     /// A task that should be queued onto an async runtime.
     Task(Task),
-    /// A `None` result means the executor has no response to send back to the client.
-    /// This usually means the request was a subscription and a task was spawned to handle it.
-    /// It should **not** be treated as an error.
-    None,
 }
 
 // TODO: Move this into `build_router.rs` and turn it into a module with all the other `exec::*` types
@@ -57,11 +52,11 @@ impl<TCtx: Send + 'static> Router<TCtx> {
     /// This usually means the request was a subscription and a task was spawned to handle it.
     /// It should not be treated as an error.
     pub fn execute(
-        self: &Arc<Self>,
+        self: Arc<Self>,
         ctx: TCtx,
         req: Request,
-        conn: Option<impl Deref<Target = Connection> + DerefMut>,
-    ) -> ExecutorResult {
+        conn: Option<&mut Connection<TCtx>>,
+    ) -> Option<ExecutorResult> {
         // TODO
         // TODO: Configurable logging hook
         // #[cfg(feature = "tracing")]
@@ -72,20 +67,18 @@ impl<TCtx: Send + 'static> Router<TCtx> {
         //     input
         // );
 
-        match req {
-            Request::Query(data) => map_fut(data.id, arc_ref::get_query(self.clone(), ctx, data)),
-            Request::Mutation(data) => {
-                map_fut(data.id, arc_ref::get_mutation(self.clone(), ctx, data))
-            }
+        Some(match req {
+            Request::Query(data) => map_fut(data.id, arc_ref::get_query(self, ctx, data)),
+            Request::Mutation(data) => map_fut(data.id, arc_ref::get_mutation(self, ctx, data)),
             Request::Subscription(data) => {
                 let id = data.id;
 
                 match conn {
                     None => Err(ExecError::ErrSubscriptionsNotSupported),
-                    Some(conn) if conn.subscriptions.contains_key(&data.id) => {
+                    Some(conn) if conn.subscription_shutdowns.contains_key(&data.id) => {
                         Err(ExecError::ErrSubscriptionDuplicateId)
                     }
-                    Some(_) => match get_subscription(self.clone(), ctx, data) {
+                    Some(_) => match get_subscription(self, ctx, data) {
                         None => Err(ExecError::OperationNotFound),
                         Some(stream) => Ok(ExecutorResult::Task(Task {
                             id,
@@ -101,14 +94,23 @@ impl<TCtx: Send + 'static> Router<TCtx> {
                     })
                 })
             }
-            Request::SubscriptionStop { id } => {
-                if let Some(mut conn) = conn {
-                    conn.subscriptions.remove(&id);
-                }
-
-                ExecutorResult::None
+            Request::SubscriptionStop { id } => match conn {
+                None => Err(ExecError::ErrSubscriptionsNotSupported),
+                Some(conn) => match conn.subscription_shutdowns.remove(&id) {
+                    Some(shutdown) => match shutdown.send() {
+                        Ok(()) => return None,
+                        Err(_) => Err(ExecError::ErrSubscriptionAlreadyClosed),
+                    },
+                    None => Err(ExecError::ErrSubscriptionNotFound),
+                },
             }
-        }
+            .unwrap_or_else(|e| {
+                ExecutorResult::Response(Response {
+                    id,
+                    inner: ResponseInner::Error(e.into()),
+                })
+            }),
+        })
     }
 }
 
