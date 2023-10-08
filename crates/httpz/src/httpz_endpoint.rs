@@ -123,7 +123,7 @@ where
     };
 
     let response =
-        match router.execute(ctx, request, None::<&mut Connection<TCtx>>) {
+        match router.execute(ctx, request, None) {
         	Some(res) => match res {
 	            ExecutorResult::Future(fut) => fut.await,
 	            ExecutorResult::Response(response) => response,
@@ -204,11 +204,7 @@ where
 
             let mut responses = Vec::with_capacity(requests.len());
             for req in requests {
-                let Some(res) =
-                    router
-                        .clone()
-                        .execute(ctx.clone(), req, None::<&mut Connection<TCtx>>)
-                else {
+                let Some(res) = router.clone().execute(ctx.clone(), req, None) else {
                     continue;
                 };
 
