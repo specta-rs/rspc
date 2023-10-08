@@ -7,7 +7,7 @@ use crate::{
     Router,
 };
 
-use super::arc_ref::ArcRef;
+use super::{arc_ref::ArcRef, request_future::RequestFuture};
 
 // TODO: Should this be called `Task` or `StreamWrapper`? Will depend on it's final form.
 
@@ -83,6 +83,16 @@ impl Stream for Task {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (min, max) = self.stream.size_hint();
         (min, max.map(|v| v + 1))
+    }
+}
+
+impl From<RequestFuture> for Task {
+    fn from(value: RequestFuture) -> Self {
+        Self {
+            id: value.id,
+            stream: value.stream,
+            status: Status::ShouldBePolled { done: false },
+        }
     }
 }
 

@@ -103,14 +103,18 @@ where
             {
                 ExecutorResult::Future(fut) => {
                     let fut_id = fut.id;
-                    // let token = self.streams.insert(fut.into());
-                    // self.sub_id_to_stream.insert(fut_id, token);
+                    let token = self.streams.insert(fut.into());
+                    self.sub_id_to_stream.insert(fut_id, token);
                     todo!();
                 }
                 ExecutorResult::Response(resp) => {
                     resps.push(resp);
                 }
-                ExecutorResult::Task(task) => todo!(),
+                ExecutorResult::Task(task) => {
+                    let fut_id = task.id;
+                    let token = self.streams.insert(task);
+                    self.sub_id_to_stream.insert(fut_id, token);
+                }
                 ExecutorResult::None => {}
             }
         }
@@ -168,9 +172,7 @@ pub async fn run_connection<
         sub_id_to_stream: HashMap::new(),
     };
 
-    let (mut batch_tx, mut batch_rx) = futures::channel::mpsc::unbounded();
-
-    let (mut done_tx, mut done_rx) = futures::channel::mpsc::channel(1);
+    let (batch_tx, mut batch_rx) = futures::channel::mpsc::unbounded();
 
     let batcher = async_stream::stream! {
         let mut responses = Vec::new();
@@ -204,7 +206,15 @@ pub async fn run_connection<
     };
     pin_mut!(batcher);
 
+    let mut done = false;
+
+    let mut socket = socket.fuse();
+
     loop {
+        if done {
+            break;
+        };
+
         futures::select_biased! {
             recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(|rx| rx.next())) => {
                 if let Some(Some(())) = recv {
@@ -222,7 +232,7 @@ pub async fn run_connection<
                 }
             }
             // poll_recv
-            msg = socket.next().fuse() => {
+            msg = socket.next() => {
                 match msg {
                     Some(Ok(msg)) => {
                         let res = match msg {
@@ -236,11 +246,11 @@ pub async fn run_connection<
                             false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
                         }) {
                             Ok(reqs) => {
-                                stream::iter(conn.exec(reqs))
-                                    .map(Ok)
-                                    .forward(&mut batch_tx)
-                                    .await
-                                    .ok();
+                                conn.exec(reqs)
+                                    .into_iter()
+                                     .for_each(|resp| {
+                                         batch_tx.unbounded_send(resp).expect("Failed to send on unbounded send");
+                                     });
                             }
                             Err(_err) => {
                                 #[cfg(feature = "tracing")]
@@ -256,8 +266,8 @@ pub async fn run_connection<
 
                         // TODO: Send report of error to frontend but who do we correlated them????
                     },
-                    None =>{
-                        done_tx.send(()).await.ok();
+                    None => {
+                        done = true;
                     }
                 }
             }
@@ -278,7 +288,6 @@ pub async fn run_connection<
                     }
                 }
             }
-            _ = done_rx.next() => return
         }
     }
 }
