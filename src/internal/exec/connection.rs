@@ -204,7 +204,7 @@ fn batch_unbounded<R: AsyncRuntime, T>(
 pub async fn run_connection<
     R: AsyncRuntime,
     TCtx: Clone + Send + 'static,
-    S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
+    S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send,
     E: std::fmt::Debug + std::error::Error,
 >(
     ctx: TCtx,
@@ -225,7 +225,8 @@ pub async fn run_connection<
 
     let mut done = false;
 
-    let mut socket = socket.fuse();
+    let socket = socket.fuse();
+    pin_mut!(socket);
 
     loop {
         if done {

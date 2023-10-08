@@ -4,25 +4,29 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     convert::Infallible,
     hash::{Hash, Hasher},
-    pin::Pin,
     sync::{Arc, Mutex},
-    task::{Context, Poll},
 };
 
-use futures::{channel::mpsc, StreamExt};
+use futures::{channel::mpsc, sink, StreamExt};
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Manager, Window, WindowEvent,
+    Window, WindowEvent,
 };
 use tauri_specta::Event;
 
 use rspc::{
-    internal::exec::{run_connection, AsyncRuntime, IncomingMessage, Response, TokioRuntime},
+    internal::exec::{
+        run_connection, AsyncRuntime, IncomingMessage, Response, SinkAndStream, TokioRuntime,
+    },
     Router,
 };
 
 #[derive(Clone, Debug, serde::Deserialize, specta::Type, tauri_specta::Event)]
 struct Msg(serde_json::Value);
+
+#[derive(Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
+#[specta(inline)]
+struct TransportResp(Vec<Response>);
 
 struct WindowManager<TCtxFn, TCtx>
 where
@@ -60,26 +64,35 @@ where
 
             shutdown_streams_tx.unbounded_send(()).ok();
         } else {
-            let (clear_subscriptions_tx, mut clear_subscriptions_rx) = mpsc::unbounded();
+            let (clear_subscriptions_tx, clear_subscriptions_rx) = mpsc::unbounded();
             windows.insert(window_hash, clear_subscriptions_tx);
             drop(windows);
 
             let (tx, rx) = mpsc::unbounded();
 
-            tauri::async_runtime::spawn(run_connection::<R, _, _, _>(
-                (self.ctx_fn)(&window),
-                self.router.clone(),
-                Socket {
-                    recv: rx,
-                    window: window.clone(),
-                },
-                Some(clear_subscriptions_rx),
-            ));
-
             Msg::listen(&window, move |event| {
                 tx.unbounded_send(IncomingMessage::Msg(Ok(event.payload.0)))
                     .ok();
             });
+
+            let sink = sink::unfold(window.clone(), move |window, item| async move {
+                TransportResp(item)
+                    .emit(&window)
+                    .map_err(|_err| {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("failed to emit JSON-RPC response: {}", _err);
+                    })
+                    .ok();
+
+                Ok::<_, Infallible>(window)
+            });
+
+            tauri::async_runtime::spawn(run_connection::<R, _, _, _>(
+                (self.ctx_fn)(&window),
+                self.router.clone(),
+                SinkAndStream::new(sink, rx.map(Ok)),
+                Some(clear_subscriptions_rx),
+            ));
         }
     }
 
@@ -148,52 +161,4 @@ where
             })
         })
         .build()
-}
-
-struct Socket {
-    // TODO: Bounded channel?
-    recv: mpsc::UnboundedReceiver<IncomingMessage>,
-    window: Window,
-}
-
-#[derive(Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
-#[specta(inline)]
-struct TransportResp(Vec<Response>);
-
-// TODO: Can we use utils in `futures` to remove this impl?
-impl futures::Sink<Vec<Response>> for Socket {
-    type Error = Infallible;
-
-    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn start_send(self: std::pin::Pin<&mut Self>, item: Vec<Response>) -> Result<(), Self::Error> {
-        TransportResp(item)
-            .emit(&self.window)
-            .map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("failed to emit JSON-RPC response: {}", _err);
-            })
-            .ok();
-
-        Ok(())
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-}
-
-// TODO: Can we use utils in `futures` to remove this impl?
-impl futures::Stream for Socket {
-    type Item = Result<IncomingMessage, Infallible>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.recv.poll_next_unpin(cx).map(|v| v.map(Ok))
-    }
 }

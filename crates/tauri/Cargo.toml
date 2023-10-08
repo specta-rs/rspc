@@ -8,8 +8,8 @@ futures = "0.3.28"
 rspc = { version = "1.0.0-rc.5", path = "../../", default-features = false, features = ["typescript", "tokio"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1.0.107"
-tauri = { version = "1.4.1", default-features = false, optional = true, features = ["wry"] } # TODO: Work without wry
-tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "1073c8da4e4fccbeebfb389b2f093ac711cd35df", default-features = false, optional = true, features = [
+tauri = { version = "1.4.1", default-features = false, features = ["wry"] } # TODO: Work without wry
+tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "1073c8da4e4fccbeebfb389b2f093ac711cd35df", default-features = false, features = [
     "typescript",
 ] }
 specta = { workspace = true }
