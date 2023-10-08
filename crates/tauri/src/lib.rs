@@ -75,6 +75,8 @@ where
                     .ok();
             });
 
+            // passing in 'window' allows us to not clone it, with Unfold reusing the window from the previous iteration.
+            // less clones and happy lifetimes
             let sink = sink::unfold(window.clone(), move |window, item| async move {
                 TransportResp(item)
                     .emit(&window)
@@ -94,6 +96,8 @@ where
                 Some(clear_subscriptions_rx),
             ));
         }
+
+        window.on_window_event(self.clone().on_window_event_handler(window.clone()))
     }
 
     #[allow(clippy::unwrap_used)] // TODO: Stop using unwrap
@@ -104,6 +108,17 @@ where
 
         if let Some(shutdown_streams_tx) = self.windows.lock().unwrap().get(&window_hash) {
             shutdown_streams_tx.unbounded_send(()).ok();
+        }
+    }
+
+    pub fn on_window_event_handler(
+        self: Arc<Self>,
+        window: Window,
+    ) -> impl Fn(&WindowEvent) + Send + 'static {
+        move |event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                self.close_requested(&window);
+            }
         }
     }
 }
@@ -149,16 +164,6 @@ where
         })
         .on_page_load(move |window, _page| {
             manager.clone().on_page_load::<TokioRuntime>(window.clone());
-
-            window.on_window_event({
-                let window = window.clone();
-                let manager = manager.clone();
-                move |event| {
-                    if let WindowEvent::CloseRequested { .. } = event {
-                        manager.close_requested(&window);
-                    }
-                }
-            })
         })
         .build()
 }

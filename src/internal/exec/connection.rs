@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     future::Future,
     marker::PhantomData,
-    pin::Pin,
+    pin::{pin, Pin},
     sync::Arc,
     task::{Context, Poll},
     time::{Duration, Instant},
@@ -15,7 +15,7 @@ use futures::{
     },
     future::{Either, OptionFuture},
     pin_mut, ready,
-    stream::{self, Fuse, FuturesUnordered},
+    stream::{self, Fuse, FusedStream, FuturesUnordered},
     FutureExt, Sink, SinkExt, Stream, StreamExt,
 };
 use pin_project_lite::pin_project;
@@ -35,50 +35,6 @@ use crate::{
 // This batch is mostly designed to reduce the impact of duplicate subscriptions a bit
 // as sending them together should help us utilise transport layer compression.
 const BATCH_TIMEOUT: Duration = Duration::from_millis(5);
-
-enum PollResult {
-    /// The poller has done some progressed work.
-    /// WARNING: this does not guarantee any wakers have been registered so to uphold the `Future` invariants you can not return.
-    Progressed,
-
-    /// The poller has queued a message to be sent.
-    /// WARNING: You must call `Self::poll_send` to prior to returning from the `Future::poll` method.
-    QueueSend,
-
-    /// The future is complete
-    Complete,
-}
-
-// struct ConnectionSubscriptionManager<'a, TCtx> {
-//     pub map: &'a mut SubscriptionSet,
-//     pub to_abort: Option<Vec<u32>>,
-//     pub queued: Option<Vec<RspcTask<TCtx>>>,
-// }
-
-// impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
-//     for ConnectionSubscriptionManager<'a, TCtx>
-// {
-//     type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
-
-//     fn queue(&mut self, stream: RspcTask<TCtx>) {
-//         match &mut self.queued {
-//             Some(queued) => {
-//                 queued.push(stream);
-//             }
-//             None => self.queued = Some(vec![stream]),
-//         }
-//     }
-
-//     fn subscriptions(&mut self) -> Self::Set<'_> {
-//         self.map
-//     }
-
-//     fn abort_subscription(&mut self, id: u32) {
-//         self.to_abort.get_or_insert_with(Vec::new).push(id);
-//     }
-// }
-
-// type MyTask = Either<Once<RequestTask>, ()>; // TODO: This requires `RequestTask` to be public and not sealed which I am not the biggest fan of?
 
 pub(crate) struct TaskShutdown {
     stream_id: usize,
@@ -137,58 +93,36 @@ where
             }
         }
 
-        // TODO: Fix all of this!
-        // if let Some(queued) = manager.queued {
-        //     for stream in queued {
-        //         let sub_id = stream.id();
-        //         let token = self.streams.insert(stream);
-        //         self.sub_id_to_stream.insert(sub_id, token);
-        //     }
-        // }
-        // todo!();
-
         resps
     }
 }
 
-macro_rules! unwrap_return {
-    ($e:expr) => {
-        match $e {
-            Some(v) => v,
-            None => return,
-        }
-    };
-}
-
 fn batch_unbounded<R: AsyncRuntime, T>(
-    (tx, mut rx): (UnboundedSender<T>, UnboundedReceiver<T>),
-) -> (UnboundedSender<T>, stream::Fuse<impl Stream<Item = Vec<T>>>) {
+    (tx, rx): (UnboundedSender<T>, UnboundedReceiver<T>),
+) -> (UnboundedSender<T>, impl Stream<Item = Vec<T>> + FusedStream) {
     (
         tx,
-        async_stream::stream! {
-            loop {
-                let mut responses = vec![unwrap_return!(rx.next().await)];
+        stream::unfold(rx, |mut rx| async move {
+            let mut responses = vec![rx.next().await?];
 
-                'batch: loop {
-                    let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
+            'batch: loop {
+                let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
 
-                    'timer:  loop {
-                        pin_mut!(timer);
+                'timer: loop {
+                    pin_mut!(timer);
 
-                        futures::select_biased! {
-                            response = rx.next() => {
-                                responses.push(unwrap_return!(response));
-                                break 'timer;
-                            }
-                            _ = timer => break 'batch,
+                    futures::select_biased! {
+                        response = rx.next() => {
+                            responses.push(response?);
+                            break 'timer;
                         }
-                    };
+                        _ = timer => break 'batch,
+                    }
                 }
-
-                yield responses;
             }
-        }
-        .fuse(),
+
+            Some((responses, rx))
+        }),
     )
 }
 
@@ -223,16 +157,9 @@ pub async fn run_connection<
     let (batch_tx, batch_stream) = batch_unbounded::<R, _>(mpsc::unbounded());
     pin_mut!(batch_stream);
 
-    let mut done = false;
-
-    let socket = socket.fuse();
-    pin_mut!(socket);
+    let mut socket = pin!(socket.fuse());
 
     loop {
-        if done {
-            break;
-        };
-
         futures::select_biased! {
             recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(StreamExt::next)) => {
                 if let Some(Some(())) = recv {
@@ -285,7 +212,7 @@ pub async fn run_connection<
                         // TODO: Send report of error to frontend but who do we correlated them????
                     },
                     None => {
-                        done = true;
+                        break
                     }
                 }
             }
