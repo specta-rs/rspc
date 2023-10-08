@@ -1,5 +1,5 @@
 // TODO: Probs unseal a heap of this
-use std::{borrow::Cow, collections::BTreeMap, convert::Infallible};
+use std::{borrow::Cow, convert::Infallible};
 
 use specta::{
     ts::TsExportError, DataType, DataTypeFrom, DefOpts, NamedDataType, StructType, TupleType, Type,

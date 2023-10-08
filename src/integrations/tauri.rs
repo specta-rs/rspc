@@ -12,7 +12,7 @@ use std::{
 use futures::channel::mpsc;
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Window, WindowEvent,
+    Manager, Window, WindowEvent,
 };
 use tauri_specta::Event;
 

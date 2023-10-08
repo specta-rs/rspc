@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::atomic::AtomicBool};
+use std::collections::HashMap;
 
 /// A connection holds the shared state for a specific connection.
 ///

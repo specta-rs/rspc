@@ -1,7 +1,7 @@
 use std::{borrow::Cow, panic::Location};
 
 use serde::de::DeserializeOwned;
-use specta::{Type, TypeMap};
+use specta::Type;
 
 use crate::{
     internal::{
@@ -9,7 +9,7 @@ use crate::{
         procedure::{is_valid_name, Procedure},
         resolver::{HasResolver, RequestLayer},
     },
-    BuildError, BuildResult, ProcedureMap, Router,
+    BuildError, BuildResult, Router,
 };
 
 type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;

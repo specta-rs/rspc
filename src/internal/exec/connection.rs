@@ -9,9 +9,14 @@ use std::{
 };
 
 use futures::{
-    channel::{mpsc, oneshot},
+    channel::{
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
     future::{Either, OptionFuture},
-    pin_mut, ready, stream, FutureExt, Sink, SinkExt, Stream, StreamExt,
+    pin_mut, ready,
+    stream::{self, Fuse},
+    FutureExt, Sink, SinkExt, Stream, StreamExt,
 };
 use pin_project_lite::pin_project;
 use serde_json::Value;
@@ -83,7 +88,7 @@ pin_project! {
         conn: exec2::Connection,
 
         #[pin]
-        streams: StreamUnordered<Task>,
+        streams: futures::stream::Fuse<StreamUnordered<Task>>,
 
         // TODO: Remove these cause disgusting messes
         sub_id_to_stream: HashMap<u32, usize>,
@@ -101,19 +106,18 @@ where
                 .router
                 .execute(self.ctx.clone(), req, Some(&mut self.conn))
             {
+                ExecutorResult::Task(task) => {
+                    let fut_id = task.id;
+                    let token = self.streams.get_mut().insert(task);
+                    self.sub_id_to_stream.insert(fut_id, token);
+                }
                 ExecutorResult::Future(fut) => {
                     let fut_id = fut.id;
-                    let token = self.streams.insert(fut.into());
+                    let token = self.streams.get_mut().insert(fut.into());
                     self.sub_id_to_stream.insert(fut_id, token);
-                    todo!();
                 }
                 ExecutorResult::Response(resp) => {
                     resps.push(resp);
-                }
-                ExecutorResult::Task(task) => {
-                    let fut_id = task.id;
-                    let token = self.streams.insert(task);
-                    self.sub_id_to_stream.insert(fut_id, token);
                 }
                 ExecutorResult::None => {}
             }
@@ -144,6 +148,47 @@ where
     }
 }
 
+fn batch_unbounded<R: AsyncRuntime, T>(
+    (tx, mut rx): (UnboundedSender<T>, UnboundedReceiver<T>),
+) -> (UnboundedSender<T>, stream::Fuse<impl Stream<Item = Vec<T>>>) {
+    (
+        tx,
+        async_stream::stream! {
+            loop {
+                let mut responses = Vec::new();
+
+                loop {
+                    let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
+
+                    let exit = loop {
+                        pin_mut!(timer);
+
+                        futures::select_biased! {
+                            response = rx.next() => {
+                                match response {
+                                    Some(response) =>  {
+                                        responses.push(response);
+                                        break false;
+                                    },
+                                    None => break true,
+                                }
+                            }
+                            _ = timer => break true,
+                        }
+                    };
+
+                    if exit {
+                        break;
+                    }
+                }
+
+                yield responses;
+            }
+        }
+        .fuse(),
+    )
+}
+
 /// An abstraction around a single "connection" which can execute rspc subscriptions.
 ///
 /// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
@@ -161,50 +206,19 @@ pub async fn run_connection<
 >(
     ctx: TCtx,
     router: Arc<Router<TCtx>>,
-    mut socket: S,
+    socket: S,
     mut clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
 ) {
     let mut conn = Connection {
         ctx,
         router,
         conn: exec2::Connection::new(),
-        streams: StreamUnordered::new(),
+        streams: StreamUnordered::new().fuse(),
         sub_id_to_stream: HashMap::new(),
     };
 
-    let (batch_tx, mut batch_rx) = futures::channel::mpsc::unbounded();
-
-    let batcher = async_stream::stream! {
-        let mut responses = Vec::new();
-
-        loop {
-            let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
-
-            let exit = loop {
-                pin_mut!(timer);
-
-                futures::select_biased! {
-                    response = batch_rx.next() => {
-                        match response {
-                            Some(response) =>  {
-                                responses.push(response);
-                                break false;
-                            },
-                            None => break true
-                        }
-                    }
-                    _ = timer => break true,
-                }
-            };
-
-            if exit {
-                break;
-            }
-        }
-
-        yield responses;
-    };
-    pin_mut!(batcher);
+    let (batch_tx, batch_stream) = batch_unbounded::<R, _>(mpsc::unbounded());
+    pin_mut!(batch_stream);
 
     let mut done = false;
 
@@ -219,11 +233,11 @@ pub async fn run_connection<
             recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(|rx| rx.next())) => {
                 if let Some(Some(())) = recv {
                     for (_, token) in conn.sub_id_to_stream.drain() {
-                        Pin::new(&mut conn.streams).remove(token);
+                        Pin::new(conn.streams.get_mut()).remove(token);
                     }
                 }
             }
-            responses = batcher.next() => {
+            responses = batch_stream.next() => {
                 if let Some(responses) = responses {
                     if let Err(_err) = socket.send(responses).await {
                         #[cfg(feature = "tracing")]
@@ -272,14 +286,14 @@ pub async fn run_connection<
                 }
             }
             // poll_streams
-            next = conn.streams.next().fuse() => {
+            next = conn.streams.next() => {
                 if let Some((yld, _)) = next {
                     match yld {
                         StreamYield::Item(resp) => {
                             batch_tx.unbounded_send(resp).ok();
                         }
                         StreamYield::Finished(f) => {
-                            if let Some(stream) = f.take(Pin::new(&mut conn.streams)) {
+                            if let Some(stream) = f.take(Pin::new(conn.streams.get_mut())) {
                                 let sub_id = stream.id;
                                 conn.sub_id_to_stream.remove(&sub_id);
                                 // conn.map.take(&sub_id);
