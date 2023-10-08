@@ -133,7 +133,7 @@ async fn main() {
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.
 
     tauri::Builder::default()
-        .plugin(rspc::integrations::tauri::plugin(router, |_| Ctx {
+        .plugin(rspc_tauri::plugin(router, |_| Ctx {
             x_demo_header: None,
         }))
         .run(tauri::generate_context!())

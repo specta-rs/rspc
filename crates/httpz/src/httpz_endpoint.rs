@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
+use rspc::{
     internal::{
         exec::{self, ExecutorResult},
         exec2::Connection,
@@ -24,46 +24,40 @@ use super::{handle_websocket, CookieJar, TCtxFunc};
 // TODO: Remove all panics lol
 // TODO: Cleanup the code and use more chaining
 
-impl<TCtx> Router<TCtx>
+pub fn endpoint<TCtx, TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
+    router: Arc<Router<TCtx>>,
+    ctx_fn: TCtxFn,
+) -> Endpoint<impl HttpEndpoint>
 where
     TCtx: Clone + Send + Sync + 'static,
 {
-    pub fn endpoint<TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
-        self: Arc<Self>,
-        ctx_fn: TCtxFn,
-    ) -> Endpoint<impl HttpEndpoint> {
-        // TODO: This should be able to call `ctn_fn` prior to the async boundary to avoid cloning it!
-        // TODO: Basically httpz would need to be able to return `Response | Future<Response>` basically how rspc executor works.
+    // TODO: This should be able to call `ctn_fn` prior to the async boundary to avoid cloning it!
+    // TODO: Basically httpz would need to be able to return `Response | Future<Response>` basically how rspc executor works.
 
-        GenericEndpoint::new(
-            "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
-            [Method::GET, Method::POST],
-            move |req: httpz::Request| {
-                // TODO: It would be nice if these clones weren't per request.
-                // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
-                let router = self.clone();
-                let ctx_fn = ctx_fn.clone();
+    GenericEndpoint::new(
+        "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
+        [Method::GET, Method::POST],
+        move |req: httpz::Request| {
+            // TODO: It would be nice if these clones weren't per request.
+            // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
+            let router = router.clone();
+            let ctx_fn = ctx_fn.clone();
 
-                async move {
-                    match (req.method(), &req.uri().path()[1..]) {
-                        (&Method::GET, "ws") => {
-                            handle_websocket(router, ctx_fn, req).into_response()
-                        }
-                        (&Method::GET, _) => handle_http(router, ctx_fn, req).await.into_response(),
-                        (&Method::POST, "_batch") => {
-                            handle_http_batch(router, ctx_fn, req).await.into_response()
-                        }
-                        (&Method::POST, _) => {
-                            handle_http(router, ctx_fn, req).await.into_response()
-                        }
-                        _ => Ok(Response::builder()
-                            .status(StatusCode::METHOD_NOT_ALLOWED)
-                            .body(vec![])?),
+            async move {
+                match (req.method(), &req.uri().path()[1..]) {
+                    (&Method::GET, "ws") => handle_websocket(router, ctx_fn, req).into_response(),
+                    (&Method::GET, _) => handle_http(router, ctx_fn, req).await.into_response(),
+                    (&Method::POST, "_batch") => {
+                        handle_http_batch(router, ctx_fn, req).await.into_response()
                     }
+                    (&Method::POST, _) => handle_http(router, ctx_fn, req).await.into_response(),
+                    _ => Ok(Response::builder()
+                        .status(StatusCode::METHOD_NOT_ALLOWED)
+                        .body(vec![])?),
                 }
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 #[allow(clippy::unwrap_used)] // TODO: Remove all panics lol

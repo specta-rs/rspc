@@ -5,8 +5,8 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../", features = ["axum", "tracing", "unstable"] }
-rspc-axum = { path = "../../crates/axum" }
+rspc = { path = "../../", features = ["tracing", "unstable"] }
+rspc-httpz = { path = "../../crates/httpz", features = ["axum"] }
 tokio = { version = "1.32.0", features = ["full"] }
 async-stream = "0.3.5"
 axum = { version = "0.6.20", features = ["ws", "http2"] }

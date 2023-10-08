@@ -1,5 +1,5 @@
 use async_stream::stream;
-use rspc::{integrations::httpz::Request, ExportConfig, Rspc};
+use rspc::{ExportConfig, Rspc};
 use std::{path::PathBuf, time::Duration};
 use tokio::time::sleep;
 
@@ -66,17 +66,16 @@ async fn main() {
         ))
         .unwrap();
 
-    router
-        .endpoint(|req: Request| {
-            println!("Client requested operation '{}'", req.uri().path());
-            Ctx {
-                x_demo_header: req
-                    .headers()
-                    .get("X-Demo-Header")
-                    .map(|v| v.to_str().unwrap().to_string()),
-            }
-        })
-        .vercel()
-        .await
-        .unwrap();
+    rspc_httpz::endpoint(router, |req: rspc_httpz::Request| {
+        println!("Client requested operation '{}'", req.uri().path());
+        Ctx {
+            x_demo_header: req
+                .headers()
+                .get("X-Demo-Header")
+                .map(|v| v.to_str().unwrap().to_string()),
+        }
+    })
+    .vercel()
+    .await
+    .unwrap();
 }

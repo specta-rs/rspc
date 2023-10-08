@@ -129,11 +129,10 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            router
-                .endpoint(|| UnauthenticatedContext {
-                    session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.
-                })
-                .axum(),
+            rspc_httpz::endpoint(router, || UnauthenticatedContext {
+                session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.
+            })
+            .axum(),
         )
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(

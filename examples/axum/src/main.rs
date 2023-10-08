@@ -10,7 +10,7 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::Stream;
-use rspc::{integrations::httpz::Request, ExportConfig, Rspc};
+use rspc::{ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
 use tokio::{sync::broadcast, time::sleep};
@@ -200,18 +200,16 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            router
-                .clone()
-                .endpoint(|req: Request| {
-                    println!("Client requested operation '{}'", req.uri().path());
-                    Ctx {
-                        x_demo_header: req
-                            .headers()
-                            .get("X-Demo-Header")
-                            .map(|v| v.to_str().unwrap().to_string()),
-                    }
-                })
-                .axum(),
+            rspc_httpz::endpoint(router, |req: rspc_httpz::Request| {
+                println!("Client requested operation '{}'", req.uri().path());
+                Ctx {
+                    x_demo_header: req
+                        .headers()
+                        .get("X-Demo-Header")
+                        .map(|v| v.to_str().unwrap().to_string()),
+                }
+            })
+            .axum(),
         )
         .layer(cors);
 

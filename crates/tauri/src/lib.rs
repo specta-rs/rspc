@@ -9,14 +9,14 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::channel::mpsc;
+use futures::{channel::mpsc, StreamExt};
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Window, WindowEvent,
 };
 use tauri_specta::Event;
 
-use crate::{
+use rspc::{
     internal::exec::{run_connection, AsyncRuntime, IncomingMessage, Response, TokioRuntime},
     Router,
 };
@@ -90,7 +90,7 @@ where
         let window_hash = hasher.finish();
 
         if let Some(shutdown_streams_tx) = self.windows.lock().unwrap().get(&window_hash) {
-            shutdown_streams_tx.send(()).ok();
+            shutdown_streams_tx.unbounded_send(()).ok();
         }
     }
 }
@@ -194,6 +194,6 @@ impl futures::Stream for Socket {
     type Item = Result<IncomingMessage, Infallible>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.recv.poll_recv(cx).map(|v| v.map(Ok))
+        self.recv.poll_next_unpin(cx).map(|v| v.map(Ok))
     }
 }

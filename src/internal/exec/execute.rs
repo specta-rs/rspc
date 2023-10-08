@@ -32,14 +32,10 @@ use crate::{
 
 use super::{task, RequestData};
 
-// TODO: The big problem with removing `TCtx` everywhere is that it is required in `Box<dyn DynLayer<TCtx>` which is the thing we must hold to ensure the `unsafe` parts are safe.
-// TODO: Just bumping the reference count will ensure it's not unsafely dropped but will also likely result in a memory leak cause without knowing the type one of the request-types can't take care of dropping it's data if it needs to be dropped.
-
 /// TODO
 ///
 // This means a thread is only spawned by us for subscriptions and by the caller for requests.
 // If `execute` was async it would *usually* be spawned by the caller but if it were a subscription it would then be spawned again by us.
-// TODO: plz make this not-generic it sucks
 pub enum ExecutorResult {
     /// A static response
     Response(Response),
