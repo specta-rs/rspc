@@ -14,10 +14,12 @@ use tauri::{
     Window, WindowEvent,
 };
 use tauri_specta::Event;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use crate::{
-    internal::exec::{AsyncRuntime, ConnectionTask, IncomingMessage, Response, TokioRuntime},
+    internal::exec::{
+        run_connection, AsyncRuntime, ConnectionTask, IncomingMessage, Response, TokioRuntime,
+    },
     Router,
 };
 
@@ -66,14 +68,26 @@ where
 
             let (tx, rx) = mpsc::unbounded_channel();
 
-            tauri::async_runtime::spawn(ConnectionTask::<R, _, _, _>::new(
+            // tauri::async_runtime::spawn(ConnectionTask::<R, _, _, _>::new(
+            //     (self.ctx_fn)(&window),
+            //     self.router.clone(),
+            //     Socket {
+            //         recv: rx,
+            //         window: window.clone(),
+            //     },
+            //     Some(Box::new(move |cx| clear_subscriptions_rx.poll_recv(cx))),
+            // ));
+
+            let (_, rrx) = futures::channel::oneshot::channel();
+
+            tauri::async_runtime::spawn(run_connection::<R, _, _, _>(
                 (self.ctx_fn)(&window),
                 self.router.clone(),
                 Socket {
                     recv: rx,
                     window: window.clone(),
                 },
-                Some(Box::new(move |cx| clear_subscriptions_rx.poll_recv(cx))),
+                Some(rrx),
             ));
 
             Msg::listen(&window, move |event| {

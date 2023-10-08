@@ -30,7 +30,7 @@ use crate::{
     ExecError, ProcedureMap, Router,
 };
 
-use super::RequestData;
+use super::{task, RequestData};
 
 // TODO: The big problem with removing `TCtx` everywhere is that it is required in `Box<dyn DynLayer<TCtx>` which is the thing we must hold to ensure the `unsafe` parts are safe.
 // TODO: Just bumping the reference count will ensure it's not unsafely dropped but will also likely result in a memory leak cause without knowing the type one of the request-types can't take care of dropping it's data if it needs to be dropped.
@@ -89,15 +89,14 @@ impl<TCtx: Send + 'static> Router<TCtx> {
                     Some(conn) if conn.subscriptions.contains_key(&data.id) => {
                         Err(ExecError::ErrSubscriptionDuplicateId)
                     }
-                    Some(_) => get_subscription(self.clone(), ctx, data)
-                        .ok_or(ExecError::OperationNotFound)
-                        .map(|stream| {
-                            ExecutorResult::Task(Task {
-                                id,
-                                stream,
-                                done: 0,
-                            })
-                        }),
+                    Some(_) => match get_subscription(self.clone(), ctx, data) {
+                        None => Err(ExecError::OperationNotFound),
+                        Some(stream) => Ok(ExecutorResult::Task(Task {
+                            id,
+                            stream,
+                            status: task::Status::ShouldBePolled { done: false },
+                        })),
+                    },
                 }
                 .unwrap_or_else(|e| {
                     ExecutorResult::Response(Response {

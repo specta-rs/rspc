@@ -8,7 +8,7 @@ use httpz::{
 };
 
 use crate::{
-    internal::exec::{ConnectionTask, IncomingMessage, Response, TokioRuntime},
+    internal::exec::{run_connection, ConnectionTask, IncomingMessage, Response, TokioRuntime},
     Router,
 };
 
@@ -75,7 +75,7 @@ where
                 })
             });
 
-        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, router, pin!(socket), None).await;
+        run_connection::<TokioRuntime, _, _, _>(ctx, router, pin!(socket), None).await;
     })
     .into_response()
 }

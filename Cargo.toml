@@ -26,7 +26,7 @@ name = "benchmarks"
 harness = false
 
 [features]
-default = ["typescript"]
+default = ["typescript", "tauri", "httpz", "tokio"]
 tauri = ["dep:tauri", "tokio", "tauri/wry", "tauri-specta"]
 tracing = ["dep:tracing"]
 httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio

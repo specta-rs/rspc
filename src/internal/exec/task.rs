@@ -11,6 +11,11 @@ use super::arc_ref::ArcRef;
 
 // TODO: Should this be called `Task` or `StreamWrapper`? Will depend on it's final form.
 
+pub enum Status {
+    ShouldBePolled { done: bool },
+    DoNotPoll,
+}
+
 // TODO: docs
 pub struct Task {
     pub(crate) id: u32,
@@ -19,7 +24,7 @@ pub struct Task {
     pub(crate) stream: ArcRef<Pin<Box<dyn Body + Send>>>,
     // pub(crate) shutdown
     // Mark when the stream is done. This means `self.reference` returned `None` but we still had to yield the complete message so we haven't returned `None` yet.
-    pub(crate) done: u8,
+    pub(crate) status: Status,
 }
 
 // pub enum Inner {
@@ -42,15 +47,17 @@ impl Stream for Task {
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        if self.done == true as u8 {
-            #[cfg(debug_assertions)]
-            if self.done == 2 {
-                panic!("`StreamWrapper` polled after completion");
-            } else {
-                self.done = 2;
+        match &self.status {
+            Status::DoNotPoll => {
+                #[cfg(debug_assertions)]
+                panic!("`StreamWrapper` polled after completion")
             }
-
-            return Poll::Ready(None);
+            Status::ShouldBePolled { done } => {
+                if *done {
+                    self.status = Status::DoNotPoll;
+                    return Poll::Ready(None);
+                }
+            }
         }
 
         Poll::Ready(Some(match ready!(self.stream.as_mut().poll_next(cx)) {
@@ -64,7 +71,7 @@ impl Stream for Task {
             None => {
                 let id = self.id;
                 cx.waker().wake_by_ref(); // We want the stream to be called again so we can return `None` and close it
-                self.done = true as u8;
+                self.status = Status::ShouldBePolled { done: true };
                 exec::Response {
                     id,
                     inner: exec::ResponseInner::Complete,
