@@ -80,19 +80,15 @@ enum PollResult {
 
 // type MyTask = Either<Once<RequestTask>, ()>; // TODO: This requires `RequestTask` to be public and not sealed which I am not the biggest fan of?
 
-pin_project! {
-    #[project = ConnectionProj]
-    struct Connection<TCtx> {
-        ctx: TCtx,
-        router: Arc<Router<TCtx>>,
-        conn: exec2::Connection,
+struct Connection<TCtx> {
+    ctx: TCtx,
+    router: Arc<Router<TCtx>>,
+    conn: exec2::Connection,
 
-        #[pin]
-        streams: futures::stream::Fuse<StreamUnordered<Task>>,
+    streams: StreamUnordered<Task>,
 
-        // TODO: Remove these cause disgusting messes
-        sub_id_to_stream: HashMap<u32, usize>,
-    }
+    // TODO: Remove these cause disgusting messes
+    sub_id_to_stream: HashMap<u32, usize>,
 }
 
 impl<TCtx> Connection<TCtx>
@@ -108,12 +104,12 @@ where
             {
                 ExecutorResult::Task(task) => {
                     let fut_id = task.id;
-                    let token = self.streams.get_mut().insert(task);
+                    let token = self.streams.insert(task);
                     self.sub_id_to_stream.insert(fut_id, token);
                 }
                 ExecutorResult::Future(fut) => {
                     let fut_id = fut.id;
-                    let token = self.streams.get_mut().insert(fut.into());
+                    let token = self.streams.insert(fut.into());
                     self.sub_id_to_stream.insert(fut_id, token);
                 }
                 ExecutorResult::Response(resp) => {
@@ -142,10 +138,19 @@ where
         //         self.sub_id_to_stream.insert(sub_id, token);
         //     }
         // }
-        todo!();
+        // todo!();
 
         resps
     }
+}
+
+macro_rules! unwrap_return {
+    ($e:expr) => {
+        match $e {
+            Some(v) => v,
+            None => return,
+        }
+    };
 }
 
 fn batch_unbounded<R: AsyncRuntime, T>(
@@ -155,31 +160,22 @@ fn batch_unbounded<R: AsyncRuntime, T>(
         tx,
         async_stream::stream! {
             loop {
-                let mut responses = Vec::new();
+                let mut responses = vec![unwrap_return!(rx.next().await)];
 
-                loop {
+                'batch: loop {
                     let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
 
-                    let exit = loop {
+                    'timer:  loop {
                         pin_mut!(timer);
 
                         futures::select_biased! {
                             response = rx.next() => {
-                                match response {
-                                    Some(response) =>  {
-                                        responses.push(response);
-                                        break false;
-                                    },
-                                    None => break true,
-                                }
+                                responses.push(unwrap_return!(response));
+                                break 'timer;
                             }
-                            _ = timer => break true,
+                            _ = timer => break 'batch,
                         }
                     };
-
-                    if exit {
-                        break;
-                    }
                 }
 
                 yield responses;
@@ -213,7 +209,7 @@ pub async fn run_connection<
         ctx,
         router,
         conn: exec2::Connection::new(),
-        streams: StreamUnordered::new().fuse(),
+        streams: StreamUnordered::new(),
         sub_id_to_stream: HashMap::new(),
     };
 
@@ -230,10 +226,10 @@ pub async fn run_connection<
         };
 
         futures::select_biased! {
-            recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(|rx| rx.next())) => {
+            recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(StreamExt::next)) => {
                 if let Some(Some(())) = recv {
                     for (_, token) in conn.sub_id_to_stream.drain() {
-                        Pin::new(conn.streams.get_mut()).remove(token);
+                        Pin::new(&mut conn.streams).remove(token);
                     }
                 }
             }
@@ -251,8 +247,8 @@ pub async fn run_connection<
                     Some(Ok(msg)) => {
                         let res = match msg {
                             IncomingMessage::Msg(res) => res,
-                            IncomingMessage::Close => return,
-                            IncomingMessage::Skip => return,
+                            IncomingMessage::Close => { break },
+                            IncomingMessage::Skip => { continue },
                         };
 
                         match res.and_then(|v| match v.is_array() {
@@ -262,9 +258,9 @@ pub async fn run_connection<
                             Ok(reqs) => {
                                 conn.exec(reqs)
                                     .into_iter()
-                                     .for_each(|resp| {
-                                         batch_tx.unbounded_send(resp).expect("Failed to send on unbounded send");
-                                     });
+                                    .for_each(|resp| {
+                                        batch_tx.unbounded_send(resp).expect("Failed to send on unbounded send");
+                                    });
                             }
                             Err(_err) => {
                                 #[cfg(feature = "tracing")]
@@ -286,18 +282,18 @@ pub async fn run_connection<
                 }
             }
             // poll_streams
-            next = conn.streams.next() => {
-                if let Some((yld, _)) = next {
-                    match yld {
-                        StreamYield::Item(resp) => {
-                            batch_tx.unbounded_send(resp).ok();
-                        }
-                        StreamYield::Finished(f) => {
-                            if let Some(stream) = f.take(Pin::new(conn.streams.get_mut())) {
-                                let sub_id = stream.id;
-                                conn.sub_id_to_stream.remove(&sub_id);
-                                // conn.map.take(&sub_id);
-                            }
+            value = conn.streams.select_next_some() => {
+                let (yld, _) = value;
+
+                match yld {
+                    StreamYield::Item(resp) => {
+                        batch_tx.unbounded_send(resp).ok();
+                    }
+                    StreamYield::Finished(f) => {
+                        if let Some(stream) = f.take(Pin::new(&mut conn.streams)) {
+                            let sub_id = stream.id;
+                            conn.sub_id_to_stream.remove(&sub_id);
+                            // conn.map.take(&sub_id);
                         }
                     }
                 }

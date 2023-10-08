@@ -113,7 +113,7 @@ async fn main() {
 
                     pub struct HandleDrop {
                         id: u16,
-                        send: bool,
+                        sent: bool,
                     }
 
                     impl Stream for HandleDrop {
@@ -123,10 +123,10 @@ async fn main() {
                             mut self: Pin<&mut Self>,
                             _: &mut Context<'_>,
                         ) -> Poll<Option<Self::Item>> {
-                            if self.send {
-                                Poll::Pending
+                            if self.sent {
+                                Poll::Ready(None)
                             } else {
-                                self.send = true;
+                                self.sent = true;
                                 Poll::Ready(Some(self.id))
                             }
                         }
@@ -138,7 +138,7 @@ async fn main() {
                         }
                     }
 
-                    HandleDrop { id, send: false }
+                    HandleDrop { id, sent: false }
                 }
             }),
         )
