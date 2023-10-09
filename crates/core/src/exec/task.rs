@@ -1,6 +1,6 @@
 use std::{fmt, pin::Pin, task::Poll};
 
-use futures::{ready, Stream};
+use futures::{channel::oneshot, ready, stream::FusedStream, FutureExt, Stream};
 
 use crate::body::Body;
 use crate::exec;
@@ -9,12 +9,6 @@ use super::{arc_ref::ArcRef, request_future::RequestFuture};
 
 // TODO: Should this be called `Task` or `StreamWrapper`? Will depend on it's final form.
 
-// TODO: Replace with FusedStream in dev if possible???
-pub enum Status {
-    ShouldBePolled { done: bool },
-    DoNotPoll,
-}
-
 // TODO: docs
 pub struct Task {
     pub(crate) id: u32,
@@ -22,7 +16,8 @@ pub struct Task {
     // rspc's whole middleware system only uses `Stream`'s cause it makes life easier so we change to & from a `Future` at the start/end.
     pub(crate) stream: ArcRef<Pin<Box<dyn Body + Send>>>,
     // Mark when the stream is done. This means `self.reference` returned `None` but we still had to yield the complete message so we haven't returned `None` yet.
-    pub(crate) status: Status,
+    pub(crate) done: bool,
+    pub(crate) shutdown_rx: Option<oneshot::Receiver<()>>,
 }
 
 impl fmt::Debug for Task {
@@ -40,17 +35,13 @@ impl Stream for Task {
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        match &self.status {
-            #[allow(clippy::panic)]
-            Status::DoNotPoll => {
-                #[cfg(debug_assertions)]
-                panic!("`StreamWrapper` polled after completion")
-            }
-            Status::ShouldBePolled { done } => {
-                if *done {
-                    self.status = Status::DoNotPoll;
-                    return Poll::Ready(None);
-                }
+        if self.done {
+            return Poll::Ready(None);
+        }
+
+        if let Some(shutdown_rx) = self.shutdown_rx.as_mut() {
+            if shutdown_rx.poll_unpin(cx).is_ready() {
+                self.done = true;
             }
         }
 
@@ -64,8 +55,8 @@ impl Stream for Task {
             },
             None => {
                 let id = self.id;
-                cx.waker().wake_by_ref(); // We want the stream to be called again so we can return `None` and close it
-                self.status = Status::ShouldBePolled { done: true };
+                self.done = true;
+                cx.waker().wake_by_ref();
                 exec::Response {
                     id,
                     inner: exec::ResponseInner::Complete,
@@ -80,12 +71,19 @@ impl Stream for Task {
     }
 }
 
+impl FusedStream for Task {
+    fn is_terminated(&self) -> bool {
+        self.done
+    }
+}
+
 impl From<RequestFuture> for Task {
     fn from(value: RequestFuture) -> Self {
         Self {
             id: value.id,
             stream: value.stream,
-            status: Status::ShouldBePolled { done: false },
+            done: false,
+            shutdown_rx: None,
         }
     }
 }

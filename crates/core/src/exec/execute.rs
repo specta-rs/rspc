@@ -1,5 +1,7 @@
 use std::{pin::Pin, sync::Arc};
 
+use futures::channel::oneshot;
+
 use crate::{
     body::Body,
     error::ExecError,
@@ -11,7 +13,7 @@ use crate::{
     Router,
 };
 
-use super::{task, SubscriptionMap};
+use super::SubscriptionMap;
 
 /// TODO
 ///
@@ -23,7 +25,7 @@ pub enum ExecutorResult {
     /// A future that will resolve to a response.
     Future(RequestFuture),
     /// A task that should be queued onto an async runtime.
-    Task(Task),
+    Task(Task, oneshot::Sender<()>),
 }
 
 // TODO: Move this into `build_router.rs` and turn it into a module with all the other `exec::*` types
@@ -62,11 +64,19 @@ impl<TCtx: Send + 'static> Router<TCtx> {
                     }
                     Some(_) => match get_subscription(self, ctx, data) {
                         None => Err(ExecError::OperationNotFound),
-                        Some(stream) => Ok(ExecutorResult::Task(Task {
-                            id,
-                            stream,
-                            status: task::Status::ShouldBePolled { done: false },
-                        })),
+                        Some(stream) => {
+                            let (tx, rx) = oneshot::channel();
+
+                            Ok(ExecutorResult::Task(
+                                Task {
+                                    id,
+                                    stream,
+                                    done: false,
+                                    shutdown_rx: Some(rx),
+                                },
+                                tx,
+                            ))
+                        }
                     },
                 }
                 .unwrap_or_else(|e| {

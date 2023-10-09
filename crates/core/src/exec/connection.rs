@@ -43,10 +43,10 @@ where
             };
 
             match res {
-                ExecutorResult::Task(task) => {
+                ExecutorResult::Task(task, shutdown_tx) => {
                     let task_id = task.id;
                     self.streams.insert(task);
-                    self.subscriptions.shutdown(task_id);
+                    self.subscriptions.insert(task_id, shutdown_tx);
                 }
                 ExecutorResult::Future(fut) => {
                     self.streams.insert(fut.into());
@@ -92,8 +92,7 @@ pub async fn run_connection<
 
     loop {
         if !batch.is_empty() {
-            let batch = batch.drain(..batch.len()).collect::<Vec<_>>();
-            if let Err(_err) = socket.send(batch).await {
+            if let Err(_err) = socket.send(std::mem::take(&mut batch)).await {
                 #[cfg(feature = "tracing")]
                 tracing::error!("Error sending message to websocket: {}", _err);
             }
@@ -159,7 +158,7 @@ pub async fn run_connection<
                                         StreamYield::Item(resp) => batch.push(resp),
                                         StreamYield::Finished(f) => {
                                             if let Some(stream) = f.take(Pin::new(&mut conn.streams)) {
-                                                conn.subscriptions._internal_remove(stream.id);
+                                                conn.subscriptions.remove(stream.id);
                                             }
                                         }
                                     }
@@ -171,7 +170,7 @@ pub async fn run_connection<
                     }
                     StreamYield::Finished(f) => {
                         if let Some(stream) = f.take(Pin::new(&mut conn.streams)) {
-                            conn.subscriptions._internal_remove(stream.id);
+                            conn.subscriptions.remove(stream.id);
                         }
                     }
                 }
