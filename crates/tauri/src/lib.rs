@@ -4,34 +4,36 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     convert::Infallible,
     hash::{Hash, Hasher},
-    pin::Pin,
     sync::{Arc, Mutex},
-    task::{Context, Poll},
 };
 
+use futures::{channel::mpsc, sink, StreamExt};
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Window, WindowEvent,
 };
 use tauri_specta::Event;
-use tokio::sync::mpsc;
 
-use crate::{
+use rspc::{
     internal::exec::{
-        AsyncRuntime, ConnectionTask, Executor, IncomingMessage, Response, TokioRuntime,
+        run_connection, AsyncRuntime, IncomingMessage, Response, SinkAndStream, TokioRuntime,
     },
-    BuiltRouter,
+    Router,
 };
 
 #[derive(Clone, Debug, serde::Deserialize, specta::Type, tauri_specta::Event)]
 struct Msg(serde_json::Value);
+
+#[derive(Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
+#[specta(inline)]
+struct TransportResp(Vec<Response>);
 
 struct WindowManager<TCtxFn, TCtx>
 where
     TCtx: Send + Sync + 'static,
     TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
-    executor: Executor<TCtx>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, mpsc::UnboundedSender<()>>>,
 }
@@ -41,9 +43,9 @@ where
     TCtx: Clone + Send + Sync + 'static,
     TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 {
-    pub fn new(ctx_fn: TCtxFn, router: Arc<BuiltRouter<TCtx>>) -> Arc<Self> {
+    pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
-            executor: Executor::new(router),
+            router,
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
         })
@@ -60,27 +62,42 @@ where
             // Shutdown all subscriptions for the previously loaded page is there was one
             // All the previous threads and stuff stays around though so we don't need to recreate it
 
-            shutdown_streams_tx.send(()).ok();
+            shutdown_streams_tx.unbounded_send(()).ok();
         } else {
-            let (clear_subscriptions_tx, mut clear_subscriptions_rx) = mpsc::unbounded_channel();
+            let (clear_subscriptions_tx, clear_subscriptions_rx) = mpsc::unbounded();
             windows.insert(window_hash, clear_subscriptions_tx);
             drop(windows);
 
-            let (tx, rx) = mpsc::unbounded_channel();
-            R::spawn(ConnectionTask::<R, _, _, _>::new(
-                (self.ctx_fn)(&window),
-                self.executor.clone(),
-                Socket {
-                    recv: rx,
-                    window: window.clone(),
-                },
-                Some(Box::new(move |cx| clear_subscriptions_rx.poll_recv(cx))),
-            ));
+            let (tx, rx) = mpsc::unbounded();
 
             Msg::listen(&window, move |event| {
-                tx.send(IncomingMessage::Msg(Ok(event.payload.0))).ok();
+                tx.unbounded_send(IncomingMessage::Msg(Ok(event.payload.0)))
+                    .ok();
             });
+
+            // passing in 'window' allows us to not clone it, with Unfold reusing the window from the previous iteration.
+            // less clones and happy lifetimes
+            let sink = sink::unfold(window.clone(), move |window, item| async move {
+                TransportResp(item)
+                    .emit(&window)
+                    .map_err(|_err| {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("failed to emit JSON-RPC response: {}", _err);
+                    })
+                    .ok();
+
+                Ok::<_, Infallible>(window)
+            });
+
+            tauri::async_runtime::spawn(run_connection::<R, _, _, _>(
+                (self.ctx_fn)(&window),
+                self.router.clone(),
+                SinkAndStream::new(sink, rx.map(Ok)),
+                Some(clear_subscriptions_rx),
+            ));
         }
+
+        window.on_window_event(self.clone().on_window_event_handler(window.clone()))
     }
 
     #[allow(clippy::unwrap_used)] // TODO: Stop using unwrap
@@ -90,7 +107,18 @@ where
         let window_hash = hasher.finish();
 
         if let Some(shutdown_streams_tx) = self.windows.lock().unwrap().get(&window_hash) {
-            shutdown_streams_tx.send(()).ok();
+            shutdown_streams_tx.unbounded_send(()).ok();
+        }
+    }
+
+    pub fn on_window_event_handler(
+        self: Arc<Self>,
+        window: Window,
+    ) -> impl Fn(&WindowEvent) + Send + 'static {
+        move |event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                self.close_requested(&window);
+            }
         }
     }
 }
@@ -118,7 +146,7 @@ mod test {
 }
 
 pub fn plugin<TCtx>(
-    router: Arc<BuiltRouter<TCtx>>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: impl Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<tauri::Wry>
 where
@@ -136,64 +164,6 @@ where
         })
         .on_page_load(move |window, _page| {
             manager.clone().on_page_load::<TokioRuntime>(window.clone());
-
-            window.on_window_event({
-                let window = window.clone();
-                let manager = manager.clone();
-                move |event| {
-                    if let WindowEvent::CloseRequested { .. } = event {
-                        manager.close_requested(&window);
-                    }
-                }
-            })
         })
         .build()
-}
-
-struct Socket {
-    // TODO: Bounded channel?
-    recv: mpsc::UnboundedReceiver<IncomingMessage>,
-    window: Window,
-}
-
-#[derive(Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
-#[specta(inline)]
-struct TransportResp(Vec<Response>);
-
-// TODO: Can we use utils in `futures` to remove this impl?
-impl futures::Sink<Vec<Response>> for Socket {
-    type Error = Infallible;
-
-    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn start_send(self: std::pin::Pin<&mut Self>, item: Vec<Response>) -> Result<(), Self::Error> {
-        TransportResp(item)
-            .emit(&self.window)
-            .map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("failed to emit JSON-RPC response: {}", _err);
-            })
-            .ok();
-
-        Ok(())
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-}
-
-// TODO: Can we use utils in `futures` to remove this impl?
-impl futures::Stream for Socket {
-    type Item = Result<IncomingMessage, Infallible>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.recv.poll_recv(cx).map(|v| v.map(Ok))
-    }
 }

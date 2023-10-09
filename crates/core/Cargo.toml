@@ -1,7 +1,6 @@
 [package]
 name = "rspc-core"
-version = "0.0.1"
+version = "1.0.0-rc.5"
 edition = "2021"
-publish = false
 
 [dependencies]

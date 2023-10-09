@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::BTreeMap,
+    fmt,
     fs::{self, File},
     io::Write,
     path::PathBuf,
@@ -13,10 +14,11 @@ use specta::{
 };
 
 use crate::{
-    internal::procedure::{ProcedureStore, ProcedureTodo, ProceduresDef},
+    internal::procedure::{ProcedureTodo, ProceduresDef},
     ExportError,
 };
 
+// TODO: Break this out into it's own file
 /// ExportConfig is used to configure how rspc will export your types.
 pub struct ExportConfig {
     export_path: PathBuf,
@@ -48,18 +50,39 @@ impl ExportConfig {
     }
 }
 
-/// BuiltRouter is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
-pub struct BuiltRouter<TCtx = ()> {
-    pub(crate) queries: ProcedureStore<TCtx>,
-    pub(crate) mutations: ProcedureStore<TCtx>,
-    pub(crate) subscriptions: ProcedureStore<TCtx>,
+pub(crate) type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
+
+/// Router is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
+pub struct Router<TCtx = ()> {
+    pub(crate) queries: ProcedureMap<TCtx>,
+    pub(crate) mutations: ProcedureMap<TCtx>,
+    pub(crate) subscriptions: ProcedureMap<TCtx>,
     pub(crate) typ_store: TypeMap,
 }
 
-impl<TCtx> BuiltRouter<TCtx>
+impl<TCtx> fmt::Debug for Router<TCtx> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Router").finish()
+    }
+}
+
+// This is to avoid needing to constrain `TCtx: Default` like the derive macro requires
+impl<TCtx> Default for Router<TCtx> {
+    fn default() -> Self {
+        Self {
+            queries: Default::default(),
+            mutations: Default::default(),
+            subscriptions: Default::default(),
+            typ_store: Default::default(),
+        }
+    }
+}
+
+impl<TCtx> Router<TCtx>
 where
     TCtx: Send + 'static,
 {
+    // TODO: Remove this and force it to always be `Arc`ed from the point it was constructed???
     pub fn arced(self) -> Arc<Self> {
         Arc::new(self)
     }
@@ -72,21 +95,6 @@ where
     #[cfg(not(feature = "unstable"))]
     pub(crate) fn typ_store(&self) -> TypeMap {
         self.typ_store.clone()
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-        &self.queries.store
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-        &self.mutations.store
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-        &self.subscriptions.store
     }
 
     #[allow(clippy::panic_in_result_fn)] // TODO: Error handling given we return `Result`
@@ -114,9 +122,9 @@ where
             ts::export_named_datatype(
                 &config,
                 &ProceduresDef::new(
-                    self.queries.store.values(),
-                    self.mutations.store.values(),
-                    self.subscriptions.store.values()
+                    self.queries.values(),
+                    self.mutations.values(),
+                    self.subscriptions.values()
                 )
                 .to_named(),
                 &self.typ_store()
@@ -186,5 +194,21 @@ where
         }
 
         Ok(())
+    }
+}
+
+// TODO: Plz try and get rid of these. They are escape hatches for Spacedrive's invalidation system that is dearly in need of a makeover.
+#[cfg(feature = "unstable")]
+impl<TCtx> Router<TCtx> {
+    pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+        &self.queries
+    }
+
+    pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+        &self.mutations
+    }
+
+    pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+        &self.subscriptions
     }
 }

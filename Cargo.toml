@@ -27,56 +27,41 @@ harness = false
 
 [features]
 default = ["typescript"]
-tauri = ["dep:tauri", "tokio", "tauri/wry", "tauri-specta"]
+typescript = ["specta/typescript"]
 tracing = ["dep:tracing"]
-httpz = ["dep:httpz", "httpz/cookies", "tokio", "tokio/sync"] # TODO: Remove the requirement on tokio
-# anyhow = ["dep:anyhow"]
 tokio = ["dep:tokio", "specta/tokio"]
-typescript = ["specta/typescript", "tauri-specta/typescript"] # TODO: Use this in the actual codebase
 
 unstable = [] # APIs where one line of code can blow up your whole app
-
-# Webservers
-axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
-# actix-web = ["httpz/actix-web"]
-# poem = ["httpz/poem"]
-# rocket = ["httpz/rocket"]
-# warp = ["httpz/warp"]
-# TODO: Following ones are exposed but not officially supported
-lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
-workers = ["httpz", "httpz/workers", "httpz/ws"]
-vercel = ["httpz", "httpz/vercel", "httpz/ws", "axum"]
 
 [dependencies]
 specta = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-futures = { version = "0.3.28", default-features = false }
-pin-project-lite = "0.2.10"
+futures = { version = "0.3.28", default-features = false, features = ["std", "async-await"] } # TODO: Drop for `futures_core` if possible
+pin-project-lite = "0.2.13"
+streamunordered = "0.5.3"
+
+#### TODO: Can all the following deps be moved out of the core crate ###
 
 # Optional
 serde_json = { version = "1", default-features = false }
-# TODO: toml, yaml, formdata
-
-httpz = { version = "0.0.5", default-features = false, optional = true }
-tauri = { version = "1.4.1", default-features = false, optional = true }
-tauri-specta = { git = "https://github.com/oscartbeaumont/tauri-specta", rev = "1073c8da4e4fccbeebfb389b2f093ac711cd35df", default-features = false, optional = true }
 tracing = { version = "0.1.37", default-features = false, optional = true }
-worker = { version = "0.0.17", default-features = false, optional = true }
-# anyhow = { version = "1", default-features = false, optional = true } # TODO: Should we bring this back with the new typed error handling?
 tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }
-streamunordered = "0.5.2"
+
+# TODO: Does this negatively affect compile times? Should it be flipped?
+# # Even though this `cfg` can never be enabled, it still forces cargo to keep `serde_derive` in lockstep with `serde`.
+# [target.'cfg(any())'.dependencies]
+# rspc_httpz = { version = "=1.0.185", path = "../serde_derive" }
 
 [dev-dependencies]
 # Tests
 async-stream = "0.3.5"
-tokio = { version = "1.29.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
 tauri = { version = "1.4.1", features = ["api-all"] }
 
 # Benchmark
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
-pprof = { version = "0.12.0", features = ["flamegraph", "criterion", "protobuf-codec", "frame-pointer"] }
-# rspc_legacy = { package = "rspc", version = "0.1.3" }
+pprof = { version = "0.13.0", features = ["flamegraph", "criterion", "protobuf-codec", "frame-pointer"] }
 
 [workspace]
 members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "./examples/tauri/src-tauri"]
@@ -84,7 +69,7 @@ members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "
 [workspace.dependencies]
 specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.43", default-features = false }
+thiserror = { version = "1.0.49", default-features = false }
 
 [patch.crates-io]
 specta = { git = "https://github.com/oscartbeaumont/specta", rev = "5948d80f2551780eda2c7bf38450fc796c74cfbf" }

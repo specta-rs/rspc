@@ -3,13 +3,18 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::internal::{
-    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
-    procedure::{BuildProceduresCtx, ProcedureDef},
-    resolver::{
-        FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
-        StreamMarkerType,
+use crate::{
+    internal::{
+        middleware::{
+            ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind,
+        },
+        procedure::ProcedureDef,
+        resolver::{
+            FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
+            StreamMarkerType,
+        },
     },
+    Router,
 };
 
 /// TODO: Explain
@@ -29,6 +34,8 @@ mod private {
 }
 
 pub(crate) use private::Procedure;
+
+use super::procedure_store;
 
 impl<T, TMiddleware> Procedure<T, TMiddleware>
 where
@@ -107,17 +114,13 @@ where
     TResultMarker: 'static,
     TMiddleware: MiddlewareBuilder,
 {
-    pub(crate) fn build(
-        self,
-        key: Cow<'static, str>,
-        ctx: &mut BuildProceduresCtx<'_, TMiddleware::Ctx>,
-    ) {
+    pub(crate) fn build(self, key: Cow<'static, str>, ctx: &mut Router<TMiddleware::Ctx>) {
         let HasResolver(resolver, kind, _) = self.resolver;
 
         let m = match kind {
-            ProcedureKind::Query => &mut ctx.queries,
-            ProcedureKind::Mutation => &mut ctx.mutations,
-            ProcedureKind::Subscription => &mut ctx.subscriptions,
+            ProcedureKind::Query => (&mut ctx.queries, "query"),
+            ProcedureKind::Mutation => (&mut ctx.mutations, "mutation"),
+            ProcedureKind::Subscription => (&mut ctx.subscriptions, "subscription"),
         };
 
         let key_str = key.to_string();
@@ -125,10 +128,11 @@ where
             TMiddleware::Arg<TArg>,
             TResult::Result,
             TResult::Error,
-        >(key, ctx.ty_store)
+        >(key, &mut ctx.typ_store)
         .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
 
-        m.append(
+        procedure_store::append(
+            m,
             key_str,
             self.mw.build(ResolverLayer::new(move |ctx, input, _| {
                 Ok((resolver)(ctx, input).exec())

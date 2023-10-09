@@ -11,6 +11,7 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )]
+// #![deny(unsafe_code)] // TODO: Enable this
 #![allow(clippy::module_inception)]
 #![allow(clippy::type_complexity)] // TODO: Fix this and disable it
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -19,23 +20,14 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
 pub mod unstable;
 
-mod blob;
-mod built_router;
 mod error;
 mod router;
+mod router_builder;
 mod rspc;
 
 pub use crate::rspc::*;
-pub use built_router::*;
 pub use error::*;
 pub use router::*;
+pub use router_builder::*;
 
-pub mod integrations;
 pub mod internal;
-
-#[cfg(feature = "unstable")]
-#[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
-pub use blob::Blob;
-
-#[cfg(not(feature = "unstable"))]
-pub(crate) use blob::Blob;

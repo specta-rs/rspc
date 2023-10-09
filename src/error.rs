@@ -68,6 +68,10 @@ pub enum ExecError {
     ErrSubscriptionWithNullId,
     #[error("error creating subscription with duplicate id")]
     ErrSubscriptionDuplicateId,
+    #[error("error subscription with id doesn't exist")]
+    ErrSubscriptionNotFound,
+    #[error("error subscription already closed")]
+    ErrSubscriptionAlreadyClosed,
     #[error("error the current transport does not support subscriptions")]
     ErrSubscriptionsNotSupported,
     #[error("error a procedure returned an empty stream")]
@@ -126,6 +130,8 @@ impl From<ExecError> for ProcedureError {
                 cause: None,
             },
             ExecError::Resolver(err) => return err.into(),
+            ExecError::ErrSubscriptionNotFound => todo!(),
+            ExecError::ErrSubscriptionAlreadyClosed => todo!(),
         })
     }
 }

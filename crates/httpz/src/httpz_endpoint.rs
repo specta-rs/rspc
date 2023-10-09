@@ -10,9 +10,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    internal::exec::{self, Executor, ExecutorResult, NoOpSubscriptionManager},
-    BuiltRouter,
+use rspc::{
+    internal::exec::{self, Connection, ExecutorResult},
+    Router,
 };
 
 use super::{handle_websocket, CookieJar, TCtxFunc};
@@ -21,55 +21,45 @@ use super::{handle_websocket, CookieJar, TCtxFunc};
 // TODO: Remove all panics lol
 // TODO: Cleanup the code and use more chaining
 
-impl<TCtx> BuiltRouter<TCtx>
+pub fn endpoint<TCtx, TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
+    router: Arc<Router<TCtx>>,
+    ctx_fn: TCtxFn,
+) -> Endpoint<impl HttpEndpoint>
 where
     TCtx: Clone + Send + Sync + 'static,
 {
-    pub fn endpoint<TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
-        self: Arc<Self>,
-        ctx_fn: TCtxFn,
-    ) -> Endpoint<impl HttpEndpoint> {
-        let executor = Executor::new(self);
+    // TODO: This should be able to call `ctn_fn` prior to the async boundary to avoid cloning it!
+    // TODO: Basically httpz would need to be able to return `Response | Future<Response>` basically how rspc executor works.
 
-        // TODO: This should be able to call `ctn_fn` prior to the async boundary to avoid cloning it!
-        // TODO: Basically httpz would need to be able to return `Response | Future<Response>` basically how rspc executor works.
+    GenericEndpoint::new(
+        "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
+        [Method::GET, Method::POST],
+        move |req: httpz::Request| {
+            // TODO: It would be nice if these clones weren't per request.
+            // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
+            let router = router.clone();
+            let ctx_fn = ctx_fn.clone();
 
-        GenericEndpoint::new(
-            "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
-            [Method::GET, Method::POST],
-            move |req: httpz::Request| {
-                // TODO: It would be nice if these clones weren't per request.
-                // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
-                let executor = executor.clone();
-                let ctx_fn = ctx_fn.clone();
-
-                async move {
-                    match (req.method(), &req.uri().path()[1..]) {
-                        (&Method::GET, "ws") => {
-                            handle_websocket(executor, ctx_fn, req).into_response()
-                        }
-                        (&Method::GET, _) => {
-                            handle_http(executor, ctx_fn, req).await.into_response()
-                        }
-                        (&Method::POST, "_batch") => handle_http_batch(executor, ctx_fn, req)
-                            .await
-                            .into_response(),
-                        (&Method::POST, _) => {
-                            handle_http(executor, ctx_fn, req).await.into_response()
-                        }
-                        _ => Ok(Response::builder()
-                            .status(StatusCode::METHOD_NOT_ALLOWED)
-                            .body(vec![])?),
+            async move {
+                match (req.method(), &req.uri().path()[1..]) {
+                    (&Method::GET, "ws") => handle_websocket(router, ctx_fn, req).into_response(),
+                    (&Method::GET, _) => handle_http(router, ctx_fn, req).await.into_response(),
+                    (&Method::POST, "_batch") => {
+                        handle_http_batch(router, ctx_fn, req).await.into_response()
                     }
+                    (&Method::POST, _) => handle_http(router, ctx_fn, req).await.into_response(),
+                    _ => Ok(Response::builder()
+                        .status(StatusCode::METHOD_NOT_ALLOWED)
+                        .body(vec![])?),
                 }
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 #[allow(clippy::unwrap_used)] // TODO: Remove all panics lol
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -99,7 +89,7 @@ where
                 .unwrap_or(Ok(None as Option<Value>))
                 .unwrap();
 
-            exec::Request::Query { id: 0, path, input }
+            exec::Request::Query(exec::RequestData { id: 0, path, input })
         }
         Method::POST => {
             let input = (!req.body().is_empty())
@@ -107,7 +97,7 @@ where
                 .unwrap_or(Ok(None))
                 .unwrap();
 
-            exec::Request::Mutation { id: 0, path, input }
+            exec::Request::Mutation(exec::RequestData { id: 0, path, input })
         }
         _ => unreachable!(),
     };
@@ -133,10 +123,13 @@ where
     };
 
     let response =
-        match executor.execute(ctx, request, &mut (None as Option<NoOpSubscriptionManager>)) {
-            ExecutorResult::FutureResponse(fut) => fut.await,
-            ExecutorResult::Response(response) => response,
-            ExecutorResult::None => unreachable!(
+        match router.execute(ctx, request, None) {
+        	Some(res) => match res {
+	            ExecutorResult::Future(fut) => fut.await,
+	            ExecutorResult::Response(response) => response,
+	            ExecutorResult::Task(task) => todo!(),
+	        },
+            None => unreachable!(
                 "Executor will only return none for a 'stopSubscription' event which is impossible here"
             ),
         }.inner;
@@ -176,7 +169,7 @@ where
 
 #[allow(clippy::unwrap_used)] // TODO: Remove this
 async fn handle_http_batch<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -208,12 +201,23 @@ where
             };
 
             let fut_responses = FuturesUnordered::new();
-            let mut responses = executor.execute_batch(
-                &ctx,
-                requests,
-                &mut (None as Option<NoOpSubscriptionManager>),
-                |fut| fut_responses.push(fut),
-            );
+
+            let mut responses = Vec::with_capacity(requests.len());
+            for req in requests {
+                let Some(res) = router.clone().execute(ctx.clone(), req, None) else {
+                    continue;
+                };
+
+                match res {
+                    ExecutorResult::Future(fut) => {
+                        fut_responses.push(fut);
+                    }
+                    ExecutorResult::Response(resp) => {
+                        responses.push(resp);
+                    }
+                    ExecutorResult::Task(task) => todo!(),
+                }
+            }
 
             let cookies = {
                 match Arc::try_unwrap(cookie_jar) {

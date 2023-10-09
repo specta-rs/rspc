@@ -8,7 +8,7 @@ use crate::{
         procedure::{MissingResolver, Procedure},
         resolver::{FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType},
     },
-    Infallible, IntoResolverError, Router,
+    Infallible, IntoResolverError, RouterBuilder,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
@@ -63,8 +63,8 @@ where
     TCtx: Send + Sync + 'static,
     TError: IntoResolverError,
 {
-    pub fn router(&self) -> Router<TCtx> {
-        Router::_internal_new()
+    pub fn router(&self) -> RouterBuilder<TCtx> {
+        RouterBuilder::_internal_new()
     }
 
     pub fn error<TNewError>(self) -> Procedure<MissingResolver<TNewError>, BaseMiddleware<TCtx>> {

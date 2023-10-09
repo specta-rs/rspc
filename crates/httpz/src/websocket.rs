@@ -1,4 +1,4 @@
-use std::pin::pin;
+use std::{pin::pin, sync::Arc};
 
 use futures::{SinkExt, StreamExt};
 use httpz::{
@@ -7,12 +7,15 @@ use httpz::{
     HttpResponse,
 };
 
-use crate::internal::exec::{ConnectionTask, Executor, IncomingMessage, Response, TokioRuntime};
+use rspc::{
+    internal::exec::{run_connection, IncomingMessage, Response, TokioRuntime},
+    Router,
+};
 
 use super::TCtxFunc;
 
 pub(crate) fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-    executor: Executor<TCtx>,
+    router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     req: httpz::Request,
 ) -> impl HttpResponse
@@ -72,7 +75,7 @@ where
                 })
             });
 
-        ConnectionTask::<TokioRuntime, _, _, _>::new(ctx, executor, pin!(socket), None).await;
+        run_connection::<TokioRuntime, _, _, _>(ctx, router, pin!(socket), None).await;
     })
     .into_response()
 }

@@ -17,13 +17,13 @@ requestty = "0.5.0"
 strum = { version = "0.25.0", features = ["derive"] }
 rustc_version = "0.4.0"
 ureq = { version = "2.7.1", features = ["json"] }
-serde_json = "1.0.103"
-ctrlc = "3.4.0"
-thiserror = "1.0.43"
+serde_json = "1.0.107"
+ctrlc = "3.4.1"
+thiserror = "1.0.49"
 walkdir = "2"
 
 [dev-dependencies]
-tempfile = "3.6.0"
-cargo = "0.71.0"
-tokio = { version = "1.29.1", features = ["full", "process"] }
+tempfile = "3.8.0"
+cargo = "0.73.1"
+tokio = { version = "1.32.0", features = ["full", "process"] }
 futures = "0.3.28"

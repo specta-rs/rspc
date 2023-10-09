@@ -2,23 +2,33 @@ use std::{
     collections::HashMap,
     future::Future,
     marker::PhantomData,
-    pin::Pin,
+    pin::{pin, Pin},
+    sync::Arc,
     task::{Context, Poll},
     time::{Duration, Instant},
 };
 
-use futures::{ready, Sink, Stream};
+use futures::{
+    channel::{
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
+    future::{Either, OptionFuture},
+    pin_mut, ready,
+    stream::{self, Fuse, FusedStream, FuturesUnordered},
+    FutureExt, Sink, SinkExt, Stream, StreamExt,
+};
 use pin_project_lite::pin_project;
 use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
-use super::{
-    AsyncRuntime, Executor, IncomingMessage, Request, Requests, Response, RspcTask,
-    SubscriptionManager, SubscriptionSet,
-};
-use crate::internal::{
-    exec::{self, ResponseInner},
-    PinnedOption, PinnedOptionProj,
+use super::{AsyncRuntime, ExecutorResult, IncomingMessage, Request, Requests, Response, Task};
+use crate::{
+    internal::{
+        exec::{self, ResponseInner},
+        PinnedOption, PinnedOptionProj,
+    },
+    Router,
 };
 
 // Time to wait for more messages before sending them over the websocket connection.
@@ -26,89 +36,25 @@ use crate::internal::{
 // as sending them together should help us utilise transport layer compression.
 const BATCH_TIMEOUT: Duration = Duration::from_millis(5);
 
-enum PollResult {
-    /// The poller has done some progressed work.
-    /// WARNING: this does not guarantee any wakers have been registered so to uphold the `Future` invariants you can not return.
-    Progressed,
-
-    /// The poller has queued a message to be sent.
-    /// WARNING: You must call `Self::poll_send` to prior to returning from the `Future::poll` method.
-    QueueSend,
-
-    /// The future is complete
-    Complete,
+pub(crate) struct TaskShutdown {
+    stream_id: usize,
+    tx: oneshot::Sender<usize>,
 }
 
-struct ConnectionSubscriptionManager<'a, TCtx> {
-    pub map: &'a mut SubscriptionSet,
-    pub to_abort: Option<Vec<u32>>,
-    pub queued: Option<Vec<RspcTask<TCtx>>>,
-}
-
-impl<'a, TCtx: Clone + Send + 'static> SubscriptionManager<TCtx>
-    for ConnectionSubscriptionManager<'a, TCtx>
-{
-    type Set<'m> = &'m mut SubscriptionSet where Self: 'm;
-
-    fn queue(&mut self, stream: RspcTask<TCtx>) {
-        match &mut self.queued {
-            Some(queued) => {
-                queued.push(stream);
-            }
-            None => self.queued = Some(vec![stream]),
-        }
-    }
-
-    fn subscriptions(&mut self) -> Self::Set<'_> {
-        self.map
-    }
-
-    fn abort_subscription(&mut self, id: u32) {
-        self.to_abort.get_or_insert_with(Vec::new).push(id);
+impl TaskShutdown {
+    pub fn send(self) -> Result<(), usize> {
+        self.tx.send(self.stream_id)
     }
 }
 
-pin_project! {
-    #[project = BatchFutProj]
-    struct Batcher<R: AsyncRuntime> {
-        batch: Vec<exec::Response>,
-        #[pin]
-        batch_timer: PinnedOption<R::SleepUtilFut>,
-    }
-}
+pub struct Connection<TCtx> {
+    ctx: TCtx,
+    router: Arc<Router<TCtx>>,
 
-impl<R: AsyncRuntime> Batcher<R> {
-    fn insert(self: Pin<&mut Self>, element: exec::Response) {
-        let mut this = self.project();
-        this.batch.push(element);
-        this.batch_timer
-            .set(R::sleep_util(Instant::now() + BATCH_TIMEOUT).into());
-    }
+    streams: StreamUnordered<Task>,
 
-    fn append(self: Pin<&mut Self>, other: &mut Vec<exec::Response>) {
-        if other.is_empty() {
-            return;
-        }
-
-        let mut this = self.project();
-        this.batch.append(other);
-        this.batch_timer
-            .set(R::sleep_util(Instant::now() + BATCH_TIMEOUT).into());
-    }
-}
-
-pin_project! {
-    #[project = ConnectionProj]
-    struct Connection<TCtx> {
-        ctx: TCtx,
-        executor: Executor<TCtx>,
-        map: SubscriptionSet,
-        #[pin]
-        streams: StreamUnordered<RspcTask<TCtx>>,
-
-        // TODO: Remove these cause disgusting messes
-        sub_id_to_stream: HashMap<u32, usize>,
-    }
+    subscription_shutdown_rx: FuturesUnordered<oneshot::Receiver<usize>>,
+    pub(crate) subscription_shutdowns: HashMap<u32, TaskShutdown>,
 }
 
 impl<TCtx> Connection<TCtx>
@@ -116,35 +62,34 @@ where
     TCtx: Clone + Send + 'static,
 {
     pub fn exec(&mut self, reqs: Vec<Request>) -> Vec<Response> {
-        let mut manager = Some(ConnectionSubscriptionManager {
-            map: &mut self.map,
-            to_abort: None,
-            queued: None,
-        });
+        let mut resps = Vec::with_capacity(reqs.len());
 
-        let resps = self
-            .executor
-            .execute_batch(&self.ctx, reqs, &mut manager, |fut| {
-                let fut_id = fut.id();
-                let token = self.streams.insert(fut.into());
-                self.sub_id_to_stream.insert(fut_id, token);
-            });
+        for req in reqs {
+            let Some(res) = self
+                .router
+                .clone()
+                .execute(self.ctx.clone(), req, Some(self))
+            else {
+                continue;
+            };
 
-        let manager = manager.expect("rspc unreachable");
-        if let Some(to_abort) = manager.to_abort {
-            for sub_id in to_abort {
-                if let Some(token) = self.sub_id_to_stream.remove(&sub_id) {
-                    Pin::new(&mut self.streams).remove(token);
-                    manager.map.take(&sub_id);
+            match res {
+                ExecutorResult::Task(task) => {
+                    let task_id = task.id;
+                    let stream_id = self.streams.insert(task);
+
+                    let (tx, rx) = oneshot::channel();
+
+                    self.subscription_shutdowns
+                        .insert(task_id, TaskShutdown { stream_id, tx });
+                    self.subscription_shutdown_rx.push(rx);
                 }
-            }
-        }
-
-        if let Some(queued) = manager.queued {
-            for stream in queued {
-                let sub_id = stream.id();
-                let token = self.streams.insert(stream);
-                self.sub_id_to_stream.insert(sub_id, token);
+                ExecutorResult::Future(fut) => {
+                    self.streams.insert(fut.into());
+                }
+                ExecutorResult::Response(resp) => {
+                    resps.push(resp);
+                }
             }
         }
 
@@ -152,290 +97,148 @@ where
     }
 }
 
-type ClearSubscriptionsRx = Option<Box<dyn FnMut(&mut Context<'_>) -> Poll<Option<()>> + Send>>;
+fn batch_unbounded<R: AsyncRuntime, T>(
+    (tx, rx): (UnboundedSender<T>, UnboundedReceiver<T>),
+) -> (UnboundedSender<T>, impl Stream<Item = Vec<T>> + FusedStream) {
+    (
+        tx,
+        stream::unfold(rx, |mut rx| async move {
+            let mut responses = vec![rx.next().await?];
 
-pin_project! {
-    #[project = ConnectionTaskProj]
-    /// An abstraction around a single "connection" which can execute rspc subscriptions.
-    ///
-    /// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
-    ///
-    /// This future is spawned onto a thread and coordinates everything. It handles:
-    /// - Sending to connection
-    /// - Reading from connection
-    /// - Executing requests and subscriptions
-    /// - Batching responses
-    ///
-    pub(crate) struct ConnectionTask<R: AsyncRuntime, TCtx, S, E> {
-        #[pin]
-        conn: Connection<TCtx>,
-        #[pin]
-        batch: Batcher<R>,
+            'batch: loop {
+                let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
 
-        // Socket
-        #[pin]
-        socket: S,
-        tx_queue: Option<Vec<Response>>,
+                'timer: loop {
+                    pin_mut!(timer);
 
-        // External signal which when called will clear all active subscriptions.
-        // This is used by Tauri on window change as the "connection" never shuts down like a websocket would on page reload.
-        clear_subscriptions_rx: ClearSubscriptionsRx,
+                    futures::select_biased! {
+                        response = rx.next() => {
+                            responses.push(response?);
+                            break 'timer;
+                        }
+                        _ = timer => break 'batch,
+                    }
+                }
+            }
 
-        phantom: PhantomData<E>
-    }
+            Some((responses, rx))
+        }),
+    )
 }
 
-impl<
-        R: AsyncRuntime,
-        TCtx: Clone + Send + 'static,
-        S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
-        E: std::fmt::Debug + std::error::Error,
-    > ConnectionTask<R, TCtx, S, E>
-{
-    #[allow(dead_code)]
-    pub fn new(
-        ctx: TCtx,
-        executor: Executor<TCtx>,
-        socket: S,
-        clear_subscriptions_rx: ClearSubscriptionsRx,
-    ) -> Self {
-        Self {
-            conn: Connection {
-                ctx,
-                executor,
-                map: SubscriptionSet::new(),
-                streams: StreamUnordered::new(),
-                sub_id_to_stream: HashMap::new(),
-            },
-            batch: Batcher {
-                batch: Vec::with_capacity(4),
-                batch_timer: PinnedOption::None,
-            },
-            socket,
-            tx_queue: None,
-            clear_subscriptions_rx,
-            phantom: PhantomData,
-        }
-    }
+/// An abstraction around a single "connection" which can execute rspc subscriptions.
+///
+/// For Tauri a "connection" would be for each webpage and for HTTP that is a whole websocket connection.
+///
+/// This future is spawned onto a thread and coordinates everything. It handles:
+/// - Sending to connection
+/// - Reading from connection
+/// - Executing requests and subscriptions
+/// - Batching responses
+pub async fn run_connection<
+    R: AsyncRuntime,
+    TCtx: Clone + Send + 'static,
+    S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send,
+    E: std::fmt::Debug + std::error::Error,
+>(
+    ctx: TCtx,
+    router: Arc<Router<TCtx>>,
+    socket: S,
+    mut clear_subscriptions_rx: Option<mpsc::UnboundedReceiver<()>>,
+) {
+    let mut conn = Connection {
+        ctx,
+        router,
+        streams: Default::default(),
+        subscription_shutdown_rx: Default::default(),
+        subscription_shutdowns: Default::default(),
+    };
 
-    /// Poll sending
-    fn poll_send(this: &mut ConnectionTaskProj<R, TCtx, S, E>, cx: &mut Context<'_>) -> Poll<()> {
-        // If nothing in `tx_queue`, poll the batcher to populate it
-        if this.tx_queue.is_none() {
-            let mut batch = this.batch.as_mut().project();
-            if let PinnedOptionProj::Some { v: batch_timer } = batch.batch_timer.as_mut().project()
-            {
-                ready!(batch_timer.poll(cx));
+    let (batch_tx, batch_stream) = batch_unbounded::<R, _>(mpsc::unbounded());
+    pin_mut!(batch_stream);
 
-                let queue = batch.batch.drain(0..batch.batch.len()).collect::<Vec<_>>();
-                batch.batch_timer.as_mut().set(PinnedOption::None);
+    let mut socket = pin!(socket.fuse());
 
-                if !queue.is_empty() {
-                    *this.tx_queue = Some(queue)
+    loop {
+        futures::select_biased! {
+            recv = OptionFuture::from(clear_subscriptions_rx.as_mut().map(StreamExt::next)) => {
+                if let Some(Some(())) = recv {
+                    for (_, shutdown) in conn.subscription_shutdowns.drain() {
+                        shutdown.tx.send(shutdown.stream_id).ok();
+                    }
                 }
             }
-        }
-
-        // If something is queued to send
-        if this.tx_queue.is_some() {
-            // Wait until the socket is ready for sending
-            if let Err(_err) = ready!(this.socket.as_mut().poll_ready(cx)) {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Error waiting for websocket to be ready: {}", _err);
-
-                return ().into();
-            };
-
-            let item = this
-                .tx_queue
-                .take()
-                // We check it is `Some(_)` every poll but defer taking it from the `Option` until the socket is ready
-                .expect("rspc unreachable");
-
-            if let Err(_err) = this.socket.as_mut().start_send(item) {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Error sending message to websocket: {}", _err);
-            }
-        }
-
-        // Flush the previously sent data if any is pending
-        if let Err(_err) = ready!(this.socket.as_mut().poll_flush(cx)) {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error flushing message to websocket: {}", _err);
-        }
-
-        ().into()
-    }
-
-    /// Poll receiving
-    fn poll_recv(
-        this: &mut ConnectionTaskProj<R, TCtx, S, E>,
-        cx: &mut Context<'_>,
-    ) -> Poll<PollResult> {
-        match ready!(this.socket.as_mut().poll_next(cx)) {
-            Some(Ok(msg)) => {
-                let res = match msg {
-                    IncomingMessage::Msg(res) => res,
-                    IncomingMessage::Close => return PollResult::Complete.into(),
-                    IncomingMessage::Skip => return PollResult::Progressed.into(),
-                };
-
-                match res.and_then(|v| match v.is_array() {
-                    true => serde_json::from_value::<Vec<exec::Request>>(v),
-                    false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
-                }) {
-                    Ok(reqs) => {
-                        this.batch.as_mut().append(&mut this.conn.exec(reqs));
-                    }
-                    Err(_err) => {
+            responses = batch_stream.next() => {
+                if let Some(responses) = responses {
+                    if let Err(_err) = socket.send(responses).await {
                         #[cfg(feature = "tracing")]
-                        tracing::error!("Error parsing websocket message: {}", _err);
-
-                        // TODO: Send report of error to frontend but who do we correlated them????
+                        tracing::error!("Error sending message to websocket: {}", _err);
                     }
                 }
-
-                PollResult::QueueSend
             }
-            Some(Err(_err)) => {
-                #[cfg(feature = "tracing")]
-                tracing::debug!("Error reading from websocket connection: {:?}", _err);
+            // poll_recv
+            msg = socket.next() => {
+                match msg {
+                    Some(Ok(msg)) => {
+                        let res = match msg {
+                            IncomingMessage::Msg(res) => res,
+                            IncomingMessage::Close => { break },
+                            IncomingMessage::Skip => { continue },
+                        };
 
-                // TODO: Send report of error to frontend but who do we correlated them????
+                        match res.and_then(|v| match v.is_array() {
+                            true => serde_json::from_value::<Vec<exec::Request>>(v),
+                            false => serde_json::from_value::<exec::Request>(v).map(|v| vec![v]),
+                        }) {
+                            Ok(reqs) => {
+                                conn.exec(reqs)
+                                    .into_iter()
+                                    .for_each(|resp| {
+                                        batch_tx.unbounded_send(resp).expect("Failed to send on unbounded send");
+                                    });
+                            }
+                            Err(_err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Error parsing websocket message: {}", _err);
 
-                PollResult::QueueSend
-            }
-            None => PollResult::Complete,
-        }
-        .into()
-    }
-
-    /// Poll active streams
-    fn poll_streams(
-        this: &mut ConnectionTaskProj<R, TCtx, S, E>,
-        cx: &mut Context<'_>,
-    ) -> Poll<PollResult> {
-        let mut conn = this.conn.as_mut().project();
-        for _ in 0..conn.streams.len() {
-            match ready!(conn.streams.as_mut().poll_next(cx)) {
-                Some((a, _)) => match a {
-                    StreamYield::Item(resp) => {
-                        this.batch.as_mut().insert(resp);
-                        return PollResult::QueueSend.into();
-                    }
-                    StreamYield::Finished(f) => {
-                        if let Some(stream) = f.take(conn.streams.as_mut()) {
-                            let sub_id = stream.id();
-                            conn.sub_id_to_stream.remove(&sub_id);
-                            conn.map.take(&sub_id);
+                                // TODO: Send report of error to frontend but who do we correlated them????
+                            }
                         }
                     }
-                },
-                // If no streams, fall asleep until a new subscription is queued
-                None => {}
-            }
-        }
-        PollResult::Progressed.into()
-    }
+                    Some(Err(_err)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Error reading from websocket connection: {:?}", _err);
 
-    fn complete(this: &mut ConnectionTaskProj<R, TCtx, S, E>) {
-        #[cfg(feature = "tracing")]
-        tracing::trace!("Shutting down websocket connection");
-
-        Self::shutdown_all_streams(this);
-    }
-
-    fn shutdown_all_streams(this: &mut ConnectionTaskProj<R, TCtx, S, E>) {
-        let mut conn = this.conn.as_mut().project();
-
-        // TODO: This can be improved by: https://github.com/jonhoo/streamunordered/pull/5
-        for (_, token) in conn.sub_id_to_stream.drain() {
-            conn.streams.as_mut().remove(token);
-        }
-        conn.map.drain().for_each(drop);
-    }
-}
-
-impl<
-        R: AsyncRuntime,
-        TCtx: Clone + Send + 'static,
-        S: Sink<Vec<Response>, Error = E> + Stream<Item = Result<IncomingMessage, E>> + Send + Unpin,
-        E: std::fmt::Debug + std::error::Error,
-    > Future for ConnectionTask<R, TCtx, S, E>
-{
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.as_mut().project();
-        let mut is_pending = false;
-        let mut is_done = false;
-        let mut should_send = false;
-
-        while !is_pending || should_send {
-            should_send = false;
-
-            if let Some(recv) = &mut this.clear_subscriptions_rx {
-                match (recv)(cx) {
-                    Poll::Ready(Some(())) => Self::shutdown_all_streams(&mut this),
-                    Poll::Ready(None) => *this.clear_subscriptions_rx = None,
-                    Poll::Pending => is_pending = true,
+                        // TODO: Send report of error to frontend but who do we correlated them????
+                    },
+                    None => {
+                        break
+                    }
                 }
             }
+            // poll_streams
+            value = conn.streams.select_next_some() => {
+                let (yld, _) = value;
 
-            if Self::poll_send(&mut this, cx).is_pending() {
-                is_pending = true;
-            }
-
-            if is_done {
-                if is_pending {
-                    return Poll::Pending;
-                }
-
-                #[cfg(debug_assertions)]
-                if !this.batch.batch.is_empty() {
-                    unreachable!("`ConnectionTask::poll_send` is complete but did not send all queued messages");
-                }
-
-                return Poll::Ready(());
-            }
-
-            match Self::poll_recv(&mut this, cx) {
-                Poll::Ready(PollResult::Complete) => {
-                    is_done = true;
-                    Self::complete(&mut this);
-                    continue;
-                }
-                Poll::Ready(PollResult::Progressed) => {}
-                Poll::Ready(PollResult::QueueSend) => {
-                    should_send = true;
-                    continue;
-                }
-                Poll::Pending => {
-                    is_pending = true;
+                match yld {
+                    StreamYield::Item(resp) => {
+                        batch_tx.unbounded_send(resp).ok();
+                    }
+                    StreamYield::Finished(f) => {
+                        if let Some(stream) = f.take(Pin::new(&mut conn.streams)) {
+                            let sub_id = stream.id;
+                            conn.subscription_shutdowns.remove(&sub_id);
+                        }
+                    }
                 }
             }
-
-            match Self::poll_streams(&mut this, cx) {
-                Poll::Ready(PollResult::Complete) => {
-                    #[cfg(debug_assertions)]
-                    unreachable!(
-                        "`ConnectionTask::poll_streams` attempted to complete the connection!"
-                    );
-
-                    #[cfg(not(debug_assertions))]
-                    continue;
-                }
-                Poll::Ready(PollResult::Progressed) => {}
-                Poll::Ready(PollResult::QueueSend) => {
-                    should_send = true;
-                    continue;
-                }
-                Poll::Pending => {
-                    is_pending = true;
+            shutdown = conn.subscription_shutdown_rx.select_next_some() => {
+                if let Ok(stream_id) = shutdown {
+                    Pin::new(&mut conn.streams).remove(stream_id);
                 }
             }
         }
-
-        Poll::Pending
     }
+
+    println!("Connection done!");
 }
