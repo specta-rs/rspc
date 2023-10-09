@@ -25,7 +25,7 @@ pub enum ExecutorResult {
     /// A future that will resolve to a response.
     Future(RequestFuture),
     /// A task that should be queued onto an async runtime.
-    Task(Task, oneshot::Sender<()>),
+    Task(Task),
 }
 
 // TODO: Move this into `build_router.rs` and turn it into a module with all the other `exec::*` types
@@ -62,20 +62,19 @@ impl<TCtx: Send + 'static> Router<TCtx> {
                     Some(subs) if subs.contains_key(data.id) => {
                         Err(ExecError::ErrSubscriptionDuplicateId)
                     }
-                    Some(_) => match get_subscription(self, ctx, data) {
+                    Some(subs) => match get_subscription(self, ctx, data) {
                         None => Err(ExecError::OperationNotFound),
                         Some(stream) => {
                             let (tx, rx) = oneshot::channel();
 
-                            Ok(ExecutorResult::Task(
-                                Task {
-                                    id,
-                                    stream,
-                                    done: false,
-                                    shutdown_rx: Some(rx),
-                                },
-                                tx,
-                            ))
+                            subs.insert(id, tx);
+
+                            Ok(ExecutorResult::Task(Task {
+                                id,
+                                stream,
+                                done: false,
+                                shutdown_rx: Some(rx),
+                            }))
                         }
                     },
                 }

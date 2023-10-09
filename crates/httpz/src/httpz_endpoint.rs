@@ -128,7 +128,7 @@ where
 	            ExecutorResult::Future(fut) => fut.await,
 	            ExecutorResult::Response(response) => response,
                 #[allow(clippy::panic)]
-                ExecutorResult::Task(_, _) => {
+                ExecutorResult::Task(_) => {
                     #[cfg(debug_assertions)]
                     panic!("rspc: unexpected HTTP endpoint returned 'Task'");
                 }
@@ -220,7 +220,7 @@ where
                         responses.push(resp);
                     }
                     #[allow(clippy::panic)]
-                    ExecutorResult::Task(_, _) => {
+                    ExecutorResult::Task(_) => {
                         #[cfg(debug_assertions)]
                         panic!("rspc: unexpected HTTP endpoint returned 'Task'");
                     }

@@ -43,10 +43,8 @@ where
             };
 
             match res {
-                ExecutorResult::Task(task, shutdown_tx) => {
-                    let task_id = task.id;
+                ExecutorResult::Task(task) => {
                     self.streams.insert(task);
-                    self.subscriptions.insert(task_id, shutdown_tx);
                 }
                 ExecutorResult::Future(fut) => {
                     self.streams.insert(fut.into());
