@@ -41,6 +41,7 @@ impl Stream for Task {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         match &self.status {
+            #[allow(clippy::panic)]
             Status::DoNotPoll => {
                 #[cfg(debug_assertions)]
                 panic!("`StreamWrapper` polled after completion")

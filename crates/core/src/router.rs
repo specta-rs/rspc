@@ -154,13 +154,13 @@ where
                 Some(dt) => {
                     if let Some(ext) = dt.ext() {
                         if let Some((existing_sid, existing_impl_location)) =
-                            map.insert(dt.name(), (sid, ext.impl_location().clone()))
+                            map.insert(dt.name(), (sid, *ext.impl_location()))
                         {
                             if existing_sid != sid {
                                 return Err(ExportError::TsExportErr(
                                     TsExportError::DuplicateTypeName(
                                         dt.name().clone(),
-                                        ext.impl_location().clone(),
+                                        *ext.impl_location(),
                                         existing_impl_location,
                                     ),
                                 ));

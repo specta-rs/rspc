@@ -15,7 +15,8 @@ pub trait IntoResolverError: Serialize + Type + std::error::Error {
         Self: Sized,
     {
         ResolverError {
-            value: serde_json::to_value(&self).unwrap_or_default(),
+            // TODO: Error handling
+            value: serde_json::to_value(&self).unwrap(),
             message: self.to_string(),
         }
     }
@@ -123,8 +124,18 @@ impl From<ExecError> for ProcedureError {
                 cause: None,
             },
             ExecError::Resolver(err) => return err.into(),
-            ExecError::ErrSubscriptionNotFound => todo!(),
-            ExecError::ErrSubscriptionAlreadyClosed => todo!(),
+            // ExecError::ErrSubscriptionNotFound => Error {
+            //     code: ErrorCode::InternalServerError,
+            //     message: "error a procedure returned an empty stream".into(),
+            //     cause: None,
+            // },
+            // ExecError::ErrSubscriptionAlreadyClosed => Error {
+            //     code: ErrorCode::InternalServerError,
+            //     message: "error subscription was already closed".into(),
+            //     cause: None,
+            // },
+            // TODO: Sort out this panic
+            _ => todo!(),
         })
     }
 }

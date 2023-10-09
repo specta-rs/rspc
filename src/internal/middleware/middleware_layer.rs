@@ -161,7 +161,7 @@ mod private {
                                 Some(resp_fn) => match result {
                                     Ok(result) => {
                                         resp_fut.set(PinnedOption::Some {
-                                            v: (&*resp_fn).call(result),
+                                            v: (*resp_fn).call(result),
                                         });
                                         continue;
                                     }
@@ -192,6 +192,7 @@ mod private {
                         self.as_mut().set(Self::Done);
                         return Poll::Ready(None);
                     }
+                    #[allow(clippy::panic)]
                     MiddlewareLayerFutureProj::Done => {
                         #[cfg(debug_assertions)]
                         panic!("`MiddlewareLayerFuture` polled after completion");

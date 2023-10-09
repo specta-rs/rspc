@@ -10,7 +10,7 @@ use crate::internal::{
         StreamMarkerType,
     },
 };
-use rspc_core::internal::{router::Router, ProcedureDef, ProcedureKind};
+use rspc_core::internal::{router::Router, ProcedureKind};
 
 /// TODO: Explain
 pub struct MissingResolver<TError>(PhantomData<TError>);

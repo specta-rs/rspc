@@ -16,7 +16,6 @@ use serde_json::Value;
 use crate::{
     body::Body,
     middleware::{ProcedureKind, RequestContext},
-    procedure_store::ProcedureTodo,
     router_builder::ProcedureMap,
     Router,
 };

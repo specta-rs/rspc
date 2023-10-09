@@ -2,21 +2,13 @@ use std::{
     fmt,
     future::Future,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
 };
-
-use futures::{ready, Stream};
-use pin_project_lite::pin_project;
-use serde_json::Value;
 
 use crate::{
     body::Body,
     error::ExecError,
-    exec::{self, Response, ResponseInner},
-    middleware::RequestContext,
-    util::{PinnedOption, PinnedOptionProj},
-    Router,
+    exec::{Response, ResponseInner},
 };
 
 use super::arc_ref::ArcRef;

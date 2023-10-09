@@ -66,7 +66,7 @@ fn never() -> DataType {
         },
         &[],
     )
-    .unwrap()
+    .expect("rspc: error exporting `never`")
 }
 
 impl ProcedureDef {
@@ -88,7 +88,7 @@ impl ProcedureDef {
                 },
                 &[],
             )? {
-                DataType::Tuple(TupleType::Named { fields, .. }) if fields.len() == 0 => never(),
+                DataType::Tuple(TupleType::Named { fields, .. }) if fields.is_empty() => never(),
                 t => t,
             },
             result: TResult::reference(

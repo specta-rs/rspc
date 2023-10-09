@@ -1,10 +1,7 @@
 use std::{
     collections::HashMap,
-    future::Future,
-    marker::PhantomData,
     pin::{pin, Pin},
     sync::Arc,
-    task::{Context, Poll},
     time::{Duration, Instant},
 };
 
@@ -13,27 +10,22 @@ use futures::{
         mpsc::{self, UnboundedReceiver, UnboundedSender},
         oneshot,
     },
-    future::{Either, OptionFuture},
-    pin_mut, ready,
-    stream::{self, Fuse, FusedStream, FuturesUnordered},
+    future::OptionFuture,
+    pin_mut,
+    stream::{self, FusedStream, FuturesUnordered},
     FutureExt, Sink, SinkExt, Stream, StreamExt,
 };
-use pin_project_lite::pin_project;
-use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
-use super::{ExecutorResult, IncomingMessage, Request, Requests, Response, Task};
-use crate::{
-    exec,
-    util::{PinnedOption, PinnedOptionProj},
-    AsyncRuntime, Router,
-};
+use super::{ExecutorResult, IncomingMessage, Request, Response, Task};
+use crate::{exec, AsyncRuntime, Router};
 
 // Time to wait for more messages before sending them over the websocket connection.
 // This batch is mostly designed to reduce the impact of duplicate subscriptions a bit
 // as sending them together should help us utilise transport layer compression.
 const BATCH_TIMEOUT: Duration = Duration::from_millis(5);
 
+// TODO: I don't like this
 pub(crate) struct TaskShutdown {
     stream_id: usize,
     tx: oneshot::Sender<usize>,
@@ -106,6 +98,7 @@ fn batch_unbounded<R: AsyncRuntime, T>(
             'batch: loop {
                 let timer = R::sleep_util(Instant::now() + BATCH_TIMEOUT).fuse();
 
+                #[allow(clippy::never_loop)]
                 'timer: loop {
                     pin_mut!(timer);
 

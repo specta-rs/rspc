@@ -15,11 +15,12 @@ impl<T> From<T> for PinnedOption<T> {
     }
 }
 
+// TODO: Avoid need for manually expanding the `pin_project` macro
 /* The `cargo expand` output for `pin_project!` so that we can make `PinnedOptionProj` public */
 #[doc(hidden)]
 #[allow(dead_code)]
 #[allow(single_use_lifetimes)]
-#[allow(clippy::unknown_clippy_lints)]
+#[allow(clippy::unknown_lints)]
 #[allow(clippy::mut_mut)]
 #[allow(clippy::redundant_pub_crate)]
 #[allow(clippy::ref_option_ref)]
@@ -34,7 +35,7 @@ where
     None,
 }
 #[allow(single_use_lifetimes)]
-#[allow(clippy::unknown_clippy_lints)]
+#[allow(clippy::unknown_lints)]
 #[allow(clippy::used_underscore_binding)]
 #[allow(unsafe_code)] // <- Custom
 #[allow(warnings)] // <- Custom

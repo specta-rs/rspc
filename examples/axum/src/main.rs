@@ -61,11 +61,11 @@ async fn main() {
         .procedure("echo", R.query(|_, v: String| Ok(v)))
         .procedure(
             "error",
-            R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+            R.query(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
         )
         .procedure(
             "error",
-            R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+            R.mutation(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
         )
         .procedure(
             "transformMe",
@@ -100,7 +100,7 @@ async fn main() {
                         yield Ok("ping".to_string());
                         sleep(Duration::from_secs(1)).await;
                     }
-                    yield Err(Error("Something went wrong".into()));
+                    yield Err(Error("Something went wrong"));
                 }
             }),
         )

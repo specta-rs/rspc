@@ -1,19 +1,4 @@
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    convert::Infallible,
-    fmt,
-    future::{Future, Ready},
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-    pin::Pin,
-    sync::{Arc, Mutex},
-    task::{Context, Poll, Waker},
-};
-
-use futures::{channel::oneshot, stream::FuturesUnordered, Stream, StreamExt};
-
-use serde_json::Value;
+use std::{pin::Pin, sync::Arc};
 
 use crate::{
     body::Body,
@@ -23,14 +8,10 @@ use crate::{
         request_future::RequestFuture,
         Request, Response, ResponseInner, Task,
     },
-    layer::FutureValueOrStream,
-    middleware::{ProcedureKind, RequestContext},
-    procedure_store::ProcedureTodo,
-    router_builder::ProcedureMap,
     Router,
 };
 
-use super::{task, Connection, RequestData};
+use super::{task, Connection};
 
 /// TODO
 ///
@@ -56,6 +37,7 @@ impl<TCtx: Send + 'static> Router<TCtx> {
         self: Arc<Self>,
         ctx: TCtx,
         req: Request,
+        // TODO: Can the executor be decoupled from the connection???
         conn: Option<&mut Connection<TCtx>>,
     ) -> Option<ExecutorResult> {
         // TODO

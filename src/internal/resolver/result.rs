@@ -83,7 +83,7 @@ mod private {
                 stream: once(ready(
                     self.map_err(|e| e.into_resolver_error().into())
                         .and_then(|v| {
-                            Ok(serde_json::to_value(v).map_err(ExecError::SerializingResultErr)?)
+                            serde_json::to_value(v).map_err(ExecError::SerializingResultErr)
                         }),
                 )),
             }
@@ -337,60 +337,6 @@ mod private {
                 Self::First { .. } => (0, None),
                 Self::Second { stream, .. } => stream.size_hint(),
             }
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    pin_project! {
-        #[project = FutureBlobStreamProj]
-        pub struct FutureBlobStream<F, S>
-        where
-            F: Future
-        {
-            #[pin]
-            fut: F,
-            map: fn(F::Output) -> S,
-            phantom: PhantomData<S>
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    impl<S: tokio::io::AsyncBufRead, F: Future> Body for FutureBlobStream<F, S> {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            _cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
-            todo!("blob unimplemented");
-        }
-
-        #[inline]
-        fn size_hint(&self) -> (usize, Option<usize>) {
-            (0, None)
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    pin_project! {
-        #[project = BlobStreamProj]
-        pub struct BlobStream<S> {
-            #[pin]
-            stream: S,
-            // buf: Vec<u8>,
-        }
-    }
-
-    #[cfg(feature = "tokio")]
-    impl<S: tokio::io::AsyncBufRead> Body for BlobStream<S> {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            _cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
-            todo!("blob unimplemented");
-        }
-
-        #[inline]
-        fn size_hint(&self) -> (usize, Option<usize>) {
-            (0, None)
         }
     }
 }

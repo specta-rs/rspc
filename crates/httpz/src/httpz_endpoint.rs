@@ -11,7 +11,7 @@ use std::{
 };
 
 use rspc_core::{
-    exec::{self, Connection, ExecutorResult},
+    exec::{self, ExecutorResult},
     Router,
 };
 
@@ -127,7 +127,11 @@ where
         	Some(res) => match res {
 	            ExecutorResult::Future(fut) => fut.await,
 	            ExecutorResult::Response(response) => response,
-	            ExecutorResult::Task(task) => todo!(),
+                #[allow(clippy::panic)]
+                ExecutorResult::Task(_) => {
+                    #[cfg(debug_assertions)]
+                    panic!("rspc: unexpected HTTP endpoint returned 'Task'");
+                }
 	        },
             None => unreachable!(
                 "Executor will only return none for a 'stopSubscription' event which is impossible here"
@@ -215,7 +219,11 @@ where
                     ExecutorResult::Response(resp) => {
                         responses.push(resp);
                     }
-                    ExecutorResult::Task(task) => todo!(),
+                    #[allow(clippy::panic)]
+                    ExecutorResult::Task(_) => {
+                        #[cfg(debug_assertions)]
+                        panic!("rspc: unexpected HTTP endpoint returned 'Task'");
+                    }
                 }
             }
 

@@ -5,18 +5,13 @@ use serde_json::Value;
 use super::{Executable2Placeholder, MwResultWithCtx};
 
 pub fn new_mw_ctx(input: serde_json::Value, req: RequestContext) -> MiddlewareContext {
-    MiddlewareContext {
-        input,
-        req,
-        _priv: (),
-    }
+    MiddlewareContext { input, req }
 }
 
+#[non_exhaustive]
 pub struct MiddlewareContext {
     pub input: Value,
     pub req: RequestContext,
-    // Prevents downstream user constructing type
-    _priv: (),
 }
 
 impl MiddlewareContext {
