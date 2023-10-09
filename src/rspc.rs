@@ -2,14 +2,13 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        middleware::{
-            BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
-        },
+        middleware::{BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder},
         procedure::{MissingResolver, Procedure},
         resolver::{FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType},
     },
     Infallible, IntoResolverError, RouterBuilder,
 };
+use rspc_core::internal::ProcedureKind;
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
 ///

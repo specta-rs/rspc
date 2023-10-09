@@ -8,7 +8,7 @@ use futures::ready;
 use pin_project_lite::pin_project;
 use serde_json::Value;
 
-use crate::ExecError;
+use crate::error::ExecError;
 
 use super::Body;
 

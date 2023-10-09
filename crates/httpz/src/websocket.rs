@@ -6,10 +6,9 @@ use httpz::{
     ws::{Message, WebsocketUpgrade},
     HttpResponse,
 };
-
-use rspc::{
-    internal::exec::{run_connection, IncomingMessage, Response, TokioRuntime},
-    Router,
+use rspc_core::{
+    exec::{run_connection, IncomingMessage, Response},
+    Router, TokioRuntime,
 };
 
 use super::TCtxFunc;

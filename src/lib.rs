@@ -11,23 +11,18 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )]
-// #![deny(unsafe_code)] // TODO: Enable this
+#![forbid(unsafe_code)]
 #![allow(clippy::module_inception)]
-#![allow(clippy::type_complexity)] // TODO: Fix this and disable it
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(feature = "unstable")]
-#[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
-pub mod unstable;
-
-mod error;
-mod router;
 mod router_builder;
 mod rspc;
 
 pub use crate::rspc::*;
-pub use error::*;
-pub use router::*;
 pub use router_builder::*;
+pub use rspc_core::internal::router::*;
 
 pub mod internal;
+
+// TODO: Only reexport certain types
+pub use rspc_core::error::*;

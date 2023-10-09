@@ -10,8 +10,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use rspc::{
-    internal::exec::{self, Connection, ExecutorResult},
+use rspc_core::{
+    exec::{self, Connection, ExecutorResult},
     Router,
 };
 

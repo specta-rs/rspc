@@ -9,32 +9,28 @@ pub enum ProcedureError {
     Resolver(serde_json::Value),
 }
 
-mod private {
-    use super::*;
-
-    pub trait IntoResolverError: Serialize + Type + std::error::Error {
-        fn into_resolver_error(self) -> ResolverError
-        where
-            Self: Sized,
-        {
-            ResolverError {
-                value: serde_json::to_value(&self).unwrap_or_default(),
-                message: self.to_string(),
-            }
+pub trait IntoResolverError: Serialize + Type + std::error::Error {
+    fn into_resolver_error(self) -> ResolverError
+    where
+        Self: Sized,
+    {
+        ResolverError {
+            value: serde_json::to_value(&self).unwrap_or_default(),
+            message: self.to_string(),
         }
     }
+}
 
-    #[derive(thiserror::Error, Debug, Clone)]
-    #[error("{message}")]
-    pub struct ResolverError {
-        pub(crate) value: serde_json::Value,
-        pub(crate) message: String,
-    }
+#[derive(thiserror::Error, Debug, Clone)]
+#[error("{message}")]
+pub struct ResolverError {
+    pub(crate) value: serde_json::Value,
+    pub(crate) message: String,
+}
 
-    impl From<ResolverError> for ProcedureError {
-        fn from(v: ResolverError) -> Self {
-            Self::Resolver(v.value)
-        }
+impl From<ResolverError> for ProcedureError {
+    fn from(v: ResolverError) -> Self {
+        Self::Resolver(v.value)
     }
 }
 
@@ -42,9 +38,6 @@ mod private {
 pub enum Infallible {}
 
 impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
-
-// TODO: `ResolverError` should probs be public from rspc-core but not rspc
-pub(crate) use private::{IntoResolverError, ResolverError};
 
 // TODO: Context based `ExecError`. Always include the `path` of the procedure on it.
 // TODO: Cleanup this

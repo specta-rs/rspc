@@ -3,5 +3,5 @@ mod map;
 mod once;
 
 pub use body::*;
-pub use map::*;
-pub use once::*;
+pub(crate) use map::*;
+pub(crate) use once::*;

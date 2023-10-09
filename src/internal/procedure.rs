@@ -3,19 +3,14 @@ use std::{borrow::Cow, marker::PhantomData};
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::{
-    internal::{
-        middleware::{
-            ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind,
-        },
-        procedure::ProcedureDef,
-        resolver::{
-            FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
-            StreamMarkerType,
-        },
+use crate::internal::{
+    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder},
+    resolver::{
+        FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
+        StreamMarkerType,
     },
-    Router,
 };
+use rspc_core::internal::{router::Router, ProcedureDef, ProcedureKind};
 
 /// TODO: Explain
 pub struct MissingResolver<TError>(PhantomData<TError>);
@@ -34,8 +29,6 @@ mod private {
 }
 
 pub(crate) use private::Procedure;
-
-use super::procedure_store;
 
 impl<T, TMiddleware> Procedure<T, TMiddleware>
 where
@@ -117,27 +110,18 @@ where
     pub(crate) fn build(self, key: Cow<'static, str>, ctx: &mut Router<TMiddleware::Ctx>) {
         let HasResolver(resolver, kind, _) = self.resolver;
 
-        let m = match kind {
-            ProcedureKind::Query => (&mut ctx.queries, "query"),
-            ProcedureKind::Mutation => (&mut ctx.mutations, "mutation"),
-            ProcedureKind::Subscription => (&mut ctx.subscriptions, "subscription"),
-        };
-
-        let key_str = key.to_string();
-        let type_def = ProcedureDef::from_tys::<
+        rspc_core::internal::build::<
+            TMiddleware::Ctx,
             TMiddleware::Arg<TArg>,
             TResult::Result,
             TResult::Error,
-        >(key, &mut ctx.typ_store)
-        .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
-
-        procedure_store::append(
-            m,
-            key_str,
+        >(
+            key,
+            ctx,
+            kind,
             self.mw.build(ResolverLayer::new(move |ctx, input, _| {
                 Ok((resolver)(ctx, input).exec())
             })),
-            type_def,
         );
     }
 }

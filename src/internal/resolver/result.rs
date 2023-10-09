@@ -5,7 +5,6 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use crate::{internal::Body, Infallible, IntoResolverError};
 use futures::{
     stream::{once, Once},
     Stream,
@@ -14,13 +13,17 @@ use serde::Serialize;
 use serde_json::Value;
 use specta::Type;
 
-use crate::ExecError;
+use rspc_core::{
+    error::{ExecError, IntoResolverError},
+    internal::Body,
+};
 
 #[doc(hidden)]
 pub trait RequestLayer<TMarker>: private::SealedRequestLayer<TMarker> {}
 
 mod private {
     use pin_project_lite::pin_project;
+    use rspc_core::error::Infallible;
 
     use super::*;
 

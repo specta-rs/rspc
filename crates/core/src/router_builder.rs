@@ -1,8 +1,11 @@
-use std::{borrow::Cow, panic::Location};
+use std::{borrow::Cow, collections::BTreeMap, panic::Location};
 
 use thiserror::Error;
 
-use crate::Router;
+use crate::{internal::ProcedureTodo, router::Router};
+
+// TODO: Move into `procedure_store` module???
+pub type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
@@ -12,6 +15,22 @@ pub struct BuildError {
     pub(crate) name: Cow<'static, str>,
     #[cfg(debug_assertions)]
     pub(crate) loc: &'static Location<'static>,
+}
+
+#[cfg(debug_assertions)]
+pub fn edit_build_error_name(
+    error: &mut BuildError,
+    func: impl FnOnce(Cow<'static, str>) -> Cow<'static, str>,
+) {
+    error.name = func(std::mem::replace(&mut error.name, Cow::Borrowed("")));
+}
+
+pub fn new_build_error(
+    cause: BuildErrorCause,
+    #[cfg(debug_assertions)] name: Cow<'static, str>,
+    #[cfg(debug_assertions)] loc: &'static Location<'static>,
+) -> BuildError {
+    BuildError { cause, name, loc }
 }
 
 impl BuildError {
@@ -25,7 +44,7 @@ impl BuildError {
 
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Error, PartialEq, Eq)]
-pub(crate) enum BuildErrorCause {
+pub enum BuildErrorCause {
     #[error(
         "a procedure or router name must be more than 1 character and less than 255 characters"
     )]

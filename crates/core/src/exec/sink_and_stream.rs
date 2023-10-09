@@ -5,6 +5,7 @@ use std::{
 
 use futures::{Sink, Stream};
 
+// TODO: Surely the `futures` crate has something that can replace this?
 pin_project_lite::pin_project! {
     pub struct SinkAndStream<TSink, TStream> {
         #[pin]

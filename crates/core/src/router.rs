@@ -14,8 +14,11 @@ use specta::{
 };
 
 use crate::{
-    internal::procedure::{ProcedureTodo, ProceduresDef},
-    ExportError,
+    error::ExportError,
+    internal::ProcedureDef,
+    middleware::ProcedureKind,
+    procedure_store::{ProcedureTodo, ProceduresDef},
+    router_builder::ProcedureMap,
 };
 
 // TODO: Break this out into it's own file
@@ -49,8 +52,6 @@ impl ExportConfig {
         }
     }
 }
-
-pub(crate) type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
 
 /// Router is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
 pub struct Router<TCtx = ()> {

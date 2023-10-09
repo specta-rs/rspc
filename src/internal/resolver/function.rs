@@ -12,7 +12,7 @@ pub trait ResolverFunction<TLCtx, TMarker>:
 }
 
 mod private {
-    use crate::internal::middleware::ProcedureKind;
+    use rspc_core::internal::ProcedureKind;
 
     use super::*;
 

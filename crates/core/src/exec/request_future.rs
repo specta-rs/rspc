@@ -11,12 +11,12 @@ use pin_project_lite::pin_project;
 use serde_json::Value;
 
 use crate::{
-    internal::{
-        exec::{self, Response, ResponseInner},
-        middleware::RequestContext,
-        Body, PinnedOption, PinnedOptionProj,
-    },
-    ExecError, Router,
+    body::Body,
+    error::ExecError,
+    exec::{self, Response, ResponseInner},
+    middleware::RequestContext,
+    util::{PinnedOption, PinnedOptionProj},
+    Router,
 };
 
 use super::arc_ref::ArcRef;
