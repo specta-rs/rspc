@@ -11,7 +11,7 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use futures::{channel::oneshot, future::poll_fn, stream::FuturesUnordered, Stream, StreamExt};
+use futures::{channel::oneshot, stream::FuturesUnordered, Stream, StreamExt};
 
 use serde_json::Value;
 
