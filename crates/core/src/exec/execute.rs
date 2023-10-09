@@ -11,7 +11,7 @@ use crate::{
     Router,
 };
 
-use super::{task, Connection};
+use super::{task, SubscriptionMap};
 
 /// TODO
 ///
@@ -37,8 +37,7 @@ impl<TCtx: Send + 'static> Router<TCtx> {
         self: Arc<Self>,
         ctx: TCtx,
         req: Request,
-        // TODO: Can the executor be decoupled from the connection???
-        conn: Option<&mut Connection<TCtx>>,
+        subs: Option<&mut SubscriptionMap>,
     ) -> Option<ExecutorResult> {
         // TODO
         // TODO: Configurable logging hook
@@ -56,9 +55,9 @@ impl<TCtx: Send + 'static> Router<TCtx> {
             Request::Subscription(data) => {
                 let id = data.id;
 
-                match conn {
+                match subs {
                     None => Err(ExecError::ErrSubscriptionsNotSupported),
-                    Some(conn) if conn.subscription_shutdowns.contains_key(&data.id) => {
+                    Some(subs) if subs.contains_key(data.id) => {
                         Err(ExecError::ErrSubscriptionDuplicateId)
                     }
                     Some(_) => match get_subscription(self, ctx, data) {
@@ -77,14 +76,11 @@ impl<TCtx: Send + 'static> Router<TCtx> {
                     })
                 })
             }
-            Request::SubscriptionStop { id } => match conn {
+            Request::SubscriptionStop { id } => match subs {
                 None => Err(ExecError::ErrSubscriptionsNotSupported),
-                Some(conn) => match conn.subscription_shutdowns.remove(&id) {
-                    Some(shutdown) => match shutdown.send() {
-                        Ok(()) => return None,
-                        Err(_) => Err(ExecError::ErrSubscriptionAlreadyClosed),
-                    },
-                    None => Err(ExecError::ErrSubscriptionNotFound),
+                Some(subs) => match subs.shutdown(id) {
+                    true => return None,
+                    false => Err(ExecError::ErrSubscriptionNotFound),
                 },
             }
             .unwrap_or_else(|e| {

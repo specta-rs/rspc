@@ -8,7 +8,6 @@ edition = "2021"
 default = []
 typescript = ["specta/typescript"]
 tracing = ["dep:tracing"]
-tokio = ["dep:tokio", "specta/tokio"]
 
 [dependencies]
 specta = { workspace = true, features = ["typescript"] }                                      # TODO: `typescript` should be required
@@ -21,7 +20,6 @@ streamunordered = "0.5.3"
 
 # TODO: Remove these from core
 tracing = { version = "0.1.37", default-features = false, optional = true }
-tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }
 
 # TODO: Make something like this work
 # # Even though this `cfg` can never be enabled, it still forces cargo to keep `rspc-core` in lockstep with `rspc-*`.

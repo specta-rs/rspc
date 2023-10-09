@@ -64,8 +64,6 @@ pub enum ExecError {
     ErrSubscriptionDuplicateId,
     #[error("error subscription with id doesn't exist")]
     ErrSubscriptionNotFound,
-    #[error("error subscription already closed")]
-    ErrSubscriptionAlreadyClosed,
     #[error("error the current transport does not support subscriptions")]
     ErrSubscriptionsNotSupported,
     #[error("error a procedure returned an empty stream")]

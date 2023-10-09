@@ -12,7 +12,6 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod async_runtime;
 mod body;
 mod layer;
 mod middleware;
@@ -26,9 +25,6 @@ pub mod error;
 
 // TODO: Reduce API surface in this??
 pub mod exec;
-
-#[allow(deprecated)]
-pub use async_runtime::{AsyncRuntime, TokioRuntime};
 
 pub use router_builder::BuildError;
 

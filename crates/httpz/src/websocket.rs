@@ -8,7 +8,7 @@ use httpz::{
 };
 use rspc_core::{
     exec::{run_connection, IncomingMessage, Response},
-    Router, TokioRuntime,
+    Router,
 };
 
 use super::TCtxFunc;
@@ -74,7 +74,7 @@ where
                 })
             });
 
-        run_connection::<TokioRuntime, _, _, _>(ctx, router, pin!(socket), None).await;
+        run_connection(ctx, router, pin!(socket), None).await;
     })
     .into_response()
 }

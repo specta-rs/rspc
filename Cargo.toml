@@ -29,26 +29,21 @@ harness = false
 default = ["typescript"]
 typescript = ["rspc-core/typescript", "specta/typescript"]
 tracing = ["rspc-core/tracing", "dep:tracing"]
-tokio = ["rspc-core/tokio", "dep:tokio", "specta/tokio"]
 
 unstable = [] # APIs where one line of code can blow up your whole app
 
 [dependencies]
 rspc-core = { path = "./crates/core" }
-
 specta = { workspace = true }
+
 serde = { workspace = true }
 thiserror = { workspace = true }
 futures = { version = "0.3.28", default-features = false, features = ["std", "async-await"] } # TODO: Drop for `futures_core` if possible
 pin-project-lite = "0.2.13"
-streamunordered = "0.5.3"
-
-#### TODO: Can all the following deps be moved out of the core crate ###
 
 # Optional
 serde_json = { version = "1", default-features = false }
 tracing = { version = "0.1.37", default-features = false, optional = true }
-tokio = { version = "1", default-features = false, features = ["rt", "time"], optional = true }
 
 # Even though this `cfg` can never be enabled, it still forces cargo to keep `rspc-core` in lockstep with `rspc`.
 [target.'cfg(any())'.dependencies]

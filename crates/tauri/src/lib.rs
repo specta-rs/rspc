@@ -16,19 +16,20 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     convert::Infallible,
     hash::{Hash, Hasher},
+    marker::PhantomData,
     sync::{Arc, Mutex},
 };
 
 use futures::{channel::mpsc, sink, StreamExt};
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Window, WindowEvent,
+    Runtime, Window, WindowEvent,
 };
 use tauri_specta::Event;
 
 use rspc_core::{
     exec::{run_connection, IncomingMessage, Response, SinkAndStream},
-    AsyncRuntime, Router, TokioRuntime,
+    Router,
 };
 
 #[derive(Clone, Debug, serde::Deserialize, specta::Type, tauri_specta::Event)]
@@ -38,30 +39,29 @@ struct Msg(serde_json::Value);
 #[specta(inline)]
 struct TransportResp(Vec<Response>);
 
-struct WindowManager<TCtxFn, TCtx>
-where
-    TCtx: Send + Sync + 'static,
-    TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
-{
+struct WindowManager<R, TCtxFn, TCtx> {
     router: Arc<Router<TCtx>>,
     ctx_fn: TCtxFn,
     windows: Mutex<HashMap<u64, mpsc::UnboundedSender<()>>>,
+    phantom: PhantomData<fn() -> R>,
 }
 
-impl<TCtxFn, TCtx> WindowManager<TCtxFn, TCtx>
+impl<R, TCtxFn, TCtx> WindowManager<R, TCtxFn, TCtx>
 where
+    R: Runtime,
     TCtx: Clone + Send + Sync + 'static,
-    TCtxFn: Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
+    TCtxFn: Fn(&Window<R>) -> TCtx + Send + Sync + 'static,
 {
     pub fn new(ctx_fn: TCtxFn, router: Arc<Router<TCtx>>) -> Arc<Self> {
         Arc::new(Self {
             router,
             ctx_fn,
             windows: Mutex::new(HashMap::new()),
+            phantom: PhantomData,
         })
     }
 
-    pub fn on_page_load<R: AsyncRuntime>(self: Arc<Self>, window: Window<tauri::Wry>) {
+    pub fn on_page_load(self: Arc<Self>, window: Window<R>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -99,7 +99,7 @@ where
                 Ok::<_, Infallible>(window)
             });
 
-            tauri::async_runtime::spawn(run_connection::<R, _, _, _>(
+            tauri::async_runtime::spawn(run_connection(
                 (self.ctx_fn)(&window),
                 self.router.clone(),
                 SinkAndStream::new(sink, rx.map(Ok)),
@@ -111,7 +111,7 @@ where
     }
 
     #[allow(clippy::unwrap_used)] // TODO: Stop using unwrap
-    pub fn close_requested(&self, window: &Window<tauri::Wry>) {
+    pub fn close_requested(&self, window: &Window<R>) {
         let mut hasher = DefaultHasher::new();
         window.hash(&mut hasher);
         let window_hash = hasher.finish();
@@ -123,7 +123,7 @@ where
 
     pub fn on_window_event_handler(
         self: Arc<Self>,
-        window: Window,
+        window: Window<R>,
     ) -> impl Fn(&WindowEvent) + Send + 'static {
         move |event| {
             if let WindowEvent::CloseRequested { .. } = event {
@@ -155,25 +155,26 @@ mod test {
     }
 }
 
-pub fn plugin<TCtx>(
+pub fn plugin<TCtx, R>(
     router: Arc<Router<TCtx>>,
-    ctx_fn: impl Fn(&Window<tauri::Wry>) -> TCtx + Send + Sync + 'static,
-) -> TauriPlugin<tauri::Wry>
+    ctx_fn: impl Fn(&Window<R>) -> TCtx + Send + Sync + 'static,
+) -> TauriPlugin<R>
 where
     TCtx: Clone + Send + Sync + 'static,
+    R: Runtime,
 {
     let manager = WindowManager::new(ctx_fn, router);
 
     let plugin_utils = specta_builder!().into_plugin_utils(PLUGIN_NAME);
 
-    Builder::new(PLUGIN_NAME)
+    Builder::<R, ()>::new(PLUGIN_NAME)
         .invoke_handler(plugin_utils.invoke_handler)
         .setup(|app| {
             (plugin_utils.setup)(app);
             Ok(())
         })
         .on_page_load(move |window, _page| {
-            manager.clone().on_page_load::<TokioRuntime>(window.clone());
+            manager.clone().on_page_load(window.clone());
         })
         .build()
 }
