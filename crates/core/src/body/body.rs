@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::ExecError;
+use crate::error::ExecError;
 
 /// The resulting body from an rspc operation.
 ///

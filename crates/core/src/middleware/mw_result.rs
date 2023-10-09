@@ -5,11 +5,8 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{internal::middleware::RequestContext, ExecError, IntoResolverError};
-
-mod private {
-    // TODO
-}
+use super::RequestContext;
+use crate::error::{ExecError, IntoResolverError};
 
 pub trait Ret: Debug + Send + Sync + 'static {}
 impl<T: Debug + Send + Sync + 'static> Ret for T {}

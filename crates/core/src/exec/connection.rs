@@ -22,13 +22,11 @@ use pin_project_lite::pin_project;
 use serde_json::Value;
 use streamunordered::{StreamUnordered, StreamYield};
 
-use super::{AsyncRuntime, ExecutorResult, IncomingMessage, Request, Requests, Response, Task};
+use super::{ExecutorResult, IncomingMessage, Request, Requests, Response, Task};
 use crate::{
-    internal::{
-        exec::{self, ResponseInner},
-        PinnedOption, PinnedOptionProj,
-    },
-    Router,
+    exec,
+    util::{PinnedOption, PinnedOptionProj},
+    AsyncRuntime, Router,
 };
 
 // Time to wait for more messages before sending them over the websocket connection.

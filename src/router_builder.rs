@@ -6,11 +6,13 @@ use specta::Type;
 use crate::{
     internal::{
         middleware::MiddlewareBuilder,
-        procedure::{is_valid_name, Procedure},
+        procedure::Procedure,
+        procedure_store::is_valid_name,
         resolver::{HasResolver, RequestLayer},
     },
-    BuildError, BuildResult, Router,
+    Router,
 };
+use rspc_core::internal::{edit_build_error_name, new_build_error, BuildError, BuildResult};
 
 type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
 
@@ -52,13 +54,13 @@ where
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
     {
         if let Some(cause) = is_valid_name(key) {
-            self.errors.push(BuildError {
+            self.errors.push(new_build_error(
                 cause,
                 #[cfg(debug_assertions)]
-                name: Cow::Borrowed(key),
+                Cow::Borrowed(key),
                 #[cfg(debug_assertions)]
-                loc: Location::caller(),
-            });
+                Location::caller(),
+            ));
         }
 
         self.procedures.push((
@@ -73,13 +75,13 @@ where
     #[allow(unused_mut)]
     pub fn merge(mut self, prefix: &'static str, mut r: RouterBuilder<TCtx>) -> Self {
         if let Some(cause) = is_valid_name(prefix) {
-            self.errors.push(BuildError {
+            self.errors.push(new_build_error(
                 cause,
                 #[cfg(debug_assertions)]
-                name: Cow::Borrowed(prefix),
+                Cow::Borrowed(prefix),
                 #[cfg(debug_assertions)]
-                loc: Location::caller(),
-            });
+                Location::caller(),
+            ));
         }
 
         #[cfg(not(debug_assertions))]
@@ -90,7 +92,7 @@ where
         #[cfg(debug_assertions)]
         {
             self.errors.extend(&mut r.errors.into_iter().map(|mut err| {
-                err.name = Cow::Owned(format!("{}.{}", prefix, err.name));
+                edit_build_error_name(&mut err, |name| Cow::Owned(format!("{}.{}", prefix, name)));
                 err
             }));
         }

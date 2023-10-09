@@ -9,13 +9,13 @@ mod private {
     use pin_project_lite::pin_project;
     use serde_json::Value;
 
-    use crate::{
+    use crate::internal::middleware::Middleware;
+    use rspc_core::{
+        error::ExecError,
         internal::{
-            middleware::Middleware,
-            middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
-            Body, Layer, PinnedOption, PinnedOptionProj, SealedLayer,
+            new_mw_ctx, Body, Executable2, Layer, MwV2Result, PinnedOption, PinnedOptionProj,
+            RequestContext, SealedLayer,
         },
-        ExecError,
     };
 
     #[doc(hidden)]
@@ -40,7 +40,7 @@ mod private {
             input: Value,
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
-            let fut = self.mw.run_me(ctx, MiddlewareContext::new(input, req));
+            let fut = self.mw.run_me(ctx, new_mw_ctx(input, req));
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,

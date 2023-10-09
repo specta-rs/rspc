@@ -14,11 +14,9 @@ use tauri::{
 };
 use tauri_specta::Event;
 
-use rspc::{
-    internal::exec::{
-        run_connection, AsyncRuntime, IncomingMessage, Response, SinkAndStream, TokioRuntime,
-    },
-    Router,
+use rspc_core::{
+    exec::{run_connection, IncomingMessage, Response, SinkAndStream},
+    AsyncRuntime, Router, TokioRuntime,
 };
 
 #[derive(Clone, Debug, serde::Deserialize, specta::Type, tauri_specta::Event)]
