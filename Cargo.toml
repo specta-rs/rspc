@@ -27,7 +27,7 @@ harness = false
 
 [features]
 default = ["typescript"]
-typescript = ["specta/typescript"]    # TODO: Fix this "tauri-specta/typescript"
+typescript = ["specta/typescript"]
 tracing = ["dep:tracing"]
 tokio = ["dep:tokio", "specta/tokio"]
 
