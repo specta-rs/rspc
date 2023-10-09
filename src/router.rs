@@ -52,7 +52,7 @@ impl ExportConfig {
 
 pub(crate) type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
 
-/// BuiltRouter is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
+/// Router is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
 pub struct Router<TCtx = ()> {
     pub(crate) queries: ProcedureMap<TCtx>,
     pub(crate) mutations: ProcedureMap<TCtx>,
@@ -62,7 +62,7 @@ pub struct Router<TCtx = ()> {
 
 impl<TCtx> fmt::Debug for Router<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BuiltRouter").finish()
+        f.debug_struct("Router").finish()
     }
 }
 
