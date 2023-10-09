@@ -37,7 +37,7 @@ unstable = [] # APIs where one line of code can blow up your whole app
 specta = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-futures = { version = "0.3.28", default-features = false, features = ["alloc", "async-await"] } # TODO: Drop for `futures_core` if possible
+futures = { version = "0.3.28", default-features = false, features = ["std", "async-await"] } # TODO: Drop for `futures_core` if possible
 pin-project-lite = "0.2.13"
 streamunordered = "0.5.3"
 
