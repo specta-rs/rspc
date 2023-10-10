@@ -63,9 +63,9 @@ pprof = { version = "0.13.0", features = ["flamegraph", "criterion", "protobuf-c
 members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "./examples/tauri/src-tauri"]
 
 [workspace.dependencies]
-specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
+specta = { version = "=2.0.0-rc.5", default-features = false, features = ["serde", "serde_json"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.49", default-features = false }
 
 [patch.crates-io]
-specta = { git = "https://github.com/oscartbeaumont/specta", rev = "5948d80f2551780eda2c7bf38450fc796c74cfbf" }
+specta = { git = "https://github.com/oscartbeaumont/specta", rev = "4dea4d52ebced76e9ccf5970f8122b00772b809c" }
