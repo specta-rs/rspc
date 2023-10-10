@@ -30,13 +30,14 @@ async fn main() {
         .router()
         .procedure(
             "version",
-            R.with(|mw, ctx| async move {
-                mw.next(ctx).map(|resp| async move {
-                    println!("Client requested version '{}'", resp);
-                    resp
-                })
-            })
-            .with(|mw, ctx| async move { mw.next(ctx) })
+            R
+            // .with(|mw, ctx| async move {
+            //     mw.next(ctx).map(|resp| async move {
+            //         println!("Client requested version '{}'", resp);
+            //         resp
+            //     })
+            // })
+            // .with(|mw, ctx| async move { mw.next(ctx) })
             .query(|_, _: ()| Ok(env!("CARGO_PKG_VERSION"))),
         )
         .procedure(

@@ -2,6 +2,7 @@ mod private {
     use std::{
         marker::PhantomData,
         pin::Pin,
+        sync::{Arc, Mutex, PoisonError},
         task::{ready, Context, Poll},
     };
 
@@ -9,7 +10,6 @@ mod private {
     use pin_project_lite::pin_project;
     use serde_json::Value;
 
-    use crate::internal::middleware::Middleware;
     use rspc_core::{
         error::ExecError,
         internal::{
@@ -18,21 +18,25 @@ mod private {
         },
     };
 
+    use crate::internal::middleware::MiddlewareFn;
+
     #[doc(hidden)]
-    pub struct MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware> {
+    pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TMiddleware, TNewMiddleware> {
         pub(crate) next: TMiddleware,
         pub(crate) mw: TNewMiddleware,
-        pub(crate) phantom: PhantomData<TLayerCtx>,
+        pub(crate) phantom: PhantomData<(TLayerCtx, TNewCtx)>,
     }
 
-    impl<TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
-        for MiddlewareLayer<TLayerCtx, TMiddleware, TNewMiddleware>
+    impl<TNewCtx, TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
+        for MiddlewareLayer<TLayerCtx, TNewCtx, TMiddleware, TNewMiddleware>
     where
         TLayerCtx: Send + Sync + 'static,
-        TMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-        TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
+        TNewCtx: Send + Sync + 'static,
+        TMiddleware: Layer<TNewCtx> + Sync + 'static,
+        TNewMiddleware: MiddlewareFn<TLayerCtx, TNewCtx> + Send + Sync + 'static,
     {
-        type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TMiddleware>;
+        type Stream<'a> =
+            MiddlewareLayerFuture<'a, TNewCtx, TLayerCtx, TNewMiddleware, TMiddleware>;
 
         fn call(
             &self,
@@ -40,11 +44,13 @@ mod private {
             input: Value,
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
-            let fut = self.mw.run_me(ctx, new_mw_ctx(input, req));
+            let new_ctx = Arc::new(Mutex::new(None));
+            let fut = self.mw.run_me(ctx, new_mw_ctx(input, req, new_ctx.clone()));
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,
                 next: &self.next,
+                new_ctx,
             })
         }
     }
@@ -57,9 +63,10 @@ mod private {
         #[project = MiddlewareLayerFutureProj]
         pub enum MiddlewareLayerFuture<
             'a,
+            TNewCtx: 'static,
             TLayerCtx: SendSyncStatic,
-            TMiddleware: Middleware<TLayerCtx>,
-            TNextLayer: Layer<TMiddleware::NewCtx>,
+            TMiddleware: MiddlewareFn<TLayerCtx, TNewCtx>,
+            TNextLayer: Layer<TNewCtx>,
         > {
             // We are waiting for the current middleware to run and yield it's result.
             // Remember the middleware only runs once for an entire stream as it returns "instructions" on how to map the stream from then on.
@@ -72,6 +79,9 @@ mod private {
                 // The next layer in the middleware chain
                 // This could be another middleware of the users resolver. It will be called to yield the `stream` for the next phase.
                 next: &'a TNextLayer,
+
+                // TODO
+                new_ctx: Arc<Mutex<Option<TNewCtx>>>,
             },
             // We are in this state where we are executing the current middleware on the stream
             Execute {
@@ -99,10 +109,11 @@ mod private {
 
     impl<
             'a,
+            TNewCtx: 'static,
             TLayerCtx: Send + Sync + 'static,
-            TMiddleware: Middleware<TLayerCtx>,
-            TNextLayer: Layer<TMiddleware::NewCtx>,
-        > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+            TMiddleware: MiddlewareFn<TLayerCtx, TNewCtx>,
+            TNextLayer: Layer<TNewCtx>,
+        > Body for MiddlewareLayerFuture<'a, TNewCtx, TLayerCtx, TMiddleware, TNextLayer>
     {
         fn poll_next(
             mut self: Pin<&mut Self>,
@@ -110,9 +121,9 @@ mod private {
         ) -> Poll<Option<Result<Value, ExecError>>> {
             loop {
                 match self.as_mut().project() {
-                    MiddlewareLayerFutureProj::Resolve { fut, next } => {
+                    MiddlewareLayerFutureProj::Resolve { fut, next, new_ctx } => {
                         let result = ready!(fut.poll(cx));
-                        let (ctx, input, req, resp_fn) = match result.explode() {
+                        let (_, input, req, resp_fn) = match result.explode() {
                             Ok(v) => v,
                             Err(err) => {
                                 cx.waker().wake_by_ref(); // No wakers set so we set one
@@ -120,6 +131,11 @@ mod private {
                                 return Poll::Ready(Some(Err(err)));
                             }
                         };
+                        let ctx = new_ctx
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .take()
+                            .unwrap();
 
                         match next.call(ctx, input, req) {
                             Ok(stream) => {

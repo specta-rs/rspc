@@ -3,7 +3,6 @@ use std::marker::PhantomData;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::internal::middleware::Middleware;
 use rspc_core::internal::Layer;
 
 // TODO: Can this be made completely internal?
@@ -11,7 +10,7 @@ use rspc_core::internal::Layer;
 pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
 
 mod private {
-    use crate::internal::middleware::MiddlewareLayer;
+    use crate::internal::middleware::{MiddlewareFn, MiddlewareLayer};
 
     use super::*;
 
@@ -31,27 +30,30 @@ mod private {
 
     impl<T: SealedMiddlewareBuilder + Sync> MiddlewareBuilder for T {}
 
-    pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
-    where
-        TMiddleware: MiddlewareBuilder,
-        TNewMiddleware: Middleware<TMiddleware::LayerCtx>,
+    pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx>
+// where
+    //     TNewCtx: Send + Sync + 'static,
+    //     TMiddleware: MiddlewareBuilder,
+    //     TNewMiddleware: MiddlewareFn<TMiddleware::LayerCtx, TNewCtx>,
     {
         pub(crate) middleware: TMiddleware,
         pub(crate) mw: TNewMiddleware,
+        pub(crate) phantom: PhantomData<TNewCtx>,
     }
 
-    impl<TMiddleware, TNewMiddleware> SealedMiddlewareBuilder
-        for MiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
+    impl<TNewCtx, TMiddleware, TNewMiddleware> SealedMiddlewareBuilder
+        for MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx>
     where
+        TNewCtx: Send + Sync + 'static,
         TMiddleware: MiddlewareBuilder + Send + Sync + 'static,
-        TNewMiddleware: Middleware<TMiddleware::LayerCtx> + Send + Sync + 'static,
+        TNewMiddleware: MiddlewareFn<TMiddleware::LayerCtx, TNewCtx> + Send + Sync + 'static,
     {
         type Ctx = TMiddleware::Ctx;
-        type LayerCtx = TNewMiddleware::NewCtx;
-        type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, T, TNewMiddleware>>
+        type LayerCtx = TNewCtx;
+        type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, TNewCtx, T, TNewMiddleware>>
         where
             T: Layer<Self::LayerCtx>;
-        type Arg<T: Type + DeserializeOwned + 'static> = TNewMiddleware::Arg<T>;
+        type Arg<T: Type + DeserializeOwned + 'static> = T; // TNewMiddleware::Arg<T>;
 
         fn build<T>(self, next: T) -> Self::LayerResult<T>
         where

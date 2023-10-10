@@ -42,17 +42,32 @@ async fn main() {
         .router()
         .procedure(
             "version",
-            R.with(|mw, ctx| async move {
-                mw.next(ctx).map(|resp| async move {
-                    println!("Client requested version '{}'", resp);
-                    resp
-                })
-            })
-            .with(|mw, ctx| async move { mw.next(ctx) })
-            .query(|_, _: ()| {
-                info!("Client requested version");
-                Ok(env!("CARGO_PKG_VERSION"))
-            }),
+            R
+                // TODO: Old cringe syntax
+                .with(|mw, ctx| async move { mw.next(ctx) })
+                // Passthrough
+                // .with(|mw, ctx| async move { mw.next::<middleware::Any, _>(ctx)? })
+                // Into `serde_json::Value`
+                // .with(|mw, ctx| async move {
+                //     let result: serde_json::Value = mw.next(ctx)?;
+                //     println!("Client requested version '{}'", result);
+                //     result
+                // })
+                // // Into `impl Stream`
+                // .with(|mw, ctx| async move {
+                //     let result: middleware::Stream<serde_json::Value> = mw.next(ctx)?;
+                //     async_stream! {
+                //         while let Some(v) = result.next().await {
+                //             println!("Yielded value '{}'", result);
+                //             yield v;
+                //         }
+                //     }
+                // })
+                // TODO: Allow `Option<T>` or `Either<T> incase for optional downcasting???
+                .query(|_, _: ()| {
+                    info!("Client requested version");
+                    Ok(env!("CARGO_PKG_VERSION"))
+                }),
         )
         .procedure(
             "X-Demo-Header",

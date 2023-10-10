@@ -15,6 +15,7 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub mod middleware;
 mod router_builder;
 mod rspc;
 

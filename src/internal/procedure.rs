@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use specta::Type;
 
 use crate::internal::{
-    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder},
+    middleware::{MiddlewareBuilder, MiddlewareFn, MiddlewareLayerBuilder},
     resolver::{
         FutureMarkerType, HasResolver, RequestLayer, ResolverFunction, ResolverLayer,
         StreamMarkerType,
@@ -68,31 +68,21 @@ where
         }
     }
 
-    pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
+    pub fn with<TNewCtx, Mw>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw, TNewCtx>>
+    where
+        TNewCtx: Send + Sync + 'static,
+        Mw: MiddlewareFn<TMiddleware::LayerCtx, TNewCtx>,
+    {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
                 // todo: enforce via typestate
                 middleware: self.mw,
                 mw,
-            },
-        )
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
-        self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                // todo: enforce via typestate
-                middleware: self.mw,
-                mw,
+                phantom: PhantomData,
             },
         )
     }

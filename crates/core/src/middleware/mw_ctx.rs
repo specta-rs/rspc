@@ -1,32 +1,54 @@
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    marker::PhantomData,
+    sync::{Arc, Mutex, PoisonError},
+};
 
 use serde_json::Value;
 
 use super::{Executable2Placeholder, MwResultWithCtx};
 
-pub fn new_mw_ctx(input: serde_json::Value, req: RequestContext) -> MiddlewareContext {
-    MiddlewareContext { input, req }
+pub fn new_mw_ctx<TNCtx>(
+    input: serde_json::Value,
+    req: RequestContext,
+    new_ctx: Arc<Mutex<Option<TNCtx>>>,
+) -> MiddlewareContext<TNCtx> {
+    MiddlewareContext {
+        input,
+        req,
+        new_ctx,
+    }
 }
 
 #[non_exhaustive]
-pub struct MiddlewareContext {
+pub struct MiddlewareContext<TNewCtx> {
+    // From request
     pub input: Value,
     pub req: RequestContext,
+
+    // For response
+    new_ctx: Arc<Mutex<Option<TNewCtx>>>,
+    // new_span: Option<tracing::Span>
 }
 
-impl MiddlewareContext {
+impl<TNewCtx> MiddlewareContext<TNewCtx> {
     #[cfg(feature = "tracing")]
     pub fn with_span(mut self, span: Option<tracing::Span>) -> Self {
         self.req.span = Some(span);
         self
     }
 
-    pub fn next<TNCtx>(self, ctx: TNCtx) -> MwResultWithCtx<TNCtx, Executable2Placeholder> {
+    // TODO: Refactor return type
+    pub fn next(self, ctx: TNewCtx) -> MwResultWithCtx<Executable2Placeholder> {
+        self.new_ctx
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .replace(ctx);
+
         MwResultWithCtx {
             input: self.input,
             req: self.req,
             resp: None,
-            ctx,
         }
     }
 }
