@@ -1,5 +1,7 @@
 use std::{pin::Pin, sync::Arc};
 
+use futures::channel::oneshot;
+
 use crate::{
     body::Body,
     error::ExecError,
@@ -11,7 +13,7 @@ use crate::{
     Router,
 };
 
-use super::{task, SubscriptionMap};
+use super::SubscriptionMap;
 
 /// TODO
 ///
@@ -60,13 +62,20 @@ impl<TCtx: Send + 'static> Router<TCtx> {
                     Some(subs) if subs.contains_key(data.id) => {
                         Err(ExecError::ErrSubscriptionDuplicateId)
                     }
-                    Some(_) => match get_subscription(self, ctx, data) {
+                    Some(subs) => match get_subscription(self, ctx, data) {
                         None => Err(ExecError::OperationNotFound),
-                        Some(stream) => Ok(ExecutorResult::Task(Task {
-                            id,
-                            stream,
-                            status: task::Status::ShouldBePolled { done: false },
-                        })),
+                        Some(stream) => {
+                            let (tx, rx) = oneshot::channel();
+
+                            subs.insert(id, tx);
+
+                            Ok(ExecutorResult::Task(Task {
+                                id,
+                                stream,
+                                done: false,
+                                shutdown_rx: Some(rx),
+                            }))
+                        }
                     },
                 }
                 .unwrap_or_else(|e| {

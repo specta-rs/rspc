@@ -27,8 +27,18 @@ impl SubscriptionMap {
         }
     }
 
+    pub fn insert(&mut self, id: u32, tx: oneshot::Sender<()>) {
+        self.map.insert(id, tx);
+    }
+
     // We remove but don't shutdown. This should be used when we know the subscription is shutdown.
-    pub(crate) fn _internal_remove(&mut self, id: u32) {
-        self.map.remove(&id);
+    pub(crate) fn remove(&mut self, id: u32) {
+        if let Some(tx) = self.map.remove(&id) {
+            #[cfg(debug_assertions)]
+            #[allow(clippy::panic)]
+            if !tx.is_canceled() {
+                panic!("Subscription was not shutdown before being removed!");
+            }
+        };
     }
 }

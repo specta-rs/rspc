@@ -8,6 +8,7 @@ edition = "2021"
 default = []
 typescript = ["specta/typescript"]
 tracing = ["dep:tracing"]
+unstable = []
 
 [dependencies]
 specta = { workspace = true, features = ["typescript"] }                                      # TODO: `typescript` should be required
