@@ -30,7 +30,7 @@ default = ["typescript"]
 typescript = ["rspc-core/typescript", "specta/typescript"]
 tracing = ["rspc-core/tracing", "dep:tracing"]
 
-unstable = [] # APIs where one line of code can blow up your whole app
+unstable = ["rspc-core/unstable"] # APIs where one line of code can blow up your whole app
 
 [dependencies]
 rspc-core = { path = "./crates/core" }

@@ -192,18 +192,24 @@ where
     }
 }
 
-// TODO: Plz try and get rid of these. They are escape hatches for Spacedrive's invalidation system that is dearly in need of a makeover.
 #[cfg(feature = "unstable")]
-impl<TCtx> Router<TCtx> {
-    pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-        &self.queries
-    }
+mod unstable {
+    use std::collections::BTreeMap;
 
-    pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-        &self.mutations
-    }
+    use crate::internal::ProcedureTodo;
 
-    pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-        &self.subscriptions
+    // TODO: Plz try and get rid of these. They are escape hatches for Spacedrive's invalidation system that is dearly in need of a makeover.
+    impl<TCtx> super::Router<TCtx> {
+        pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+            &self.queries
+        }
+
+        pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+            &self.mutations
+        }
+
+        pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
+            &self.subscriptions
+        }
     }
 }
