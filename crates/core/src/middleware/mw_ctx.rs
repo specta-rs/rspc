@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    marker::PhantomData,
     sync::{Arc, Mutex, PoisonError},
 };
 

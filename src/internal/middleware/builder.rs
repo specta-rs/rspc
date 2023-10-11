@@ -30,12 +30,7 @@ mod private {
 
     impl<T: SealedMiddlewareBuilder + Sync> MiddlewareBuilder for T {}
 
-    pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx>
-// where
-    //     TNewCtx: Send + Sync + 'static,
-    //     TMiddleware: MiddlewareBuilder,
-    //     TNewMiddleware: MiddlewareFn<TMiddleware::LayerCtx, TNewCtx>,
-    {
+    pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx> {
         pub(crate) middleware: TMiddleware,
         pub(crate) mw: TNewMiddleware,
         pub(crate) phantom: PhantomData<TNewCtx>,

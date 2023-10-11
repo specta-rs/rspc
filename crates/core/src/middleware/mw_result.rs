@@ -1,7 +1,6 @@
 use std::{
     fmt::Debug,
     future::{Future, Ready},
-    marker::PhantomData,
 };
 
 use serde_json::Value;
