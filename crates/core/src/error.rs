@@ -1,7 +1,7 @@
 use std::{error, fmt, sync::Arc};
 
 use serde::Serialize;
-use specta::{ts::TsExportError, Type};
+use specta::{ts, Type};
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
 pub enum ProcedureError {
@@ -151,7 +151,7 @@ pub enum ExportError {
     #[error("IO error exporting bindings: {0}")]
     IOErr(#[from] std::io::Error),
     #[error("error exporting typescript bindings: {0}")]
-    TsExportErr(#[from] TsExportError),
+    TsExportErr(#[from] ts::ExportError),
 }
 
 #[derive(Clone, Debug, Serialize, Type)]

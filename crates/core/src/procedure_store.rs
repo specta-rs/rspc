@@ -1,9 +1,6 @@
 use std::{borrow::Cow, convert::Infallible};
 
-use specta::{
-    ts::TsExportError, DataType, DataTypeFrom, DefOpts, NamedDataType, StructType, TupleType, Type,
-    TypeMap,
-};
+use specta::{ts, DataType, DataTypeFrom, DefOpts, NamedDataType, StructType, Type, TypeMap};
 
 use crate::{
     layer::{DynLayer, Layer},
@@ -66,14 +63,13 @@ fn never() -> DataType {
         },
         &[],
     )
-    .expect("rspc: error exporting `never`")
 }
 
 impl ProcedureDef {
     pub fn from_tys<TArg, TResult, TError>(
         key: Cow<'static, str>,
         type_map: &mut TypeMap,
-    ) -> Result<Self, TsExportError>
+    ) -> Result<Self, ts::ExportError>
     where
         TArg: Type,
         TResult: Type,
@@ -87,8 +83,10 @@ impl ProcedureDef {
                     type_map,
                 },
                 &[],
-            )? {
-                DataType::Tuple(TupleType::Named { fields, .. }) if fields.is_empty() => never(),
+            )
+            .inner
+            {
+                DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
                 t => t,
             },
             result: TResult::reference(
@@ -97,14 +95,16 @@ impl ProcedureDef {
                     type_map,
                 },
                 &[],
-            )?,
+            )
+            .inner,
             error: TError::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map,
                 },
                 &[],
-            )?,
+            )
+            .inner,
         })
     }
 }
