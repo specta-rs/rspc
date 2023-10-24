@@ -9,7 +9,7 @@ use std::{
 };
 
 use async_stream::stream;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use rspc::{ErrorCode, Rspc};
 use tokio::time::sleep;
 
@@ -46,15 +46,11 @@ async fn main() {
         .procedure("echo", R.query(|_, v: String| Ok(v)))
         .procedure(
             "error",
-            R.query(|_, _: ()| {
-                Err::<String, _>(Error("Something went wrong"))
-            }),
+            R.query(|_, _: ()| Err::<String, _>(Error("Something went wrong"))),
         )
         .procedure(
             "error",
-            R.mutation(|_, _: ()| {
-                Err::<String, _>(Error("Something went wrong"))
-            }),
+            R.mutation(|_, _: ()| Err::<String, _>(Error("Something went wrong"))),
         )
         .procedure(
             "transformMe",
@@ -72,24 +68,27 @@ async fn main() {
             R.subscription(|_, _: ()| {
                 println!("Client subscribed to 'pings'");
                 stream! {
-                    yield "start".to_string();
+                    yield Ok("start".to_string());
                     for i in 0..5 {
                         println!("Sending ping {}", i);
-                        yield i.to_string();
+                        yield Ok(i.to_string());
                         sleep(Duration::from_secs(1)).await;
                     }
                 }
             }),
         )
-        .procedure("errorPings", R.subscription(|_ctx, _args: ()| {
-            stream! {
-                for _ in 0..5 {
-                    yield Ok("ping".to_string());
-                    sleep(Duration::from_secs(1)).await;
+        .procedure(
+            "errorPings",
+            R.error::<Error>().subscription(|_ctx, _args: ()| {
+                stream! {
+                    for _ in 0..5 {
+                        yield Ok("ping".to_string());
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    yield Err(Error("Something went wrong"));
                 }
-                yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            }
-        }))
+            }),
+        )
         .procedure(
             "testSubscriptionShutdown",
             R.subscription({
@@ -124,7 +123,7 @@ async fn main() {
                         }
                     }
 
-                    HandleDrop { id, send: false }
+                    HandleDrop { id, send: false }.map(Ok)
                 }
             }),
         )

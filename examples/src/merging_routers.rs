@@ -28,7 +28,7 @@ fn mount() -> RouterBuilder<()> {
         .procedure(
             "pings",
             R.subscription(|_ctx, _args: ()| {
-                stream! {}
+                stream! { yield Ok(()) }
             }),
         )
 }
