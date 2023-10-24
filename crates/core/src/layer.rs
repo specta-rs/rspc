@@ -1,13 +1,9 @@
-use std::borrow::Cow;
-use std::{future::ready, pin::Pin};
-
+use futures::{future::ready, stream::once};
 use serde_json::Value;
 use specta::{ts, TypeMap};
+use std::borrow::Cow;
 
-use crate::body::{Body, Once};
-use crate::error::ExecError;
-use crate::internal::ProcedureDef;
-use crate::middleware::RequestContext;
+use crate::{body::Body, error::ExecError, internal::ProcedureDef, middleware::RequestContext};
 
 // TODO: Remove `SealedLayer`
 
@@ -54,7 +50,7 @@ impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
         match self.call(ctx, input, req) {
             Ok(stream) => Box::new(stream),
             // TODO: Avoid allocating error future here
-            Err(err) => Box::new(Once::new(ready(Err(err)))),
+            Err(err) => Box::new(once(ready(Err(err)))),
         }
     }
 }
