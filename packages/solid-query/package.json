@@ -1,7 +1,7 @@
 {
   "name": "@rspc/solid-query",
   "version": "1.0.0-rc.1",
-  "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
+  "description": "A blazingly fast and easy to use tRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
@@ -32,13 +32,13 @@
   },
   "devDependencies": {
     "@rspc/client": "workspace:*",
-    "@tanstack/solid-query": "^4.33.0",
-    "rollup": "^3.26.3",
+    "@tanstack/solid-query": "^5.0.0",
+    "rollup": "^4.1.4",
     "rollup-preset-solid": "^2.0.1",
-    "solid-js": "^1.7.8",
-    "tslib": "^2.6.0",
-    "typescript": "^5.1.6",
-    "vitest": "^0.33.0"
+    "solid-js": "^1.8.3",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.6"
   },
   "peerDependencies": {
     "@rspc/client": "workspace:*",

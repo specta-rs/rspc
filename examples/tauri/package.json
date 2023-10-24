@@ -10,11 +10,11 @@
     "web-build": "tsc && vite build"
   },
   "dependencies": {
-    "@tauri-apps/api": "^1.4.0"
+    "@tauri-apps/api": "^1.5.1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.4.0",
-    "typescript": "^5.1.6",
-    "vite": "^4.4.4"
+    "@tauri-apps/cli": "^1.5.5",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
   }
 }

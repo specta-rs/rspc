@@ -25,7 +25,7 @@ Then expose your router using the Tauri plugin.
 let router = <Router>::new().build();
 
 tauri::Builder::default()
-    .plugin(rspc::integrations::tauri::plugin(router, || ()))
+    .plugin(rspc::integrations::tauri::plugin(router.arced(), || ()))
 ```
 
 With access to the window or app handle:

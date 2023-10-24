@@ -17,7 +17,7 @@ async fn benchmark_main(e: &Executor<()>) {
             },
             &mut (None as Option<NoOpSubscriptionManager>),
         ) {
-            ExecutorResult::FutureResponse(fut) => fut.await,
+            ExecutorResult::Future(fut) => fut.await,
             ExecutorResult::Response(resp) => resp,
             ExecutorResult::None => unreachable!(),
         };

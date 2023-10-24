@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use async_stream::stream;
-use rspc::{ErrorCode, Router};
+use rspc::{ErrorCode, RouterBuilder};
 use tokio::time::sleep;
 
 use crate::R;
 
 // We merge this router into the main router in `main.rs`.
 // This router shows how to do subscriptions.
-pub fn mount() -> Router<()> {
+pub fn mount() -> RouterBuilder<()> {
     R.router().procedure(
         "pings",
         R.subscription(|_ctx, _args: ()| {

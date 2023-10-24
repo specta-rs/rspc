@@ -9,16 +9,15 @@ mod private {
     use futures::Future;
     use pin_project_lite::pin_project;
     use serde_json::Value;
-    use specta::{ts::TsExportError, TypeMap};
+    use specta::{ts, TypeMap};
 
-    use crate::{
+    use crate::internal::middleware::Middleware;
+    use rspc_core::{
+        error::ExecError,
         internal::{
-            middleware::Middleware,
-            middleware::{Executable2, MiddlewareContext, MwV2Result, RequestContext},
-            procedure::ProcedureDef,
-            Body, Layer, PinnedOption, PinnedOptionProj,
+            new_mw_ctx, Body, Executable2, Layer, MwV2Result, PinnedOption, PinnedOptionProj,
+            ProcedureDef, RequestContext,
         },
-        ExecError,
     };
 
     #[doc(hidden)]
@@ -41,7 +40,7 @@ mod private {
             &self,
             key: Cow<'static, str>,
             ty_store: &mut TypeMap,
-        ) -> Result<ProcedureDef, TsExportError> {
+        ) -> Result<ProcedureDef, ts::ExportError> {
             self.next.into_procedure_def(key, ty_store)
         }
 
@@ -51,7 +50,7 @@ mod private {
             input: Value,
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
-            let fut = self.mw.run_me(ctx, MiddlewareContext::new(input, req));
+            let fut = self.mw.run_me(ctx, new_mw_ctx(input, req));
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,
@@ -172,7 +171,7 @@ mod private {
                                 Some(resp_fn) => match result {
                                     Ok(result) => {
                                         resp_fut.set(PinnedOption::Some {
-                                            v: (&*resp_fn).call(result),
+                                            v: (*resp_fn).call(result),
                                         });
                                         continue;
                                     }
@@ -203,6 +202,7 @@ mod private {
                         self.as_mut().set(Self::Done);
                         return Poll::Ready(None);
                     }
+                    #[allow(clippy::panic)]
                     MiddlewareLayerFutureProj::Done => {
                         #[cfg(debug_assertions)]
                         panic!("`MiddlewareLayerFuture` polled after completion");

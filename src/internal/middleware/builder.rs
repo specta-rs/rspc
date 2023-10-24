@@ -3,7 +3,8 @@ use std::marker::PhantomData;
 use serde::de::DeserializeOwned;
 use specta::Type;
 
-use crate::internal::{middleware::Middleware, Layer};
+use crate::internal::middleware::Middleware;
+use rspc_core::internal::Layer;
 
 // TODO: Can this be made completely internal?
 #[doc(hidden)]

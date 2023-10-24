@@ -9,11 +9,11 @@ use std::{
 
 use async_stream::stream;
 use axum::routing::get;
-use futures::Stream;
-use rspc::{integrations::httpz::Request, Blob, ExportConfig, Infallible, Rspc};
+use futures::{Stream, StreamExt};
+use rspc::{ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
-use tokio::{fs::File, io::BufReader, time::sleep};
+use tokio::{sync::broadcast, time::sleep};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -70,11 +70,11 @@ async fn main() {
         // )
         .procedure(
             "error",
-            R.query(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+            R.query(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
         )
         .procedure(
             "error",
-            R.mutation(|_, _: ()| Err(Error("Something went wrong".into())) as Result<String, _>),
+            R.mutation(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
         )
         .procedure(
             "transformMe",
@@ -87,65 +87,70 @@ async fn main() {
                 Ok(v)
             }),
         )
-        // .procedure(
-        //     "pings",
-        //     R.subscription(|_, _: ()| {
-        //         println!("Client subscribed to 'pings'");
-        //         stream! {
-        //             yield "start".to_string();
-        //             for i in 0..5 {
-        //                 info!("Sending ping {}", i);
-        //                 yield i.to_string();
-        //                 sleep(Duration::from_secs(1)).await;
-        //             }
-        //         }
-        //     }),
-        // )
-        // .procedure(
-        //     "errorPings",
-        //     R.subscription(|_ctx, _args: ()| {
-        //         stream! {
-        //             for _ in 0..5 {
-        //                 yield Ok("ping".to_string());
-        //                 sleep(Duration::from_secs(1)).await;
-        //             }
-        //             yield Err(Error("Something went wrong".into()));
-        //         }
-        //     }),
-        // )
-        // .procedure(
-        //     "testSubscriptionShutdown",
-        //     R.subscription({
-        //         static COUNT: AtomicU16 = AtomicU16::new(0);
-        //         |_, _: ()| {
-        //             let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        //             pub struct HandleDrop {
-        //                 id: u16,
-        //                 send: bool,
-        //             }
-        //             impl Stream for HandleDrop {
-        //                 type Item = u16;
-        //                 fn poll_next(
-        //                     mut self: Pin<&mut Self>,
-        //                     _: &mut Context<'_>,
-        //                 ) -> Poll<Option<Self::Item>> {
-        //                     if self.send {
-        //                         Poll::Pending
-        //                     } else {
-        //                         self.send = true;
-        //                         Poll::Ready(Some(self.id))
-        //                     }
-        //                 }
-        //             }
-        //             impl Drop for HandleDrop {
-        //                 fn drop(&mut self) {
-        //                     println!("Dropped subscription with id {}", self.id);
-        //                 }
-        //             }
-        //             HandleDrop { id, send: false }
-        //         }
-        //     }),
-        // )
+        .procedure(
+            "pings",
+            R.subscription(|_, _: ()| {
+                println!("Client subscribed to 'pings'");
+                stream! {
+                    yield Ok("start".to_string());
+                    for i in 0..5 {
+                        info!("Sending ping {}", i);
+                        yield Ok(i.to_string());
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }),
+        )
+        .procedure(
+            "errorPings",
+            R.subscription(|_ctx, _args: ()| {
+                stream! {
+                    for _ in 0..5 {
+                        yield Ok("ping".to_string());
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    yield Err(Error("Something went wrong"));
+                }
+            }),
+        )
+        .procedure(
+            "testSubscriptionShutdown",
+            R.subscription({
+                static COUNT: AtomicU16 = AtomicU16::new(0);
+                |_, _: ()| {
+                    let id = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+                    pub struct HandleDrop {
+                        id: u16,
+                        sent: bool,
+                    }
+
+                    impl Stream for HandleDrop {
+                        type Item = u16;
+
+                        fn poll_next(
+                            mut self: Pin<&mut Self>,
+                            _: &mut Context<'_>,
+                        ) -> Poll<Option<Self::Item>> {
+                            if self.sent {
+                                Poll::Ready(None)
+                            } else {
+                                self.sent = true;
+                                Poll::Ready(Some(self.id))
+                            }
+                        }
+                    }
+
+                    impl Drop for HandleDrop {
+                        fn drop(&mut self) {
+                            println!("Dropped subscription with id {}", self.id);
+                        }
+                    }
+
+                    HandleDrop { id, sent: false }.map(Ok)
+                }
+            }),
+        )
         // TODO: This is an unstable feature and should be used with caution!
         // .procedure(
         //     "serveFile",
@@ -155,11 +160,35 @@ async fn main() {
         //         Blob(BufReader::new(file))
         //     }),
         // )
-        // .procedure(
-        //     "customErr",
-        //     R.error::<MyCustomError>()
-        //         .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
-        // )
+        .procedure(
+            "customErr",
+            R.error::<MyCustomError>()
+                .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
+        )
+        .procedure("batchingTest", {
+            let (tx, _) = broadcast::channel(10);
+
+            tokio::spawn({
+                let tx = tx.clone();
+
+                async move {
+                    let mut timer = tokio::time::interval(Duration::from_secs(1));
+                    loop {
+                        timer.tick().await;
+                        tx.send("ping".to_string()).ok();
+                    }
+                }
+            });
+
+            R.subscription(move |_, _: ()| {
+                let mut rx = tx.subscribe();
+                stream! {
+                    while let Ok(msg) = rx.recv().await {
+                        yield Ok(msg);
+                    }
+                }
+            })
+        })
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.
@@ -180,18 +209,16 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            router
-                .clone()
-                .endpoint(|req: Request| {
-                    println!("Client requested operation '{}'", req.uri().path());
-                    Ctx {
-                        x_demo_header: req
-                            .headers()
-                            .get("X-Demo-Header")
-                            .map(|v| v.to_str().unwrap().to_string()),
-                    }
-                })
-                .axum(),
+            rspc_httpz::endpoint(router, |req: rspc_httpz::Request| {
+                println!("Client requested operation '{}'", req.uri().path());
+                Ctx {
+                    x_demo_header: req
+                        .headers()
+                        .get("X-Demo-Header")
+                        .map(|v| v.to_str().unwrap().to_string()),
+                }
+            })
+            .axum(),
         )
         .layer(cors);
 

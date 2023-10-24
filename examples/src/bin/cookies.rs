@@ -3,7 +3,7 @@
 use std::{ops::Add, path::PathBuf};
 
 use axum::routing::get;
-use rspc::{integrations::httpz::Request, ExportConfig, Rspc};
+use rspc::{ExportConfig, Rspc};
 use time::OffsetDateTime;
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
@@ -55,8 +55,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            router
-                .endpoint(|mut req: Request| {
+            rspc_httpz::endpoint(router, |mut req: rspc_httpz::Request| {
                     // TODO: This API is going to be replaced with a httpz cookie manager in the next release to deal with Axum's recent changes.
                     let cookies = req
                         .deprecated_extract::<Cookies, ()>()

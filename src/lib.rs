@@ -1,4 +1,4 @@
-//! rspc: A blazingly fast and easy to use TRPC-like server for Rust.
+//! rspc: A blazingly fast and easy to use tRPC-like server for Rust.
 //!
 //! Checkout the official docs <https://rspc.dev>
 //!
@@ -11,31 +11,18 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )]
+#![forbid(unsafe_code)]
 #![allow(clippy::module_inception)]
-#![allow(clippy::type_complexity)] // TODO: Fix this and disable it
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(feature = "unstable")]
-#[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
-pub mod unstable;
-
-mod blob;
-mod built_router;
-mod error;
-mod router;
+mod router_builder;
 mod rspc;
 
 pub use crate::rspc::*;
-pub use built_router::*;
-pub use error::*;
-pub use router::*;
+pub use router_builder::*;
+pub use rspc_core::internal::router::*;
 
-pub mod integrations;
 pub mod internal;
 
-#[cfg(feature = "unstable")]
-#[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
-pub use blob::Blob;
-
-#[cfg(not(feature = "unstable"))]
-pub(crate) use blob::Blob;
+// TODO: Only reexport certain types
+pub use rspc_core::error::*;

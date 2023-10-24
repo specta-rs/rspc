@@ -2,15 +2,14 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        middleware::{
-            BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
-        },
+        middleware::{BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder},
         procedure::{resolvers, MissingResolver, Procedure},
         resolver::{HasResolver, QueryOrMutation, Subscription},
-        Layer,
     },
-    Infallible, IntoResolverError, Router,
+    Infallible, RouterBuilder,
 };
+
+use rspc_core::internal::{IntoResolverError, Layer, ProcedureKind};
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
 ///
@@ -49,8 +48,8 @@ where
     TCtx: Send + Sync + 'static,
     TError: IntoResolverError,
 {
-    pub fn router(self) -> Router<TCtx> {
-        Router::_internal_new()
+    pub fn router(&self) -> RouterBuilder<TCtx> {
+        RouterBuilder::_internal_new()
     }
 
     pub fn error<TNewError>(self) -> Procedure<MissingResolver<TNewError>, BaseMiddleware<TCtx>> {

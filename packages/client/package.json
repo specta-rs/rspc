@@ -1,7 +1,7 @@
 {
   "name": "@rspc/client",
   "version": "1.0.0-rc.3",
-  "description": "A blazingly fast and easy to use TRPC-like server for Rust.",
+  "description": "A blazingly fast and easy to use tRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
@@ -24,9 +24,9 @@
     "test": "vitest ./index.test.ts"
   },
   "devDependencies": {
-    "tsup": "^7.1.0",
-    "typescript": "^5.1.6",
-    "vitest": "^0.33.0",
-    "ws": "^8.13.0"
+    "tsup": "^7.2.0",
+    "typescript": "^5.2.2",
+    "vitest": "^0.34.6",
+    "ws": "^8.14.2"
   }
 }
