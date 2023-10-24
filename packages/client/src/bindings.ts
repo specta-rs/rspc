@@ -13,9 +13,14 @@ export type ProceduresDef = { queries: ProcedureDef; mutations: ProcedureDef; su
  */
 export type ResponseInner = { type: "value"; value: any } | { type: "error"; value: ProcedureError } | { type: "complete" }
 
-export type ProcedureError = { Exec: Error } | { Resolver: any }
-
 export type Error = { code: ErrorCode; message: string }
+
+/**
+ * TODO
+ */
+export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
+
+export type ProcedureError = { Exec: Error } | { Resolver: any }
 
 /**
  * The type of a response from rspc.
@@ -31,11 +36,6 @@ export type Response = ({ type: "value"; value: any } | { type: "error"; value: 
  * @internal
  */
 export type ProcedureDef = { key: string; input: any; result: any; error: any }
-
-/**
- * TODO
- */
-export type ErrorCode = "BadRequest" | "Unauthorized" | "Forbidden" | "NotFound" | "Timeout" | "Conflict" | "PreconditionFailed" | "PayloadTooLarge" | "MethodNotSupported" | "ClientClosedRequest" | "InternalServerError"
 
 /**
  * The type of a request to rspc.

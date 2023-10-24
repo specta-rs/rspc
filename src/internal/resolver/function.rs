@@ -1,7 +1,4 @@
-use std::{
-    future::{ready, Ready},
-    marker::PhantomData,
-};
+use std::marker::PhantomData;
 
 use serde::de::DeserializeOwned;
 use specta::Type;
@@ -16,7 +13,7 @@ use crate::{
     internal::{
         middleware::{ProcedureKind, RequestContext},
         procedure::ProcedureDef,
-        resolver::IntoQueryMutationResponse,
+        resolver::IntoResolverResponse,
         Layer,
     },
     ExecError, IntoResolverError,
@@ -24,14 +21,17 @@ use crate::{
 
 use super::StreamToBody;
 
+pub struct QueryOrMutation<M>(PhantomData<M>);
+pub struct Subscription<M>(PhantomData<M>);
+
 // TODO: Rename `Resolver`?
-pub struct HasResolver<F, TErr, M> {
+pub struct HasResolver<F, TErr, M1, M2> {
     resolver: F,
     pub(crate) kind: ProcedureKind,
-    phantom: PhantomData<fn() -> (TErr, M)>,
+    phantom: PhantomData<fn() -> (TErr, M1, M2)>,
 }
 
-impl<F, E, M> HasResolver<F, E, M> {
+impl<F, TErr, M1, M2> HasResolver<F, TErr, M1, M2> {
     pub(crate) fn new(resolver: F, kind: ProcedureKind) -> Self {
         Self {
             resolver,
@@ -41,17 +41,16 @@ impl<F, E, M> HasResolver<F, E, M> {
     }
 }
 
-pub struct M<TArg, TResultMarker>(PhantomData<(TArg, TResultMarker)>);
-impl<F, TLCtx, TErr, TArg, TResult, TResultMarker> Layer<TLCtx>
-    for HasResolver<F, TErr, M<TArg, TResultMarker>>
+pub struct M<TArg>(PhantomData<TArg>);
+impl<F, TLCtx, TArg, TResult, TResultMarker> Layer<TLCtx>
+    for HasResolver<F, TResult::Err, TResultMarker, M<TArg>>
 where
     F: Fn(TLCtx, TArg) -> TResult + Send + Sync + 'static,
     TArg: DeserializeOwned + Type + 'static,
     TLCtx: Send + Sync + 'static,
-    // TODO: Is this `'static` going to eat hours of my future when it subtly breaks something?
-    TResult: IntoQueryMutationResponse<'static, TResultMarker, TErr>,
+    TResult: IntoResolverResponse<'static, TResultMarker>,
     TResult::Ok: Serialize + Type + 'static,
-    TErr: IntoResolverError + 'static,
+    TResult::Err: IntoResolverError + 'static,
     TResultMarker: 'static,
 {
     type Stream<'a> = StreamToBody<TResult::Stream>;
@@ -61,7 +60,7 @@ where
         key: Cow<'static, str>,
         ty_store: &mut TypeMap,
     ) -> Result<ProcedureDef, TsExportError> {
-        ProcedureDef::from_tys::<TArg, TResult::Ok, TErr>(key, ty_store)
+        ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)
     }
 
     fn call(

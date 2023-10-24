@@ -1,7 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::internal::middleware::{
-    ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
+use crate::internal::{
+    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder, ProcedureKind},
+    resolver::{HasResolver, QueryOrMutation, Subscription},
+    Layer,
 };
 
 /// TODO: Explain
@@ -14,31 +16,51 @@ impl<TError> Default for MissingResolver<TError> {
 }
 
 /// TODO
-pub struct Procedure<T, TMiddleware> {
-    pub(crate) resolver: T,
+pub struct Procedure<TResolverState, TMiddleware> {
+    pub(crate) resolver: TResolverState,
     pub(crate) mw: TMiddleware,
 }
 
-impl<T, TMiddleware> Procedure<T, TMiddleware>
+impl<TResolverState, TMiddleware> Procedure<TResolverState, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
-    pub(crate) fn new(resolver: T, mw: TMiddleware) -> Self {
+    pub(crate) fn new(resolver: TResolverState, mw: TMiddleware) -> Self {
         Self { resolver, mw }
     }
 }
 
-macro_rules! resolver {
-    ($func:ident, $kind:ident) => {
-        // TODO: Bring this back
-        // pub fn $func<R, M>(self, resolver: R) -> Procedure<HasResolver<R, TResult, M>, TMiddleware>
-        // where
-        //     HasResolver<R, TResultM>: ResolverFunction<TMiddleware::LayerCtx, TError>,
-        // {
-        //     Procedure::new(HasResolver::new(resolver, ProcedureKind::$kind), self.mw)
-        // }
+macro_rules! resolvers {
+    ($this:tt, $ctx:ty, $mw_ty:ty, $mw:expr) => {
+        resolvers!(impl; $this, $ctx, $mw_ty, $mw, query, QueryOrMutation, Query);
+        resolvers!(impl; $this, $ctx, $mw_ty, $mw, mutation, QueryOrMutation, Mutation);
+        resolvers!(impl; $this, $ctx, $mw_ty, $mw, subscription, Subscription, Subscription);
+    };
+    (impl; $this:tt, $ctx:ty, $mw_ty:ty, $mw:expr, $fn_name:ident, $marker:ident, $kind:ident) => {
+        pub fn $fn_name<TResolver, TResultMarker, TArgMarker>(
+            self,
+            resolver: TResolver,
+        ) -> Procedure<
+            HasResolver<TResolver, TError, $marker<TResultMarker>, TArgMarker>,
+            $mw_ty,
+        >
+        where
+            HasResolver<TResolver, TError, $marker<TResultMarker>, TArgMarker>: Layer<$ctx>,
+        {
+        	let $this = self;
+            let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
+
+            // TODO: Make this work
+            // // Trade runtime performance for reduced monomorphization
+            // #[cfg(debug_assertions)]
+            // let resolver = boxed(resolver);
+
+            Procedure::new(resolver, $mw)
+        }
     };
 }
+
+pub(crate) use resolvers;
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
@@ -46,10 +68,6 @@ impl<TMiddleware, TError> Procedure<MissingResolver<TError>, TMiddleware>
 where
     TMiddleware: MiddlewareBuilder,
 {
-    resolver!(query, Query);
-    resolver!(mutation, Mutation);
-    resolver!(subscription, Subscription);
-
     pub fn error(self) -> Procedure<MissingResolver<TError>, TMiddleware> {
         Procedure {
             resolver: self.resolver,
@@ -85,4 +103,6 @@ where
             },
         )
     }
+
+    resolvers!(this, TMiddleware::LayerCtx, TMiddleware, this.mw);
 }

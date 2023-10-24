@@ -35,41 +35,47 @@ fn test_procedure_valid_response_types() {
         // Stream Result Ok
         .procedure(
             "e",
-            R.query(|_, _: ()| once(async move { Ok("todo".to_string()) })),
+            R.subscription(|_, _: ()| once(async move { Ok("todo".to_string()) })),
         )
         // Stream Result Err
         .procedure(
             "f",
-            R.query(|_, _: ()| once(async move { Err::<(), _>(Error("todo")) })),
+            R.subscription(|_, _: ()| once(async move { Err::<(), _>(Error("todo")) })),
         )
         // Future Stream
         .procedure(
             "i",
-            R.query(|_, _: ()| async move { once(async move { Ok("todo".to_string()) }) }),
+            R.subscription(|_, _: ()| async move { once(async move { Ok("todo".to_string()) }) }),
         )
         // Future Stream
         .procedure(
             "j",
-            R.query(|_, _: ()| async move { once(async move { Err::<(), _>(Error("todo")) }) }),
+            R.subscription(
+                |_, _: ()| async move { once(async move { Err::<(), _>(Error("todo")) }) },
+            ),
         )
         // Result Stream Ok
         .procedure(
             "g",
-            R.query(|_, _: ()| Ok(once(async move { Ok("todo".to_string()) }))),
+            R.subscription(|_, _: ()| Ok(once(async move { Ok("todo".to_string()) }))),
         )
         // Result Stream Err
         .procedure(
             "h",
-            R.query(|_, _: ()| Ok(once(async move { Err::<(), _>(Error("todo")) }))),
+            R.subscription(|_, _: ()| Ok(once(async move { Err::<(), _>(Error("todo")) }))),
         )
         // Future Result Stream Ok
         .procedure(
             "i",
-            R.query(|_, _: ()| async move { Ok(once(async move { Ok("todo".to_string()) })) }),
+            R.subscription(
+                |_, _: ()| async move { Ok(once(async move { Ok("todo".to_string()) })) },
+            ),
         )
         // Future Result Stream Err
         .procedure(
             "j",
-            R.query(|_, _: ()| async move { Ok(once(async move { Err::<(), _>(Error("todo")) })) }),
+            R.subscription(|_, _: ()| async move {
+                Ok(once(async move { Err::<(), _>(Error("todo")) }))
+            }),
         );
 }

@@ -8,27 +8,32 @@
 use std::future::{ready, Future, Ready};
 
 use futures::{
-    stream::{once, Once},
-    Stream,
+    future::Either,
+    stream::{once, FlatMap, Flatten, Once},
+    Stream, StreamExt,
 };
 
+use crate::internal::resolver::{QueryOrMutation, Subscription};
+
 /// `IntoResponse` will transform a specific response type into a normalised response type for a `query` or `mutation`.
-pub trait IntoQueryMutationResponse<'a, M, TErr> {
-    type Stream: Stream<Item = Result<Self::Ok, TErr>> + Send + 'a;
+pub trait IntoResolverResponse<'a, M> {
+    type Stream: Stream<Item = Result<Self::Ok, Self::Err>> + Send + 'a;
     type Ok;
+    type Err;
 
     fn to_stream(self) -> Self::Stream;
 }
 
 const _: () = {
     pub enum Marker {}
-    impl<'a, T, TErr> IntoQueryMutationResponse<'a, Marker, TErr> for Result<T, TErr>
+    impl<'a, T, TErr> IntoResolverResponse<'a, QueryOrMutation<Marker>> for Result<T, TErr>
     where
         T: Send + 'static,
         TErr: Send + 'static,
     {
         type Stream = Once<Ready<Result<T, TErr>>>;
         type Ok = T;
+        type Err = TErr;
 
         fn to_stream(self) -> Self::Stream {
             once(ready(self))
@@ -38,12 +43,13 @@ const _: () = {
 
 const _: () = {
     pub enum Marker {}
-    impl<'a, T, TErr, F> IntoQueryMutationResponse<'a, Marker, TErr> for F
+    impl<'a, T, TErr, F> IntoResolverResponse<'a, QueryOrMutation<Marker>> for F
     where
         F: Future<Output = Result<T, TErr>> + Send + 'a,
     {
         type Stream = Once<F>;
         type Ok = T;
+        type Err = TErr;
 
         fn to_stream(self) -> Self::Stream {
             once(self)
@@ -51,50 +57,80 @@ const _: () = {
     }
 };
 
-// TODO: Copy the above type once stable
-/// `IntoResponse` will transform a specific response type into a normalised response type for a `subscription`.
-///
-/// This type primarily exists because the trick for nice error messages causes conflicting implementations between `T` and `T: Stream` for logical (but annoying) reasons.
-/// When Rust supports `T: !Stream` maybe this can be removed.
-pub trait IntoSubscriptionResponse<M, TErr> {
-    type Stream: Stream<Item = Result<Self::Ok, TErr>>;
-    type Ok;
-}
-
 const _: () = {
     pub enum Marker {}
-    impl<T, TErr, S: Stream<Item = Result<T, TErr>>> IntoSubscriptionResponse<Marker, TErr> for S {
-        type Stream = S;
-        type Ok = T;
-    }
-};
-
-const _: () = {
-    pub enum Marker {}
-    impl<T, S: Stream<Item = Result<T, TErr>>, TErr> IntoSubscriptionResponse<Marker, TErr>
-        for Result<S, TErr>
+    impl<'a, T, TErr, S: Stream<Item = Result<T, TErr>> + Send + 'a>
+        IntoResolverResponse<'a, Subscription<Marker>> for S
     {
         type Stream = S;
         type Ok = T;
+        type Err = TErr;
+
+        fn to_stream(self) -> Self::Stream {
+            self
+        }
     }
 };
 
 const _: () = {
     pub enum Marker {}
-    impl<T, TErr, S: Stream<Item = Result<T, TErr>>, F: Future<Output = S>>
-        IntoSubscriptionResponse<Marker, TErr> for F
+    impl<'a, T: Send + 'a, S: Stream<Item = Result<T, TErr>> + Send + 'a, TErr: Send + 'a>
+        IntoResolverResponse<'a, Subscription<Marker>> for Result<S, TErr>
     {
-        type Stream = S;
+        type Stream = Either<S, Once<Ready<Result<T, TErr>>>>;
         type Ok = T;
+        type Err = TErr;
+
+        fn to_stream(self) -> Self::Stream {
+            match self {
+                Ok(stream) => stream.left_stream(),
+                Err(err) => once(ready(Err(err))).right_stream(),
+            }
+        }
     }
 };
 
-// const _: () = {
-//     pub enum Marker {}
-//     impl<T, S: Stream<Item = Result<T, TErr>>, TErr, F: Future<Output = Result<S, TErr>>>
-//         IntoSubscriptionResponse<Marker, TErr> for F
-//     {
-//         type Stream = Once<F>;
-//         type Ok = T;
-//     }
-// };
+const _: () = {
+    pub enum Marker {}
+    impl<
+            'a,
+            T,
+            TErr,
+            S: Stream<Item = Result<T, TErr>> + Send,
+            F: Future<Output = S> + Send + 'a,
+        > IntoResolverResponse<'a, Subscription<Marker>> for F
+    {
+        type Stream = Flatten<Once<F>>;
+        type Ok = T;
+        type Err = TErr;
+
+        fn to_stream(self) -> Self::Stream {
+            once(self).flatten()
+        }
+    }
+};
+
+const _: () = {
+    pub enum Marker {}
+    type Inner<T, TErr, S> = Either<S, Once<Ready<Result<T, TErr>>>>;
+
+    impl<
+            'a,
+            T: Send + 'a,
+            TErr: Send + 'a,
+            S: Stream<Item = Result<T, TErr>> + Send + 'a,
+            F: Future<Output = Result<S, TErr>> + Send + 'a,
+        > IntoResolverResponse<'a, Subscription<Marker>> for F
+    {
+        type Stream = FlatMap<Once<F>, Inner<T, TErr, S>, fn(Result<S, TErr>) -> Inner<T, TErr, S>>;
+        type Ok = T;
+        type Err = TErr;
+
+        fn to_stream(self) -> Self::Stream {
+            once(self).flat_map(|result| match result {
+                Ok(s) => s.left_stream(),
+                Err(e) => once(ready(Err(e))).right_stream(),
+            })
+        }
+    }
+};

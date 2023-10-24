@@ -5,8 +5,8 @@ use crate::{
         middleware::{
             BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder, ProcedureKind,
         },
-        procedure::{MissingResolver, Procedure},
-        resolver::HasResolver,
+        procedure::{resolvers, MissingResolver, Procedure},
+        resolver::{HasResolver, QueryOrMutation, Subscription},
         Layer,
     },
     Infallible, IntoResolverError, Router,
@@ -44,41 +44,12 @@ where
     }
 }
 
-// // TODO: Rename
-// pub struct Todo<TResult, TOk, TError, TMarker>(PhantomData<(TResult, TOk, TError, TMarker)>)
-// where
-//     TResult: IntoQueryMutationResponse<TMarker>,
-//     TResult::Stream: Stream<Item = Result<TOk, TError>>;
-
-macro_rules! resolver {
-    // TODO: Subscriptions are different
-    ($func:ident, $kind:ident) => {
-        pub fn $func<R, M>(
-            self,
-            resolver: R,
-        ) -> Procedure<HasResolver<R, TError, M>, BaseMiddleware<TCtx>>
-        where
-            // TODO: Subscription's won't work
-            HasResolver<R, TError, M>: Layer<TCtx>,
-        {
-            let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
-
-            // TODO: Make this work
-            // // Trade runtime performance for reduced monomorphization
-            // #[cfg(debug_assertions)]
-            // let resolver = boxed(resolver);
-
-            Procedure::new(resolver, BaseMiddleware::default())
-        }
-    };
-}
-
 impl<TCtx, TError> Rspc<TCtx, TError>
 where
     TCtx: Send + Sync + 'static,
     TError: IntoResolverError,
 {
-    pub fn router(&self) -> Router<TCtx, TError> {
+    pub fn router(self) -> Router<TCtx> {
         Router::_internal_new()
     }
 
@@ -115,7 +86,5 @@ where
         )
     }
 
-    resolver!(query, Query);
-    resolver!(mutation, Mutation);
-    resolver!(subscription, Subscription);
+    resolvers!(_, TCtx, BaseMiddleware<TCtx>, BaseMiddleware::default());
 }
