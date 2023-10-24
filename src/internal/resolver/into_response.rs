@@ -15,6 +15,14 @@ use futures::{
 
 use crate::internal::resolver::{QueryOrMutation, Subscription};
 
+#[cfg(test)]
+#[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
+#[error("{0}")]
+struct Error(&'static str);
+
+#[cfg(test)]
+const R: crate::Rspc<(), Error> = crate::Rspc::new();
+
 /// `IntoResponse` will transform a specific response type into a normalised response type for a `query` or `mutation`.
 pub trait IntoResolverResponse<'a, M> {
     type Stream: Stream<Item = Result<Self::Ok, Self::Err>> + Send + 'a;
@@ -39,6 +47,15 @@ const _: () = {
             once(ready(self))
         }
     }
+
+    #[cfg(test)]
+    fn test() {
+        R.router()
+            // Result Ok
+            .procedure("ok", R.query(|_, _: ()| Ok("todo".to_string())))
+            // Result Err
+            .procedure("err", R.query(|_, _: ()| Err::<(), _>(Error("todo"))));
+    }
 };
 
 const _: () = {
@@ -55,6 +72,21 @@ const _: () = {
             once(self)
         }
     }
+
+    #[cfg(test)]
+    fn test() {
+        R.router()
+            // Future Result Ok
+            .procedure(
+                "ok",
+                R.query(|_, _: ()| async move { Ok("todo".to_string()) }),
+            )
+            // Future Result Err
+            .procedure(
+                "err",
+                R.query(|_, _: ()| async move { Err::<(), _>(Error("todo")) }),
+            );
+    }
 };
 
 const _: () = {
@@ -70,14 +102,31 @@ const _: () = {
             self
         }
     }
+
+    #[cfg(test)]
+    fn test() {
+        R.router()
+            // Stream Result Ok
+            .procedure(
+                "ok",
+                R.subscription(|_, _: ()| once(async move { Ok("todo".to_string()) })),
+            )
+            // Stream Result Err
+            .procedure(
+                "err",
+                R.subscription(|_, _: ()| once(async move { Err::<(), _>(Error("todo")) })),
+            );
+    }
 };
+
+type StreamOrError<T, TErr, S> = Either<S, Once<Ready<Result<T, TErr>>>>;
 
 const _: () = {
     pub enum Marker {}
     impl<'a, T: Send + 'a, S: Stream<Item = Result<T, TErr>> + Send + 'a, TErr: Send + 'a>
         IntoResolverResponse<'a, Subscription<Marker>> for Result<S, TErr>
     {
-        type Stream = Either<S, Once<Ready<Result<T, TErr>>>>;
+        type Stream = StreamOrError<T, TErr, S>;
         type Ok = T;
         type Err = TErr;
 
@@ -87,6 +136,25 @@ const _: () = {
                 Err(err) => once(ready(Err(err))).right_stream(),
             }
         }
+    }
+
+    #[cfg(test)]
+    fn test() {
+        R.router()
+            // Future Stream Ok
+            .procedure(
+                "ok",
+                R.subscription(
+                    |_, _: ()| async move { once(async move { Ok("todo".to_string()) }) },
+                ),
+            )
+            // Future Stream Err
+            .procedure(
+                "err",
+                R.subscription(|_, _: ()| async move {
+                    once(async move { Err::<(), _>(Error("todo")) })
+                }),
+            );
     }
 };
 
@@ -108,11 +176,25 @@ const _: () = {
             once(self).flatten()
         }
     }
+
+    #[cfg(test)]
+    fn test() {
+        R.router()
+            // Result Stream Ok
+            .procedure(
+                "ok",
+                R.subscription(|_, _: ()| Ok(once(async move { Ok("todo".to_string()) }))),
+            )
+            // Result Stream Err
+            .procedure(
+                "err",
+                R.subscription(|_, _: ()| Ok(once(async move { Err::<(), _>(Error("todo")) }))),
+            );
+    }
 };
 
 const _: () = {
     pub enum Marker {}
-    type Inner<T, TErr, S> = Either<S, Once<Ready<Result<T, TErr>>>>;
 
     impl<
             'a,
@@ -122,7 +204,11 @@ const _: () = {
             F: Future<Output = Result<S, TErr>> + Send + 'a,
         > IntoResolverResponse<'a, Subscription<Marker>> for F
     {
-        type Stream = FlatMap<Once<F>, Inner<T, TErr, S>, fn(Result<S, TErr>) -> Inner<T, TErr, S>>;
+        type Stream = FlatMap<
+            Once<F>,
+            StreamOrError<T, TErr, S>,
+            fn(Result<S, TErr>) -> StreamOrError<T, TErr, S>,
+        >;
         type Ok = T;
         type Err = TErr;
 
@@ -132,5 +218,24 @@ const _: () = {
                 Err(e) => once(ready(Err(e))).right_stream(),
             })
         }
+    }
+
+    #[cfg(test)]
+    fn test() {
+        R.router()
+            // Future Result Stream Ok
+            .procedure(
+                "ok",
+                R.subscription(|_, _: ()| async move {
+                    Ok(once(async move { Ok("todo".to_string()) }))
+                }),
+            )
+            // Future Result Stream Err
+            .procedure(
+                "err",
+                R.subscription(|_, _: ()| async move {
+                    Ok(once(async move { Err::<(), _>(Error("todo")) }))
+                }),
+            );
     }
 };
