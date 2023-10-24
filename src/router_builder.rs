@@ -1,18 +1,14 @@
 use std::{borrow::Cow, panic::Location};
 
-use serde::de::DeserializeOwned;
-use specta::Type;
-
 use crate::{
     internal::{
-        middleware::MiddlewareBuilder,
-        procedure::Procedure,
-        procedure_store::is_valid_name,
-        resolver::{HasResolver, RequestLayer},
+        middleware::MiddlewareBuilder, procedure::Procedure, procedure_store::is_valid_name,
+        resolver::HasResolver,
     },
     Router,
 };
-use rspc_core::internal::{edit_build_error_name, new_build_error, BuildError, BuildResult};
+
+use rspc_core::internal::{edit_build_error_name, new_build_error, BuildError, BuildResult, Layer};
 
 type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
 
@@ -38,19 +34,13 @@ where
     }
 
     #[track_caller]
-    pub fn procedure<F, TArg, TResult, TResultMarker, TMiddleware>(
+    pub fn procedure<F, TError, TMiddleware, M1, M2>(
         mut self,
         key: &'static str,
-        procedure: Procedure<
-            HasResolver<F, TMiddleware::LayerCtx, TArg, TResult, TResultMarker>,
-            TMiddleware,
-        >,
+        procedure: Procedure<HasResolver<F, TError, M1, M2>, TMiddleware>,
     ) -> Self
     where
-        F: Fn(TMiddleware::LayerCtx, TArg) -> TResult + Send + Sync + 'static,
-        TArg: Type + DeserializeOwned + 'static,
-        TResult: RequestLayer<TResultMarker> + 'static,
-        TResultMarker: 'static,
+        HasResolver<F, TError, M1, M2>: Layer<TMiddleware::LayerCtx>,
         TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
     {
         if let Some(cause) = is_valid_name(key) {
@@ -63,9 +53,15 @@ where
             ));
         }
 
+        let Procedure { resolver, mw } = procedure;
+
+        let kind = resolver.kind;
+
         self.procedures.push((
             Cow::Borrowed(key),
-            Box::new(|full_key, ctx| procedure.build(full_key, ctx)),
+            Box::new(move |key, ctx| {
+                rspc_core::internal::build(key, ctx, kind, mw.build(resolver))
+            }),
         ));
 
         self

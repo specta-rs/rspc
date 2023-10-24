@@ -1,9 +1,9 @@
 //! A resolver is the handler function defined by the user. A procedure is made up of a resolver and a type (query, mutation or subscription).
 
 mod function;
-mod layer;
+mod into_response;
 mod result;
 
-pub use function::*;
-pub(crate) use layer::*;
-pub use result::*;
+pub(crate) use function::*;
+pub(crate) use into_response::*;
+pub(crate) use result::*;

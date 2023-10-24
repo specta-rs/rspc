@@ -6,7 +6,7 @@ use std::{
 use serde_json::Value;
 
 use super::RequestContext;
-use crate::error::{ExecError, IntoResolverError};
+use crate::{error::ExecError, internal};
 
 pub trait Ret: Debug + Send + Sync + 'static {}
 impl<T: Debug + Send + Sync + 'static> Ret for T {}
@@ -84,7 +84,7 @@ impl<TLCtx, TResp, TError> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, 
 where
     TLCtx: Send + Sync + 'static,
     TResp: Executable2,
-    TError: IntoResolverError,
+    TError: internal::IntoResolverError,
 {
     type Ctx = TLCtx;
     type Resp = TResp;

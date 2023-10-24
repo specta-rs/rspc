@@ -8,7 +8,7 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )]
-#![deny(unsafe_code)]
+#![warn(unsafe_code)]
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
@@ -41,9 +41,10 @@ pub mod internal {
     }
 
     pub use super::body::Body;
+    pub use super::error::private::IntoResolverError;
     pub use super::util::{PinnedOption, PinnedOptionProj};
 
-    pub use super::layer::{Layer, SealedLayer};
+    pub use super::layer::Layer;
     pub use super::procedure_store::{build, ProcedureDef, ProcedureTodo, ProceduresDef};
 
     pub use super::middleware::{

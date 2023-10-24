@@ -13,20 +13,20 @@ transportResp: "plugin:rspc:transport-resp"
 })
 
          /**
- * The type of a response from rspc.
- * 
- * @internal
- */
-export type Response = ({ type: "value"; value: any } | { type: "error"; value: ProcedureError } | { type: "complete" }) & { id: number }
-export type ProcedureError = { Exec: Error } | { Resolver: any }
-export type Error = { code: ErrorCode; message: string }
-export type Msg = any
-/**
  * A value that can be a successful result or an error.
  * 
  * @internal
  */
 export type ResponseInner = { type: "value"; value: any } | { type: "error"; value: ProcedureError } | { type: "complete" }
+export type ProcedureError = { Exec: Error } | { Resolver: any }
+export type Error = { code: ErrorCode; message: string }
+export type Msg = any
+/**
+ * The type of a response from rspc.
+ * 
+ * @internal
+ */
+export type Response = ({ type: "value"; value: any } | { type: "error"; value: ProcedureError } | { type: "complete" }) & { id: number }
 /**
  * TODO
  */
