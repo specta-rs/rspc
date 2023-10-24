@@ -59,7 +59,7 @@ where
     pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Infallible>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
     {
         Procedure::new(
             MissingResolver::default(),
