@@ -5,14 +5,21 @@ use specta::TypeMap;
 use crate::{
     internal::{
         middleware::{MiddlewareBuilder, ProcedureKind},
-        procedure::{is_valid_name, BuildProceduresCtx, Procedure, ProcedureStore},
+        procedure::{is_valid_name, Procedure, ProcedureStore},
         resolver::HasResolver,
         Layer,
     },
     BuildError, BuildResult, BuiltRouter,
 };
 
-type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut BuildProceduresCtx<'_, TCtx>)>;
+type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut ProcedureBuildCtx<'_, TCtx>)>;
+
+struct ProcedureBuildCtx<'a, TCtx> {
+    ty_store: &'a mut specta::TypeMap,
+    queries: &'a mut ProcedureStore<TCtx>,
+    mutations: &'a mut ProcedureStore<TCtx>,
+    subscriptions: &'a mut ProcedureStore<TCtx>,
+}
 
 pub struct Router<TCtx> {
     procedures: Vec<(Cow<'static, str>, ProcedureBuildFn<TCtx>)>,
@@ -127,7 +134,7 @@ where
         let mut subscriptions = ProcedureStore::new("subscriptions"); // TODO: Take in as arg
         let mut typ_store = TypeMap::new(); // TODO: Take in as arg
 
-        let mut ctx = BuildProceduresCtx {
+        let mut ctx = ProcedureBuildCtx {
             ty_store: &mut typ_store,
             queries: &mut queries,
             mutations: &mut mutations,
