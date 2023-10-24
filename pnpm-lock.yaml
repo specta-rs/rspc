@@ -82,14 +82,14 @@ importers:
         specifier: workspace:^
         version: link:../../packages/tauri
       '@tanstack/react-query':
-        specifier: ^5.0.0
-        version: 5.0.0(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.36.1
+        version: 4.36.1(react-dom@18.2.0)(react@18.2.0)
       '@tanstack/solid-query':
-        specifier: ^5.0.0
-        version: 5.0.0(solid-js@1.8.3)
+        specifier: ^4.36.1
+        version: 4.36.1(solid-js@1.8.3)
       '@tanstack/svelte-query':
-        specifier: ^5.0.2
-        version: 5.0.2(svelte@4.2.2)
+        specifier: ^4.36.1
+        version: 4.36.1(svelte@4.2.2)
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -137,8 +137,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/react-query
       '@tanstack/react-query':
-        specifier: ^5.0.0
-        version: 5.0.0(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.36.1
+        version: 4.36.1(react-dom@18.2.0)(react@18.2.0)
       next:
         specifier: ^13.5.6
         version: 13.5.6(react-dom@18.2.0)(react@18.2.0)
@@ -187,8 +187,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/react-query
       '@tanstack/react-query':
-        specifier: ^5.0.0
-        version: 5.0.0(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.36.1
+        version: 4.36.1(react-dom@18.2.0)(react@18.2.0)
       next:
         specifier: ^13.5.6
         version: 13.5.6(react-dom@18.2.0)(react@18.2.0)
@@ -236,8 +236,8 @@ importers:
         specifier: workspace:*
         version: link:../client
       '@tanstack/query-core':
-        specifier: ^5.0.0
-        version: 5.0.0
+        specifier: ^4.36.1
+        version: 4.36.1
       tslib:
         specifier: ^2.6.2
         version: 2.6.2
@@ -261,8 +261,8 @@ importers:
         specifier: workspace:*
         version: link:../client
       '@tanstack/react-query':
-        specifier: ^5.0.0
-        version: 5.0.0(react-dom@18.2.0)(react@18.2.0)
+        specifier: ^4.36.1
+        version: 4.36.1(react-dom@18.2.0)(react@18.2.0)
       '@types/react':
         specifier: ^18.2.31
         version: 18.2.31
@@ -292,8 +292,8 @@ importers:
         specifier: workspace:*
         version: link:../client
       '@tanstack/solid-query':
-        specifier: ^5.0.0
-        version: 5.0.0(solid-js@1.8.3)
+        specifier: ^4.36.1
+        version: 4.36.1(solid-js@1.8.3)
       rollup:
         specifier: ^4.1.4
         version: 4.1.4
@@ -329,8 +329,8 @@ importers:
         specifier: ^2.2.2
         version: 2.2.2(svelte@4.2.2)(typescript@5.2.2)
       '@tanstack/svelte-query':
-        specifier: ^5.0.2
-        version: 5.0.2(svelte@4.2.2)
+        specifier: ^4.36.1
+        version: 4.36.1(svelte@4.2.2)
       tslib:
         specifier: ^2.6.2
         version: 2.6.2
@@ -2711,14 +2711,14 @@ packages:
       tslib: 2.6.2
     dev: false
 
-  /@tanstack/query-core@5.0.0:
-    resolution: {integrity: sha512-Y1BpiA6BblJd/UlVqxEVeAG7IACn568YJuTTItAiecBI7En+33g780kg+/8lhgl+BzcUPN7o+NjBrSRGJoemyQ==}
+  /@tanstack/query-core@4.36.1:
+    resolution: {integrity: sha512-DJSilV5+ytBP1FbFcEJovv4rnnm/CokuVvrBEtW/Va9DvuJ3HksbXUJEpI0aV1KtuL4ZoO9AVE6PyNLzF7tLeA==}
 
-  /@tanstack/react-query@5.0.0(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-diQoC8FNBcO5Uf5yuaJlXthTtbO1xM8kzOX+pSBUMT9n/cqQ/u1wJGCtukvhDWA+6j07WmIj4bfqNbd2KOB6jQ==}
+  /@tanstack/react-query@4.36.1(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-y7ySVHFyyQblPl3J3eQBWpXZkliroki3ARnBKsdJchlgt7yJLRDUcf4B8soufgiYt3pEQIkBWBx1N9/ZPIeUWw==}
     peerDependencies:
-      react: ^18.0.0
-      react-dom: ^18.0.0
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
       react-native: '*'
     peerDependenciesMeta:
       react-dom:
@@ -2726,24 +2726,25 @@ packages:
       react-native:
         optional: true
     dependencies:
-      '@tanstack/query-core': 5.0.0
+      '@tanstack/query-core': 4.36.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
+      use-sync-external-store: 1.2.0(react@18.2.0)
 
-  /@tanstack/solid-query@5.0.0(solid-js@1.8.3):
-    resolution: {integrity: sha512-XwSKUOeoxlLbA/yvgw3EoJ4Zg8BCRjIv+MXKHw6EVJWLW9eA3BQCBwuZ1A9yuQNyt1Ms9k1wuUGg9gXwc5Qiag==}
+  /@tanstack/solid-query@4.36.1(solid-js@1.8.3):
+    resolution: {integrity: sha512-w8L6B12AsCyF7AB2Np4fj9qsOBfrzzxyIkdsniKo9HErdXdlGLyynYaDm4EGsH9ePPcdJSUX7ELGqmXllofn/Q==}
     peerDependencies:
-      solid-js: ^1.6.0
+      solid-js: ^1.5.7
     dependencies:
-      '@tanstack/query-core': 5.0.0
+      '@tanstack/query-core': 4.36.1
       solid-js: 1.8.3
 
-  /@tanstack/svelte-query@5.0.2(svelte@4.2.2):
-    resolution: {integrity: sha512-Nhwd6l+VQ/hhoCyDqKOFDbD+4AH9vtNTFXKXyytjdrW0XBEndeY010n73d1VlYGF/0SWZ1oG7BqVRtL7NSjJyw==}
+  /@tanstack/svelte-query@4.36.1(svelte@4.2.2):
+    resolution: {integrity: sha512-5fj79QuAu5HuS6G/fairU6ywgILXfs4TGl3+Xc9+MBlmB1aPoQBvGsgJrNyhqvXQcnxro8wDNyZOH8S+Qitycw==}
     peerDependencies:
       svelte: '>=3 <5'
     dependencies:
-      '@tanstack/query-core': 5.0.0
+      '@tanstack/query-core': 4.36.1
       svelte: 4.2.2
 
   /@tauri-apps/api@1.5.1:
@@ -8283,6 +8284,13 @@ packages:
       escalade: 3.1.1
       picocolors: 1.0.0
     dev: true
+
+  /use-sync-external-store@1.2.0(react@18.2.0):
+    resolution: {integrity: sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
 
   /util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
