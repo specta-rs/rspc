@@ -40,34 +40,26 @@ async fn main() {
 
     let router = R
         .router()
-        // .procedure(
-        //     "version",
-        //     R.with(|mw, ctx| async move {
-        //         mw.next(ctx).map(|resp| async move {
-        //             println!("Client requested version '{}'", resp);
-        //             resp
-        //         })
-        //     })
-        //     .with(|mw, ctx| async move { mw.next(ctx) })
-        //     .query(|_, _: ()| {
-        //         info!("Client requested version");
-        //         Ok(env!("CARGO_PKG_VERSION"))
-        //     }),
-        // )
+        .procedure(
+            "version",
+            R.with(|mw, ctx| async move {
+                mw.next(ctx).map(|resp| async move {
+                    println!("Client requested version '{}'", resp);
+                    resp
+                })
+            })
+            .with(|mw, ctx| async move { mw.next(ctx) })
+            .query(|_, _: ()| {
+                info!("Client requested version");
+                Ok(env!("CARGO_PKG_VERSION"))
+            }),
+        )
         .procedure(
             "X-Demo-Header",
             R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
         )
         .procedure("echo", R.query(|_, v: String| Ok(v)))
         .procedure("echo2", R.query(|_, v: String| async move { Ok(v) }))
-        // .procedure(
-        //     "wontCompile",
-        //     R.query(|_, v: String| async move { Ok::<_, String>(v) }),
-        // )
-        // .procedure(
-        //     "wontCompile2",
-        //     R.query(|_, v: String| async move { Ok(..0) }),
-        // )
         .procedure(
             "error",
             R.query(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
@@ -151,15 +143,6 @@ async fn main() {
                 }
             }),
         )
-        // TODO: This is an unstable feature and should be used with caution!
-        // .procedure(
-        //     "serveFile",
-        //     R.query(|_, _: ()| async move {
-        //         let file = File::open("./demo.json").await.unwrap();
-        //         // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
-        //         Blob(BufReader::new(file))
-        //     }),
-        // )
         .procedure(
             "customErr",
             R.error::<MyCustomError>()
