@@ -50,7 +50,7 @@ pub type ExplodedMwResult<T> = (
 );
 
 // #[deprecated = "TODO: We probs have to remove this. Sadge!"] // TODO: Deal with this type and seal it
-pub trait MwV2Result {
+pub trait MwV2Result: Send {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;
 
@@ -94,7 +94,7 @@ impl<TLCtx, TResp, TError> MwV2Result for Result<MwResultWithCtx<TLCtx, TResp>, 
 where
     TLCtx: Send + Sync + 'static,
     TResp: Executable2,
-    TError: internal::IntoResolverError,
+    TError: internal::IntoResolverError + Send,
 {
     type Ctx = TLCtx;
     type Resp = TResp;
