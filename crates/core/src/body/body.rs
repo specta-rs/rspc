@@ -1,8 +1,4 @@
-use std::{
-    pin::Pin,
-    task::{Context, Poll},
-};
-
+use futures::Stream;
 use serde_json::Value;
 
 use crate::error::ExecError;
@@ -14,15 +10,15 @@ use crate::error::ExecError;
 /// For a subscription each frame is a discrete websocket message. Eg. the json for a single procedure's result
 ///
 #[must_use = "`Body` do nothing unless polled"]
-pub trait Body {
+pub trait Body: Stream<Item = Result<Value, ExecError>> {
     // TODO: Return `bytes::Bytes` instead
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<Value, ExecError>>>;
+    // fn poll_next(
+    //     self: Pin<&mut Self>,
+    //     cx: &mut Context<'_>,
+    // ) -> Poll<Option<Result<Value, ExecError>>>;
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, None)
-    }
+    // #[inline]
+    // fn size_hint(&self) -> (usize, Option<usize>) {
+    //     (0, None)
+    // }
 }

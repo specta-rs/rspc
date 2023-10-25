@@ -43,10 +43,17 @@ pub(crate) mod private {
             TErr: IntoResolverError,
         > Body for StreamToBody<S>
     {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
+    }
+
+    impl<
+            S: Stream<Item = Result<T, TErr>> + Send + 'static,
+            T: Serialize + 'static,
+            TErr: IntoResolverError,
+        > Stream for StreamToBody<S>
+    {
+        type Item = Result<Value, ExecError>;
+
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             let this = self.project();
 
             #[cfg(feature = "tracing")]

@@ -15,13 +15,15 @@ pub trait Fut<TRet: Ret>: Future<Output = TRet> + Send + 'static {}
 impl<TRet: Ret, TFut: Future<Output = TRet> + Send + 'static> Fut<TRet> for TFut {}
 
 // TODO: Remove this if possible it's something to do with optional function callback but can we cheat it with two different impls for `.call` based on generic?
-pub trait Executable2: Send + Sync + 'static {
+pub trait Executable2: Send + Sync + 'static + Clone {
     type Fut: Future<Output = Value> + Send;
 
     fn call(&self, v: Value) -> Self::Fut;
 }
 
-impl<TFut: Fut<Value>, TFunc: Fn(Value) -> TFut + Send + Sync + 'static> Executable2 for TFunc {
+impl<TFut: Fut<Value>, TFunc: Fn(Value) -> TFut + Send + Sync + 'static + Clone> Executable2
+    for TFunc
+{
     type Fut = TFut;
 
     fn call(&self, v: Value) -> Self::Fut {
@@ -29,6 +31,7 @@ impl<TFut: Fut<Value>, TFunc: Fn(Value) -> TFut + Send + Sync + 'static> Executa
     }
 }
 
+#[derive(Clone)]
 pub struct Executable2Placeholder {}
 
 impl Executable2 for Executable2Placeholder {
@@ -39,13 +42,20 @@ impl Executable2 for Executable2Placeholder {
     }
 }
 
+pub type ExplodedMwResult<T> = (
+    <T as MwV2Result>::Ctx,
+    Value,
+    RequestContext,
+    Option<<T as MwV2Result>::Resp>,
+);
+
 // #[deprecated = "TODO: We probs have to remove this. Sadge!"] // TODO: Deal with this type and seal it
 pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;
 
     // TODO: Seal this and make it private
-    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError>;
+    fn explode(self) -> Result<ExplodedMwResult<Self>, ExecError>;
 }
 
 // TODO: Seal this and rename it
@@ -75,7 +85,7 @@ where
     type Ctx = TLCtx;
     type Resp = TResp;
 
-    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
+    fn explode(self) -> Result<ExplodedMwResult<Self>, ExecError> {
         Ok((self.ctx, self.input, self.req, self.resp))
     }
 }
@@ -89,7 +99,7 @@ where
     type Ctx = TLCtx;
     type Resp = TResp;
 
-    fn explode(self) -> Result<(Self::Ctx, Value, RequestContext, Option<Self::Resp>), ExecError> {
+    fn explode(self) -> Result<ExplodedMwResult<Self>, ExecError> {
         self.map_err(|e| e.into_resolver_error().into())
             .and_then(|r| r.explode())
     }

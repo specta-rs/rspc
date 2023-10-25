@@ -3,10 +3,14 @@ mod private {
         borrow::Cow,
         marker::PhantomData,
         pin::Pin,
-        task::{ready, Context, Poll},
+        task::{Context, Poll},
     };
 
-    use futures::Future;
+    use futures::{
+        future::{self, ok, ready, Ready},
+        stream::{self, once, Once},
+        Future, FutureExt, Stream, StreamExt,
+    };
     use pin_project_lite::pin_project;
     use serde_json::Value;
     use specta::{ts, TypeMap};
@@ -15,8 +19,8 @@ mod private {
     use rspc_core::{
         error::ExecError,
         internal::{
-            new_mw_ctx, Body, Executable2, Layer, MwV2Result, PinnedOption, PinnedOptionProj,
-            ProcedureDef, RequestContext,
+            new_mw_ctx, Body, Executable2, ExplodedMwResult, Layer, MwV2Result, PinnedOption,
+            PinnedOptionProj, ProcedureDef, RequestContext,
         },
     };
 
@@ -114,14 +118,22 @@ mod private {
             TNextLayer: Layer<TMiddleware::NewCtx>,
         > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
     {
-        fn poll_next(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
+    }
+
+    impl<
+            'a,
+            TLayerCtx: Send + Sync + 'static,
+            TMiddleware: Middleware<TLayerCtx>,
+            TNextLayer: Layer<TMiddleware::NewCtx>,
+        > Stream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+    {
+        type Item = Result<Value, ExecError>;
+
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             loop {
                 match self.as_mut().project() {
                     MiddlewareLayerFutureProj::Resolve { fut, next } => {
-                        let result = ready!(fut.poll(cx));
+                        let result = futures::ready!(fut.poll(cx));
                         let (ctx, input, req, resp_fn) = match result.explode() {
                             Ok(v) => v,
                             Err(err) => {
@@ -155,7 +167,7 @@ mod private {
                         resp_fn,
                     } => {
                         if let PinnedOptionProj::Some { v } = resp_fut.as_mut().project() {
-                            let result = ready!(v.poll(cx));
+                            let result = futures::ready!(v.poll(cx));
                             cx.waker().wake_by_ref(); // No wakers set so we set one
                             resp_fut.set(PinnedOption::None);
                             return Poll::Ready(Some(Ok(result)));
@@ -166,7 +178,7 @@ mod private {
                             return Poll::Ready(None);
                         }
 
-                        match ready!(stream.as_mut().poll_next(cx)) {
+                        match futures::ready!(stream.as_mut().poll_next(cx)) {
                             Some(result) => match resp_fn {
                                 Some(resp_fn) => match result {
                                     Ok(result) => {
@@ -220,6 +232,139 @@ mod private {
                 _ => (0, None),
             }
         }
+    }
+
+    async fn middleware_layer_future<
+        'a,
+        TLayerCtx: SendSyncStatic,
+        TMiddleware: Middleware<TLayerCtx>,
+        TNextLayer: Layer<TMiddleware::NewCtx>,
+    >(
+        fut: TMiddleware::Fut,
+        next: &'a TNextLayer,
+    ) -> impl Stream<Item = Result<Value, ExecError>> + 'a {
+        type Bruh<
+            'a,
+            TLayerCtx: SendSyncStatic,
+            TMiddleware: Middleware<TLayerCtx>,
+            TNextLayer: Layer<TMiddleware::NewCtx>,
+        > = future::Either<
+            future::Map<
+                RespFut<TLayerCtx, TMiddleware>,
+                fn(Value) -> <TNextLayer::Stream<'a> as Stream>::Item,
+            >,
+            future::Ready<<TNextLayer::Stream<'a> as Stream>::Item>,
+        >;
+
+        type RespFut<TLayerCtx: SendSyncStatic, TMiddleware: Middleware<TLayerCtx>> =
+            <<TMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut;
+        type RespFn<TLayerCtx: SendSyncStatic, TMiddleware: Middleware<TLayerCtx>> =
+            Option<<TMiddleware::Result as MwV2Result>::Resp>;
+
+        type Bruh2<
+            'a,
+            TLayerCtx: SendSyncStatic,
+            TMiddleware: Middleware<TLayerCtx>,
+            TNextLayer: Layer<TMiddleware::NewCtx>,
+        > = stream::Then<
+            stream::Zip<TNextLayer::Stream<'a>, stream::Repeat<RespFn<TLayerCtx, TMiddleware>>>,
+            Bruh<'a, TLayerCtx, TMiddleware, TNextLayer>,
+            fn(
+                (
+                    <TNextLayer::Stream<'a> as Stream>::Item,
+                    RespFn<TLayerCtx, TMiddleware>,
+                ),
+            ) -> Bruh<'a, TLayerCtx, TMiddleware, TNextLayer>,
+        >;
+
+        fn bruh2<
+            'a,
+            TLayerCtx: SendSyncStatic,
+            TMiddleware: Middleware<TLayerCtx>,
+            TNextLayer: Layer<TMiddleware::NewCtx>,
+        >(
+            stream: TNextLayer::Stream<'a>,
+            resp_fn: RespFn<TLayerCtx, TMiddleware>,
+        ) -> Bruh2<'a, TLayerCtx, TMiddleware, TNextLayer> {
+            stream
+                .zip(stream::repeat(resp_fn))
+                .then(|(result, resp_fn)| match resp_fn {
+                    Some(resp_fn) => match result {
+                        Ok(result) => resp_fn.call(result).map(Ok as fn(_) -> _).left_future(),
+                        Err(err) => future::ready(Err(err)).right_future(),
+                    },
+                    None => future::ready(result).right_future(),
+                })
+        }
+
+        fn inner<
+            'a,
+            TLayerCtx: SendSyncStatic,
+            TMiddleware: Middleware<TLayerCtx>,
+            TNextLayer: Layer<TMiddleware::NewCtx>,
+        >(
+            (fut, next): (TMiddleware::Result, &'a TNextLayer),
+        ) -> future::Either<
+            Bruh2<'a, TLayerCtx, TMiddleware, TNextLayer>,
+            Once<Ready<Result<Value, ExecError>>>,
+        > {
+            fn inner<
+                'a,
+                TLayerCtx: SendSyncStatic,
+                TMiddleware: Middleware<TLayerCtx>,
+                TNextLayer: Layer<TMiddleware::NewCtx>,
+            >(
+                ((ctx, input, req, resp_fn), next): (
+                    ExplodedMwResult<TMiddleware::Result>,
+                    &'a TNextLayer,
+                ),
+            ) -> Result<
+                (
+                    TNextLayer::Stream<'a>,
+                    Option<<TMiddleware::Result as MwV2Result>::Resp>,
+                ),
+                ExecError,
+            > {
+                next.call(ctx, input, req).map(|stream| (stream, resp_fn))
+            }
+
+            let (stream, resp_fn) = match fut
+                .explode()
+                .map(|v| (v, next))
+                .and_then(inner::<TLayerCtx, TMiddleware, TNextLayer>)
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    return stream::once(future::ready(Err(e))).right_stream::<Bruh2<
+                        'a,
+                        TLayerCtx,
+                        TMiddleware,
+                        TNextLayer,
+                    >>()
+                }
+            };
+
+            bruh2::<'a, TLayerCtx, TMiddleware, TNextLayer>(stream, resp_fn).left_stream()
+        }
+
+        fut.into_stream().flat_map(|fut| {
+            let (stream, resp_fn) = match fut.explode().and_then(|(ctx, input, req, resp_fn)| {
+                next.call(ctx, input, req).map(|stream| (stream, resp_fn))
+            }) {
+                Ok(v) => v,
+                Err(e) => return stream::iter([Err(e)]).right_stream(),
+            };
+
+            stream
+                .then(move |result| match &resp_fn {
+                    Some(resp_fn) => match result {
+                        Ok(result) => resp_fn.call(result).map(Ok).left_future(),
+                        Err(err) => future::ready(Err(err)).right_future(),
+                    },
+                    None => future::ready(result).right_future(),
+                })
+                .left_stream()
+        })
     }
 }
 

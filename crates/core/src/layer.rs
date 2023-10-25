@@ -1,7 +1,7 @@
 use futures::{future::ready, stream::once};
 use serde_json::Value;
 use specta::{ts, TypeMap};
-use std::borrow::Cow;
+use std::{borrow::Cow, pin::Pin};
 
 use crate::{body::Body, error::ExecError, internal::ProcedureDef, middleware::RequestContext};
 
@@ -34,7 +34,12 @@ pub trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
         ty_store: &mut TypeMap,
     ) -> Result<ProcedureDef, ts::ExportError>;
 
-    fn dyn_call(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Box<dyn Body + Send + '_>;
+    fn dyn_call(
+        &self,
+        ctx: TLCtx,
+        input: Value,
+        req: RequestContext,
+    ) -> Pin<Box<dyn Body + Send + '_>>;
 }
 
 impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
@@ -46,17 +51,22 @@ impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
         Layer::into_procedure_def(self, key, ty_store)
     }
 
-    fn dyn_call(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Box<dyn Body + Send + '_> {
+    fn dyn_call(
+        &self,
+        ctx: TLCtx,
+        input: Value,
+        req: RequestContext,
+    ) -> Pin<Box<dyn Body + Send + '_>> {
         match self.call(ctx, input, req) {
-            Ok(stream) => Box::new(stream),
+            Ok(stream) => Box::pin(stream),
             // TODO: Avoid allocating error future here
-            Err(err) => Box::new(once(ready(Err(err)))),
+            Err(err) => Box::pin(once(ready(Err(err)))),
         }
     }
 }
 
 impl<TLCtx: Send + 'static> Layer<TLCtx> for Box<dyn DynLayer<TLCtx>> {
-    type Stream<'a> = Box<dyn Body + Send + 'a>;
+    type Stream<'a> = Pin<Box<dyn Body + Send + 'a>>;
 
     fn into_procedure_def(
         &self,
