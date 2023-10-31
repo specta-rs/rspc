@@ -5,7 +5,7 @@ use std::{
 
 use serde_json::Value;
 
-use crate::Body;
+use crate::{cursed, Body};
 
 pub fn new_mw_ctx<TNCtx>(
     input: serde_json::Value,
@@ -27,6 +27,7 @@ pub struct MiddlewareContext<TNewCtx> {
 
     // For response
     new_ctx: Arc<Mutex<Option<TNewCtx>>>,
+    // chan: futures::mpsc::Sender<Body>,
     // new_span: Option<tracing::Span>
 }
 
@@ -38,14 +39,13 @@ impl<TNewCtx> MiddlewareContext<TNewCtx> {
     }
 
     // TODO: Refactor return type
-    pub fn next(self, ctx: TNewCtx) -> Body {
+    pub async fn next(self, ctx: TNewCtx) -> Body {
         self.new_ctx
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .replace(ctx);
 
-        // TODO
-        Body::Value(serde_json::Value::Null)
+        cursed::inner().await
     }
 }
 

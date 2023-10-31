@@ -10,7 +10,7 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
-use rspc::{ExportConfig, Rspc};
+use rspc::{Body, ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
 use tokio::{sync::broadcast, time::sleep};
@@ -45,9 +45,17 @@ async fn main() {
             R
                 // TODO: Old cringe syntax
                 .with(|mw, ctx| async move {
-                    let y = mw.next(((), ctx));
+                    // Some processing
 
-                    ()
+                    let y = mw.next(((), ctx)).await;
+
+                    println!("{:?}", y);
+
+                    match y {
+                        Body::Value(v) => v,
+                        Body::Stream(v) => todo!(),
+                        _ => todo!(),
+                    }
                 })
                 // Passthrough
                 // .with(|mw, ctx| async move { mw.next::<middleware::Any, _>(ctx)? })

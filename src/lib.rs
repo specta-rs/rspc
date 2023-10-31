@@ -27,3 +27,5 @@ pub mod internal;
 
 // TODO: Only reexport certain types
 pub use rspc_core::error::*;
+
+pub use rspc_core::Body;

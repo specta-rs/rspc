@@ -13,8 +13,11 @@ mod private {
     use specta::{ts, TypeMap};
 
     use rspc_core::{
+        cursed::{self, YieldMsg, CURSED_OP},
         error::ExecError,
-        internal::{new_mw_ctx, Layer, ProcedureDef, RequestContext},
+        internal::{
+            new_mw_ctx, IntoMiddlewareResult, Layer, PinnedOption, ProcedureDef, RequestContext,
+        },
         ValueOrBytes,
     };
 
@@ -53,7 +56,7 @@ mod private {
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
             let new_ctx = Arc::new(Mutex::new(None));
-            let fut = self.mw.run_me(
+            let fut = self.mw.execute(
                 ctx,
                 new_mw_ctx(
                     input.clone(), // TODO: This probs won't fly if we accept file upload
@@ -68,6 +71,8 @@ mod private {
                 new_ctx,
                 input: Some(input),
                 req: Some(req),
+                stream: PinnedOption::None,
+                is_stream_done: false,
             })
         }
     }
@@ -103,22 +108,12 @@ mod private {
                 // TODO: Avoid `Option` and instead encode into enum
                 input: Option<Value>,
                 req: Option<RequestContext>,
-            },
-            // We are in this state where we are executing the current middleware on the stream
-            Execute {
+
                 // The actual data stream from the resolver function or next middleware
                 #[pin]
-                stream: TNextLayer::Stream<'a>,
+                stream: PinnedOption<TNextLayer::Stream<'a>>,
                 // We use this so we can keep polling `resp_fut` for the final message and once it is done and this bool is set, shutdown.
                 is_stream_done: bool,
-
-                // The currently executing future returned by the `resp_fn` (publicly `.map`) function
-                // Be aware this will go `None` -> `Some` -> `None`, etc for a subscription
-                // #[pin]
-                // resp_fut: PinnedOption<<<TMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
-                // The `.map` function returned by the user from the execution of the current middleware
-                // This allows a middleware to map the values being returned from the stream
-                // resp_fn: <TMiddleware::Result as MwV2Result>::Resp,
             },
             // The stream is internally done but it returned `Poll::Ready` for the shutdown message so the caller thinks it's still active
             // This will yield `Poll::Ready(None)` and transition into the `Self::Done` phase.
@@ -147,65 +142,36 @@ mod private {
                         new_ctx,
                         input,
                         req,
-                    } => {
-                        let result = ready!(fut.poll(cx));
-
-                        let ctx = new_ctx
-                            .lock()
-                            .unwrap_or_else(PoisonError::into_inner)
-                            .take()
-                            .unwrap();
-
-                        match next.call(ctx, input.take().unwrap(), req.take().unwrap()) {
-                            Ok(stream) => {
-                                self.as_mut().set(Self::Execute {
-                                    stream,
-                                    is_stream_done: false,
-                                    // resp_fut: PinnedOption::None,
-                                    // resp_fn: None, // TODO: Fully remove this
-                                });
-                            }
-
-                            Err(err) => {
-                                self.as_mut().set(Self::PendingDone);
-                                return Poll::Ready(Some(Err(err)));
-                            }
-                        }
-                    }
-                    MiddlewareLayerFutureProj::Execute {
-                        mut stream,
+                        stream,
                         is_stream_done,
                     } => {
-                        // if let PinnedOptionProj::Some { v } = resp_fut.as_mut().project() {
-                        //     let result = ready!(v.poll(cx));
-                        //     cx.waker().wake_by_ref(); // No wakers set so we set one
-                        //     resp_fut.set(PinnedOption::None);
-                        //     return Poll::Ready(Some(Ok(result)));
-                        // }
-
-                        if *is_stream_done {
-                            self.as_mut().set(Self::Done);
-                            return Poll::Ready(None);
-                        }
-
-                        match ready!(stream.as_mut().poll_next(cx)) {
-                            Some(result) => match result {
-                                Ok(result) => {
-                                    return Poll::Ready(Some(Ok(result)));
-                                }
-                                // TODO: The `.map` function is skipped for errors. Maybe it should be possible to map them when desired?
-                                // TODO: We also shut down the whole stream on a single error. Is this desired?
-                                Err(err) => {
-                                    self.as_mut().set(Self::PendingDone);
-                                    return Poll::Ready(Some(Err(err)));
-                                }
-                            },
-                            // The underlying stream has shutdown so we will resolve `resp_fut` and then terminate ourselves
-                            None => {
-                                *is_stream_done = true;
-                                continue;
+                        let result = match fut.poll(cx) {
+                            Poll::Ready(result) => {
+                                self.as_mut().set(Self::PendingDone);
+                                return Poll::Ready(Some(
+                                    result.into_result().map(ValueOrBytes::Value),
+                                ));
                             }
-                        }
+                            Poll::Pending => {
+                                // cursed::outer(cx.waker());
+
+                                if let Some(op) = CURSED_OP.take() {
+                                    match op {
+                                        YieldMsg::YieldBody => {
+                                            // TODO: Get proper value
+                                            CURSED_OP.set(Some(YieldMsg::YieldBodyResult(
+                                                serde_json::Value::Null,
+                                            )));
+
+                                            cx.waker().wake_by_ref();
+                                        }
+                                        YieldMsg::YieldBodyResult(_) => unreachable!(),
+                                    }
+                                }
+
+                                return Poll::Pending;
+                            }
+                        };
                     }
                     MiddlewareLayerFutureProj::PendingDone => {
                         self.as_mut().set(Self::Done);
@@ -225,7 +191,7 @@ mod private {
 
         fn size_hint(&self) -> (usize, Option<usize>) {
             match &self {
-                Self::Execute { stream: c, .. } => c.size_hint(),
+                // Self::Execute { stream: c, .. } => c.size_hint(), // TODO: Bring this back
                 _ => (0, None),
             }
         }

@@ -21,6 +21,7 @@ mod router;
 mod router_builder;
 mod util;
 
+pub use body2::cursed; // TODO: Hide `cursed` under `internal`
 pub use body2::{Body, BytesBody, StreamBody, ValueOrBytes};
 
 // TODO: Reduce API surface in this??
@@ -50,7 +51,7 @@ pub mod internal {
     pub use super::procedure_store::{build, ProcedureDef, ProcedureTodo, ProceduresDef};
 
     pub use super::middleware::{
-        new_mw_ctx, MiddlewareContext, MwV2Result, ProcedureKind, RequestContext,
+        new_mw_ctx, IntoMiddlewareResult, MiddlewareContext, ProcedureKind, RequestContext,
     };
 
     pub use super::router_builder::{

@@ -4,6 +4,8 @@ use futures::Stream;
 
 use crate::error::ExecError;
 
+pub mod cursed;
+
 // It is expected that the type remains the same for all items of a single stream! It's ok for panic's if this is violated.
 //
 // TODO: Can this be `pub(crate)`??? -> Right now `Layer` is the problem
@@ -14,8 +16,6 @@ pub enum ValueOrBytes {
 
 pub(crate) type StreamItem = Result<ValueOrBytes, ExecError>;
 pub(crate) type ErasedBody = Pin<Box<dyn Stream<Item = StreamItem> + Send>>;
-
-// pub(crate) type ErasedBody = BodyInternal<Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send>>>;
 
 #[derive(Debug)]
 #[non_exhaustive]
@@ -30,6 +30,21 @@ pub enum Body {
 
 #[derive(Debug)] // TODO: Better debug impl
 pub struct StreamBody {}
+
+impl Stream for StreamBody {
+    type Item = Result<Value, ExecError>;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        todo!()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, None)
+    }
+}
 
 #[derive(Debug)] // TODO: Better debug impl
 pub struct BytesBody {}
