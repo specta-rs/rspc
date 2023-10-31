@@ -7,14 +7,13 @@
 use std::{
     mem::size_of,
     ops::{Deref, DerefMut},
-    pin::Pin,
     sync::Arc,
 };
 
 use serde_json::Value;
 
 use crate::{
-    body::Body,
+    body2::ErasedBody,
     middleware::{ProcedureKind, RequestContext},
     router_builder::ProcedureMap,
     Router,
@@ -103,7 +102,7 @@ fn get_procedure<TCtx: 'static>(
     data: RequestData,
     kind: ProcedureKind,
     procedures: fn(&Router<TCtx>) -> &ProcedureMap<TCtx>,
-) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
+) -> Option<ArcRef<ErasedBody>> {
     unsafe {
         ArcRef::new(router, |router| {
             let _: &'static _ = router;
@@ -129,7 +128,7 @@ pub(crate) fn get_query<TCtx: 'static>(
     router: Arc<Router<TCtx>>,
     ctx: TCtx,
     data: RequestData,
-) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
+) -> Option<ArcRef<ErasedBody>> {
     get_procedure(router, ctx, data, ProcedureKind::Query, |router| {
         &router.queries
     })
@@ -139,7 +138,7 @@ pub(crate) fn get_mutation<TCtx: 'static>(
     router: Arc<Router<TCtx>>,
     ctx: TCtx,
     data: RequestData,
-) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
+) -> Option<ArcRef<ErasedBody>> {
     get_procedure(router, ctx, data, ProcedureKind::Mutation, |router| {
         &router.mutations
     })
@@ -149,7 +148,7 @@ pub(crate) fn get_subscription<TCtx: 'static>(
     router: Arc<Router<TCtx>>,
     ctx: TCtx,
     data: RequestData,
-) -> Option<ArcRef<Pin<Box<dyn Body + Send>>>> {
+) -> Option<ArcRef<ErasedBody>> {
     get_procedure(router, ctx, data, ProcedureKind::Subscription, |router| {
         &router.subscriptions
     })

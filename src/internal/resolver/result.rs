@@ -14,10 +14,7 @@ use serde_json::Value;
 #[cfg(feature = "tracing")]
 type Inner = tracing::Span;
 
-use rspc_core::{
-    error::ExecError,
-    internal::{Body, IntoResolverError},
-};
+use rspc_core::{error::ExecError, internal::IntoResolverError};
 
 #[cfg(not(feature = "tracing"))]
 type Inner = ();
@@ -26,6 +23,7 @@ pub(crate) use private::*;
 
 pub(crate) mod private {
     use pin_project_lite::pin_project;
+    use rspc_core::ValueOrBytes;
 
     use super::*;
 
@@ -41,12 +39,11 @@ pub(crate) mod private {
             S: Stream<Item = Result<T, TErr>> + Send + 'static,
             T: Serialize + 'static,
             TErr: IntoResolverError,
-        > Body for StreamToBody<S>
+        > Stream for StreamToBody<S>
     {
-        fn poll_next(
-            self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-        ) -> Poll<Option<Result<Value, ExecError>>> {
+        type Item = Result<ValueOrBytes, ExecError>;
+
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             let this = self.project();
 
             #[cfg(feature = "tracing")]
@@ -54,7 +51,9 @@ pub(crate) mod private {
 
             match ready!(this.stream.poll_next(cx)) {
                 Some(Ok(v)) => Poll::Ready(Some(
-                    serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                    serde_json::to_value(v)
+                        .map_err(ExecError::SerializingResultErr)
+                        .map(ValueOrBytes::Value),
                 )),
                 Some(Err(e)) => {
                     Poll::Ready(Some(Err(ExecError::Resolver(e.into_resolver_error()))))

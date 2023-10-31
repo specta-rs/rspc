@@ -1,9 +1,9 @@
-use std::{pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 use futures::channel::oneshot;
 
 use crate::{
-    body::Body,
+    body2::ErasedBody,
     error::ExecError,
     exec::{
         arc_ref::{self, get_subscription, ArcRef},
@@ -102,7 +102,7 @@ impl<TCtx: Send + 'static> Router<TCtx> {
     }
 }
 
-fn map_fut(id: u32, fut: Option<ArcRef<Pin<Box<dyn Body + Send>>>>) -> ExecutorResult {
+fn map_fut(id: u32, fut: Option<ArcRef<ErasedBody>>) -> ExecutorResult {
     match fut {
         Some(stream) => ExecutorResult::Future(RequestFuture { id, stream }),
         None => ExecutorResult::Response(Response {

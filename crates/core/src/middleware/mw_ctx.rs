@@ -5,8 +5,6 @@ use std::{
 
 use serde_json::Value;
 
-use super::{Executable2Placeholder, MwResultWithCtx};
-
 pub fn new_mw_ctx<TNCtx>(
     input: serde_json::Value,
     req: RequestContext,
@@ -38,17 +36,13 @@ impl<TNewCtx> MiddlewareContext<TNewCtx> {
     }
 
     // TODO: Refactor return type
-    pub fn next(self, ctx: TNewCtx) -> MwResultWithCtx<Executable2Placeholder> {
+    pub fn next(self, ctx: TNewCtx) {
         self.new_ctx
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .replace(ctx);
 
-        MwResultWithCtx {
-            input: self.input,
-            req: self.req,
-            resp: None,
-        }
+        // TODO: Output of this
     }
 }
 

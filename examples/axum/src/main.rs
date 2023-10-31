@@ -44,7 +44,11 @@ async fn main() {
             "version",
             R
                 // TODO: Old cringe syntax
-                .with(|mw, ctx| async move { mw.next(ctx) })
+                .with(|mw, ctx| async move {
+                    let y = mw.next(((), ctx));
+
+                    ()
+                })
                 // Passthrough
                 // .with(|mw, ctx| async move { mw.next::<middleware::Any, _>(ctx)? })
                 // Into `serde_json::Value`

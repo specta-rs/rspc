@@ -1,9 +1,11 @@
-use futures::{future::ready, stream::once};
+use futures::{future::ready, stream::once, Stream};
 use serde_json::Value;
 use specta::{ts, TypeMap};
-use std::borrow::Cow;
+use std::{borrow::Cow, pin::Pin};
 
-use crate::{body::Body, error::ExecError, internal::ProcedureDef, middleware::RequestContext};
+use crate::{
+    body2::StreamItem, error::ExecError, internal::ProcedureDef, middleware::RequestContext,
+};
 
 // TODO: Remove `SealedLayer`
 
@@ -11,7 +13,7 @@ use crate::{body::Body, error::ExecError, internal::ProcedureDef, middleware::Re
 
 #[doc(hidden)]
 pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
-    type Stream<'a>: Body + Send + 'a;
+    type Stream<'a>: Stream<Item = StreamItem> + Send + 'a;
 
     fn into_procedure_def(
         &self,
@@ -27,14 +29,19 @@ pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
     ) -> Result<Self::Stream<'_>, ExecError>;
 }
 
-pub trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
+pub(crate) trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
     fn into_procedure_def(
         &self,
         key: Cow<'static, str>,
         ty_store: &mut TypeMap,
     ) -> Result<ProcedureDef, ts::ExportError>;
 
-    fn dyn_call(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Box<dyn Body + Send + '_>;
+    fn dyn_call(
+        &self,
+        ctx: TLCtx,
+        input: Value,
+        req: RequestContext,
+    ) -> Pin<Box<dyn Stream<Item = StreamItem> + Send + '_>>;
 }
 
 impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
@@ -46,17 +53,22 @@ impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
         Layer::into_procedure_def(self, key, ty_store)
     }
 
-    fn dyn_call(&self, ctx: TLCtx, input: Value, req: RequestContext) -> Box<dyn Body + Send + '_> {
+    fn dyn_call(
+        &self,
+        ctx: TLCtx,
+        input: Value,
+        req: RequestContext,
+    ) -> Pin<Box<dyn Stream<Item = StreamItem> + Send + '_>> {
         match self.call(ctx, input, req) {
-            Ok(stream) => Box::new(stream),
+            Ok(stream) => Box::pin(stream),
             // TODO: Avoid allocating error future here
-            Err(err) => Box::new(once(ready(Err(err)))),
+            Err(err) => Box::pin(once(ready(Err(err)))),
         }
     }
 }
 
-impl<TLCtx: Send + 'static> Layer<TLCtx> for Box<dyn DynLayer<TLCtx>> {
-    type Stream<'a> = Box<dyn Body + Send + 'a>;
+impl<TLCtx: Send + 'static> Layer<TLCtx> for Pin<Box<dyn DynLayer<TLCtx>>> {
+    type Stream<'a> = Pin<Box<dyn Stream<Item = StreamItem> + Send + 'a>>;
 
     fn into_procedure_def(
         &self,

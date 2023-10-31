@@ -13,12 +13,15 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod body;
+mod body2;
 mod layer;
 mod middleware;
 mod procedure_store;
 mod router;
 mod router_builder;
 mod util;
+
+pub use body2::{Body, BytesBody, StreamBody, ValueOrBytes};
 
 // TODO: Reduce API surface in this??
 pub mod error;
@@ -40,7 +43,6 @@ pub mod internal {
         pub use super::super::router::*;
     }
 
-    pub use super::body::Body;
     pub use super::error::private::IntoResolverError;
     pub use super::util::{PinnedOption, PinnedOptionProj};
 

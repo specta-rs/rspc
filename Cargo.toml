@@ -21,10 +21,6 @@ name = "tests"
 path = "tests/tauri/tauri_test.rs"
 harness = false
 
-[[bench]]
-name = "benchmarks"
-harness = false
-
 [features]
 default = ["typescript"]
 typescript = ["rspc-core/typescript", "specta/typescript"]

@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    body::Body,
+    body2::ErasedBody,
     error::ExecError,
     exec::{Response, ResponseInner},
 };
@@ -21,7 +21,7 @@ pub struct RequestFuture {
 
     // You will notice this is a `Stream` not a `Future` like would be implied by the struct.
     // rspc's whole middleware system only uses `Stream`'s cause it makes life easier so we change to & from a `Future` at the start/end.
-    pub(crate) stream: ArcRef<Pin<Box<dyn Body + Send>>>,
+    pub(crate) stream: ArcRef<ErasedBody>,
 }
 
 impl fmt::Debug for RequestFuture {
@@ -39,7 +39,10 @@ impl Future for RequestFuture {
         Poll::Ready(Response {
             id: self.id,
             inner: match self.stream.as_mut().poll_next(cx) {
-                Poll::Ready(Some(Ok(result))) => ResponseInner::Value(result),
+                Poll::Ready(Some(Ok(result))) => ResponseInner::Value(match result {
+                    crate::body2::ValueOrBytes::Value(v) => v,
+                    crate::body2::ValueOrBytes::Bytes(_) => todo!("What are thoseeeeee!"),
+                }),
                 Poll::Ready(Some(Err(err))) => ResponseInner::Error(err.into()),
                 Poll::Ready(None) => ResponseInner::Error(ExecError::ErrStreamEmpty.into()),
                 Poll::Pending => return Poll::Pending,

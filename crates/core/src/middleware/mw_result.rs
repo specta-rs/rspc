@@ -1,6 +1,9 @@
+// TOOD: Wipe out this file???
+
 use std::{
     fmt::Debug,
     future::{Future, Ready},
+    marker::PhantomData,
 };
 
 use serde_json::Value;
@@ -58,21 +61,9 @@ pub trait MwV2Result {
     >;
 }
 
-// TODO: Seal this and rename it
+// TODO: Remove this
 pub struct MwResultWithCtx<TResp> {
-    pub(crate) input: Value,
-    pub(crate) req: RequestContext,
-    pub(crate) resp: Option<TResp>,
-}
-
-impl<TResp: Executable2> MwResultWithCtx<TResp> {
-    pub fn map<E: Executable2>(self, handler: E) -> MwResultWithCtx<E> {
-        MwResultWithCtx {
-            input: self.input,
-            req: self.req,
-            resp: Some(handler),
-        }
-    }
+    pub(crate) phantom: PhantomData<TResp>,
 }
 
 impl<TResp> MwV2Result for MwResultWithCtx<TResp>
@@ -92,7 +83,8 @@ where
         ),
         ExecError,
     > {
-        Ok(((), self.input, self.req, self.resp))
+        // Ok(((), self.input, self.req, self.resp))
+        todo!();
     }
 }
 
@@ -116,5 +108,23 @@ where
     > {
         self.map_err(|e| e.into_resolver_error().into())
             .and_then(|r| r.explode())
+    }
+}
+
+impl MwV2Result for () {
+    type Resp = Executable2Placeholder;
+
+    fn explode(
+        self,
+    ) -> Result<
+        (
+            (), /* Self::Ctx */
+            Value,
+            RequestContext,
+            Option<Self::Resp>,
+        ),
+        ExecError,
+    > {
+        todo!();
     }
 }

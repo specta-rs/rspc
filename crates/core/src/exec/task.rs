@@ -2,8 +2,7 @@ use std::{fmt, pin::Pin, task::Poll};
 
 use futures::{channel::oneshot, ready, stream::FusedStream, FutureExt, Stream};
 
-use crate::body::Body;
-use crate::exec;
+use crate::{body2::ErasedBody, exec};
 
 use super::{arc_ref::ArcRef, request_future::RequestFuture};
 
@@ -14,7 +13,7 @@ pub struct Task {
     pub(crate) id: u32,
     // You will notice this is a `Stream` not a `Future` like would be implied by the struct.
     // rspc's whole middleware system only uses `Stream`'s cause it makes life easier so we change to & from a `Future` at the start/end.
-    pub(crate) stream: ArcRef<Pin<Box<dyn Body + Send>>>,
+    pub(crate) stream: ArcRef<ErasedBody>,
     // Signal for shutting down task.
     // pub(crate) shutdown: oneshot::Receiver<()>,
     // Mark when the stream is done. This means `self.reference` returned `None` but we still had to yield the complete message so we haven't returned `None` yet.
@@ -51,7 +50,10 @@ impl Stream for Task {
             Some(r) => exec::Response {
                 id: self.id,
                 inner: match r {
-                    Ok(v) => exec::ResponseInner::Value(v),
+                    Ok(v) => exec::ResponseInner::Value(match v {
+                        crate::body2::ValueOrBytes::Value(v) => v,
+                        crate::body2::ValueOrBytes::Bytes(_) => todo!("What are thoseeeeee!"),
+                    }),
                     Err(err) => exec::ResponseInner::Error(err.into()),
                 },
             },
