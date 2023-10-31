@@ -3,7 +3,6 @@
   "compilerOptions": {
     "target": "es2015",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "noEmit": true,
     "incremental": true,
     "module": "esnext",
     "moduleResolution": "node",
