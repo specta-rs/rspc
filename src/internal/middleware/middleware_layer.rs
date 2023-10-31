@@ -7,7 +7,10 @@ mod private {
         task::{ready, Context, Poll},
     };
 
-    use futures::{channel::oneshot, Future, Stream};
+    use futures::{
+        channel::{mpsc, oneshot},
+        Future, Stream,
+    };
     use pin_project_lite::pin_project;
     use serde_json::Value;
     use specta::{ts, TypeMap};
@@ -16,7 +19,8 @@ mod private {
         cursed::{self, YieldMsg, CURSED_OP},
         error::ExecError,
         internal::{
-            new_mw_ctx, IntoMiddlewareResult, Layer, PinnedOption, ProcedureDef, RequestContext,
+            new_mw_ctx, IntoMiddlewareResult, Layer, PinnedOption, PinnedOptionProj, ProcedureDef,
+            RequestContext,
         },
         Body, ValueOrBytes,
     };
@@ -68,7 +72,7 @@ mod private {
                 fut,
                 next: &self.next,
                 new_ctx,
-                body_tx: Some(body_tx),
+                tx: Some(BodySender::BodyItself(body_tx)),
                 input: Some(input),
                 req: Some(req),
                 stream: PinnedOption::None,
@@ -80,6 +84,12 @@ mod private {
     // This exists because `pin_project_lite` doesn't understand `+` bounds
     pub trait SendSyncStatic: Send + Sync + 'static {}
     impl<T: Send + Sync + 'static> SendSyncStatic for T {}
+
+    pub enum BodySender {
+        BodyItself(oneshot::Sender<Body>),
+        ValueStream(mpsc::Sender<Value>),
+        BytesStream(mpsc::Sender<Vec<u8>>),
+    }
 
     pin_project! {
         #[project = MiddlewareLayerFutureProj]
@@ -105,7 +115,7 @@ mod private {
                 // TODO
                 new_ctx: Arc<Mutex<Option<TNewCtx>>>,
 
-                body_tx: Option<oneshot::Sender<Body>>,
+                tx: Option<BodySender>,
 
                 // TODO: Avoid `Option` and instead encode into enum
                 input: Option<Value>,
@@ -144,10 +154,39 @@ mod private {
                         new_ctx,
                         input,
                         req,
-                        stream,
-                        mut body_tx,
+                        mut stream,
+                        mut tx,
                         is_stream_done,
                     } => {
+                        if let PinnedOptionProj::Some { v: stream } = stream.as_mut().project() {
+                            let size_hint = stream.size_hint();
+
+                            match stream.poll_next(cx) {
+                                Poll::Pending => {}
+                                Poll::Ready(Some(v)) => match v.unwrap() {
+                                    ValueOrBytes::Value(v) => {
+                                        if let Some(tx) = tx.take() {
+                                            if let (1, Some(1)) = size_hint {
+                                                if let BodySender::BodyItself(tx) = tx {
+                                                    tx.send(Body::Value(v))
+                                                        .expect("failed to send BodyItself!");
+                                                }
+                                            } else if let BodySender::ValueStream(mut tx) = tx {
+                                                tx.try_send(v)
+                                                    .expect("failed to send ValueStream!");
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                },
+                                Poll::Ready(None) => {
+                                    println!("DONE");
+                                    self.as_mut().set(Self::PendingDone);
+                                    return Poll::Ready(None);
+                                }
+                            }
+                        }
+
                         let result = match fut.poll(cx) {
                             Poll::Ready(result) => {
                                 self.as_mut().set(Self::PendingDone);
@@ -156,8 +195,9 @@ mod private {
                                 ));
                             }
                             Poll::Pending => {
-                                if let Some(tx) = body_tx.take() {
-                                    tx.send(Body::Value(serde_json::Value::Null)).ok();
+                                if let Some(BodySender::BodyItself(tx)) = tx.take() {
+                                    tx.send(Body::Value(Value::Null))
+                                        .expect("failed to send BodyItself!");
                                 }
 
                                 return Poll::Pending;
