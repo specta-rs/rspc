@@ -46,7 +46,7 @@ mod private {
             self.next.into_procedure_def(key, ty_store)
         }
 
-        fn call(
+        fn layer_call(
             &self,
             ctx: TLayerCtx,
             input: Value,

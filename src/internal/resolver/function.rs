@@ -56,7 +56,7 @@ mod private {
             ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)
         }
 
-        fn call(
+        fn layer_call(
             &self,
             ctx: TLCtx,
             input: Value,

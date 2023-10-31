@@ -21,7 +21,7 @@ pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
         ty_store: &mut TypeMap,
     ) -> Result<ProcedureDef, ts::ExportError>;
 
-    fn call(
+    fn layer_call(
         &self,
         ctx: TLayerCtx,
         input: Value,
@@ -59,7 +59,7 @@ impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
         input: Value,
         req: RequestContext,
     ) -> Pin<Box<dyn Stream<Item = StreamItem> + Send + '_>> {
-        match self.call(ctx, input, req) {
+        match self.layer_call(ctx, input, req) {
             Ok(stream) => Box::pin(stream),
             // TODO: Avoid allocating error future here
             Err(err) => Box::pin(once(ready(Err(err)))),
@@ -78,7 +78,7 @@ impl<TLCtx: Send + 'static> Layer<TLCtx> for Pin<Box<dyn DynLayer<TLCtx>>> {
         (&**self).into_procedure_def(key, ty_store)
     }
 
-    fn call(
+    fn layer_call(
         &self,
         ctx: TLCtx,
         input: Value,
