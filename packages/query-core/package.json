@@ -3,6 +3,7 @@
   "version": "1.0.0-rc.3",
   "description": "A blazingly fast and easy to use tRPC-like server for Rust.",
   "keywords": [],
+  "module": true,
   "author": "Oscar Beaumont",
   "license": "MIT",
   "main": "dist/index.js",
@@ -25,7 +26,7 @@
   },
   "devDependencies": {
     "@rspc/client": "workspace:*",
-    "@tanstack/query-core": "^4.36.1",
+    "@tanstack/query-core": "^5.4.3",
     "tslib": "^2.6.2",
     "tsup": "^7.2.0",
     "typescript": "^5.2.2",

@@ -13,11 +13,11 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
     rspc.HookOptions<
       P,
       rspc.QueryOptionsOmit<
-        tanstack.CreateQueryOptions<
+        tanstack.SolidQueryOptions<
           rspc.inferQueryResult<P, K>,
           rspc.inferQueryError<P, K>,
           rspc.inferQueryResult<P, K>,
-          () => [K, rspc.inferQueryInput<P, K>]
+          [K, rspc.inferQueryInput<P, K>]
         >
       >
     >;
@@ -29,12 +29,7 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
     ],
     opts?: CreateQueryOptions<K>
   ) {
-    return tanstack.createQuery<
-      rspc.inferQueryResult<P, K>,
-      rspc.inferQueryError<P, K>,
-      rspc.inferQueryResult<P, K>,
-      () => [K, rspc.inferQueryInput<P, K>]
-    >(helpers.useQueryArgs(keyAndInput, opts));
+    return tanstack.createQuery(() => helpers.useQueryArgs(keyAndInput, opts));
   }
 
   type CreateMutationOptions<
@@ -56,7 +51,7 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
     K extends rspc.inferMutations<P>["key"] & string,
     TContext = unknown
   >(key: K | [K], opts?: CreateMutationOptions<K, TContext>) {
-    return tanstack.createMutation(helpers.useMutationArgs(key, opts));
+    return tanstack.createMutation(() => helpers.useMutationArgs(key, opts));
   }
 
   function createSubscription<
