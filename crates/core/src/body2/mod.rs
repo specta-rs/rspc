@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
 use futures::Stream;
+use serde_json::Value;
 
 use crate::error::ExecError;
 

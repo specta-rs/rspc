@@ -1,8 +1,4 @@
-use std::{
-    cell::Cell,
-    future::poll_fn,
-    task::{Poll, Waker},
-};
+use std::{cell::Cell, future::poll_fn, task::Poll};
 
 use crate::Body;
 

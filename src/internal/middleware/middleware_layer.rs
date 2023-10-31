@@ -7,7 +7,7 @@ mod private {
         task::{ready, Context, Poll},
     };
 
-    use futures::{Future, Stream};
+    use futures::{channel::oneshot, Future, Stream};
     use pin_project_lite::pin_project;
     use serde_json::Value;
     use specta::{ts, TypeMap};
@@ -18,7 +18,7 @@ mod private {
         internal::{
             new_mw_ctx, IntoMiddlewareResult, Layer, PinnedOption, ProcedureDef, RequestContext,
         },
-        ValueOrBytes,
+        Body, ValueOrBytes,
     };
 
     use crate::internal::middleware::MiddlewareFn;
@@ -56,19 +56,19 @@ mod private {
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
             let new_ctx = Arc::new(Mutex::new(None));
-            let fut = self.mw.execute(
-                ctx,
-                new_mw_ctx(
-                    input.clone(), // TODO: This probs won't fly if we accept file upload
-                    req.clone(),
-                    new_ctx.clone(),
-                ),
+            let (mw_ctx, body_tx) = new_mw_ctx(
+                input.clone(), // TODO: This probs won't fly if we accept file upload
+                req.clone(),
+                new_ctx.clone(),
             );
+
+            let fut = self.mw.execute(ctx, mw_ctx);
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,
                 next: &self.next,
                 new_ctx,
+                body_tx: Some(body_tx),
                 input: Some(input),
                 req: Some(req),
                 stream: PinnedOption::None,
@@ -104,6 +104,8 @@ mod private {
 
                 // TODO
                 new_ctx: Arc<Mutex<Option<TNewCtx>>>,
+
+                body_tx: Option<oneshot::Sender<Body>>,
 
                 // TODO: Avoid `Option` and instead encode into enum
                 input: Option<Value>,
@@ -143,6 +145,7 @@ mod private {
                         input,
                         req,
                         stream,
+                        mut body_tx,
                         is_stream_done,
                     } => {
                         let result = match fut.poll(cx) {
@@ -153,20 +156,8 @@ mod private {
                                 ));
                             }
                             Poll::Pending => {
-                                // cursed::outer(cx.waker());
-
-                                if let Some(op) = CURSED_OP.take() {
-                                    match op {
-                                        YieldMsg::YieldBody => {
-                                            // TODO: Get proper value
-                                            CURSED_OP.set(Some(YieldMsg::YieldBodyResult(
-                                                serde_json::Value::Null,
-                                            )));
-
-                                            cx.waker().wake_by_ref();
-                                        }
-                                        YieldMsg::YieldBodyResult(_) => unreachable!(),
-                                    }
+                                if let Some(tx) = body_tx.take() {
+                                    tx.send(Body::Value(serde_json::Value::Null)).ok();
                                 }
 
                                 return Poll::Pending;

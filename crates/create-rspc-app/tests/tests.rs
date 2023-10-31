@@ -15,7 +15,6 @@ use create_rspc_app::internal::{
     database::Database, framework::Framework, frontend_framework::FrontendFramework,
     generator::code_generator,
 };
-use futures::future::join_all;
 use strum::IntoEnumIterator;
 use tempfile::TempDir;
 use tokio::process::Command;

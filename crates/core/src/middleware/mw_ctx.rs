@@ -3,20 +3,27 @@ use std::{
     sync::{Arc, Mutex, PoisonError},
 };
 
+use futures::channel::oneshot;
 use serde_json::Value;
 
-use crate::{cursed, Body};
+use crate::Body;
 
 pub fn new_mw_ctx<TNCtx>(
     input: serde_json::Value,
     req: RequestContext,
     new_ctx: Arc<Mutex<Option<TNCtx>>>,
-) -> MiddlewareContext<TNCtx> {
-    MiddlewareContext {
-        input,
-        req,
-        new_ctx,
-    }
+) -> (MiddlewareContext<TNCtx>, oneshot::Sender<Body>) {
+    let (tx, rx) = oneshot::channel();
+
+    (
+        MiddlewareContext {
+            input,
+            req,
+            new_ctx,
+            rx,
+        },
+        tx,
+    )
 }
 
 #[non_exhaustive]
@@ -28,7 +35,8 @@ pub struct MiddlewareContext<TNewCtx> {
     // For response
     new_ctx: Arc<Mutex<Option<TNewCtx>>>,
     // chan: futures::mpsc::Sender<Body>,
-    // new_span: Option<tracing::Span>
+    // new_span: Option<tracing::Span>,
+    rx: oneshot::Receiver<Body>,
 }
 
 impl<TNewCtx> MiddlewareContext<TNewCtx> {
@@ -45,7 +53,7 @@ impl<TNewCtx> MiddlewareContext<TNewCtx> {
             .unwrap_or_else(PoisonError::into_inner)
             .replace(ctx);
 
-        cursed::inner().await
+        self.rx.await.unwrap()
     }
 }
 
