@@ -9,7 +9,6 @@ use std::{
 
 use futures::{ready, Stream};
 use serde::Serialize;
-use serde_json::Value;
 
 #[cfg(feature = "tracing")]
 type Inner = tracing::Span;

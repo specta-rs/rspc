@@ -53,12 +53,21 @@ mod private {
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
             let new_ctx = Arc::new(Mutex::new(None));
-            let fut = self.mw.run_me(ctx, new_mw_ctx(input, req, new_ctx.clone()));
+            let fut = self.mw.run_me(
+                ctx,
+                new_mw_ctx(
+                    input.clone(), // TODO: This probs won't fly if we accept file upload
+                    req.clone(),
+                    new_ctx.clone(),
+                ),
+            );
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,
                 next: &self.next,
                 new_ctx,
+                input: Some(input),
+                req: Some(req),
             })
         }
     }
@@ -90,6 +99,10 @@ mod private {
 
                 // TODO
                 new_ctx: Arc<Mutex<Option<TNewCtx>>>,
+
+                // TODO: Avoid `Option` and instead encode into enum
+                input: Option<Value>,
+                req: Option<RequestContext>,
             },
             // We are in this state where we are executing the current middleware on the stream
             Execute {
@@ -105,7 +118,7 @@ mod private {
                 // resp_fut: PinnedOption<<<TMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
                 // The `.map` function returned by the user from the execution of the current middleware
                 // This allows a middleware to map the values being returned from the stream
-                // resp_fn: Option<<TMiddleware::Result as MwV2Result>::Resp>,
+                // resp_fn: <TMiddleware::Result as MwV2Result>::Resp,
             },
             // The stream is internally done but it returned `Poll::Ready` for the shutdown message so the caller thinks it's still active
             // This will yield `Poll::Ready(None)` and transition into the `Self::Done` phase.
@@ -128,16 +141,14 @@ mod private {
         fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             loop {
                 match self.as_mut().project() {
-                    MiddlewareLayerFutureProj::Resolve { fut, next, new_ctx } => {
+                    MiddlewareLayerFutureProj::Resolve {
+                        fut,
+                        next,
+                        new_ctx,
+                        input,
+                        req,
+                    } => {
                         let result = ready!(fut.poll(cx));
-                        // let (_, input, req, resp_fn) = match result.explode() {
-                        //     Ok(v) => v,
-                        //     Err(err) => {
-                        //         cx.waker().wake_by_ref(); // No wakers set so we set one
-                        //         self.as_mut().set(Self::PendingDone);
-                        //         return Poll::Ready(Some(Err(err)));
-                        //     }
-                        // };
 
                         let ctx = new_ctx
                             .lock()
@@ -145,10 +156,7 @@ mod private {
                             .take()
                             .unwrap();
 
-                        let input = todo!();
-                        let req = todo!();
-
-                        match next.call(ctx, input, req) {
+                        match next.call(ctx, input.take().unwrap(), req.take().unwrap()) {
                             Ok(stream) => {
                                 self.as_mut().set(Self::Execute {
                                     stream,
@@ -159,7 +167,6 @@ mod private {
                             }
 
                             Err(err) => {
-                                cx.waker().wake_by_ref(); // No wakers set so we set one
                                 self.as_mut().set(Self::PendingDone);
                                 return Poll::Ready(Some(Err(err)));
                             }
@@ -168,8 +175,6 @@ mod private {
                     MiddlewareLayerFutureProj::Execute {
                         mut stream,
                         is_stream_done,
-                        // mut resp_fut,
-                        // resp_fn,
                     } => {
                         // if let PinnedOptionProj::Some { v } = resp_fut.as_mut().project() {
                         //     let result = ready!(v.poll(cx));
@@ -178,42 +183,29 @@ mod private {
                         //     return Poll::Ready(Some(Ok(result)));
                         // }
 
-                        // if *is_stream_done {
-                        //     self.as_mut().set(Self::Done);
-                        //     return Poll::Ready(None);
-                        // }
+                        if *is_stream_done {
+                            self.as_mut().set(Self::Done);
+                            return Poll::Ready(None);
+                        }
 
-                        // match ready!(stream.as_mut().poll_next(cx)) {
-                        //     Some(result) => match resp_fn {
-                        //         Some(resp_fn) => match result {
-                        //             Ok(result) => {
-                        //                 resp_fut.set(PinnedOption::Some {
-                        //                     v: todo!(), // (*resp_fn).call(result),
-                        //                 });
-                        //                 continue;
-                        //             }
-                        //             // TODO: The `.map` function is skipped for errors. Maybe it should be possible to map them when desired?
-                        //             // TODO: We also shut down the whole stream on a single error. Is this desired?
-                        //             Err(err) => {
-                        //                 cx.waker().wake_by_ref(); // No wakers set so we set one
-                        //                 self.as_mut().set(Self::PendingDone);
-                        //                 return Poll::Ready(Some(Err(err)));
-                        //             }
-                        //         },
-
-                        //         // No `.map` fn so we return the result as is
-                        //         None => {
-                        //             cx.waker().wake_by_ref(); // No wakers set so we set one
-                        //             return Poll::Ready(Some(result.map(ValueOrBytes::Value)));
-                        //         }
-                        //     },
-                        //     // The underlying stream has shutdown so we will resolve `resp_fut` and then terminate ourselves
-                        //     None => {
-                        //         *is_stream_done = true;
-                        //         continue;
-                        //     }
-                        // }
-                        todo!();
+                        match ready!(stream.as_mut().poll_next(cx)) {
+                            Some(result) => match result {
+                                Ok(result) => {
+                                    return Poll::Ready(Some(Ok(result)));
+                                }
+                                // TODO: The `.map` function is skipped for errors. Maybe it should be possible to map them when desired?
+                                // TODO: We also shut down the whole stream on a single error. Is this desired?
+                                Err(err) => {
+                                    self.as_mut().set(Self::PendingDone);
+                                    return Poll::Ready(Some(Err(err)));
+                                }
+                            },
+                            // The underlying stream has shutdown so we will resolve `resp_fut` and then terminate ourselves
+                            None => {
+                                *is_stream_done = true;
+                                continue;
+                            }
+                        }
                     }
                     MiddlewareLayerFutureProj::PendingDone => {
                         self.as_mut().set(Self::Done);

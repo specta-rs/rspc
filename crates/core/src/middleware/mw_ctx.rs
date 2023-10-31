@@ -5,6 +5,8 @@ use std::{
 
 use serde_json::Value;
 
+use crate::Body;
+
 pub fn new_mw_ctx<TNCtx>(
     input: serde_json::Value,
     req: RequestContext,
@@ -36,13 +38,14 @@ impl<TNewCtx> MiddlewareContext<TNewCtx> {
     }
 
     // TODO: Refactor return type
-    pub fn next(self, ctx: TNewCtx) {
+    pub fn next(self, ctx: TNewCtx) -> Body {
         self.new_ctx
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .replace(ctx);
 
-        // TODO: Output of this
+        // TODO
+        Body::Value(serde_json::Value::Null)
     }
 }
 
