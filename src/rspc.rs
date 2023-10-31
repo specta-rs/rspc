@@ -3,12 +3,13 @@ use std::marker::PhantomData;
 use crate::{
     internal::{
         middleware::{BaseMiddleware, MiddlewareFn, MiddlewareLayerBuilder},
-        procedure::{MissingResolver, Procedure},
-        resolver::{FutureMarkerType, RequestLayer, ResolverFunction, StreamMarkerType},
+        procedure::{resolvers, MissingResolver, Procedure},
+        resolver::{HasResolver, QueryOrMutation, Subscription},
     },
-    Infallible, IntoResolverError, RouterBuilder,
+    Infallible, RouterBuilder,
 };
-use rspc_core::internal::ProcedureKind;
+
+use rspc_core::internal::{IntoResolverError, Layer, ProcedureKind};
 
 /// Rspc is a starting point for constructing rspc procedures or routers.
 ///
@@ -42,21 +43,6 @@ where
     }
 }
 
-macro_rules! resolver {
-    ($func:ident, $kind:ident, $result_marker:ident) => {
-        pub fn $func<R, RMarker>(self, resolver: R) -> Procedure<RMarker, BaseMiddleware<TCtx>>
-        where
-            R: ResolverFunction<TCtx, RMarker>,
-            R::Result: RequestLayer<R::RequestMarker, TypeMarker = $result_marker, Error = TError>,
-        {
-            Procedure::new(
-                resolver.into_marker(ProcedureKind::$kind),
-                BaseMiddleware::default(),
-            )
-        }
-    };
-}
-
 impl<TCtx, TError> Rspc<TCtx, TError>
 where
     TCtx: Send + Sync + 'static,
@@ -73,10 +59,7 @@ where
     pub fn with<TNewCtx, Mw>(
         self,
         mw: Mw,
-    ) -> Procedure<
-        MissingResolver<Infallible>,
-        MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw, TNewCtx>,
-    >
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw, TNewCtx>>
     where
         TNewCtx: Send + Sync + 'static,
         Mw: MiddlewareFn<TCtx, TNewCtx>,
@@ -91,7 +74,5 @@ where
         )
     }
 
-    resolver!(query, Query, FutureMarkerType);
-    resolver!(mutation, Mutation, FutureMarkerType);
-    resolver!(subscription, Subscription, StreamMarkerType);
+    resolvers!(_, TCtx, BaseMiddleware<TCtx>, BaseMiddleware::default());
 }

@@ -9,7 +9,7 @@ use std::{
 
 use async_stream::stream;
 use axum::routing::get;
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use rspc::{ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
@@ -74,6 +74,7 @@ async fn main() {
             R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
         )
         .procedure("echo", R.query(|_, v: String| Ok(v)))
+        .procedure("echo2", R.query(|_, v: String| async move { Ok(v) }))
         .procedure(
             "error",
             R.query(|_, _: ()| Err(Error("Something went wrong")) as Result<String, _>),
@@ -98,10 +99,10 @@ async fn main() {
             R.subscription(|_, _: ()| {
                 println!("Client subscribed to 'pings'");
                 stream! {
-                    yield "start".to_string();
+                    yield Ok("start".to_string());
                     for i in 0..5 {
                         info!("Sending ping {}", i);
-                        yield i.to_string();
+                        yield Ok(i.to_string());
                         sleep(Duration::from_secs(1)).await;
                     }
                 }
@@ -153,19 +154,10 @@ async fn main() {
                         }
                     }
 
-                    HandleDrop { id, sent: false }
+                    HandleDrop { id, sent: false }.map(Ok)
                 }
             }),
         )
-        // TODO: This is an unstable feature and should be used with caution!
-        // .procedure(
-        //     "serveFile",
-        //     R.query(|_, _: ()| async move {
-        //         let file = File::open("./demo.json").await.unwrap();
-        //         // TODO: What if type which is `futures::Stream` + `tokio::AsyncRead`???
-        //         Blob(BufReader::new(file))
-        //     }),
-        // )
         .procedure(
             "customErr",
             R.error::<MyCustomError>()
@@ -190,7 +182,7 @@ async fn main() {
                 let mut rx = tx.subscribe();
                 stream! {
                     while let Ok(msg) = rx.recv().await {
-                        yield msg;
+                        yield Ok(msg);
                     }
                 }
             })

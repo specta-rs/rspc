@@ -1,5 +1,6 @@
 mod private {
     use std::{
+        borrow::Cow,
         marker::PhantomData,
         pin::Pin,
         sync::{Arc, Mutex, PoisonError},
@@ -9,34 +10,43 @@ mod private {
     use futures::Future;
     use pin_project_lite::pin_project;
     use serde_json::Value;
+    use specta::{ts, TypeMap};
 
     use rspc_core::{
         error::ExecError,
         internal::{
             new_mw_ctx, Body, Executable2, Layer, MwV2Result, PinnedOption, PinnedOptionProj,
-            RequestContext, SealedLayer,
+            ProcedureDef, RequestContext,
         },
     };
 
     use crate::internal::middleware::MiddlewareFn;
 
     #[doc(hidden)]
-    pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TMiddleware, TNewMiddleware> {
-        pub(crate) next: TMiddleware,
+    pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextLayer, TNewMiddleware> {
+        pub(crate) next: TNextLayer,
         pub(crate) mw: TNewMiddleware,
         pub(crate) phantom: PhantomData<(TLayerCtx, TNewCtx)>,
     }
 
-    impl<TNewCtx, TLayerCtx, TMiddleware, TNewMiddleware> SealedLayer<TLayerCtx>
-        for MiddlewareLayer<TLayerCtx, TNewCtx, TMiddleware, TNewMiddleware>
+    impl<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
+        for MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware>
     where
         TLayerCtx: Send + Sync + 'static,
         TNewCtx: Send + Sync + 'static,
-        TMiddleware: Layer<TNewCtx> + Sync + 'static,
+        TNextMiddleware: Layer<TNewCtx> + Sync + 'static,
         TNewMiddleware: MiddlewareFn<TLayerCtx, TNewCtx> + Send + Sync + 'static,
     {
         type Stream<'a> =
-            MiddlewareLayerFuture<'a, TNewCtx, TLayerCtx, TNewMiddleware, TMiddleware>;
+            MiddlewareLayerFuture<'a, TNewCtx, TLayerCtx, TNewMiddleware, TNextMiddleware>;
+
+        fn into_procedure_def(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, ts::ExportError> {
+            self.next.into_procedure_def(key, ty_store)
+        }
 
         fn call(
             &self,
@@ -204,7 +214,6 @@ mod private {
                         }
                     }
                     MiddlewareLayerFutureProj::PendingDone => {
-                        println!("PENDING DONE");
                         self.as_mut().set(Self::Done);
                         return Poll::Ready(None);
                     }

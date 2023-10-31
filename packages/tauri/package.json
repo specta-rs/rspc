@@ -27,10 +27,10 @@
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^1.4.0",
+    "@tauri-apps/api": "^1.5.1",
     "tsup": "^7.2.0",
     "typescript": "^5.2.2",
-    "vitest": "^0.34.5"
+    "vitest": "^0.34.6"
   },
   "peerDependencies": {
     "@tauri-apps/api": "^1.2.0"

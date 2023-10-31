@@ -43,7 +43,7 @@ pin-project-lite = "0.2.13"
 
 # Optional
 serde_json = { version = "1", default-features = false }
-tracing = { version = "0.1.37", default-features = false, optional = true }
+tracing = { version = "0.1.40", default-features = false, optional = true }
 
 # Even though this `cfg` can never be enabled, it still forces cargo to keep `rspc-core` in lockstep with `rspc`.
 [target.'cfg(any())'.dependencies]
@@ -52,8 +52,8 @@ rspc-core = { version = "=1.0.0-rc.5", path = "./crates/core" }
 [dev-dependencies]
 # Tests
 async-stream = "0.3.5"
-tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
-tauri = { version = "1.4.1", features = ["api-all"] }
+tokio = { version = "1.33.0", features = ["macros", "rt-multi-thread"] }
+tauri = { version = "1.5.2", features = ["api-all"] }
 
 # Benchmark
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
@@ -63,9 +63,6 @@ pprof = { version = "0.13.0", features = ["flamegraph", "criterion", "protobuf-c
 members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "./examples/tauri/src-tauri"]
 
 [workspace.dependencies]
-specta = { version = "=2.0.0-rc.1", default-features = false, features = ["serde", "serde_json"] }
+specta = { version = "=2.0.0-rc.6", default-features = false, features = ["serde", "serde_json"] }
 serde = { version = "1", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.49", default-features = false }
-
-[patch.crates-io]
-specta = { git = "https://github.com/oscartbeaumont/specta", rev = "5948d80f2551780eda2c7bf38450fc796c74cfbf" }
+thiserror = { version = "1.0.50", default-features = false }

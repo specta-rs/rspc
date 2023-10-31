@@ -50,7 +50,7 @@ async fn main() {
                     println!("Client subscribed to 'pings'");
                     for i in 0..5 {
                         println!("Sending ping {}", i);
-                        yield "ping".to_string();
+                        yield Ok("ping".to_string());
                         sleep(Duration::from_secs(1)).await;
                     }
                 }

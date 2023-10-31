@@ -11,7 +11,7 @@ fn router() -> axum::Router {
     axum::Router::new()
         .route("/", get(|| async { "Welcome to your new rspc app!" }))
         .route("/health", get(|| async { "Ok!" }))
-        .next("/rspc", router.endpoint(|| Ctx {}).axum())
+        .nest("/rspc", router.endpoint(|| Ctx {}).axum())
 }
 
 #[tokio::main]

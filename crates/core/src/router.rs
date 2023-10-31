@@ -9,7 +9,7 @@ use std::{
 };
 
 use specta::{
-    ts::{self, FormatterFn, TsExportError},
+    ts::{self, FormatterFn},
     TypeMap,
 };
 
@@ -152,7 +152,7 @@ where
                         {
                             if existing_sid != sid {
                                 return Err(ExportError::TsExportErr(
-                                    TsExportError::DuplicateTypeName(
+                                    ts::ExportError::DuplicateTypeName(
                                         dt.name().clone(),
                                         *ext.impl_location(),
                                         existing_impl_location,

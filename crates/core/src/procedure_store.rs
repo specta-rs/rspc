@@ -1,12 +1,9 @@
 use std::{borrow::Cow, convert::Infallible};
 
-use specta::{
-    ts::TsExportError, DataType, DataTypeFrom, DefOpts, NamedDataType, StructType, TupleType, Type,
-    TypeMap,
-};
+use specta::{ts, DataType, DataTypeFrom, DefOpts, NamedDataType, StructType, Type, TypeMap};
 
 use crate::{
-    layer::{DynLayer, Layer},
+    layer::{boxed, DynLayer, Layer},
     middleware::ProcedureKind,
     router::Router,
 };
@@ -66,14 +63,13 @@ fn never() -> DataType {
         },
         &[],
     )
-    .expect("rspc: error exporting `never`")
 }
 
 impl ProcedureDef {
     pub fn from_tys<TArg, TResult, TError>(
         key: Cow<'static, str>,
         type_map: &mut TypeMap,
-    ) -> Result<Self, TsExportError>
+    ) -> Result<Self, ts::ExportError>
     where
         TArg: Type,
         TResult: Type,
@@ -87,8 +83,10 @@ impl ProcedureDef {
                     type_map,
                 },
                 &[],
-            )? {
-                DataType::Tuple(TupleType::Named { fields, .. }) if fields.is_empty() => never(),
+            )
+            .inner
+            {
+                DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
                 t => t,
             },
             result: TResult::reference(
@@ -97,14 +95,16 @@ impl ProcedureDef {
                     type_map,
                 },
                 &[],
-            )?,
+            )
+            .inner,
             error: TError::reference(
                 DefOpts {
                     parent_inline: false,
                     type_map,
                 },
                 &[],
-            )?,
+            )
+            .inner,
         })
     }
 }
@@ -123,16 +123,13 @@ impl<TCtx> ProcedureTodo<TCtx> {
 }
 
 // TODO: Using track caller style thing for the panics in this function
-pub fn build<TCtx, TArg, TResult, TError>(
+pub fn build<TCtx>(
     key: Cow<'static, str>,
     ctx: &mut Router<TCtx>,
     kind: ProcedureKind,
     layer: impl Layer<TCtx> + 'static,
 ) where
-    TCtx: 'static,
-    TArg: Type,
-    TResult: Type,
-    TError: Type,
+    TCtx: Send + 'static,
 {
     let (map, type_name) = match kind {
         ProcedureKind::Query => (&mut ctx.queries, "query"),
@@ -142,8 +139,9 @@ pub fn build<TCtx, TArg, TResult, TError>(
 
     let key_org = key;
     let key = key_org.to_string();
-    let type_def = ProcedureDef::from_tys::<TArg, TResult, TError>(key_org, &mut ctx.typ_store)
-        .expect("error exporting types"); // TODO: Error handling using `#[track_caller]`
+    let type_def = layer
+        .into_procedure_def(key_org, &mut ctx.typ_store)
+        .expect("error exporting types");
 
     // TODO: Cleanup this logic and do better router merging
     #[allow(clippy::panic)]
@@ -159,7 +157,7 @@ pub fn build<TCtx, TArg, TResult, TError>(
     map.insert(
         key,
         ProcedureTodo {
-            exec: layer.erase(),
+            exec: boxed(layer),
             ty: type_def,
         },
     );

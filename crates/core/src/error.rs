@@ -1,7 +1,7 @@
 use std::{error, fmt, sync::Arc};
 
 use serde::Serialize;
-use specta::{ts::TsExportError, Type};
+use specta::{ts, Type};
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq, Type)]
 pub enum ProcedureError {
@@ -9,15 +9,19 @@ pub enum ProcedureError {
     Resolver(serde_json::Value),
 }
 
-pub trait IntoResolverError: Serialize + Type + std::error::Error {
-    fn into_resolver_error(self) -> ResolverError
-    where
-        Self: Sized,
-    {
-        ResolverError {
-            // TODO: Error handling
-            value: serde_json::to_value(&self).unwrap(),
-            message: self.to_string(),
+pub(crate) mod private {
+    use super::*;
+
+    pub trait IntoResolverError: Serialize + Type + std::error::Error + 'static {
+        fn into_resolver_error(self) -> ResolverError
+        where
+            Self: Sized,
+        {
+            ResolverError {
+                // TODO: Error handling
+                value: serde_json::to_value(&self).unwrap(),
+                message: self.to_string(),
+            }
         }
     }
 }
@@ -38,7 +42,7 @@ impl From<ResolverError> for ProcedureError {
 #[derive(Serialize, Type, thiserror::Error, Debug)]
 pub enum Infallible {}
 
-impl<T> IntoResolverError for T where T: Serialize + Type + std::error::Error {}
+impl<T> private::IntoResolverError for T where T: Serialize + Type + std::error::Error + 'static {}
 
 // TODO: Context based `ExecError`. Always include the `path` of the procedure on it.
 // TODO: Cleanup this
@@ -151,7 +155,7 @@ pub enum ExportError {
     #[error("IO error exporting bindings: {0}")]
     IOErr(#[from] std::io::Error),
     #[error("error exporting typescript bindings: {0}")]
-    TsExportErr(#[from] TsExportError),
+    TsExportErr(#[from] ts::ExportError),
 }
 
 #[derive(Clone, Debug, Serialize, Type)]

@@ -1,70 +1,80 @@
-use std::marker::PhantomData;
+use std::{borrow::Cow, marker::PhantomData};
 
-use serde::de::DeserializeOwned;
-use specta::Type;
+use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
+use specta::{ts, Type, TypeMap};
 
-use super::RequestLayer;
+use rspc_core::internal::{IntoResolverError, Layer, ProcedureDef, ProcedureKind, RequestContext};
 
-#[doc(hidden)]
-pub trait ResolverFunction<TLCtx, TMarker>:
-    SealedResolverFunction<TMarker> + Fn(TLCtx, Self::Arg) -> Self::Result
-{
+use crate::{
+    internal::resolver::{result::private::StreamToBody, IntoResolverResponse},
+    ExecError,
+};
+
+pub struct QueryOrMutation<M>(PhantomData<M>);
+pub struct Subscription<M>(PhantomData<M>);
+
+// TODO: Rename `Resolver`?
+pub struct HasResolver<F, TErr, TResultMarker, M> {
+    pub(crate) resolver: F,
+    pub(crate) kind: ProcedureKind,
+    phantom: PhantomData<fn() -> (TErr, TResultMarker, M)>,
 }
 
 mod private {
-    use rspc_core::internal::ProcedureKind;
-
     use super::*;
 
-    // TODO: Rename
-    pub trait SealedResolverFunction<TMarker>: Send + Sync + 'static {
-        // TODO: Can a bunch of these assoicated types be removed?
-
-        type Arg: DeserializeOwned + Type + 'static;
-        type RequestMarker;
-        type Result;
-
-        fn into_marker(self, kind: ProcedureKind) -> TMarker;
+    impl<F, TErr, TResultMarker, M> HasResolver<F, TErr, TResultMarker, M> {
+        pub(crate) fn new(resolver: F, kind: ProcedureKind) -> Self {
+            Self {
+                resolver,
+                kind,
+                phantom: PhantomData,
+            }
+        }
     }
 
-    // TODO: Docs + rename cause it's not a marker, it's runtime
-    pub struct HasResolver<A, B, C, D, E>(
-        pub(crate) A,
-        pub(crate) ProcedureKind,
-        pub(crate) PhantomData<(B, C, D, E)>,
-    );
-
-    impl<
-            TMarker,
-            TLCtx,
-            T: SealedResolverFunction<TMarker> + Fn(TLCtx, Self::Arg) -> Self::Result,
-        > ResolverFunction<TLCtx, TMarker> for T
-    {
-    }
-
-    // TODO: This is always `RequestLayerMarker` which breaks shit
-
-    // TODO: Remove TResultMarker
-
-    impl<TLayerCtx, TArg, TResult, TResultMarker, F>
-        SealedResolverFunction<HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker>> for F
+    pub struct M<TArg>(PhantomData<TArg>);
+    impl<F, TLCtx, TArg, TResult, TResultMarker> Layer<TLCtx>
+        for HasResolver<F, TResult::Err, TResultMarker, M<TArg>>
     where
-        F: Fn(TLayerCtx, TArg) -> TResult + Send + Sync + 'static,
+        F: Fn(TLCtx, TArg) -> TResult + Send + Sync + 'static,
         TArg: DeserializeOwned + Type + 'static,
-        TResult: RequestLayer<TResultMarker>,
-        TLayerCtx: Send + Sync + 'static,
+        TLCtx: Send + Sync + 'static,
+        TResult: IntoResolverResponse<'static, TResultMarker>,
+        TResult::Ok: Serialize + Type + 'static,
+        TResult::Err: IntoResolverError + 'static,
+        TResultMarker: 'static,
     {
-        type Arg = TArg;
-        type RequestMarker = TResultMarker;
-        type Result = TResult;
+        type Stream<'a> = StreamToBody<TResult::Stream>;
 
-        fn into_marker(
-            self,
-            kind: ProcedureKind,
-        ) -> HasResolver<F, TLayerCtx, TArg, TResult, TResultMarker> {
-            HasResolver(self, kind, PhantomData)
+        fn into_procedure_def(
+            &self,
+            key: Cow<'static, str>,
+            ty_store: &mut TypeMap,
+        ) -> Result<ProcedureDef, ts::ExportError> {
+            ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)
+        }
+
+        fn call(
+            &self,
+            ctx: TLCtx,
+            input: Value,
+            req: RequestContext,
+        ) -> Result<Self::Stream<'_>, ExecError> {
+            let stream = (self.resolver)(
+                ctx,
+                serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+            )
+            .to_stream();
+
+            Ok(StreamToBody {
+                stream,
+                #[cfg(feature = "tracing")]
+                span: req.span(),
+                #[cfg(not(feature = "tracing"))]
+                span: None,
+            })
         }
     }
 }
-
-pub(crate) use private::{HasResolver, SealedResolverFunction};

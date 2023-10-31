@@ -10,13 +10,13 @@
     "astro": "astro"
   },
   "devDependencies": {
-    "@astrojs/react": "^3.0.2",
-    "@astrojs/solid-js": "^3.0.1",
-    "@astrojs/svelte": "^4.0.2",
-    "@astrojs/tailwind": "^5.0.0",
-    "@types/react": "^18.2.23",
-    "@types/react-dom": "^18.2.8",
-    "astro": "^3.1.4",
+    "@astrojs/react": "^3.0.3",
+    "@astrojs/solid-js": "^3.0.2",
+    "@astrojs/svelte": "^4.0.3",
+    "@astrojs/tailwind": "^5.0.2",
+    "@types/react": "^18.2.31",
+    "@types/react-dom": "^18.2.14",
+    "astro": "^3.3.2",
     "tailwindcss": "^3.3.3"
   },
   "dependencies": {
@@ -25,12 +25,12 @@
     "@rspc/solid-query": "workspace:*",
     "@rspc/svelte-query": "workspace:*",
     "@rspc/tauri": "workspace:^",
-    "@tanstack/react-query": "^4.35.3",
-    "@tanstack/solid-query": "^4.35.3",
-    "@tanstack/svelte-query": "^4.35.3",
+    "@tanstack/react-query": "^4.36.1",
+    "@tanstack/solid-query": "^4.36.1",
+    "@tanstack/svelte-query": "^4.36.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "solid-js": "^1.7.12",
-    "svelte": "^4.2.1"
+    "solid-js": "^1.8.3",
+    "svelte": "^4.2.2"
   }
 }
