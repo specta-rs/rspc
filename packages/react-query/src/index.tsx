@@ -89,7 +89,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
           keyAndInput,
           opts: rawOpts,
         }),
-      [tanstack.hashQueryKey(keyAndInput), opts.enabled ?? true]
+      [tanstack.hashKey(keyAndInput), opts.enabled ?? true]
     );
   }
 
