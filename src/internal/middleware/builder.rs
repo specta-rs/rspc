@@ -5,16 +5,15 @@ use specta::Type;
 
 use rspc_core::internal::Layer;
 
-// TODO: Can this be made completely internal?
-#[doc(hidden)]
-pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
+// TODO: Deal with sealing properly
 
+// TODO: Can this be made completely internal?
 mod private {
     use crate::internal::middleware::{MiddlewareFn, MiddlewareLayer};
 
     use super::*;
 
-    pub trait SealedMiddlewareBuilder: Send + 'static {
+    pub trait MiddlewareBuilder: Send + Sync + 'static {
         type Ctx: Send + Sync + 'static;
         type LayerCtx: Send + Sync + 'static;
         type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
@@ -28,15 +27,13 @@ mod private {
             T: Layer<Self::LayerCtx>;
     }
 
-    impl<T: SealedMiddlewareBuilder + Sync> MiddlewareBuilder for T {}
-
     pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx> {
         pub(crate) middleware: TMiddleware,
         pub(crate) mw: TNewMiddleware,
         pub(crate) phantom: PhantomData<TNewCtx>,
     }
 
-    impl<TNewCtx, TMiddleware, TNewMiddleware> SealedMiddlewareBuilder
+    impl<TNewCtx, TMiddleware, TNewMiddleware> MiddlewareBuilder
         for MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx>
     where
         TNewCtx: Send + Sync + 'static,
@@ -63,4 +60,4 @@ mod private {
     }
 }
 
-pub(crate) use private::{MiddlewareLayerBuilder, SealedMiddlewareBuilder};
+pub(crate) use private::{MiddlewareBuilder, MiddlewareLayerBuilder};

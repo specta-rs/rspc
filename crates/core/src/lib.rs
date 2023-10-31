@@ -50,7 +50,7 @@ pub mod internal {
     pub use super::procedure_store::{build, ProcedureDef, ProcedureTodo, ProceduresDef};
 
     pub use super::middleware::{
-        new_mw_ctx, Executable2, MiddlewareContext, MwV2Result, ProcedureKind, RequestContext,
+        new_mw_ctx, MiddlewareContext, MwV2Result, ProcedureKind, RequestContext,
     };
 
     pub use super::router_builder::{

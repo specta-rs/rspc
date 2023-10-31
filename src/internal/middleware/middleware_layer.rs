@@ -14,10 +14,7 @@ mod private {
 
     use rspc_core::{
         error::ExecError,
-        internal::{
-            new_mw_ctx, Executable2, Layer, MwV2Result, PinnedOption, PinnedOptionProj,
-            ProcedureDef, RequestContext,
-        },
+        internal::{new_mw_ctx, Layer, ProcedureDef, RequestContext},
         ValueOrBytes,
     };
 
@@ -104,11 +101,11 @@ mod private {
 
                 // The currently executing future returned by the `resp_fn` (publicly `.map`) function
                 // Be aware this will go `None` -> `Some` -> `None`, etc for a subscription
-                #[pin]
-                resp_fut: PinnedOption<<<TMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
+                // #[pin]
+                // resp_fut: PinnedOption<<<TMiddleware::Result as MwV2Result>::Resp as Executable2>::Fut>,
                 // The `.map` function returned by the user from the execution of the current middleware
                 // This allows a middleware to map the values being returned from the stream
-                resp_fn: Option<<TMiddleware::Result as MwV2Result>::Resp>,
+                // resp_fn: Option<<TMiddleware::Result as MwV2Result>::Resp>,
             },
             // The stream is internally done but it returned `Poll::Ready` for the shutdown message so the caller thinks it's still active
             // This will yield `Poll::Ready(None)` and transition into the `Self::Done` phase.
@@ -156,8 +153,8 @@ mod private {
                                 self.as_mut().set(Self::Execute {
                                     stream,
                                     is_stream_done: false,
-                                    resp_fut: PinnedOption::None,
-                                    resp_fn: None, // TODO: Fully remove this
+                                    // resp_fut: PinnedOption::None,
+                                    // resp_fn: None, // TODO: Fully remove this
                                 });
                             }
 
@@ -171,8 +168,8 @@ mod private {
                     MiddlewareLayerFutureProj::Execute {
                         mut stream,
                         is_stream_done,
-                        mut resp_fut,
-                        resp_fn,
+                        // mut resp_fut,
+                        // resp_fn,
                     } => {
                         // if let PinnedOptionProj::Some { v } = resp_fut.as_mut().project() {
                         //     let result = ready!(v.poll(cx));
