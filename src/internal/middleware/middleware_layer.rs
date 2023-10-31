@@ -16,7 +16,8 @@ mod private {
         cursed::{self, YieldMsg, CURSED_OP},
         error::ExecError,
         internal::{
-            new_mw_ctx, IntoMiddlewareResult, Layer, PinnedOption, ProcedureDef, RequestContext,
+            new_mw_ctx, IntoMiddlewareResult, Layer, PinnedOption, PinnedOptionProj, ProcedureDef,
+            RequestContext,
         },
         ValueOrBytes,
     };
@@ -142,10 +143,35 @@ mod private {
                         new_ctx,
                         input,
                         req,
-                        stream,
+                        mut stream,
                         is_stream_done,
                     } => {
-                        let result = match fut.poll(cx) {
+                        // TODO: We need to call the underlying stream and setup waker or pipe value to middleware's next value
+
+                        // TODO: Handle `is_done`
+                        if let PinnedOptionProj::Some { v } = stream.as_mut().project() {
+                            println!("SOME");
+                            match v.poll_next(cx) {
+                                Poll::Ready(Some(v)) => {
+                                    println!("{v:?}");
+                                    CURSED_OP.set(Some(YieldMsg::YieldBodyResult(
+                                        match v.unwrap() {
+                                            ValueOrBytes::Value(v) => v,
+                                            _ => todo!(),
+                                        },
+                                    )));
+                                }
+                                Poll::Ready(None) => {
+                                    println!("DONE");
+                                    // TODO: Don't do this and instead stop internally and keep user's future running but this works for now
+                                    self.as_mut().set(Self::PendingDone);
+                                    return Poll::Ready(None);
+                                }
+                                Poll::Pending => return Poll::Pending, // TODO: `return` if underlying stream is waiting for a value
+                            }
+                        }
+
+                        match fut.poll(cx) {
                             Poll::Ready(result) => {
                                 self.as_mut().set(Self::PendingDone);
                                 return Poll::Ready(Some(
@@ -158,12 +184,30 @@ mod private {
                                 if let Some(op) = CURSED_OP.take() {
                                     match op {
                                         YieldMsg::YieldBody => {
-                                            // TODO: Get proper value
-                                            CURSED_OP.set(Some(YieldMsg::YieldBodyResult(
-                                                serde_json::Value::Null,
-                                            )));
+                                            // TODO: Value from thread_local system instead to avoid `Arc`???
+                                            let ctx = new_ctx
+                                                .lock()
+                                                .unwrap_or_else(PoisonError::into_inner)
+                                                .take()
+                                                .unwrap();
 
-                                            cx.waker().wake_by_ref();
+                                            match next.layer_call(
+                                                ctx,
+                                                input.take().unwrap(),
+                                                req.take().unwrap(),
+                                            ) {
+                                                Ok(sstream) => {
+                                                    println!("SET SOME");
+                                                    stream.set(PinnedOption::Some { v: sstream });
+                                                    continue;
+                                                }
+
+                                                Err(err) => {
+                                                    cx.waker().wake_by_ref(); // No wakers set so we set one
+                                                    self.as_mut().set(Self::PendingDone);
+                                                    return Poll::Ready(Some(Err(err)));
+                                                }
+                                            }
                                         }
                                         YieldMsg::YieldBodyResult(_) => unreachable!(),
                                     }
@@ -171,7 +215,7 @@ mod private {
 
                                 return Poll::Pending;
                             }
-                        };
+                        }
                     }
                     MiddlewareLayerFutureProj::PendingDone => {
                         self.as_mut().set(Self::Done);

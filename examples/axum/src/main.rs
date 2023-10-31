@@ -53,7 +53,11 @@ async fn main() {
 
                     match y {
                         Body::Value(v) => v,
-                        Body::Stream(v) => todo!(),
+                        // Body::Stream(v) => stream! {
+                        //     while let Some(v) = v {
+                        //         yield v;
+                        //     }
+                        // },
                         _ => todo!(),
                     }
                 })

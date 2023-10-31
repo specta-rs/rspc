@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
 use futures::Stream;
+use serde_json::Value;
 
 use crate::error::ExecError;
 
@@ -9,6 +10,7 @@ pub mod cursed;
 // It is expected that the type remains the same for all items of a single stream! It's ok for panic's if this is violated.
 //
 // TODO: Can this be `pub(crate)`??? -> Right now `Layer` is the problem
+#[derive(Debug)]
 pub enum ValueOrBytes {
     Value(serde_json::Value),
     Bytes(Vec<u8>),
@@ -38,7 +40,10 @@ impl Stream for StreamBody {
         self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        todo!()
+        // Set into thread, hey I want the next value
+
+        // Suspense
+        todo!();
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

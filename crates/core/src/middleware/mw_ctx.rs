@@ -27,7 +27,6 @@ pub struct MiddlewareContext<TNewCtx> {
 
     // For response
     new_ctx: Arc<Mutex<Option<TNewCtx>>>,
-    // chan: futures::mpsc::Sender<Body>,
     // new_span: Option<tracing::Span>
 }
 
