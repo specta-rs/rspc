@@ -73,7 +73,6 @@ mod private {
                 input: Some(input),
                 req: Some(req),
                 stream: PinnedOption::None,
-                is_stream_done: false,
             })
         }
     }
@@ -113,8 +112,6 @@ mod private {
                 // The actual data stream from the resolver function or next middleware
                 #[pin]
                 stream: PinnedOption<TNextLayer::Stream<'a>>,
-                // We use this so we can keep polling `resp_fut` for the final message and once it is done and this bool is set, shutdown.
-                is_stream_done: bool,
             },
             // The stream is internally done but it returned `Poll::Ready` for the shutdown message so the caller thinks it's still active
             // This will yield `Poll::Ready(None)` and transition into the `Self::Done` phase.
@@ -144,13 +141,11 @@ mod private {
                         input,
                         req,
                         mut stream,
-                        is_stream_done,
                     } => {
                         // TODO: We need to call the underlying stream and setup waker or pipe value to middleware's next value
 
                         // TODO: Handle `is_done`
                         if let PinnedOptionProj::Some { v } = stream.as_mut().project() {
-                            println!("SOME");
                             match v.poll_next(cx) {
                                 Poll::Ready(Some(v)) => {
                                     println!("{v:?}");
@@ -162,7 +157,6 @@ mod private {
                                     )));
                                 }
                                 Poll::Ready(None) => {
-                                    println!("DONE");
                                     // TODO: Don't do this and instead stop internally and keep user's future running but this works for now
                                     self.as_mut().set(Self::PendingDone);
                                     return Poll::Ready(None);
