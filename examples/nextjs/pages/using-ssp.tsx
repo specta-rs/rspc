@@ -17,9 +17,7 @@ export const getServerSideProps: GetServerSideProps<
   const result = await client.query(["version"]);
 
   const props =
-    result.status === "ok"
-      ? { data: result.data }
-      : { error: result.error.message };
+    result.status === "ok" ? { data: result.data } : { error: result.error };
 
   return { props };
 };

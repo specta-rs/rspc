@@ -85,6 +85,57 @@ async fn main() {
                     Ok(env!("CARGO_PKG_VERSION"))
                 }),
         )
+        .procedure("batchingTest", {
+            let (tx, _) = broadcast::channel(10);
+
+            tokio::spawn({
+                let tx = tx.clone();
+
+                async move {
+                    let mut timer = tokio::time::interval(Duration::from_secs(1));
+                    loop {
+                        timer.tick().await;
+                        tx.send("ping".to_string()).ok();
+                    }
+                }
+            });
+
+            R.with(|mw, ctx| async move {
+                // Some processing
+
+                let y = mw.next(((), ctx)).await;
+
+                println!("{:?}", y);
+
+                match y {
+                    // Body::Value(v) => v,
+                    Body::Stream(mut v) => {
+                        tokio::spawn(async move {
+                            while let Some(v) = v.next().await {
+                                println!("Yielded value '{v:?}'");
+                            }
+                        });
+
+                        return serde_json::Value::Null;
+
+                        // stream! {
+                        //     while let Some(v) = v {
+                        //         yield v;
+                        //     }
+                        // }
+                    }
+                    _ => todo!(),
+                }
+            })
+            .subscription(move |_, _: ()| {
+                let mut rx = tx.subscribe();
+                stream! {
+                    while let Ok(msg) = rx.recv().await {
+                        yield Ok(msg);
+                    }
+                }
+            })
+        })
         .procedure(
             "X-Demo-Header",
             R.query(|ctx, _: ()| Ok(ctx.x_demo_header.unwrap_or_else(|| "No header".to_string()))),
@@ -179,30 +230,6 @@ async fn main() {
             R.error::<MyCustomError>()
                 .query(|_, _args: ()| Err::<(), _>(MyCustomError::IAmBroke)),
         )
-        .procedure("batchingTest", {
-            let (tx, _) = broadcast::channel(10);
-
-            tokio::spawn({
-                let tx = tx.clone();
-
-                async move {
-                    let mut timer = tokio::time::interval(Duration::from_secs(1));
-                    loop {
-                        timer.tick().await;
-                        tx.send("ping".to_string()).ok();
-                    }
-                }
-            });
-
-            R.subscription(move |_, _: ()| {
-                let mut rx = tx.subscribe();
-                stream! {
-                    while let Ok(msg) = rx.recv().await {
-                        yield Ok(msg);
-                    }
-                }
-            })
-        })
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.

@@ -1,0 +1,9 @@
+A middleware should be unable to return `impl Stream` if it's being put on a `query` or `subscription`???
+
+Supporting file streaming over rspc
+
+
+It would be nice if `rspc-core` could not depend on the whole `futures`
+
+Export `Error` and `ExecError` from root of `rspc-core`
+Can `Error` and `ExecError` now be merged???
