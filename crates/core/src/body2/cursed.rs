@@ -6,6 +6,8 @@ use crate::Body;
 pub enum YieldMsg {
     YieldBody,
     YieldBodyResult(serde_json::Value),
+    YieldBodyStream,
+    YieldNextBody,
 }
 
 thread_local! {
@@ -29,6 +31,8 @@ pub async fn inner() -> Body {
             return Poll::Ready(match y {
                 YieldMsg::YieldBody => unreachable!(),
                 YieldMsg::YieldBodyResult(body) => Body::Value(body),
+                YieldMsg::YieldBodyStream => unreachable!(),
+                YieldMsg::YieldNextBody => unreachable!(),
             });
         }
     })

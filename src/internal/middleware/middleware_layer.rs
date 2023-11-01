@@ -73,6 +73,8 @@ mod private {
                 input: Some(input),
                 req: Some(req),
                 stream: PinnedOption::None,
+                is_waiting: true,
+                next_op: None,
             })
         }
     }
@@ -97,6 +99,8 @@ mod private {
                 // It's result will populate the `resp_fn` field for the next phase.
                 #[pin]
                 fut: TMiddleware::Fut,
+                is_waiting: bool,
+                next_op: Option<YieldMsg>,
 
                 // The next layer in the middleware chain
                 // This could be another middleware of the users resolver. It will be called to yield the `stream` for the next phase.
@@ -136,7 +140,9 @@ mod private {
                 match self.as_mut().project() {
                     MiddlewareLayerFutureProj::Resolve {
                         fut,
+                        is_waiting,
                         next,
+                        next_op,
                         new_ctx,
                         input,
                         req,
@@ -144,24 +150,33 @@ mod private {
                     } => {
                         // TODO: We need to call the underlying stream and setup waker or pipe value to middleware's next value
 
-                        // TODO: Handle `is_done`
-                        if let PinnedOptionProj::Some { v } = stream.as_mut().project() {
-                            match v.poll_next(cx) {
-                                Poll::Ready(Some(v)) => {
-                                    println!("{v:?}");
-                                    CURSED_OP.set(Some(YieldMsg::YieldBodyResult(
-                                        match v.unwrap() {
-                                            ValueOrBytes::Value(v) => v,
-                                            _ => todo!(),
-                                        },
-                                    )));
+                        if let Some(next_op) = next_op.take() {
+                            CURSED_OP.set(Some(next_op));
+                        } else {
+                            // TODO: Handle `is_done`
+                            if let PinnedOptionProj::Some { v } = stream.as_mut().project() {
+                                match v.poll_next(cx) {
+                                    Poll::Ready(Some(v)) => {
+                                        *is_waiting = false;
+                                        println!("{v:?}");
+                                        CURSED_OP.set(Some(YieldMsg::YieldBodyResult(
+                                            match v.unwrap() {
+                                                ValueOrBytes::Value(v) => v,
+                                                _ => todo!(),
+                                            },
+                                        )));
+                                    }
+                                    Poll::Ready(None) => {
+                                        // TODO: Don't do this and instead stop internally and keep user's future running but this works for now
+                                        self.as_mut().set(Self::PendingDone);
+                                        return Poll::Ready(None);
+                                    }
+                                    Poll::Pending => {
+                                        if *is_waiting {
+                                            return Poll::Pending;
+                                        }
+                                    } // TODO: `return` if underlying stream is waiting for a value
                                 }
-                                Poll::Ready(None) => {
-                                    // TODO: Don't do this and instead stop internally and keep user's future running but this works for now
-                                    self.as_mut().set(Self::PendingDone);
-                                    return Poll::Ready(None);
-                                }
-                                Poll::Pending => return Poll::Pending, // TODO: `return` if underlying stream is waiting for a value
                             }
                         }
 
@@ -191,6 +206,10 @@ mod private {
                                                 req.take().unwrap(),
                                             ) {
                                                 Ok(sstream) => {
+                                                    if sstream.size_hint() != (1, Some(1)) {
+                                                        *next_op = Some(YieldMsg::YieldBodyStream);
+                                                    }
+
                                                     println!("SET SOME");
                                                     stream.set(PinnedOption::Some { v: sstream });
                                                     continue;
@@ -204,6 +223,10 @@ mod private {
                                             }
                                         }
                                         YieldMsg::YieldBodyResult(_) => unreachable!(),
+                                        YieldMsg::YieldBodyStream => unreachable!(),
+                                        YieldMsg::YieldNextBody => {
+                                            *is_waiting = true;
+                                        }
                                     }
                                 }
 
