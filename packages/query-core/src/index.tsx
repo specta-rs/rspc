@@ -1,10 +1,6 @@
-import { AlphaClient, ProceduresDef, ProcedureDef } from "@rspc/client";
+import { Client, ProceduresDef, ProcedureDef } from "@rspc/client";
 import * as rspc from "@rspc/client";
-import {
-  MutationObserverOptions,
-  QueryClient,
-  QueryObserverOptions,
-} from "@tanstack/query-core";
+import * as tanstack from "@tanstack/query-core";
 
 export * from "@rspc/client";
 
@@ -13,7 +9,7 @@ export type KeyAndInput = [string] | [string, any];
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
   rspc?: {
-    client?: AlphaClient<TProcedures>;
+    client?: Client<TProcedures>;
   };
 }
 
@@ -25,8 +21,8 @@ export interface SubscriptionOptions<P extends ProcedureDef> {
 }
 
 export interface Context<TProcedures extends ProceduresDef> {
-  client: AlphaClient<TProcedures>;
-  queryClient: QueryClient;
+  client: Client<TProcedures>;
+  queryClient: tanstack.QueryClient;
 }
 
 export type QueryOptionsOmit<T> = Omit<T, "queryKey" | "queryFn">;
@@ -58,7 +54,7 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
     return [rspc?.client ?? useClient(), rawOpts] as const;
   }
 
-  function mapQueryKey(keyAndInput: KeyAndInput, client: AlphaClient<P>) {
+  function mapQueryKey(keyAndInput: KeyAndInput, client: Client<P>) {
     return (client as any).mapQueryKey?.(keyAndInput) || keyAndInput;
   }
 
@@ -72,7 +68,7 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
   function useQueryArgs<
     K extends rspc.inferQueries<P>["key"] & string,
     O extends QueryOptionsOmit<
-      QueryObserverOptions<
+      tanstack.QueryObserverOptions<
         rspc.inferQueryResult<P, K>,
         rspc.inferQueryError<P, K>,
         rspc.inferQueryResult<P, K>,
@@ -82,18 +78,16 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
     > &
       TBaseOptions
   >(
-    keyAndInput: MaybeFn<
-      [key: K, ...input: rspc._inferProcedureHandlerInput<P, "queries", K>]
-    >,
+    keyAndInput: [
+      key: K,
+      ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
+    ],
     opts?: O
   ) {
     const [client, rawOpts] = useExtractOps(opts ?? {});
 
     return {
-      queryKey:
-        typeof keyAndInput === "function"
-          ? () => mapQueryKey(keyAndInput() as any, client)
-          : mapQueryKey(keyAndInput as any, client),
+      queryKey: mapQueryKey(keyAndInput as any, client),
       queryFn: () =>
         client.query(getMaybeFnValue(keyAndInput)).then(throwOnError),
       ...rawOpts,
@@ -103,7 +97,7 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
   function useMutationArgs<
     K extends rspc.inferMutations<P>["key"] & string,
     O extends Omit<
-      MutationObserverOptions<
+      tanstack.MutationObserverOptions<
         rspc.inferMutationResult<P, K>,
         rspc.inferMutationError<P, K>,
         rspc.inferMutationInput<P, K> extends never
@@ -114,10 +108,21 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
       "_defaulted" | "variables"
     > &
       TBaseOptions
-  >(key: K | [K], opts?: O) {
+  >(
+    key: K | [K],
+    opts?: O
+  ): tanstack.MutationObserverOptions<
+    rspc.inferMutationResult<P, K>,
+    rspc.inferMutationError<P, K>,
+    rspc.inferMutationInput<P, K> extends never
+      ? undefined
+      : rspc.inferMutationInput<P, K>,
+    any
+  > {
     const [client, rawOpts] = useExtractOps(opts ?? {});
 
     return {
+      mutationKey: typeof key === "string" ? [key] : key,
       mutationFn: async (input: any) => {
         const actualKey = Array.isArray(key) ? key[0] : key;
         return client.mutation([actualKey, input] as any).then(throwOnError);
@@ -133,7 +138,7 @@ export function createQueryHookHelpers<P extends ProceduresDef>(args: {
     keyAndInput,
     opts,
   }: {
-    client: AlphaClient<P>;
+    client: Client<P>;
     keyAndInput: [
       key: K,
       ...input: rspc._inferProcedureHandlerInput<P, "subscriptions", K>

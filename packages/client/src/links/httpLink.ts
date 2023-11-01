@@ -41,6 +41,10 @@ type HttpLinkOpts = {
     }
 );
 
+export function makeDoesntSupportSubscriptionsError(path: string) {
+  return `Subscribing to '${path}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`;
+}
+
 /**
  * HTTP Fetch link for rspc
  */
@@ -157,11 +161,7 @@ export function httpLink<P extends ProceduresDef>(opts: HttpLinkOpts): Link<P> {
     return {
       exec: async (resolve, reject) => {
         if (op.method === "subscription") {
-          reject(
-            new Error(
-              `Subscribing to '${op.path}' failed as the HTTP transport does not support subscriptions! Maybe try using the websocket transport?`
-            )
-          );
+          reject(new Error(makeDoesntSupportSubscriptionsError(op.path)));
           return;
         }
 

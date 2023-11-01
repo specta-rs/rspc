@@ -2,7 +2,32 @@ import { onDestroy } from "svelte";
 import * as tanstack from "@tanstack/svelte-query";
 import * as rspc from "@rspc/query-core";
 import { getRspcClientContext } from "./context";
-export function createSvelteQueryHooks<P extends rspc.ProceduresDef>() {
+import { Readable, derived, readable } from "svelte/store";
+
+function isSvelteStore<T extends object>(
+  obj: tanstack.StoreOrVal<T>
+): obj is Readable<T> {
+  return "subscribe" in obj && typeof obj.subscribe === "function";
+}
+
+function enforceSvelteStore<T extends object>(
+  obj: tanstack.StoreOrVal<T>
+): Readable<T> {
+  if (isSvelteStore(obj)) {
+    return obj;
+  }
+  return readable(obj);
+}
+
+export function createRSPCSolidQuery<P extends rspc.ProceduresDef>(
+  client: rspc.Client<P>
+) {
+  return createRawRSPCSvelteQuery({ root: client._root });
+}
+
+export function createRawRSPCSvelteQuery<P extends rspc.ProceduresDef>(_: {
+  root: rspc.Root<P>;
+}) {
   const helpers = rspc.createQueryHookHelpers({
     useContext: getRspcClientContext<P>,
   });
@@ -21,18 +46,20 @@ export function createSvelteQueryHooks<P extends rspc.ProceduresDef>() {
     >;
 
   function createQuery<K extends rspc.inferQueries<P>["key"] & string>(
-    keyAndInput: [
-      key: K,
-      ...input: rspc._inferProcedureHandlerInput<P, "queries", K>
-    ],
-    opts?: CreateQueryOptions<K>
+    keyAndInput: tanstack.StoreOrVal<
+      [key: K, ...input: rspc._inferProcedureHandlerInput<P, "queries", K>]
+    >,
+    opts?: tanstack.StoreOrVal<CreateQueryOptions<K>>
   ) {
-    return tanstack.createQuery<
-      rspc.inferQueryResult<P, K>,
-      rspc.inferQueryError<P, K>,
-      rspc.inferQueryResult<P, K>,
-      [K, rspc.inferQueryInput<P, K>]
-    >(helpers.useQueryArgs(keyAndInput, opts));
+    return tanstack.createQuery(
+      derived(
+        [
+          enforceSvelteStore(keyAndInput),
+          enforceSvelteStore<CreateQueryOptions<K>>(opts ?? {}),
+        ],
+        ([$keyAndInput, $opts]) => helpers.useQueryArgs($keyAndInput, $opts)
+      )
+    );
   }
 
   type CreateMutationOptions<
@@ -54,14 +81,7 @@ export function createSvelteQueryHooks<P extends rspc.ProceduresDef>() {
     K extends rspc.inferMutations<P>["key"] & string,
     TContext = unknown
   >(key: K | [K], opts?: CreateMutationOptions<K, TContext>) {
-    return tanstack.createMutation<
-      rspc.inferMutationResult<P, K>,
-      rspc.inferMutationError<P, K>,
-      rspc.inferMutationInput<P, K> extends never
-        ? undefined
-        : rspc.inferMutationInput<P, K>,
-      TContext
-    >(helpers.useMutationArgs(key, opts));
+    return tanstack.createMutation(helpers.useMutationArgs(key, opts));
   }
 
   function createSubscription<

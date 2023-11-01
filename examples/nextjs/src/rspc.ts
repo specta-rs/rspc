@@ -1,9 +1,9 @@
-import { httpLink, wsLink, initRspc } from "@rspc/client";
-import { createReactQueryHooks } from "@rspc/react-query";
+import { httpLink, wsLink, createRSPCClient } from "@rspc/client";
+import { createRSPCReactQuery } from "@rspc/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import type { Procedures } from "../../bindings";
 
-export const client = initRspc<Procedures>({
+export const client = createRSPCClient<Procedures>({
   links: [
     typeof window === "undefined"
       ? // WebsocketTransport can not be used Server Side, so we provide FetchTransport instead.
@@ -26,4 +26,4 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const rspc = createReactQueryHooks<Procedures>();
+export const rspc = createRSPCReactQuery(client);
