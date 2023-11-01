@@ -100,7 +100,7 @@ function Example({ name }: { name: string }) {
       </button>
       <button
         onClick={() => sendMsg.mutate("Hello!")}
-        disabled={sendMsg.isLoading}
+        disabled={sendMsg.isPending}
       >
         Send Msg!
       </button>

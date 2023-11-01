@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "ESNext",
+    "module": "ESNext",
+    // Enable node-style module resolution, for things like npm package imports.
+    "moduleResolution": "Bundler",
     "strict": true,
     // "noUnusedLocals": true,  // TODO: enable this
     // "noUnusedParameters": true, // TODO: enable this
@@ -9,7 +12,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "strictNullChecks": true,
-    "moduleResolution": "node",
     "esModuleInterop": true,
     "importHelpers": true,
     "skipLibCheck": true,
