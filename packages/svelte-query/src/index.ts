@@ -19,9 +19,11 @@ function enforceSvelteStore<T extends object>(
   return readable(obj);
 }
 
-export function createRSPCSolidQuery<P extends rspc.ProceduresDef>(
-  client: rspc.Client<P>
-) {
+export function createRSPCSolidQuery<P extends rspc.ProceduresDef>({
+  client,
+}: {
+  client: rspc.Client<P>;
+}) {
   return createRawRSPCSvelteQuery({ root: client._root });
 }
 

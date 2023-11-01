@@ -5,9 +5,11 @@ import * as tanstack from "@tanstack/react-query";
 import * as rspc from "@rspc/query-core";
 import React from "react";
 
-export function createRSPCReactQuery<P extends rspc.ProceduresDef>(
-  client: rspc.Client<P>
-) {
+export function createRSPCReactQuery<P extends rspc.ProceduresDef>({
+  client,
+}: {
+  client: rspc.Client<P>;
+}) {
   return createRawRSPCReactQuery({ root: client._root });
 }
 

@@ -4,9 +4,11 @@ import * as Solid from "solid-js";
 import * as tanstack from "@tanstack/solid-query";
 import * as rspc from "@rspc/query-core";
 
-export function createRSPCSolidQuery<P extends rspc.ProceduresDef>(
-  client: rspc.Client<P>
-) {
+export function createRSPCSolidQuery<P extends rspc.ProceduresDef>({
+  client,
+}: {
+  client: rspc.Client<P>;
+}) {
   return createRawRSPCSolidQuery({ root: client._root });
 }
 

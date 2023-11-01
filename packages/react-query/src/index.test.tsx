@@ -1,4 +1,4 @@
-import { Client, createRoot, httpLink, ProceduresDef } from "@rspc/client";
+import { Client, httpLink, ProceduresDef, Root } from "@rspc/client";
 import React, { PropsWithChildren } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRawRSPCReactQuery } from "./";
@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 
 /// @sd/client
 
-const root = createRoot<ProceduresDef>();
+const root = new Root<ProceduresDef>();
 
 const libraryRoot = root.createChild<ProceduresDef>({
   mapQueryKey: (key) => key,
