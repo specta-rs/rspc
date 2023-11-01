@@ -57,7 +57,7 @@ const tauriClient = createRSPCClient<Procedures>({
 
 // TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
 // TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
-export const rspc = createRSPCReactQuery<Procedures>(fetchClient);
+export const rspc = createRSPCReactQuery<Procedures>({ client: fetchClient });
 // export const rspc2 = createReactQueryHooks<Procedures>(wsClient);
 
 function Example({ name }: { name: string }) {

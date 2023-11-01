@@ -26,4 +26,4 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const rspc = createRSPCReactQuery(client);
+export const rspc = createRSPCReactQuery({ client });

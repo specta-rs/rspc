@@ -58,7 +58,7 @@ const tauriClient = createRSPCClient<Procedures>({
 
 // TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
 // TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
-export const rspc = createRSPCSolidQuery(fetchClient);
+export const rspc = createRSPCSolidQuery({ client: fetchClient });
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = createSignal(Date.now().toString());
