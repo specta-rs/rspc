@@ -11,7 +11,7 @@ use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
 use rspc::{
-    internal::middleware::{mw, mw_with_arg_mapper, ArgumentMapper},
+    internal::middleware::{mw, ArgMapper, ArgumentMapper},
     ExportConfig, Rspc,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -68,9 +68,7 @@ async fn main() {
                 })
             }))
             .with(mw(|mw, ctx| async move { mw.next(ctx) }))
-            .with(mw_with_arg_mapper::<Demo, _, _>(|mw, ctx| async move {
-                let y = mw.state;
-
+            .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {
                 mw.next(ctx)
             }))
             .query(|_, _: ()| {

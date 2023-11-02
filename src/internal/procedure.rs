@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::internal::{
-    middleware::{
-        ArgumentMapper, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
-    },
+    middleware::{ArgumentMapper, MiddlewareBuilder, MiddlewareLayerBuilder},
     resolver::{HasResolver, QueryOrMutation, Subscription},
 };
 use rspc_core::internal::{Layer, ProcedureKind};
@@ -79,20 +77,16 @@ where
         }
     }
 
-    pub fn with<
-        Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx, A>,
-        A: ArgumentMapper,
-    >(
+    pub fn with<Mw: Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw, A>> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
                 // todo: enforce via typestate
                 middleware: self.mw,
                 mw,
-                phantom: PhantomData,
             },
         )
     }
