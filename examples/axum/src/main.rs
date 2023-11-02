@@ -42,14 +42,14 @@ pub enum Demo {}
 
 impl ArgumentMapper for Demo {
     type State = ();
-    type Input<T> = T
+    type Input<T> = (String, T)
     where
         T: DeserializeOwned + Type + 'static;
 
     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
         arg: Self::Input<T>,
     ) -> (T, Self::State) {
-        (arg, ())
+        (arg.1, ())
     }
 }
 

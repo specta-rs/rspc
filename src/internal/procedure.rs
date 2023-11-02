@@ -37,18 +37,26 @@ macro_rules! resolvers {
         resolvers!(impl; $this, $ctx, $mw_ty, $mw, subscription, Subscription, Subscription);
     };
     (impl; $this:tt, $ctx:ty, $mw_ty:ty, $mw:expr, $fn_name:ident, $marker:ident, $kind:ident) => {
-        pub fn $fn_name<TResolver, TResultMarker, TArgMarker>(
+        pub fn $fn_name<TResolver, TResultMarker, TArg>(
             self,
             resolver: TResolver,
         ) -> Procedure<
-            HasResolver<TResolver, TError, $marker<TResultMarker>, TArgMarker>,
+            HasResolver<TResolver, TError, $marker<TResultMarker>, crate::internal::resolver::M<TArg>>,
             $mw_ty,
         >
         where
-            HasResolver<TResolver, TError, $marker<TResultMarker>, TArgMarker>: Layer<$ctx>,
+            HasResolver<TResolver, TError, $marker<TResultMarker>, crate::internal::resolver::M<TArg>>: Layer<$ctx>,
+            TArg: serde::de::DeserializeOwned + specta::Type,
         {
         	let $this = self;
-            let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
+
+            let resolver = HasResolver::new(resolver, ProcedureKind::$kind, |type_map| <<$mw_ty as crate::internal::middleware::SealedMiddlewareBuilder>::Arg<TArg> as specta::Type>::reference(
+                specta::DefOpts {
+                    parent_inline: false,
+                    type_map,
+                },
+                &[],
+            ));
 
             // TODO: Make this work
             // // Trade runtime performance for reduced monomorphization
