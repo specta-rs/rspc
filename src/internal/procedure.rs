@@ -1,10 +1,10 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::internal::{
-    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder},
+    middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
     resolver::{HasResolver, QueryOrMutation, Subscription},
 };
-use rspc_core::internal::{router::Router, Layer, ProcedureKind};
+use rspc_core::internal::{Layer, ProcedureKind};
 
 /// TODO: Explain
 pub struct MissingResolver<TError>(PhantomData<TError>);
@@ -62,6 +62,8 @@ macro_rules! resolvers {
 
 pub(crate) use resolvers;
 
+use super::middleware::Middleware;
+
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
 impl<TMiddleware, TError> Procedure<MissingResolver<TError>, TMiddleware>
@@ -75,22 +77,7 @@ where
         }
     }
 
-    pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
-        self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                // todo: enforce via typestate
-                middleware: self.mw,
-                mw,
-            },
-        )
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
+    pub fn with<Mw: Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {

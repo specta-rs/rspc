@@ -2,7 +2,9 @@ use std::marker::PhantomData;
 
 use crate::{
     internal::{
-        middleware::{BaseMiddleware, ConstrainedMiddleware, MiddlewareLayerBuilder},
+        middleware::{
+            BaseMiddleware, Middleware, MiddlewareLayerBuilder,
+        },
         procedure::{resolvers, MissingResolver, Procedure},
         resolver::{HasResolver, QueryOrMutation, Subscription},
     },
@@ -56,26 +58,10 @@ where
         Procedure::new(MissingResolver::default(), BaseMiddleware::default())
     }
 
-    pub fn with<Mw: ConstrainedMiddleware<TCtx>>(
+    pub fn with<Mw: Middleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
-    {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                middleware: BaseMiddleware::default(),
-                mw,
-            },
-        )
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
-        self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver<Infallible>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
-    {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {

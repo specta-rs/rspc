@@ -22,6 +22,7 @@ use rspc_core::{
 #[cfg(not(feature = "tracing"))]
 type Inner = ();
 
+#[allow(unused_imports)] // TODO: Fix this
 pub(crate) use private::*;
 
 pub(crate) mod private {
