@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::internal::{
-    middleware::{ArgumentMapper, MiddlewareBuilder, MiddlewareLayerBuilder},
+    middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
     resolver::{HasResolver, QueryOrMutation, Subscription},
 };
 use rspc_core::internal::{Layer, ProcedureKind};
@@ -62,7 +62,7 @@ macro_rules! resolvers {
 
 pub(crate) use resolvers;
 
-use super::middleware::{Middleware, Middleware2};
+use super::middleware::Middleware;
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.

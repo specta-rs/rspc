@@ -11,7 +11,7 @@ use rspc_core::internal::Layer;
 pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
 
 mod private {
-    use crate::internal::middleware::MiddlewareLayer;
+    use crate::internal::middleware::{ArgumentMapper, MiddlewareLayer};
 
     use super::*;
 
@@ -47,7 +47,8 @@ mod private {
         type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, T, TNewMiddleware>>
         where
             T: Layer<Self::LayerCtx>;
-        type Arg<T: Type + DeserializeOwned + 'static> = T; // TODO
+        type Arg<T: Type + DeserializeOwned + 'static> =
+            <TNewMiddleware::Mapper as ArgumentMapper>::Input<T>;
 
         fn build<T>(self, next: T) -> Self::LayerResult<T>
         where
