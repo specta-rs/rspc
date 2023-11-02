@@ -1,10 +1,12 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::internal::{
-    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder},
+    middleware::{
+        ArgumentMapper, ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder,
+    },
     resolver::{HasResolver, QueryOrMutation, Subscription},
 };
-use rspc_core::internal::{router::Router, Layer, ProcedureKind};
+use rspc_core::internal::{Layer, ProcedureKind};
 
 /// TODO: Explain
 pub struct MissingResolver<TError>(PhantomData<TError>);
@@ -62,6 +64,8 @@ macro_rules! resolvers {
 
 pub(crate) use resolvers;
 
+use super::middleware::Middleware2;
+
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
 impl<TMiddleware, TError> Procedure<MissingResolver<TError>, TMiddleware>
@@ -75,10 +79,16 @@ where
         }
     }
 
-    pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
+    pub fn with<
+        Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>,
+        ArgMapper: ArgumentMapper + Send + Sync + 'static,
+    >(
         self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+        mw: Middleware2<TMiddleware::LayerCtx, Mw, ArgMapper>,
+    ) -> Procedure<
+        MissingResolver<TError>,
+        MiddlewareLayerBuilder<TMiddleware, Middleware2<TMiddleware::LayerCtx, Mw, ArgMapper>>,
+    > {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {

@@ -10,7 +10,7 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
-use rspc::{ExportConfig, Rspc};
+use rspc::{internal::middleware::mw, ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
 use tokio::{sync::broadcast, time::sleep};
@@ -42,13 +42,13 @@ async fn main() {
         .router()
         .procedure(
             "version",
-            R.with(|mw, ctx| async move {
+            R.with(mw(|mw, ctx| async move {
                 mw.next(ctx).map(|resp| async move {
                     println!("Client requested version '{}'", resp);
                     resp
                 })
-            })
-            .with(|mw, ctx| async move { mw.next(ctx) })
+            }))
+            .with(mw(|mw, ctx| async move { mw.next(ctx) }))
             .query(|_, _: ()| {
                 info!("Client requested version");
                 Ok(env!("CARGO_PKG_VERSION"))
