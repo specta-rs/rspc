@@ -10,8 +10,11 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
-use rspc::{internal::middleware::mw, ExportConfig, Rspc};
-use serde::Serialize;
+use rspc::{
+    internal::middleware::{mw, mw_with_arg_mapper, ArgumentMapper},
+    ExportConfig, Rspc,
+};
+use serde::{de::DeserializeOwned, Serialize};
 use specta::Type;
 use tokio::{sync::broadcast, time::sleep};
 use tower_http::cors::{Any, CorsLayer};
@@ -34,6 +37,22 @@ pub enum MyCustomError {
     IAmBroke,
 }
 
+/// TODO
+pub enum Demo {}
+
+impl ArgumentMapper for Demo {
+    type State = ();
+    type Input<T> = T
+    where
+        T: DeserializeOwned + Type + 'static;
+
+    fn map<T: Serialize + DeserializeOwned + Type + 'static>(
+        arg: Self::Input<T>,
+    ) -> (T, Self::State) {
+        (arg, ())
+    }
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -49,6 +68,11 @@ async fn main() {
                 })
             }))
             .with(mw(|mw, ctx| async move { mw.next(ctx) }))
+            .with(mw_with_arg_mapper::<Demo, _, _>(|mw, ctx| async move {
+                let y = mw.state;
+
+                mw.next(ctx)
+            }))
             .query(|_, _: ()| {
                 info!("Client requested version");
                 Ok(env!("CARGO_PKG_VERSION"))

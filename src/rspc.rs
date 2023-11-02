@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::{
     internal::{
         middleware::{
-            ArgumentMapper, BaseMiddleware, ConstrainedMiddleware, Middleware2,
+            ArgumentMapper, BaseMiddleware, ConstrainedMiddleware, Middleware, Middleware2,
             MiddlewareLayerBuilder,
         },
         procedure::{resolvers, MissingResolver, Procedure},
@@ -59,33 +59,17 @@ where
         Procedure::new(MissingResolver::default(), BaseMiddleware::default())
     }
 
-    pub fn with<Mw: ConstrainedMiddleware<TCtx>, ArgMapper: ArgumentMapper>(
-        self,
-        mw: Middleware2<TCtx, Mw, ArgMapper>,
-    ) -> Procedure<
-        MissingResolver<TError>,
-        MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Middleware2<TCtx, Mw, ArgMapper>>,
-    > {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                middleware: BaseMiddleware::default(),
-                mw,
-            },
-        )
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TCtx>>(
+    pub fn with<Mw: crate::internal::middleware::Middleware<TCtx, A>, A: ArgumentMapper>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<Infallible>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw, A>>
     {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
                 middleware: BaseMiddleware::default(),
                 mw,
+                phantom: PhantomData,
             },
         )
     }

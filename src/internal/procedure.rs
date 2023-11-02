@@ -64,7 +64,7 @@ macro_rules! resolvers {
 
 pub(crate) use resolvers;
 
-use super::middleware::Middleware2;
+use super::middleware::{Middleware, Middleware2};
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
@@ -80,36 +80,19 @@ where
     }
 
     pub fn with<
-        Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>,
-        ArgMapper: ArgumentMapper + Send + Sync + 'static,
+        Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx, A>,
+        A: ArgumentMapper,
     >(
         self,
-        mw: Middleware2<TMiddleware::LayerCtx, Mw, ArgMapper>,
-    ) -> Procedure<
-        MissingResolver<TError>,
-        MiddlewareLayerBuilder<TMiddleware, Middleware2<TMiddleware::LayerCtx, Mw, ArgMapper>>,
-    > {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                // todo: enforce via typestate
-                middleware: self.mw,
-                mw,
-            },
-        )
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
-        self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
+    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw, A>> {
         Procedure::new(
             MissingResolver::default(),
             MiddlewareLayerBuilder {
                 // todo: enforce via typestate
                 middleware: self.mw,
                 mw,
+                phantom: PhantomData,
             },
         )
     }

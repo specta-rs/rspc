@@ -11,7 +11,7 @@ mod private {
     use serde_json::Value;
     use specta::{ts, TypeMap};
 
-    use crate::internal::middleware::Middleware;
+    use crate::internal::middleware::{ArgumentMapper, Middleware};
     use rspc_core::{
         error::ExecError,
         internal::{
@@ -21,20 +21,21 @@ mod private {
     };
 
     #[doc(hidden)]
-    pub struct MiddlewareLayer<TLayerCtx, TNextLayer, TNewMiddleware> {
+    pub struct MiddlewareLayer<TLayerCtx, TNextLayer, TNewMiddleware, A> {
         pub(crate) next: TNextLayer,
         pub(crate) mw: TNewMiddleware,
-        pub(crate) phantom: PhantomData<TLayerCtx>,
+        pub(crate) phantom: PhantomData<(TLayerCtx, A)>,
     }
 
-    impl<TLayerCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
-        for MiddlewareLayer<TLayerCtx, TNextMiddleware, TNewMiddleware>
+    impl<TLayerCtx, TNextMiddleware, TNewMiddleware, A> Layer<TLayerCtx>
+        for MiddlewareLayer<TLayerCtx, TNextMiddleware, TNewMiddleware, A>
     where
         TLayerCtx: Send + Sync + 'static,
         TNextMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-        TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
+        TNewMiddleware: Middleware<TLayerCtx, A> + Send + Sync + 'static,
+        A: ArgumentMapper,
     {
-        type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TNextMiddleware>;
+        type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TNextMiddleware, A>;
 
         fn into_procedure_def(
             &self,
@@ -50,7 +51,8 @@ mod private {
             input: Value,
             req: RequestContext,
         ) -> Result<Self::Stream<'_>, ExecError> {
-            let fut = self.mw.run_me(ctx, new_mw_ctx(input, req));
+            // let fut = self.mw.run_me(ctx, new_mw_ctx(input, req, ()));
+            let fut = todo!();
 
             Ok(MiddlewareLayerFuture::Resolve {
                 fut,
@@ -68,8 +70,9 @@ mod private {
         pub enum MiddlewareLayerFuture<
             'a,
             TLayerCtx: SendSyncStatic,
-            TMiddleware: Middleware<TLayerCtx>,
+            TMiddleware: Middleware<TLayerCtx, A>,
             TNextLayer: Layer<TMiddleware::NewCtx>,
+            A: ArgumentMapper
         > {
             // We are waiting for the current middleware to run and yield it's result.
             // Remember the middleware only runs once for an entire stream as it returns "instructions" on how to map the stream from then on.
@@ -110,9 +113,10 @@ mod private {
     impl<
             'a,
             TLayerCtx: Send + Sync + 'static,
-            TMiddleware: Middleware<TLayerCtx>,
+            TMiddleware: Middleware<TLayerCtx, A>,
             TNextLayer: Layer<TMiddleware::NewCtx>,
-        > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+            A: ArgumentMapper,
+        > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer, A>
     {
         fn poll_next(
             mut self: Pin<&mut Self>,

@@ -21,6 +21,7 @@ mod rspc;
 pub use crate::rspc::*;
 pub use router_builder::*;
 pub use rspc_core::internal::router::*;
+pub use rspc_core::internal::MiddlewareContext;
 
 pub mod internal;
 

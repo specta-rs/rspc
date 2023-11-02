@@ -4,17 +4,22 @@ use serde_json::Value;
 
 use super::{Executable2Placeholder, MwResultWithCtx};
 
-pub fn new_mw_ctx(input: serde_json::Value, req: RequestContext) -> MiddlewareContext {
-    MiddlewareContext { input, req }
+pub fn new_mw_ctx<S>(
+    input: serde_json::Value,
+    req: RequestContext,
+    state: S,
+) -> MiddlewareContext<S> {
+    MiddlewareContext { input, req, state }
 }
 
 #[non_exhaustive]
-pub struct MiddlewareContext {
+pub struct MiddlewareContext<S> {
     pub input: Value,
     pub req: RequestContext,
+    pub state: S,
 }
 
-impl MiddlewareContext {
+impl<S> MiddlewareContext<S> {
     #[cfg(feature = "tracing")]
     pub fn with_span(mut self, span: Option<tracing::Span>) -> Self {
         self.req.span = Some(span);
