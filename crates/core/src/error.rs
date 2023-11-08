@@ -126,18 +126,11 @@ impl From<ExecError> for ProcedureError {
                 cause: None,
             },
             ExecError::Resolver(err) => return err.into(),
-            // ExecError::ErrSubscriptionNotFound => Error {
-            //     code: ErrorCode::InternalServerError,
-            //     message: "error a procedure returned an empty stream".into(),
-            //     cause: None,
-            // },
-            // ExecError::ErrSubscriptionAlreadyClosed => Error {
-            //     code: ErrorCode::InternalServerError,
-            //     message: "error subscription was already closed".into(),
-            //     cause: None,
-            // },
-            // TODO: Sort out this panic
-            _ => todo!(),
+            ExecError::ErrSubscriptionNotFound => Error {
+                code: ErrorCode::InternalServerError,
+                message: "error a procedure returned an empty stream".into(),
+                cause: None,
+            },
         })
     }
 }
