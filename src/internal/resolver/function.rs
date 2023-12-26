@@ -2,7 +2,7 @@ use std::{borrow::Cow, marker::PhantomData};
 
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::{reference::Reference, ts, DataType, DefOpts, Type, TypeMap};
+use specta::{reference::Reference, ts, DataType, Type, TypeMap};
 
 use rspc_core::internal::{IntoResolverError, Layer, ProcedureDef, ProcedureKind, RequestContext};
 
@@ -93,11 +93,5 @@ mod private {
 pub(crate) use private::M;
 
 fn never() -> DataType {
-    std::convert::Infallible::inline(
-        DefOpts {
-            parent_inline: false,
-            type_map: &mut Default::default(),
-        },
-        &[],
-    )
+    std::convert::Infallible::inline(&mut Default::default(), &[])
 }
