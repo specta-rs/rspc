@@ -52,7 +52,7 @@ tokio = { version = "1.33.0", features = ["macros", "rt-multi-thread"] }
 tauri = { version = "1.5.2", features = ["api-all"] }
 
 [workspace]
-members = ["./crates/*", "./examples", "./examples/axum", "./examples/vercel", "./examples/tauri/src-tauri"]
+members = ["./crates/*", "./examples", "./examples/axum", "./examples/tauri/src-tauri"]
 
 [workspace.dependencies]
 specta = { version = "=2.0.0-rc.7", default-features = false, features = ["serde", "serde_json"] }
