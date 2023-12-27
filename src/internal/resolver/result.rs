@@ -23,10 +23,7 @@ pub(crate) use private::*;
 pub(crate) mod private {
     use pin_project_lite::pin_project;
 
-    use crate::{
-        body::Body,
-        error::{private::IntoResolverError, ExecError},
-    };
+    use crate::error::{private::IntoResolverError, ExecError};
 
     use super::*;
 
@@ -42,8 +39,10 @@ pub(crate) mod private {
             S: Stream<Item = Result<T, TErr>> + Send + 'static,
             T: Serialize + 'static,
             TErr: IntoResolverError,
-        > Body for StreamToBody<S>
+        > Stream for StreamToBody<S>
     {
+        type Item = Result<Value, ExecError>;
+
         fn poll_next(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,

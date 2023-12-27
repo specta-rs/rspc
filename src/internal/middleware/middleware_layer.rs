@@ -6,13 +6,12 @@ mod private {
         task::{ready, Context, Poll},
     };
 
-    use futures::Future;
+    use futures::{Future, Stream};
     use pin_project_lite::pin_project;
     use serde_json::Value;
     use specta::{ts, TypeMap};
 
     use crate::{
-        body::Body,
         error::ExecError,
         internal::middleware::Middleware,
         layer::Layer,
@@ -113,8 +112,10 @@ mod private {
             TLayerCtx: Send + Sync + 'static,
             TMiddleware: Middleware<TLayerCtx>,
             TNextLayer: Layer<TMiddleware::NewCtx>,
-        > Body for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
+        > Stream for MiddlewareLayerFuture<'a, TLayerCtx, TMiddleware, TNextLayer>
     {
+        type Item = Result<Value, ExecError>;
+
         fn poll_next(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,

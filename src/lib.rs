@@ -15,7 +15,6 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-pub mod body;
 pub mod error;
 mod export_config;
 mod internal2;

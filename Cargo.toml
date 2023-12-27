@@ -16,11 +16,6 @@ categories = ["web-programming", "asynchronous"]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[[test]]
-name = "tests"
-path = "tests/tauri/tauri_test.rs"
-harness = false
-
 [features]
 default = ["typescript"]
 typescript = ["specta/typescript"] # TODO: Remove this
@@ -37,9 +32,12 @@ thiserror = { workspace = true }
 futures = { version = "0.3.28", default-features = false, features = ["std", "async-await"] } # TODO: Drop for `futures_core` if possible
 pin-project-lite = "0.2.13"
 
-# Optional
-serde_json = { version = "1", default-features = false }
+
 tracing = { version = "0.1.40", default-features = false, optional = true }
+
+
+# TODO: Remove `serde_json`
+serde_json = { version = "1", default-features = false }
 
 [dev-dependencies]
 # Tests
@@ -50,6 +48,8 @@ tauri = { version = "1.5.2", features = ["api-all"] }
 [workspace]
 members = ["./crates/*", "./examples", "./examples/axum", "./examples/tauri/src-tauri"]
 
+
+# TODO: Probs remove this
 [workspace.dependencies]
 specta = { version = "=2.0.0-rc.7", default-features = false, features = ["serde", "serde_json"] }
 serde = { version = "1", default-features = false, features = ["derive"] }

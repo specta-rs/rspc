@@ -1,10 +1,8 @@
 use std::{
-    borrow::Cow,
     collections::BTreeMap,
     fmt,
     fs::{self, File},
     io::Write,
-    path::PathBuf,
     sync::Arc,
 };
 
@@ -12,7 +10,7 @@ use crate::{error::ExportError, export_config::ExportConfig};
 
 use rspc_core::Executor;
 use specta::{
-    ts::{self, FormatterFn},
+    ts::{self},
     TypeMap,
 };
 

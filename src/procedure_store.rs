@@ -2,10 +2,7 @@ use std::{borrow::Cow, convert::Infallible};
 
 use specta::{ts, DataType, DataTypeFrom, NamedDataType, StructType, Type, TypeMap};
 
-use crate::{
-    layer::{boxed, DynLayer, Layer},
-    middleware_from_core::ProcedureKind,
-};
+use crate::layer::DynLayer;
 
 /// @internal
 #[derive(DataTypeFrom)]
