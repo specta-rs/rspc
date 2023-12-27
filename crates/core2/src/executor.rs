@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, future::Future, pin::Pin};
+use std::{borrow::Cow, collections::HashMap, future::Future, pin::Pin, sync::Arc};
 
 use crate::{serializer::Serializer, Format, Task};
 
@@ -8,7 +8,7 @@ pub struct RequestContext<'a> {
     pub result: Serializer<'a>,
 }
 
-pub type Procedure = Box<dyn Fn(RequestContext) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>>;
+pub type Procedure = Arc<dyn Fn(RequestContext) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>>;
 
 #[derive(Default)]
 pub struct Executor {
@@ -36,7 +36,11 @@ impl Executor {
         self.procedures.len()
     }
 
-    pub async fn execute<F: Format>(name: &str) -> Task<F> {
-        todo!();
+    pub fn execute<F: Format>(&self, name: &str, format: Arc<F>) -> Task<F> {
+        let procedure = match self.procedures.get(name) {
+            Some(proc) => proc,
+            None => todo!(), // TODO: return Task::new(Procedure::not_found(name), format),
+        };
+        Task::new(procedure.clone(), format)
     }
 }
