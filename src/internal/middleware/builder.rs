@@ -1,8 +1,5 @@
 use std::marker::PhantomData;
 
-use serde::de::DeserializeOwned;
-use specta::Type;
-
 use crate::internal::middleware::Middleware;
 
 // TODO: Can this be made completely internal?
@@ -10,17 +7,13 @@ use crate::internal::middleware::Middleware;
 pub trait MiddlewareBuilder: private::SealedMiddlewareBuilder + Sync {}
 
 mod private {
-    use crate::{
-        internal::middleware::{ArgumentMapper, MiddlewareLayer},
-        layer::Layer,
-    };
+    use crate::{internal::middleware::MiddlewareLayer, layer::Layer};
 
     use super::*;
 
     pub trait SealedMiddlewareBuilder: Send + 'static {
         type Ctx: Send + Sync + 'static;
         type LayerCtx: Send + Sync + 'static;
-        type Arg<T: Type + DeserializeOwned + 'static>: Type + DeserializeOwned + 'static;
 
         type LayerResult<T>: Layer<Self::Ctx>
         where
@@ -49,8 +42,6 @@ mod private {
         type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, T, TNewMiddleware>>
         where
             T: Layer<Self::LayerCtx>;
-        type Arg<T: Type + DeserializeOwned + 'static> =
-            <TNewMiddleware::Mapper as ArgumentMapper>::Input<T>;
 
         fn build<T>(self, next: T) -> Self::LayerResult<T>
         where

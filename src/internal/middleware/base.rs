@@ -24,7 +24,6 @@ mod private {
         type LayerResult<T> = T
         where
             T: Layer<Self::LayerCtx>;
-        type Arg<T: Type + DeserializeOwned + 'static> = T;
 
         fn build<T>(self, next: T) -> Self::LayerResult<T>
         where

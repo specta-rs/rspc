@@ -53,7 +53,7 @@ macro_rules! resolvers {
         {
         	let $this = self;
 
-            let resolver = HasResolver::new(resolver, ProcedureKind::$kind, |type_map| <<$mw_ty as crate::internal::middleware::SealedMiddlewareBuilder>::Arg<TArg> as specta::Type>::reference(
+            let resolver = HasResolver::new(resolver, ProcedureKind::$kind, |type_map| <TArg as specta::Type>::reference(
                 type_map,
                 &[],
             ));
