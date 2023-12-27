@@ -15,6 +15,7 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+mod internal2;
 mod router_builder;
 mod rspc;
 

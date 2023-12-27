@@ -1,11 +1,16 @@
+use crate::TODOSerializer;
+
 pub struct Serializer<'a> {
-    serializer: &'a mut (dyn erased_serde::Serializer + Send),
+    serializer: &'a mut dyn TODOSerializer,
 }
 
-impl<'a> Serializer<'a> {}
+impl<'a> Serializer<'a> {
+    // TODO: Should this be `async` so we can yield and reset the serializer state for multiple values???
+    pub fn serialize<T: serde::Serialize>(self, value: &T) {
+        // TODO: Properly hook this up with Serde
 
-// TODO: How could this serialize bytes/files
+        self.serializer.serialize_str("Hello World");
+    }
 
-// pub struct BytesSerializer {}
-
-// pub struct ValueSerializer {}
+    // TODO: API for bytes
+}
