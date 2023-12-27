@@ -29,13 +29,39 @@ type OperationOpts = {
 };
 
 // TODO
-interface ClientArgs<P extends ProceduresDef> {
+export interface ClientArgs<P extends ProceduresDef> {
   links: Link<P>[];
   onError?: OnErrorHandler<P>;
+  root: Root<P>;
 }
 
-export function initRspc<P extends ProceduresDef>(args: ClientArgs<P>) {
-  return new AlphaClient<P>(args);
+export class Root<P extends ProceduresDef> {
+  public _rspc_def: P = undefined!;
+  parent?: Root<any>;
+  private _mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
+
+  createChild<P2 extends ProceduresDef>(args: {
+    mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
+  }) {
+    const root = new Root<P2>();
+    root.parent = this;
+
+    if (args.mapQueryKey) root._mapQueryKey = args.mapQueryKey;
+
+    return root;
+  }
+
+  mapQueryKey(keyAndInput: KeyAndInput): KeyAndInput {
+    const afterParentApplied =
+      this.parent?.mapQueryKey(keyAndInput) ?? keyAndInput;
+    return this._mapQueryKey?.(afterParentApplied!) ?? afterParentApplied;
+  }
+}
+
+export function createRSPCClient<P extends ProceduresDef>(
+  args: Omit<ClientArgs<P>, "root">
+) {
+  return new Client<P>({ ...args, root: new Root<P>() });
 }
 
 export type Result<TOk, TErr> =
@@ -46,11 +72,11 @@ type OnErrorHandler<P extends ProceduresDef> = (
   err: P[keyof ProceduresDef]["error"],
 ) => void | Promise<void>;
 
-export class AlphaClient<P extends ProceduresDef> {
+export class Client<P extends ProceduresDef> {
+  _root: Root<P>;
   public _rspc_def: ProceduresDef = undefined!;
-  private links: Link<P>[];
-  private onError?: OnErrorHandler<P>;
-  private mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput; // TODO: Do something so a single React.context can handle multiple of these
+  private links: Link<any>[];
+  private onError?: OnErrorHandler<any>;
 
   constructor(args: ClientArgs<P>) {
     if (args.links.length === 0) {
@@ -59,6 +85,7 @@ export class AlphaClient<P extends ProceduresDef> {
 
     this.links = args.links;
     this.onError = args.onError;
+    this._root = args.root;
   }
 
   query<K extends P["queries"]["key"] & string>(
@@ -68,9 +95,7 @@ export class AlphaClient<P extends ProceduresDef> {
     ],
     opts?: OperationOpts,
   ): Promise<Result<inferQueryResult<P, K>, inferQueryError<P, K>>> {
-    const keyAndInput2 = this.mapQueryKey
-      ? this.mapQueryKey(keyAndInput as any)
-      : keyAndInput;
+    const keyAndInput2 = this._root.mapQueryKey(keyAndInput as any);
 
     const result = exec<P>(
       {
@@ -103,9 +128,7 @@ export class AlphaClient<P extends ProceduresDef> {
     ],
     opts?: OperationOpts,
   ): Promise<Result<inferMutationResult<P, K>, inferMutationError<P, K>>> {
-    const keyAndInput2 = this.mapQueryKey
-      ? this.mapQueryKey(keyAndInput as any)
-      : keyAndInput;
+    const keyAndInput2 = this._root.mapQueryKey(keyAndInput as any);
 
     const result = exec<P>(
       {
@@ -137,9 +160,7 @@ export class AlphaClient<P extends ProceduresDef> {
       context?: OperationContext;
     },
   ): () => void {
-    const keyAndInput2 = this.mapQueryKey
-      ? this.mapQueryKey(keyAndInput as any)
-      : keyAndInput;
+    const keyAndInput2 = this._root.mapQueryKey(keyAndInput as any);
 
     const result = exec<P>(
       {
@@ -163,12 +184,21 @@ export class AlphaClient<P extends ProceduresDef> {
     return result.abort;
   }
 
-  // TODO: Remove this once middleware system is in place
-  dangerouslyHookIntoInternals<P2 extends ProceduresDef = P>(opts?: {
-    mapQueryKey?: (keyAndInput: KeyAndInput) => KeyAndInput;
-  }): AlphaClient<P2> {
-    this.mapQueryKey = opts?.mapQueryKey;
-    return this as any;
+  createChild<P2 extends ProceduresDef = P>(opts: {
+    root: Root<P2>;
+  }): Client<P2> {
+    if (opts.root.parent !== this._root)
+      throw new Error(
+        "Child clients must have a root that is a child of their parent's root"
+      );
+
+    const client = new Client<P2>({
+      root: opts.root,
+      links: this.links,
+      onError: this.onError,
+    });
+
+    return client;
   }
 }
 

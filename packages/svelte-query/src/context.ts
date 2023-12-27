@@ -1,4 +1,4 @@
-import { AlphaClient, ProceduresDef } from "@rspc/client";
+import { ProceduresDef } from "@rspc/client";
 import { getContext, setContext } from "svelte";
 import { Context } from "@rspc/query-core";
 
@@ -13,5 +13,5 @@ export const getRspcClientContext = <
 };
 
 /** Sets a Client on Svelte's context */
-export const setRspcClientContext = (client: AlphaClient<any>) =>
-  setContext(_contextKey, client);
+export const setRspcClientContext = (ctx: Context<any>) =>
+  setContext(_contextKey, ctx);

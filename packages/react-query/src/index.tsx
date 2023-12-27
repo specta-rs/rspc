@@ -1,10 +1,21 @@
 "use client";
 
+import { Root } from "@rspc/client";
 import * as tanstack from "@tanstack/react-query";
 import * as rspc from "@rspc/query-core";
 import React from "react";
 
-export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
+export function createRSPCReactQuery<P extends rspc.ProceduresDef>({
+  client,
+}: {
+  client: rspc.Client<P>;
+}) {
+  return createRawRSPCReactQuery({ root: client._root });
+}
+
+export function createRawRSPCReactQuery<P extends rspc.ProceduresDef>(_: {
+  root: Root<P>;
+}) {
   const Context = React.createContext<rspc.Context<P>>(undefined!);
 
   const helpers = rspc.createQueryHookHelpers({
@@ -31,12 +42,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
     ],
     opts?: UseQueryOptions<K>
   ) {
-    return tanstack.useQuery<
-      rspc.inferQueryResult<P, K>,
-      rspc.inferQueryError<P, K>,
-      rspc.inferQueryResult<P, K>,
-      [K, rspc.inferQueryInput<P, K>]
-    >(helpers.useQueryArgs(keyAndInput, opts));
+    return tanstack.useQuery(helpers.useQueryArgs(keyAndInput, opts));
   }
 
   type UseMutationOptions<
@@ -58,14 +64,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
     K extends rspc.inferMutations<P>["key"] & string,
     TContext = unknown
   >(key: K | [K], opts?: UseMutationOptions<K, TContext>) {
-    return tanstack.useMutation<
-      rspc.inferMutationResult<P, K>,
-      rspc.inferMutationError<P, K>,
-      rspc.inferMutationInput<P, K> extends never
-        ? undefined
-        : rspc.inferMutationInput<P, K>,
-      TContext
-    >(helpers.useMutationArgs(key, opts));
+    return tanstack.useMutation(helpers.useMutationArgs(key, opts));
   }
 
   function useSubscription<
@@ -138,9 +137,7 @@ export function createReactQueryHooks<P extends rspc.ProceduresDef>() {
           queryClient,
         }}
       >
-        <tanstack.QueryClientProvider client={queryClient}>
-          {children}
-        </tanstack.QueryClientProvider>
+        {children}
       </Context.Provider>
     ),
     useContext: helpers.useContext,

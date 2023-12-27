@@ -1,8 +1,8 @@
 /** @jsxImportSource solid-js */
 
-import { initRspc, httpLink, wsLink } from "@rspc/client";
+import { createRSPCClient, httpLink, wsLink } from "@rspc/client";
 import { tauriLink } from "@rspc/tauri";
-import { createSolidQueryHooks } from "@rspc/solid-query";
+import { createRSPCSolidQuery } from "@rspc/solid-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
 import { createSignal } from "solid-js";
 
@@ -10,7 +10,7 @@ import { createSignal } from "solid-js";
 import type { Procedures } from "../../../../bindings";
 
 const fetchQueryClient = new QueryClient();
-const fetchClient = initRspc<Procedures>({
+const fetchClient = createRSPCClient<Procedures>({
   links: [
     // loggerLink(),
 
@@ -37,7 +37,7 @@ const fetchClient = initRspc<Procedures>({
 });
 
 const wsQueryClient = new QueryClient();
-const wsClient = initRspc<Procedures>({
+const wsClient = createRSPCClient<Procedures>({
   links: [
     // loggerLink(),
 
@@ -48,7 +48,7 @@ const wsClient = initRspc<Procedures>({
 });
 
 const tauriQueryClient = new QueryClient();
-const tauriClient = initRspc<Procedures>({
+const tauriClient = createRSPCClient<Procedures>({
   links: [
     // loggerLink(),
 
@@ -58,7 +58,7 @@ const tauriClient = initRspc<Procedures>({
 
 // TODO: Allowing one of these to be used for multiple clients! -> Issue is with key mapper thing
 // TODO: Right now we are abusing it not working so plz don't do use one of these with multiple clients in your own apps.
-export const rspc = createSolidQueryHooks<Procedures>();
+export const rspc = createRSPCSolidQuery({ client: fetchClient });
 
 function Example({ name }: { name: string }) {
   const [rerenderProp, setRendererProp] = createSignal(Date.now().toString());

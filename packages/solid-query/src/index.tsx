@@ -1,8 +1,20 @@
+/** @jsxImportSource solid-js */
+
 import * as Solid from "solid-js";
 import * as tanstack from "@tanstack/solid-query";
 import * as rspc from "@rspc/query-core";
 
-export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
+export function createRSPCSolidQuery<P extends rspc.ProceduresDef>({
+  client,
+}: {
+  client: rspc.Client<P>;
+}) {
+  return createRawRSPCSolidQuery({ root: client._root });
+}
+
+export function createRawRSPCSolidQuery<P extends rspc.ProceduresDef>(_: {
+  root: rspc.Root<P>;
+}) {
   const Context = Solid.createContext<rspc.Context<P> | null>(null);
 
   const helpers = rspc.createQueryHookHelpers({
@@ -29,7 +41,9 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
     ],
     opts?: CreateQueryOptions<K>
   ) {
-    return tanstack.createQuery(() => helpers.useQueryArgs(keyAndInput, opts));
+    return tanstack.createQuery(() =>
+      helpers.useQueryArgs(keyAndInput(), opts)
+    );
   }
 
   type CreateMutationOptions<
@@ -37,7 +51,7 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
     TContext
   > = rspc.HookOptions<
     P,
-    tanstack.CreateMutationOptions<
+    tanstack.SolidMutationOptions<
       rspc.inferMutationResult<P, K>,
       rspc.inferMutationError<P, K>,
       rspc.inferMutationInput<P, K> extends never
@@ -132,9 +146,7 @@ export function createSolidQueryHooks<P extends rspc.ProceduresDef>() {
           queryClient: props.queryClient,
         }}
       >
-        <tanstack.QueryClientProvider client={props.queryClient}>
-          {props.children}
-        </tanstack.QueryClientProvider>
+        {props.children}
       </Context.Provider>
     ),
     useContext: helpers.useContext,
