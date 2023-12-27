@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use rspc_core2::{Format, TODOSerializer};
+use rspc_core::{Format, TODOSerializer};
 use serde_json::Value;
 
 pub(crate) struct SerdeJsonFormat {}

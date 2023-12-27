@@ -1,7 +1,7 @@
 use std::{pin::Pin, sync::Arc};
 
 use futures::StreamExt;
-use rspc_core2::{Executor, Format, Procedure, TODOSerializer};
+use rspc_core::{Executor, Format, Procedure, TODOSerializer};
 use serde_json::Value;
 
 #[tokio::test]

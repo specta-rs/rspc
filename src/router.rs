@@ -10,7 +10,7 @@ use std::{
 
 use crate::{error::ExportError, export_config::ExportConfig};
 
-use rspc_core2::Executor;
+use rspc_core::Executor;
 use specta::{
     ts::{self, FormatterFn},
     TypeMap,
@@ -145,11 +145,11 @@ where
     }
 }
 
-impl<TCtx> rspc_core2::internal::SealedRouter for Router<TCtx> {}
-impl<TCtx> rspc_core2::Router for Router<TCtx> {
+impl<TCtx> rspc_core::internal::SealedRouter for Router<TCtx> {}
+impl<TCtx> rspc_core::Router for Router<TCtx> {
     type Ctx = TCtx;
 
-    fn build(self) -> rspc_core2::Executor {
+    fn build(self) -> rspc_core::Executor {
         let mut executor = Executor::new();
 
         for (name, procedure) in self.queries {
