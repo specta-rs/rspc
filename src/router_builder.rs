@@ -2,13 +2,13 @@ use std::{borrow::Cow, panic::Location};
 
 use crate::{
     internal::{
-        middleware::MiddlewareBuilder, procedure::Procedure, procedure_store::is_valid_name,
-        resolver::HasResolver,
+        build::build, middleware::MiddlewareBuilder, procedure::Procedure,
+        procedure_store::is_valid_name, resolver::HasResolver,
     },
-    Router,
+    layer::Layer,
+    router::Router,
+    router_builder2::{edit_build_error_name, new_build_error, BuildError, BuildResult},
 };
-
-use rspc_core::internal::{edit_build_error_name, new_build_error, BuildError, BuildResult, Layer};
 
 type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
 
@@ -59,9 +59,7 @@ where
 
         self.procedures.push((
             Cow::Borrowed(key),
-            Box::new(move |key, ctx| {
-                rspc_core::internal::build(key, ctx, kind, mw.build(resolver))
-            }),
+            Box::new(move |key, ctx| build(key, ctx, kind, mw.build(resolver))),
         ));
 
         self
@@ -116,21 +114,4 @@ where
 
         BuildResult::Ok(router)
     }
-
-    // pub fn build2(self, ctx_fn: impl Fn() -> TCtx) -> () {
-    //     if !self.errors.is_empty() {
-    //         // return BuildResult::Err(self.errors);
-    //         todo!();
-    //     }
-
-    //     let mut router = Router::default();
-    //     for (key, build_fn) in self.procedures.into_iter() {
-    //         // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
-    //         (build_fn)(key, &mut router);
-    //     }
-
-    //     // router.
-
-    //     todo!();
-    // }
 }

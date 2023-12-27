@@ -8,50 +8,22 @@ use std::{
     sync::Arc,
 };
 
+use crate::{error::ExportError, export_config::ExportConfig};
+
+use rspc_core2::Executor;
 use specta::{
     ts::{self, FormatterFn},
     TypeMap,
 };
 
-use crate::{error::ExportError, procedure_store::ProceduresDef, router_builder::ProcedureMap};
-
-// TODO: Break this out into it's own file
-/// ExportConfig is used to configure how rspc will export your types.
-pub struct ExportConfig {
-    export_path: PathBuf,
-    header: Cow<'static, str>,
-    formatter: Option<FormatterFn>,
-}
-
-impl ExportConfig {
-    pub fn new(export_path: impl Into<PathBuf>) -> ExportConfig {
-        ExportConfig {
-            export_path: export_path.into(),
-            header: Cow::Borrowed(""),
-            formatter: None,
-        }
-    }
-
-    pub fn header(self, header: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            header: header.into(),
-            ..self
-        }
-    }
-
-    pub fn formatter(self, formatter: FormatterFn) -> Self {
-        Self {
-            formatter: Some(formatter),
-            ..self
-        }
-    }
-}
+use crate::router_builder2::ProcedureMap;
 
 /// Router is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
 pub struct Router<TCtx = ()> {
+    // TODO: Single map
     pub(crate) queries: ProcedureMap<TCtx>,
-    pub(crate) mutations: ProcedureMap<TCtx>,
-    pub(crate) subscriptions: ProcedureMap<TCtx>,
+    // pub(crate) mutations: ProcedureMap<TCtx>,
+    // pub(crate) subscriptions: ProcedureMap<TCtx>,
     pub(crate) typ_store: TypeMap,
 }
 
@@ -66,8 +38,8 @@ impl<TCtx> Default for Router<TCtx> {
     fn default() -> Self {
         Self {
             queries: Default::default(),
-            mutations: Default::default(),
-            subscriptions: Default::default(),
+            // mutations: Default::default(),
+            // subscriptions: Default::default(),
             typ_store: Default::default(),
         }
     }
@@ -82,18 +54,8 @@ where
         Arc::new(self)
     }
 
-    #[cfg(feature = "unstable")]
-    pub fn typ_store(&self) -> TypeMap {
-        self.typ_store.clone()
-    }
-
-    #[cfg(not(feature = "unstable"))]
-    pub(crate) fn typ_store(&self) -> TypeMap {
-        self.typ_store.clone()
-    }
-
     #[allow(clippy::panic_in_result_fn)] // TODO: Error handling given we return `Result`
-    #[cfg(feature = "typescript")]
+                                         // #[cfg(feature = "typescript")]
     pub fn export_ts(&self, cfg: ExportConfig) -> Result<(), ExportError> {
         if let Some(export_dir) = cfg.export_path.parent() {
             fs::create_dir_all(export_dir)?;
@@ -111,20 +73,21 @@ where
         );
 
         // TODO: Specta API + `ExportConfig` option for a formatter
-        writeln!(
-            file,
-            "{}",
-            ts::export_named_datatype(
-                &config,
-                &ProceduresDef::new(
-                    self.queries.values(),
-                    self.mutations.values(),
-                    self.subscriptions.values()
-                )
-                .to_named(),
-                &self.typ_store()
-            )?
-        )?;
+        todo!();
+        // writeln!(
+        //     file,
+        //     "{}",
+        //     ts::export_named_datatype(
+        //         &config,
+        //         &ProceduresDef::new(
+        //             self.queries.values(),
+        //             self.mutations.values(),
+        //             self.subscriptions.values()
+        //         )
+        //         .to_named(),
+        //         &self.typ_store()
+        //     )?
+        // )?;
 
         // We sort by name to detect duplicate types BUT also to ensure the output is deterministic. The SID can change between builds so is not suitable for this.
         let types = self.typ_store.clone();
@@ -182,32 +145,26 @@ where
     }
 }
 
-#[cfg(feature = "unstable")]
-mod unstable {
-    use std::collections::BTreeMap;
-
-    use crate::internal::ProcedureTodo;
-
-    // TODO: Plz try and get rid of these. They are escape hatches for Spacedrive's invalidation system that is dearly in need of a makeover.
-    impl<TCtx> super::Router<TCtx> {
-        pub fn queries(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-            &self.queries
-        }
-
-        pub fn mutations(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-            &self.mutations
-        }
-
-        pub fn subscriptions(&self) -> &BTreeMap<String, ProcedureTodo<TCtx>> {
-            &self.subscriptions
-        }
-    }
-}
-
+impl<TCtx> rspc_core2::internal::SealedRouter for Router<TCtx> {}
 impl<TCtx> rspc_core2::Router for Router<TCtx> {
     type Ctx = TCtx;
 
     fn build(self) -> rspc_core2::Executor {
-        todo!()
+        let mut executor = Executor::new();
+
+        for (name, procedure) in self.queries {
+            executor.insert(
+                name.into(),
+                Arc::new(|ctx| {
+                    Box::pin(async move {
+                        ctx.result.serialize(&"Hello World");
+                    })
+                }),
+            );
+        }
+
+        // TODO: `mutations` and `subscriptions`
+
+        executor
     }
 }

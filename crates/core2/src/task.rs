@@ -10,7 +10,7 @@ use std::{
 
 use futures_core::{FusedStream, Stream};
 
-use crate::{executor::RequestContext, Format, Procedure, Serializer, TODOSerializer};
+use crate::{executor::RequestContext, Format, Procedure, Serializer};
 
 /// TODO
 pub struct Task<F: Format> {

@@ -1,7 +1,6 @@
-use crate::Executor;
+use crate::{internal, Executor};
 
-// TODO: Seal this
-pub trait Router {
+pub trait Router: internal::SealedRouter {
     type Ctx;
 
     fn build(self) -> Executor;

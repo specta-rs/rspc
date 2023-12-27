@@ -1,3 +1,5 @@
+use std::pin::Pin;
+
 use rspc_core2::{Format, TODOSerializer};
 use serde_json::Value;
 
@@ -8,14 +10,20 @@ impl Format for SerdeJsonFormat {
     type Serializer = SerdeJsonSerializer;
 
     fn serializer(&self) -> Self::Serializer {
-        todo!()
+        SerdeJsonSerializer(None)
+    }
+
+    // TODO: Finish this method
+    fn into_result(ser: &mut Self::Serializer) -> Option<Self::Result> {
+        println!("{:?}", ser.0);
+        ser.0.take()
     }
 }
 
 pub(crate) struct SerdeJsonSerializer(Option<Value>);
 
 impl TODOSerializer for SerdeJsonSerializer {
-    fn serialize_str(&mut self, s: &str) {
+    fn serialize_str(mut self: Pin<&mut Self>, s: &str) {
         self.0 = Some(Value::String(s.into()));
     }
 }

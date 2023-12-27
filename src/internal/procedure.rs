@@ -1,10 +1,13 @@
 use std::marker::PhantomData;
 
-use crate::internal::{
-    middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
-    resolver::{HasResolver, QueryOrMutation, Subscription},
+use crate::{
+    internal::{
+        middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
+        resolver::{HasResolver, QueryOrMutation, Subscription},
+    },
+    layer::Layer,
+    middleware_from_core::ProcedureKind,
 };
-use rspc_core::internal::{Layer, ProcedureKind};
 
 /// TODO: Explain
 pub struct MissingResolver<TError>(PhantomData<TError>);

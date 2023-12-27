@@ -3,7 +3,10 @@ use serde_json::Value;
 use specta::{ts, TypeMap};
 use std::borrow::Cow;
 
-use crate::{body::Body, error::ExecError, internal::ProcedureDef, middleware::RequestContext};
+use crate::{
+    body::Body, error::ExecError, middleware_from_core::RequestContext,
+    procedure_store::ProcedureDef,
+};
 
 // TODO: Remove `SealedLayer`
 

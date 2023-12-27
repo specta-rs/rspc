@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, panic::Location};
 
 use thiserror::Error;
 
-use crate::{internal::ProcedureTodo, router::Router};
+use crate::{procedure_store::ProcedureTodo, Router};
 
 // TODO: Move into `procedure_store` module???
 pub type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
@@ -10,6 +10,16 @@ pub type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
 pub struct BuildError {
+    pub(crate) cause: BuildErrorCause,
+    #[cfg(debug_assertions)]
+    pub(crate) name: Cow<'static, str>,
+    #[cfg(debug_assertions)]
+    pub(crate) loc: &'static Location<'static>,
+}
+
+/// TODO
+#[derive(Debug, PartialEq, Eq)]
+pub struct BuildResultBuildError {
     pub(crate) cause: BuildErrorCause,
     #[cfg(debug_assertions)]
     pub(crate) name: Cow<'static, str>,

@@ -4,8 +4,7 @@ use specta::{ts, DataType, DataTypeFrom, NamedDataType, StructType, Type, TypeMa
 
 use crate::{
     layer::{boxed, DynLayer, Layer},
-    middleware::ProcedureKind,
-    router::Router,
+    middleware_from_core::ProcedureKind,
 };
 
 /// @internal
@@ -83,8 +82,9 @@ impl ProcedureDef {
 
 // TODO: Rename this
 pub struct ProcedureTodo<TCtx> {
-    pub(crate) exec: Box<dyn DynLayer<TCtx>>,
-    pub(crate) ty: ProcedureDef,
+    // TODO: Back to `pub(crate)`
+    pub exec: Box<dyn DynLayer<TCtx>>,
+    pub ty: ProcedureDef,
 }
 
 impl<TCtx> ProcedureTodo<TCtx> {
@@ -95,42 +95,42 @@ impl<TCtx> ProcedureTodo<TCtx> {
 }
 
 // TODO: Using track caller style thing for the panics in this function
-pub fn build<TCtx>(
-    key: Cow<'static, str>,
-    ctx: &mut Router<TCtx>,
-    kind: ProcedureKind,
-    layer: impl Layer<TCtx> + 'static,
-) where
-    TCtx: Send + 'static,
-{
-    let (map, type_name) = match kind {
-        ProcedureKind::Query => (&mut ctx.queries, "query"),
-        ProcedureKind::Mutation => (&mut ctx.mutations, "mutation"),
-        ProcedureKind::Subscription => (&mut ctx.subscriptions, "subscription"),
-    };
+// pub fn build<TCtx>(
+//     key: Cow<'static, str>,
+//     ctx: &mut Router2<TCtx>,
+//     kind: ProcedureKind,
+//     layer: impl Layer<TCtx> + 'static,
+// ) where
+//     TCtx: Send + 'static,
+// {
+//     let (map, type_name) = match kind {
+//         ProcedureKind::Query => (&mut ctx.queries, "query"),
+//         ProcedureKind::Mutation => (&mut ctx.mutations, "mutation"),
+//         ProcedureKind::Subscription => (&mut ctx.subscriptions, "subscription"),
+//     };
 
-    let key_org = key;
-    let key = key_org.to_string();
-    let type_def = layer
-        .into_procedure_def(key_org, &mut ctx.typ_store)
-        .expect("error exporting types");
+//     let key_org = key;
+//     let key = key_org.to_string();
+//     let type_def = layer
+//         .into_procedure_def(key_org, &mut ctx.typ_store)
+//         .expect("error exporting types");
 
-    // TODO: Cleanup this logic and do better router merging
-    #[allow(clippy::panic)]
-    if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
-        panic!("rspc error: attempted to create {type_name} operation named '{key}', however this name is not allowed.");
-    }
+//     // TODO: Cleanup this logic and do better router merging
+//     #[allow(clippy::panic)]
+//     if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
+//         panic!("rspc error: attempted to create {type_name} operation named '{key}', however this name is not allowed.");
+//     }
 
-    #[allow(clippy::panic)]
-    if map.contains_key(&key) {
-        panic!("rspc error: {type_name} operation already has resolver with name '{key}'");
-    }
+//     #[allow(clippy::panic)]
+//     if map.contains_key(&key) {
+//         panic!("rspc error: {type_name} operation already has resolver with name '{key}'");
+//     }
 
-    map.insert(
-        key,
-        ProcedureTodo {
-            exec: boxed(layer),
-            ty: type_def,
-        },
-    );
-}
+//     map.insert(
+//         key,
+//         ProcedureTodo {
+//             exec: boxed(layer),
+//             ty: type_def,
+//         },
+//     );
+// }

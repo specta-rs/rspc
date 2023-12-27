@@ -14,6 +14,7 @@ use crate::error::ExecError;
 /// For a subscription each frame is a discrete websocket message. Eg. the json for a single procedure's result
 ///
 #[must_use = "`Body` do nothing unless polled"]
+#[deprecated]
 pub trait Body {
     // TODO: Return `bytes::Bytes` instead
     fn poll_next(
