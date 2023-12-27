@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use async_stream::stream;
-use rspc::{ErrorCode, RouterBuilder};
+use rspc::RouterBuilder;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;

@@ -5,7 +5,6 @@
 // TODO: This is basically required for queueing an rspc subscription onto it's own task which with Tokio requires `'static`.
 // TODO: This whole thing is really similar to the `owning_ref` crate but I want to erase the `T` from `Arc<T>` which is done through the `drop` function pointer.
 use std::{
-    convert::Infallible,
     mem::size_of,
     ops::{Deref, DerefMut},
     pin::Pin,

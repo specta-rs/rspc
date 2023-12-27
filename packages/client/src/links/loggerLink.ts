@@ -14,7 +14,7 @@ export type LoggerLinkOpts = {
  *
  */
 export function loggerLink<P extends ProceduresDef>(
-  opts?: LoggerLinkOpts
+  opts?: LoggerLinkOpts,
 ): Link<P> {
   const { enabled = true } = opts ?? {};
   const isEnabled = () => (typeof enabled === "function" ? enabled() : enabled);
@@ -36,7 +36,7 @@ export function loggerLink<P extends ProceduresDef>(
           (err) => {
             if (isEnabled()) console.error("RESPONSE ERROR", op, err);
             reject(err);
-          }
+          },
         );
       },
       abort: () => {

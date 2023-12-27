@@ -69,7 +69,7 @@ export type Result<TOk, TErr> =
   | { status: "error"; error: TErr };
 
 type OnErrorHandler<P extends ProceduresDef> = (
-  err: P[keyof ProceduresDef]["error"]
+  err: P[keyof ProceduresDef]["error"],
 ) => void | Promise<void>;
 
 export class Client<P extends ProceduresDef> {
@@ -91,9 +91,9 @@ export class Client<P extends ProceduresDef> {
   query<K extends P["queries"]["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<P, "queries", K>
+      ...input: _inferProcedureHandlerInput<P, "queries", K>,
     ],
-    opts?: OperationOpts
+    opts?: OperationOpts,
   ): Promise<Result<inferQueryResult<P, K>, inferQueryError<P, K>>> {
     const keyAndInput2 = this._root.mapQueryKey(keyAndInput as any);
 
@@ -104,7 +104,7 @@ export class Client<P extends ProceduresDef> {
         path: keyAndInput2[0],
         context: opts?.context || {},
       },
-      this.links
+      this.links,
     );
 
     opts?.signal?.addEventListener("abort", result.abort);
@@ -116,7 +116,7 @@ export class Client<P extends ProceduresDef> {
           this.onError?.(error);
 
           res({ status: "error", error });
-        }
+        },
       );
     });
   }
@@ -124,9 +124,9 @@ export class Client<P extends ProceduresDef> {
   mutation<K extends P["mutations"]["key"] & string>(
     keyAndInput: [
       key: K,
-      ...input: _inferProcedureHandlerInput<P, "mutations", K>
+      ...input: _inferProcedureHandlerInput<P, "mutations", K>,
     ],
-    opts?: OperationOpts
+    opts?: OperationOpts,
   ): Promise<Result<inferMutationResult<P, K>, inferMutationError<P, K>>> {
     const keyAndInput2 = this._root.mapQueryKey(keyAndInput as any);
 
@@ -137,7 +137,7 @@ export class Client<P extends ProceduresDef> {
         path: keyAndInput2[0],
         context: opts?.context || {},
       },
-      this.links
+      this.links,
     );
     opts?.signal?.addEventListener("abort", result.abort);
 
@@ -148,7 +148,7 @@ export class Client<P extends ProceduresDef> {
           this.onError?.(error);
 
           res({ status: "error", error });
-        }
+        },
       );
     });
   }
@@ -158,7 +158,7 @@ export class Client<P extends ProceduresDef> {
     keyAndInput: [K, ..._inferProcedureHandlerInput<P, "subscriptions", K>],
     opts: SubscriptionOptions<inferSubscription<P, K>> & {
       context?: OperationContext;
-    }
+    },
   ): () => void {
     const keyAndInput2 = this._root.mapQueryKey(keyAndInput as any);
 
@@ -169,7 +169,7 @@ export class Client<P extends ProceduresDef> {
         path: keyAndInput2[0],
         context: opts?.context || {},
       },
-      this.links
+      this.links,
     );
 
     result.exec(
@@ -178,7 +178,7 @@ export class Client<P extends ProceduresDef> {
         this.onError?.(error);
 
         opts?.onError?.(error);
-      }
+      },
     );
 
     return result.abort;
@@ -208,7 +208,7 @@ function exec<P extends ProceduresDef>(op: Operation, links: Link<P>[]) {
   let prevLinkResult: LinkResult<P> = {
     exec: () => {
       throw new Error(
-        "rspc: no terminating link was attached! Did you forget to add a 'httpLink' or 'wsLink' link?"
+        "rspc: no terminating link was attached! Did you forget to add a 'httpLink' or 'wsLink' link?",
       );
     },
     abort: () => {},

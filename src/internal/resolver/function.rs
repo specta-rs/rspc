@@ -2,7 +2,7 @@ use std::{borrow::Cow, marker::PhantomData};
 
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::{ts, Type, TypeMap};
+use specta::{reference::Reference, ts, DataType, DefOpts, Type, TypeMap};
 
 use rspc_core::internal::{IntoResolverError, Layer, ProcedureDef, ProcedureKind, RequestContext};
 
@@ -14,10 +14,13 @@ use crate::{
 pub struct QueryOrMutation<M>(PhantomData<M>);
 pub struct Subscription<M>(PhantomData<M>);
 
+type ArgTy = fn(&mut TypeMap) -> Reference;
+
 // TODO: Rename `Resolver`?
 pub struct HasResolver<F, TErr, TResultMarker, M> {
     pub(crate) resolver: F,
     pub(crate) kind: ProcedureKind,
+    pub(crate) arg_ty: ArgTy,
     phantom: PhantomData<fn() -> (TErr, TResultMarker, M)>,
 }
 
@@ -25,10 +28,11 @@ mod private {
     use super::*;
 
     impl<F, TErr, TResultMarker, M> HasResolver<F, TErr, TResultMarker, M> {
-        pub(crate) fn new(resolver: F, kind: ProcedureKind) -> Self {
+        pub(crate) fn new(resolver: F, kind: ProcedureKind, arg_ty: ArgTy) -> Self {
             Self {
                 resolver,
                 kind,
+                arg_ty,
                 phantom: PhantomData,
             }
         }
@@ -53,7 +57,14 @@ mod private {
             key: Cow<'static, str>,
             ty_store: &mut TypeMap,
         ) -> Result<ProcedureDef, ts::ExportError> {
-            ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)
+            let mut result =
+                ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)?;
+            // TODO: Bruh this is soooo bad
+            result.input = match (self.arg_ty)(ty_store).inner {
+                DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
+                t => t,
+            };
+            Ok(result)
         }
 
         fn call(
@@ -77,4 +88,16 @@ mod private {
             })
         }
     }
+}
+
+pub(crate) use private::M;
+
+fn never() -> DataType {
+    std::convert::Infallible::inline(
+        DefOpts {
+            parent_inline: false,
+            type_map: &mut Default::default(),
+        },
+        &[],
+    )
 }

@@ -21,6 +21,7 @@ impl Body for Box<dyn Body + Send + '_> {
 
         // SAFETY: This is the same implementation as std::pin::pin!().
         // We're not using it as it uses a block rather than &mut-ing the inner value directly.
+        #[allow(unsafe_code)]
         let inner = unsafe { Pin::new_unchecked(inner) };
 
         inner.poll_next(cx)

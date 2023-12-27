@@ -1,10 +1,10 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crate::internal::{
-    middleware::{ConstrainedMiddleware, MiddlewareBuilder, MiddlewareLayerBuilder},
+    middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
     resolver::{HasResolver, QueryOrMutation, Subscription},
 };
-use rspc_core::internal::{router::Router, Layer, ProcedureKind};
+use rspc_core::internal::{Layer, ProcedureKind};
 
 /// TODO: Explain
 pub struct MissingResolver<TError>(PhantomData<TError>);
@@ -37,18 +37,26 @@ macro_rules! resolvers {
         resolvers!(impl; $this, $ctx, $mw_ty, $mw, subscription, Subscription, Subscription);
     };
     (impl; $this:tt, $ctx:ty, $mw_ty:ty, $mw:expr, $fn_name:ident, $marker:ident, $kind:ident) => {
-        pub fn $fn_name<TResolver, TResultMarker, TArgMarker>(
+        pub fn $fn_name<TResolver, TResultMarker, TArg>(
             self,
             resolver: TResolver,
         ) -> Procedure<
-            HasResolver<TResolver, TError, $marker<TResultMarker>, TArgMarker>,
+            HasResolver<TResolver, TError, $marker<TResultMarker>, crate::internal::resolver::M<TArg>>,
             $mw_ty,
         >
         where
-            HasResolver<TResolver, TError, $marker<TResultMarker>, TArgMarker>: Layer<$ctx>,
+            HasResolver<TResolver, TError, $marker<TResultMarker>, crate::internal::resolver::M<TArg>>: Layer<$ctx>,
+            TArg: serde::de::DeserializeOwned + specta::Type,
         {
         	let $this = self;
-            let resolver = HasResolver::new(resolver, ProcedureKind::$kind);
+
+            let resolver = HasResolver::new(resolver, ProcedureKind::$kind, |type_map| <<$mw_ty as crate::internal::middleware::SealedMiddlewareBuilder>::Arg<TArg> as specta::Type>::reference(
+                specta::DefOpts {
+                    parent_inline: false,
+                    type_map,
+                },
+                &[],
+            ));
 
             // TODO: Make this work
             // // Trade runtime performance for reduced monomorphization
@@ -61,6 +69,8 @@ macro_rules! resolvers {
 }
 
 pub(crate) use resolvers;
+
+use super::middleware::Middleware;
 
 // Can only set the resolver or add middleware until a resolver has been set.
 // Eg. `.query().subscription()` makes no sense.
@@ -75,22 +85,7 @@ where
         }
     }
 
-    pub fn with<Mw: ConstrainedMiddleware<TMiddleware::LayerCtx>>(
-        self,
-        mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                // todo: enforce via typestate
-                middleware: self.mw,
-                mw,
-            },
-        )
-    }
-
-    #[cfg(feature = "unstable")]
-    pub fn with2<Mw: crate::internal::middleware::Middleware<TMiddleware::LayerCtx>>(
+    pub fn with<Mw: Middleware<TMiddleware::LayerCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<TMiddleware, Mw>> {
