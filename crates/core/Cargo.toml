@@ -11,6 +11,8 @@ tracing = ["dep:tracing"]
 unstable = []
 
 [dependencies]
+rspc-core2 = { path = "../core2" }
+
 specta = { workspace = true, features = ["typescript"] }                                      # TODO: `typescript` should be required
 serde = { workspace = true }
 thiserror = { workspace = true }

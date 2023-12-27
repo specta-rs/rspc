@@ -116,4 +116,21 @@ where
 
         BuildResult::Ok(router)
     }
+
+    // pub fn build2(self, ctx_fn: impl Fn() -> TCtx) -> () {
+    //     if !self.errors.is_empty() {
+    //         // return BuildResult::Err(self.errors);
+    //         todo!();
+    //     }
+
+    //     let mut router = Router::default();
+    //     for (key, build_fn) in self.procedures.into_iter() {
+    //         // TODO: Pass in the `key` here with the router merging prefixes already applied so it's the final runtime key
+    //         (build_fn)(key, &mut router);
+    //     }
+
+    //     // router.
+
+    //     todo!();
+    // }
 }

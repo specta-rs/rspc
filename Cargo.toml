@@ -30,6 +30,7 @@ unstable = ["rspc-core/unstable"] # APIs where one line of code can blow up your
 
 [dependencies]
 rspc-core = { path = "./crates/core" }
+rspc-core2 = { path = "./crates/core2" }
 specta = { workspace = true }
 
 serde = { workspace = true }

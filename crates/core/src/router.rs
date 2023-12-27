@@ -203,3 +203,11 @@ mod unstable {
         }
     }
 }
+
+impl<TCtx> rspc_core2::Router for Router<TCtx> {
+    type Ctx = TCtx;
+
+    fn build(self) -> rspc_core2::Executor {
+        todo!()
+    }
+}

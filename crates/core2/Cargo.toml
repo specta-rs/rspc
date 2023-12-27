@@ -1,0 +1,12 @@
+[package]
+name = "rspc-core2"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+futures-core = "0.3"
+erased-serde = "0.4.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
