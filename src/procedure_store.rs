@@ -84,13 +84,6 @@ pub struct ProcedureTodo<TCtx> {
     pub ty: ProcedureDef,
 }
 
-impl<TCtx> ProcedureTodo<TCtx> {
-    #[cfg(feature = "unstable")]
-    pub fn ty(&self) -> &ProcedureDef {
-        &self.ty
-    }
-}
-
 // TODO: Using track caller style thing for the panics in this function
 // pub fn build<TCtx>(
 //     key: Cow<'static, str>,

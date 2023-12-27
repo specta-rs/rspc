@@ -17,11 +17,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["typescript"]
-typescript = ["specta/typescript"] # TODO: Remove this
+default = []
 tracing = ["dep:tracing"]
-
-unstable = [] # APIs where one line of code can blow up your whole app # TODO: Drop this. No one cares about Spacedrive
 
 [dependencies]
 rspc-core = { version = "0.0.1", path = "./crates/core" }

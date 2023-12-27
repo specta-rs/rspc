@@ -53,7 +53,6 @@ where
     }
 
     #[allow(clippy::panic_in_result_fn)] // TODO: Error handling given we return `Result`
-                                         // #[cfg(feature = "typescript")]
     pub fn export_ts(&self, cfg: ExportConfig) -> Result<(), ExportError> {
         if let Some(export_dir) = cfg.export_path.parent() {
             fs::create_dir_all(export_dir)?;
