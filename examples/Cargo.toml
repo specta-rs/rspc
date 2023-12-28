@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 rspc = { path = "../", features = [] }
-rspc-httpz = { path = "../crates/httpz", features = ["axum"] }
+# rspc-httpz = { path = "../crates/httpz", features = ["axum"] }
 async-stream = "0.3.5"
 axum = "0.6.20"
 chrono = { version = "0.4.31", features = ["serde"] }

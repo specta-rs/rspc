@@ -10,13 +10,10 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
-use rspc::{
-    internal::middleware::{mw, ArgMapper, ArgumentMapper},
-    ExportConfig, Rspc,
-};
-use serde::{de::DeserializeOwned, Serialize};
+use rspc::{export_config::ExportConfig, internal::middleware::mw, Rspc};
+use serde::Serialize;
 use specta::Type;
-use tokio::{sync::broadcast, time::sleep};
+use tokio::{net::TcpListener, sync::broadcast, time::sleep};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -37,21 +34,21 @@ pub enum MyCustomError {
     IAmBroke,
 }
 
-/// TODO
-pub enum Demo {}
+// /// TODO
+// pub enum Demo {}
 
-impl ArgumentMapper for Demo {
-    type State = ();
-    type Input<T> = (String, T)
-    where
-        T: DeserializeOwned + Type + 'static;
+// impl ArgumentMapper for Demo {
+//     type State = ();
+//     type Input<T> = (String, T)
+//     where
+//         T: DeserializeOwned + Type + 'static;
 
-    fn map<T: Serialize + DeserializeOwned + Type + 'static>(
-        arg: Self::Input<T>,
-    ) -> (T, Self::State) {
-        (arg.1, ())
-    }
-}
+//     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
+//         arg: Self::Input<T>,
+//     ) -> (T, Self::State) {
+//         (arg.1, ())
+//     }
+// }
 
 #[tokio::main]
 async fn main() {
@@ -68,9 +65,9 @@ async fn main() {
                 })
             }))
             .with(mw(|mw, ctx| async move { mw.next(ctx) }))
-            .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {
-                mw.next(ctx)
-            }))
+            // .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {
+            //     mw.next(ctx)
+            // }))
             .query(|_, _: ()| {
                 info!("Client requested version");
                 Ok(env!("CARGO_PKG_VERSION"))
@@ -214,23 +211,21 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            rspc_httpz::endpoint(router, |req: rspc_httpz::Request| {
-                println!("Client requested operation '{}'", req.uri().path());
-                Ctx {
-                    x_demo_header: req
-                        .headers()
-                        .get("X-Demo-Header")
-                        .map(|v| v.to_str().unwrap().to_string()),
-                }
-            })
-            .axum(),
+            rspc_axum::endpoint(), // rspc_httpz::endpoint(router, |req: rspc_httpz::Request| {
+                                   //     println!("Client requested operation '{}'", req.uri().path());
+                                   //     Ctx {
+                                   //         x_demo_header: req
+                                   //             .headers()
+                                   //             .get("X-Demo-Header")
+                                   //             .map(|v| v.to_str().unwrap().to_string()),
+                                   //     }
+                                   // })
+                                   // .axum(),
         )
         .layer(cors);
 
     let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 4000));
     println!("listening on http://{}/rspc", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let listener = TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }

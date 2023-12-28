@@ -53,18 +53,19 @@ async fn main() {
         .with_state(())
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
-        .nest(
-            "/rspc",
-            rspc_httpz::endpoint(router, |mut req: rspc_httpz::Request| {
-                    // TODO: This API is going to be replaced with a httpz cookie manager in the next release to deal with Axum's recent changes.
-                    let cookies = req
-                        .deprecated_extract::<Cookies, ()>()
-                        .expect("The Axum state doesn't match the router. Ensure you added `with_state(T)` where `T` matches the second generic!")
-                        .unwrap();
-                    Ctx { cookies }
-                })
-                .axum(),
-        )
+        // TODO: Bring this back
+        // .nest(
+        //     "/rspc",
+        //     rspc_httpz::endpoint(router, |mut req: rspc_httpz::Request| {
+        //             // TODO: This API is going to be replaced with a httpz cookie manager in the next release to deal with Axum's recent changes.
+        //             let cookies = req
+        //                 .deprecated_extract::<Cookies, ()>()
+        //                 .expect("The Axum state doesn't match the router. Ensure you added `with_state(T)` where `T` matches the second generic!")
+        //                 .unwrap();
+        //             Ctx { cookies }
+        //         })
+        //         .axum(),
+        // )
         .layer(CookieManagerLayer::new())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(

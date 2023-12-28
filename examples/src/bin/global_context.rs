@@ -39,10 +39,12 @@ async fn main() {
     // `Arc<Mutex<T>>`. This could be your database connecton or any other value.
     let count = Arc::new(AtomicU16::new(0));
 
-    let app = axum::Router::new().nest(
-        "/rspc",
-        rspc_httpz::endpoint(router, move || MyCtx { count }).axum(),
-    );
+    let app = axum::Router::new();
+    // TODO: Bring this back
+    // .nest(
+    //     "/rspc",
+    //     rspc_httpz::endpoint(router, move || MyCtx { count }).axum(),
+    // );
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("listening on http://{}/rspc/hit", addr);

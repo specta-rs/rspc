@@ -16,8 +16,8 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod error;
-mod export_config;
-mod internal2;
+pub mod export_config;
+pub mod internal2;
 pub mod layer;
 pub mod middleware_from_core;
 pub mod procedure_store;
@@ -28,6 +28,8 @@ pub mod rspc;
 pub mod types;
 pub mod util;
 
+pub use export_config::ExportConfig;
+
 pub use router::Router;
 
 // TODO: Remove all `*` exports
@@ -35,3 +37,6 @@ pub use crate::rspc::*;
 pub use router_builder::*;
 
 pub mod internal;
+
+// Avoid the user needing to depend on `rspc_core` and deal with keeping the versions in sync.
+pub use rspc_core;

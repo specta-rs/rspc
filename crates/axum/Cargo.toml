@@ -1,0 +1,13 @@
+[package]
+name = "rspc-axum"
+version = "0.0.1"
+edition = "2021"
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+axum = { version = "0.7.2", no-default-features = true }
+rspc-core = { version = "0.0.1", path = "../core", default-features = false }
