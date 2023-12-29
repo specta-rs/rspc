@@ -4,10 +4,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::{reference::Reference, ts, DataType, Type, TypeMap};
 
-use crate::{
-    internal::resolver::{result::private::StreamToBody, IntoResolverResponse},
-    middleware_from_core::ProcedureKind,
-};
+use crate::{internal::resolver::IntoResolverResponse, middleware_from_core::ProcedureKind};
 
 pub struct QueryOrMutation<M>(PhantomData<M>);
 pub struct Subscription<M>(PhantomData<M>);
@@ -23,6 +20,8 @@ pub struct HasResolver<F, TErr, TResultMarker, M> {
 }
 
 mod private {
+    use futures::{Stream, StreamExt};
+
     use crate::{
         error::{private::IntoResolverError, ExecError},
         layer::Layer,
@@ -55,7 +54,10 @@ mod private {
         TResult::Err: IntoResolverError + 'static,
         TResultMarker: 'static,
     {
-        type Stream<'a> = StreamToBody<TResult::Stream>;
+        type Stream<'a> = futures::stream::Map<
+            TResult::Stream,
+            fn(<TResult::Stream as Stream>::Item) -> Result<serde_json::Value, ExecError>,
+        >;
 
         fn call(
             &self,
@@ -69,7 +71,10 @@ mod private {
             )
             .to_stream();
 
-            Ok(StreamToBody { stream })
+            Ok(stream.map(|v| match v {
+                Ok(v) => serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                Err(e) => Err(ExecError::Resolver(e.into_resolver_error())),
+            }))
         }
     }
 }
