@@ -11,18 +11,19 @@ use crate::{
 use super::Layer;
 
 #[doc(hidden)]
-pub struct MiddlewareLayer<TLayerCtx, TNextLayer, TNewMiddleware> {
+pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextLayer, TNewMiddleware> {
     pub(crate) next: TNextLayer,
     pub(crate) mw: TNewMiddleware,
-    pub(crate) phantom: PhantomData<TLayerCtx>,
+    pub(crate) phantom: PhantomData<(TLayerCtx, TNewCtx)>,
 }
 
-impl<TLayerCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
-    for MiddlewareLayer<TLayerCtx, TNextMiddleware, TNewMiddleware>
+impl<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
+    for MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware>
 where
     TLayerCtx: Send + Sync + 'static,
+    TNewCtx: Send + Sync + 'static,
     TNextMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: Middleware<TLayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: Middleware<TLayerCtx, TNewCtx> + Send + Sync + 'static,
 {
     async fn call(
         &self,

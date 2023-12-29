@@ -1,33 +1,48 @@
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    sync::{Arc, Mutex, PoisonError},
+};
 
 use serde_json::Value;
 
-use super::{Executable2Placeholder, MwResultWithCtx};
+use crate::internal::layer::NextStream;
 
-pub fn new_mw_ctx(input: serde_json::Value, req: RequestContext) -> MiddlewareContext {
-    MiddlewareContext { input, req }
+pub fn new_mw_ctx<TNewCtx>(
+    input: serde_json::Value,
+    req: RequestContext,
+) -> MiddlewareContext<TNewCtx> {
+    MiddlewareContext {
+        input,
+        req,
+        new_ctx: Arc::new(Mutex::new(None)),
+    }
 }
 
 #[non_exhaustive]
-pub struct MiddlewareContext {
+pub struct MiddlewareContext<TNewCtx> {
+    // Request
     pub input: Value,
     pub req: RequestContext,
+
+    // Response
+    // TODO: This is gonna have a performance impact and I don't like it.
+    new_ctx: Arc<Mutex<Option<TNewCtx>>>,
 }
 
-impl MiddlewareContext {
+impl<TNewCtx> MiddlewareContext<TNewCtx> {
     #[cfg(feature = "tracing")]
     pub fn with_span(mut self, span: Option<tracing::Span>) -> Self {
         self.req.span = Some(span);
         self
     }
 
-    pub fn next<TNCtx>(self, ctx: TNCtx) -> MwResultWithCtx<TNCtx, Executable2Placeholder> {
-        MwResultWithCtx {
-            input: self.input,
-            req: self.req,
-            resp: None,
-            ctx,
-        }
+    pub fn next(self, ctx: TNewCtx) -> NextStream {
+        self.new_ctx
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .replace(ctx);
+
+        NextStream::new()
     }
 }
 

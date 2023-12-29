@@ -55,13 +55,15 @@ where
         MissingResolver::new(BaseLayer::default())
     }
 
-    pub fn with<Mw: Middleware<TCtx>>(
+    pub fn with<TNewCtx, Mw: Middleware<TCtx, TNewCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseLayer<TCtx>, Mw>>> {
+    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseLayer<TCtx>, Mw, TNewCtx>>>
+    {
         MissingResolver::new(MiddlewareLayerBuilder {
             middleware: BaseLayer::default(),
             mw,
+            phantom: PhantomData,
         })
     }
 

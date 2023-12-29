@@ -63,12 +63,13 @@ async fn main() {
         .procedure(
             "version",
             R.with(mw(|mw, ctx| async move {
-                // let y = Mw::next();
+                let stream = mw.next(ctx);
+                // .map(|resp| async move {
+                //     println!("Client requested version '{}'", resp);
+                //     resp
+                // })
 
-                mw.next(ctx).map(|resp| async move {
-                    println!("Client requested version '{}'", resp);
-                    resp
-                })
+                stream
             }))
             // .with(mw(|mw, ctx| async move { mw.next(ctx) }))
             // .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {

@@ -20,20 +20,22 @@ pub trait LayerBuilder: Send + Sync + 'static {
 
 /// Is responsible for joining together two layers.
 /// A layer could be a middleware or a resolver.
-pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware> {
+pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx> {
     pub(crate) middleware: TMiddleware,
     pub(crate) mw: TNewMiddleware,
+    pub(crate) phantom: PhantomData<TNewCtx>,
 }
 
-impl<TMiddleware, TNewMiddleware> LayerBuilder
-    for MiddlewareLayerBuilder<TMiddleware, TNewMiddleware>
+impl<TMiddleware, TNewCtx, TNewMiddleware> LayerBuilder
+    for MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx>
 where
+    TNewCtx: Send + Sync + 'static,
     TMiddleware: LayerBuilder + Send + Sync + 'static,
-    TNewMiddleware: Middleware<TMiddleware::LayerCtx> + Send + Sync + 'static,
+    TNewMiddleware: Middleware<TMiddleware::LayerCtx, TNewCtx> + Send + Sync + 'static,
 {
     type Ctx = TMiddleware::Ctx;
     type LayerCtx = TNewMiddleware::NewCtx;
-    type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, T, TNewMiddleware>>
+    type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, TNewCtx, T, TNewMiddleware>>
         where
             T: Layer<Self::LayerCtx>;
 

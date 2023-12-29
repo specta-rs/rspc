@@ -39,7 +39,7 @@ impl Executable2 for Executable2Placeholder {
     }
 }
 
-// #[deprecated = "TODO: We probs have to remove this. Sadge!"] // TODO: Deal with this type and seal it
+#[deprecated = "TODO: We probs have to remove this. Sadge!"] // TODO: Deal with this type and seal it
 pub trait MwV2Result {
     type Ctx: Send + Sync + 'static;
     type Resp: Executable2;
@@ -49,6 +49,7 @@ pub trait MwV2Result {
 }
 
 // TODO: Seal this and rename it
+#[deprecated]
 pub struct MwResultWithCtx<TLCtx, TResp> {
     pub(crate) input: Value,
     pub(crate) req: RequestContext,

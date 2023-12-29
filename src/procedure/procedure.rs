@@ -51,13 +51,14 @@ where
         MissingResolver::new(self.0.mw)
     }
 
-    pub fn with<Mw: Middleware<TMiddleware::LayerCtx>>(
+    pub fn with<TNewCtx, Mw: Middleware<TMiddleware::LayerCtx, TNewCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<TMiddleware, Mw>>> {
+    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<TMiddleware, Mw, TNewCtx>>> {
         MissingResolver::new(MiddlewareLayerBuilder {
             middleware: self.0.mw,
             mw,
+            phantom: PhantomData,
         })
     }
 
