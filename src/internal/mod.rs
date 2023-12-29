@@ -8,6 +8,8 @@ pub mod layer;
 pub mod middleware;
 pub mod todo;
 
+pub use rspc_core;
+
 // TODO: Fix this
 // #[cfg(test)]
 // mod tests {

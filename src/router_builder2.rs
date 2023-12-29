@@ -2,10 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, panic::Location};
 
 use thiserror::Error;
 
-use crate::{procedure_store::ProcedureTodo, Router};
-
-// TODO: Move into `procedure_store` module???
-pub type ProcedureMap<TCtx> = BTreeMap<String, ProcedureTodo<TCtx>>;
+use crate::Router;
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]

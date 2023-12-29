@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, fmt, future::Future, pin::Pin, sync::Arc};
 
 use crate::{serializer::Serializer, Format, Task};
 
@@ -13,6 +13,21 @@ pub type Procedure = Arc<dyn Fn(RequestContext) -> Pin<Box<dyn Future<Output = (
 #[derive(Default)]
 pub struct Executor {
     procedures: HashMap<Cow<'static, str>, Procedure>,
+}
+
+impl fmt::Debug for Executor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Executor")
+            .field(
+                "procedures",
+                &self
+                    .procedures
+                    .iter()
+                    .map(|(name, _)| name)
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
 }
 
 impl Executor {

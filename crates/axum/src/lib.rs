@@ -12,8 +12,6 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-use std::sync::Arc;
-
 use axum::{
     extract::Request,
     http::{Method, StatusCode},

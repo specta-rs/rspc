@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{any::Any, marker::PhantomData, sync::Arc};
 
 use crate::{
     error::{private::IntoResolverError, ExecError},
     internal::{
         into_response::IntoResolverResponse,
         layer::{DynLayer, Layer, LayerBuilder, LayerFn, MiddlewareLayerBuilder},
-        middleware::Middleware,
+        middleware::{new_mw_ctx, Middleware, ProcedureKind, RequestContext},
     },
-    procedure_store::ProcedureTodo,
+    router::ProcedureDefinition,
     router_builder::{ProcedureBuildFn, ProcedureDef},
 };
 
-use futures::stream;
+use futures::{stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::Type;
@@ -104,14 +104,40 @@ where
         let dyn_layer = boxed(self.0.mw.build(layer));
 
         let build: ProcedureBuildFn<TMiddleware::Ctx> = Box::new(move |key, ctx| {
-            // TODO: correct `ProcedureKind`
-            // build(key, ctx, ProcedureKind::Query, self.0.mw.build(resolver))
+            ctx.procedures.insert(
+                key.into(),
+                ProcedureDefinition {
+                    procedure: Arc::new(move |ctx| {
+                        // TODO: How do we get the context from the user's function???
+                        let todo: Box<dyn Any> = Box::new(());
+                        let todo: Box<TMiddleware::Ctx> = todo.downcast().unwrap();
+                        let todo = *todo;
 
-            ctx.queries.insert(
-                key.to_string(),
-                ProcedureTodo {
-                    exec: dyn_layer,
-                    // TODO: Correct types
+                        let dyn_layer = &dyn_layer;
+
+                        Box::pin(async move {
+                            // let y = dyn_layer;
+
+                            // let mut stream = dyn_layer
+                            //     .call(
+                            //         todo,
+                            //         Value::Null, // TODO: From the request
+                            //         // TODO: Make `RequestContext` correct
+                            //         RequestContext::new(0, ProcedureKind::Query, "todo".into()),
+                            //     )
+                            //     .unwrap();
+
+                            // while let Some(v) = stream.next().await {
+                            //     match v {
+                            //         Ok(v) => ctx.result.serialize(&v),
+                            //         Err(e) => todo!(),
+                            //     }
+                            // }
+
+                            // TODO: Hook this up correctly
+                            ctx.result.serialize(&"TODO: Finish implementing");
+                        })
+                    }),
                     ty: ProcedureDef {
                         key: "todo".into(),
                         input: specta::DataType::Any,
@@ -168,3 +194,9 @@ impl<TCtx> Procedure<HasResolver<TCtx>> {
 fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
     Box::new(layer)
 }
+
+// type TODOProcedure = Arc<
+//     dyn Fn(
+//         rspc_core::RequestContext,
+//     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>>,
+// >;

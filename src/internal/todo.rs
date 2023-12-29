@@ -3,7 +3,7 @@ use std::pin::Pin;
 use rspc_core::{Format, TODOSerializer};
 use serde_json::Value;
 
-pub(crate) struct SerdeJsonFormat {}
+pub struct SerdeJsonFormat {}
 
 impl Format for SerdeJsonFormat {
     type Result = serde_json::Value;
@@ -20,7 +20,7 @@ impl Format for SerdeJsonFormat {
     }
 }
 
-pub(crate) struct SerdeJsonSerializer(Option<Value>);
+pub struct SerdeJsonSerializer(Option<Value>);
 
 impl TODOSerializer for SerdeJsonSerializer {
     fn serialize_str(mut self: Pin<&mut Self>, s: &str) {

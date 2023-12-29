@@ -2,7 +2,7 @@ use std::{
     net::{Ipv6Addr, SocketAddr},
     path::PathBuf,
     pin::Pin,
-    sync::atomic::AtomicU16,
+    sync::{atomic::AtomicU16, Arc},
     task::{Context, Poll},
     time::Duration,
 };
@@ -10,7 +10,10 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
-use rspc::{internal::middleware::mw, ExportConfig, Rspc};
+use rspc::{
+    internal::{middleware::mw, rspc_core::IntoRouter, todo::SerdeJsonFormat},
+    Executor, ExportConfig, Rspc,
+};
 use serde::Serialize;
 use specta::Type;
 use tokio::{net::TcpListener, sync::broadcast, time::sleep};
@@ -26,7 +29,8 @@ struct Ctx {
 #[error("{0}")]
 struct Error(&'static str);
 
-const R: Rspc<Ctx, Error> = Rspc::new();
+// TODO: Use `Ctx`
+const R: Rspc<(), Error> = Rspc::new();
 
 #[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]
 pub enum MyCustomError {
@@ -192,6 +196,19 @@ async fn main() {
         ))
         .unwrap();
 
+    let e: Executor = router.build();
+
+    println!("{:?}", e);
+
+    // TODO: make a high-level rspc wrapper around the `Executor`
+    // TODO: query vs mutation vs subscription????
+    // TODO: Does the format really need to be `Arc`ed???
+    let y = e.execute("version", Arc::new(SerdeJsonFormat {}));
+    println!("{:?}", y);
+    println!("{:?}", y.collect::<Vec<_>>().await);
+
+    // e.execute(name, format)
+
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
         .allow_methods(Any)
@@ -200,22 +217,21 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
-        .nest(
-            "/rspc",
-            rspc_axum::endpoint(router, || {
-                // println!("Client requested operation '{}'", req.uri().path());
-                //     Ctx {
-                //         x_demo_header: req
-                //             .headers()
-                //             .get("X-Demo-Header")
-                //             .map(|v| v.to_str().unwrap().to_string()),
-                //     }
-
-                Ctx {
-                    x_demo_header: None,
-                }
-            }),
-        )
+        // .nest(
+        //     "/rspc",
+        //     rspc_axum::endpoint(router, || {
+        //         // println!("Client requested operation '{}'", req.uri().path());
+        //         //     Ctx {
+        //         //         x_demo_header: req
+        //         //             .headers()
+        //         //             .get("X-Demo-Header")
+        //         //             .map(|v| v.to_str().unwrap().to_string()),
+        //         //     }
+        //         Ctx {
+        //             x_demo_header: None,
+        //         }
+        //     }),
+        // )
         .layer(cors);
 
     let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 4000));

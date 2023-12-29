@@ -1,28 +1,31 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     fmt,
     fs::{self, File},
     io::Write,
-    sync::Arc,
+    marker::PhantomData,
 };
 
-use crate::{error::ExportError, export_config::ExportConfig};
+use crate::{error::ExportError, export_config::ExportConfig, router_builder::ProcedureDef};
 
-use rspc_core::Executor;
+use rspc_core::{Executor, Procedure};
 use specta::{
     ts::{self},
     TypeMap,
 };
 
-use crate::router_builder2::ProcedureMap;
+pub(crate) struct ProcedureDefinition {
+    pub procedure: Procedure,
+    pub ty: ProcedureDef,
+}
 
 /// Router is a router that has been constructed and validated. It is ready to be attached to an integration to serve it to the outside world!
 pub struct Router<TCtx = ()> {
-    // TODO: Single map
-    pub(crate) queries: ProcedureMap<TCtx>,
-    // pub(crate) mutations: ProcedureMap<TCtx>,
-    // pub(crate) subscriptions: ProcedureMap<TCtx>,
+    pub(crate) procedures: BTreeMap<Cow<'static, str>, ProcedureDefinition>,
     pub(crate) typ_store: TypeMap,
+    // TODO: I think this will actually be needed, if not remove the generic from the struct.
+    pub(crate) phantom: PhantomData<TCtx>,
 }
 
 impl<TCtx> fmt::Debug for Router<TCtx> {
@@ -35,10 +38,9 @@ impl<TCtx> fmt::Debug for Router<TCtx> {
 impl<TCtx> Default for Router<TCtx> {
     fn default() -> Self {
         Self {
-            queries: Default::default(),
-            // mutations: Default::default(),
-            // subscriptions: Default::default(),
+            procedures: Default::default(),
             typ_store: Default::default(),
+            phantom: PhantomData,
         }
     }
 }
@@ -47,12 +49,6 @@ impl<TCtx> Router<TCtx>
 where
     TCtx: Send + 'static,
 {
-    // // TODO: Remove this and force it to always be `Arc`ed from the point it was constructed???
-    // pub fn arced(self) -> Arc<Self> {
-    //     Arc::new(self)
-    // }
-
-    #[allow(clippy::panic_in_result_fn)] // TODO: Error handling given we return `Result`
     pub fn export_ts(&self, cfg: ExportConfig) -> Result<(), ExportError> {
         if let Some(export_dir) = cfg.export_path.parent() {
             fs::create_dir_all(export_dir)?;
@@ -70,7 +66,7 @@ where
         );
 
         // TODO: Specta API + `ExportConfig` option for a formatter
-        todo!();
+        // todo!();
         // writeln!(
         //     file,
         //     "{}",
@@ -149,18 +145,9 @@ impl<TCtx> rspc_core::IntoRouter for Router<TCtx> {
     fn build(self) -> rspc_core::Executor {
         let mut executor = Executor::new();
 
-        for (name, procedure) in self.queries {
-            executor.insert(
-                name.into(),
-                Arc::new(|ctx| {
-                    Box::pin(async move {
-                        ctx.result.serialize(&"Hello World");
-                    })
-                }),
-            );
+        for (name, def) in self.procedures {
+            executor.insert(name.into(), def.procedure);
         }
-
-        // TODO: `mutations` and `subscriptions`
 
         executor
     }
