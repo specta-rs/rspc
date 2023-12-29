@@ -57,22 +57,6 @@ mod private {
     {
         type Stream<'a> = StreamToBody<TResult::Stream>;
 
-        fn into_procedure_def(
-            &self,
-            key: Cow<'static, str>,
-            ty_store: &mut TypeMap,
-        ) -> Result<ProcedureDef, ts::ExportError> {
-            // let mut result =
-            //     ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)?;
-            // // TODO: Bruh this is soooo bad
-            // result.input = match (self.arg_ty)(ty_store).inner {
-            //     DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
-            //     t => t,
-            // };
-            // Ok(result)
-            todo!();
-        }
-
         fn call(
             &self,
             ctx: TLCtx,
@@ -85,13 +69,7 @@ mod private {
             )
             .to_stream();
 
-            Ok(StreamToBody {
-                stream,
-                #[cfg(feature = "tracing")]
-                span: req.span(),
-                #[cfg(not(feature = "tracing"))]
-                span: None,
-            })
+            Ok(StreamToBody { stream })
         }
     }
 }

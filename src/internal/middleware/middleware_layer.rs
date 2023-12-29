@@ -38,14 +38,6 @@ mod private {
     {
         type Stream<'a> = MiddlewareLayerFuture<'a, TLayerCtx, TNewMiddleware, TNextMiddleware>;
 
-        fn into_procedure_def(
-            &self,
-            key: Cow<'static, str>,
-            ty_store: &mut TypeMap,
-        ) -> Result<ProcedureDef, ts::ExportError> {
-            self.next.into_procedure_def(key, ty_store)
-        }
-
         fn call(
             &self,
             ctx: TLayerCtx,

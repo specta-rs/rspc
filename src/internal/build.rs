@@ -29,9 +29,10 @@ pub fn build<TCtx>(
 
     let key_org = key;
     let key = key_org.to_string();
-    let type_def = layer
-        .into_procedure_def(key_org, &mut ctx.typ_store)
-        .expect("error exporting types");
+    // let type_def = layer
+    //     .into_procedure_def(key_org, &mut ctx.typ_store)
+    //     .expect("error exporting types");
+    let type_def = todo!();
 
     // TODO: Cleanup this logic and do better router merging
     #[allow(clippy::panic)]

@@ -13,13 +13,6 @@ use crate::{error::ExecError, middleware_from_core::RequestContext, ProcedureDef
 pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
     type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
 
-    // TODO: Remove this
-    fn into_procedure_def(
-        &self,
-        key: Cow<'static, str>,
-        ty_store: &mut TypeMap,
-    ) -> Result<ProcedureDef, ts::ExportError>;
-
     fn call(
         &self,
         ctx: TLayerCtx,
@@ -29,12 +22,6 @@ pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
 }
 
 pub trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
-    fn into_procedure_def(
-        &self,
-        key: Cow<'static, str>,
-        ty_store: &mut TypeMap,
-    ) -> Result<ProcedureDef, ts::ExportError>;
-
     fn dyn_call(
         &self,
         ctx: TLCtx,
@@ -44,14 +31,6 @@ pub trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
 }
 
 impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
-    fn into_procedure_def(
-        &self,
-        key: Cow<'static, str>,
-        ty_store: &mut TypeMap,
-    ) -> Result<ProcedureDef, ts::ExportError> {
-        Layer::into_procedure_def(self, key, ty_store)
-    }
-
     fn dyn_call(
         &self,
         ctx: TLCtx,
@@ -68,14 +47,6 @@ impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
 
 impl<TLCtx: Send + 'static> Layer<TLCtx> for Box<dyn DynLayer<TLCtx>> {
     type Stream<'a> = Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'a>>;
-
-    fn into_procedure_def(
-        &self,
-        key: Cow<'static, str>,
-        ty_store: &mut TypeMap,
-    ) -> Result<ProcedureDef, ts::ExportError> {
-        (&**self).into_procedure_def(key, ty_store)
-    }
 
     fn call(
         &self,

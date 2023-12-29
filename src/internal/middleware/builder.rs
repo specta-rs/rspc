@@ -4,8 +4,6 @@ use crate::{internal::middleware::Middleware, layer::Layer};
 
 use super::MiddlewareLayer;
 
-// TODO: Can this be made completely internal?
-#[doc(hidden)]
 pub(crate) trait MiddlewareBuilder: Send + Sync + 'static {
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
@@ -36,6 +34,7 @@ where
         where
             T: Layer<Self::LayerCtx>;
 
+    // TODO: Returning erased type defs???
     fn build<T>(self, next: T) -> Self::LayerResult<T>
     where
         T: Layer<Self::LayerCtx> + Sync,

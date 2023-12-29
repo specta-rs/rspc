@@ -11,12 +11,6 @@ use futures::{ready, Stream};
 use serde::Serialize;
 use serde_json::Value;
 
-#[cfg(feature = "tracing")]
-type Inner = tracing::Span;
-
-#[cfg(not(feature = "tracing"))]
-type Inner = ();
-
 #[allow(unused_imports)] // TODO: Fix this
 pub(crate) use private::*;
 
@@ -32,7 +26,6 @@ pub(crate) mod private {
         pub struct StreamToBody<S> {
             #[pin]
             pub(crate) stream: S,
-            pub(crate) span: Option<Inner>
         }
     }
 
@@ -49,9 +42,6 @@ pub(crate) mod private {
             cx: &mut Context<'_>,
         ) -> Poll<Option<Result<Value, ExecError>>> {
             let this = self.project();
-
-            #[cfg(feature = "tracing")]
-            let _span = this.span.as_ref().map(|s| s.enter());
 
             match ready!(this.stream.poll_next(cx)) {
                 Some(Ok(v)) => Poll::Ready(Some(
