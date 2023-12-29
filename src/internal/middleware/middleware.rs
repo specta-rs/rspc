@@ -1,8 +1,6 @@
 use std::{future::Future, marker::PhantomData};
 
-use crate::middleware_from_core::{MiddlewareContext, MwV2Result};
-
-use super::Middleware;
+use super::{Middleware, MiddlewareContext, MwV2Result};
 
 // TODO: These types need to move out of the `internal` module
 

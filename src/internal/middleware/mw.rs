@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::middleware_from_core::{MiddlewareContext, MwV2Result};
+use super::{MiddlewareContext, MwV2Result};
 
 pub trait Middleware<TLCtx>: Send + Sync + 'static {
     type Fut: Future<Output = Self::Result> + Send + 'static;

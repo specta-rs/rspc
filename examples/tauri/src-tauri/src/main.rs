@@ -10,7 +10,7 @@ use std::{
 
 use async_stream::stream;
 use futures::{Stream, StreamExt};
-use rspc::{internal::middleware::mw, Rspc};
+use rspc::{internal::layer::mw, Rspc};
 use tokio::time::sleep;
 
 #[derive(Clone)]

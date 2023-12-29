@@ -4,11 +4,10 @@ use crate::{
     error::{private::IntoResolverError, ExecError},
     internal::{
         build::build,
-        middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
+        layer::{LayerBuilder, MiddlewareLayerBuilder},
         resolver::{QueryOrMutation, Subscription},
     },
     layer::{DynLayer, Layer},
-    middleware_from_core::{ProcedureKind, RequestContext},
     procedure_store::ProcedureTodo,
     router, ProcedureBuildFn, ProcedureDef,
 };
@@ -51,7 +50,7 @@ pub struct HasResolver<TCtx> {
 // Eg. `.query().subscription()` makes no sense and `.query().with()` is going to be stupidly hard to maintain without breaking rspc's performance characteristics.
 impl<TMiddleware, TError> Procedure<MissingResolver<TError, TMiddleware>>
 where
-    TMiddleware: MiddlewareBuilder,
+    TMiddleware: LayerBuilder,
     TError: IntoResolverError,
 {
     pub fn error<TErr>(self) -> Procedure<MissingResolver<TErr, TMiddleware>> {

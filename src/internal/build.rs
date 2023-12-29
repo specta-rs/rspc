@@ -2,10 +2,11 @@ use std::borrow::Cow;
 
 use crate::{
     layer::{DynLayer, Layer},
-    middleware_from_core::ProcedureKind,
     procedure_store::ProcedureTodo,
     Router,
 };
+
+use super::middleware::ProcedureKind;
 
 fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
     Box::new(layer)

@@ -3,12 +3,12 @@ use std::marker::PhantomData;
 use crate::{
     error::{private::IntoResolverError, Infallible},
     internal::{
-        middleware::{BaseMiddleware, Middleware, MiddlewareLayerBuilder},
+        layer::{BaseLayer, MiddlewareLayerBuilder},
+        middleware::Middleware,
         procedure::{MissingResolver, Procedure},
         resolver::{QueryOrMutation, Subscription},
     },
     layer::Layer,
-    middleware_from_core::ProcedureKind,
     RouterBuilder,
 };
 
@@ -53,16 +53,16 @@ where
         RouterBuilder::_internal_new()
     }
 
-    pub fn error<TNewError>(self) -> Procedure<MissingResolver<TNewError, BaseMiddleware<TCtx>>> {
-        MissingResolver::new(BaseMiddleware::default())
+    pub fn error<TNewError>(self) -> Procedure<MissingResolver<TNewError, BaseLayer<TCtx>>> {
+        MissingResolver::new(BaseLayer::default())
     }
 
     pub fn with<Mw: Middleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>> {
+    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseLayer<TCtx>, Mw>>> {
         MissingResolver::new(MiddlewareLayerBuilder {
-            middleware: BaseMiddleware::default(),
+            middleware: BaseLayer::default(),
             mw,
         })
     }

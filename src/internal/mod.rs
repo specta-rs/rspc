@@ -5,6 +5,7 @@
 
 pub(crate) mod build;
 
+pub mod layer;
 pub mod middleware;
 pub mod pinned_option;
 pub mod procedure;

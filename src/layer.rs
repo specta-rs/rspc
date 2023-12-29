@@ -2,7 +2,7 @@ use futures::{future::ready, stream::once, Stream};
 use serde_json::Value;
 use std::pin::Pin;
 
-use crate::{error::ExecError, middleware_from_core::RequestContext, ProcedureDef};
+use crate::{error::ExecError, internal::middleware::RequestContext, ProcedureDef};
 
 // TODO: Remove `SealedLayer`
 

@@ -7,7 +7,7 @@ use crate::{
     error::private::IntoResolverError,
     internal::{
         build::build,
-        middleware::MiddlewareBuilder,
+        layer::LayerBuilder,
         procedure::{HasResolver, Procedure},
         procedure_store::is_valid_name,
         resolver::IntoResolverResponse,

@@ -5,7 +5,7 @@ use std::pin::Pin;
 use futures::Stream;
 use serde_json::Value;
 
-use crate::{error::ExecError, layer::Layer, middleware_from_core::RequestContext};
+use crate::{error::ExecError, internal::middleware::RequestContext, layer::Layer};
 
 type ErasedLayerFn<TLCtx> = Box<
     dyn Fn(
@@ -58,7 +58,7 @@ where
         &self,
         ctx: TLCtx,
         input: Value,
-        req: crate::middleware_from_core::RequestContext,
+        req: RequestContext,
     ) -> Result<Self::Stream<'_>, ExecError> {
         (self.0)(ctx, input, req)
     }
