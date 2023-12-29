@@ -17,7 +17,6 @@
 
 pub mod error;
 pub mod export_config;
-pub mod internal2;
 pub mod procedure;
 pub mod procedure_store;
 pub mod router;
