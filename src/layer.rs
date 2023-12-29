@@ -57,7 +57,3 @@ impl<TLCtx: Send + 'static> Layer<TLCtx> for Box<dyn DynLayer<TLCtx>> {
         Ok(self.dyn_call(ctx, input, req))
     }
 }
-
-// pub(crate) fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
-//     Box::new(layer)
-// }

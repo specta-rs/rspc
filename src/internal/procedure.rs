@@ -1,19 +1,24 @@
 use std::marker::PhantomData;
 
 use crate::{
-    error::private::IntoResolverError,
+    error::{private::IntoResolverError, ExecError},
     internal::{
         build::build,
         middleware::{MiddlewareBuilder, MiddlewareLayerBuilder},
         resolver::{QueryOrMutation, Subscription},
     },
-    layer::Layer,
+    layer::{DynLayer, Layer},
     middleware_from_core::{ProcedureKind, RequestContext},
-    ProcedureBuildFn,
+    procedure_store::ProcedureTodo,
+    router, ProcedureBuildFn, ProcedureDef,
 };
 
-use super::{middleware::Middleware, resolver::IntoResolverResponse};
+use super::{
+    middleware::Middleware,
+    resolver::{IntoResolverResponse, LayerFn},
+};
 
+use futures::stream;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::Type;
@@ -77,29 +82,51 @@ where
         TResult::Ok: Serialize + Type + 'static,
         TResultMarker: 'static,
     {
-        // TODO: Erase the hell outta the whole chain here. You can't attach middleware after the resolver (and supporting that would be painful)
+        // Given you can't attach middleware after the resolver (and supporting that would be painful)
+        // we just type-erased everything as much as possible so it's less work on the compiler.
 
-        // let y = |ctx: TMiddleware::LayerCtx, input: Value, _req: RequestContext| {};
+        let layer = LayerFn::new(|ctx: TMiddleware::LayerCtx, input, req| {
+            // TODO: Make this work
 
-        // let stream = (self.resolver)(
-        //     ctx,
-        //     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-        // )
-        // .to_stream();
+            // let stream = (resolver)(
+            //     ctx,
+            //     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+            // )
+            // .to_stream();
 
-        // Ok(stream.map(|v| match v {
-        //     Ok(v) => serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-        //     Err(e) => Err(ExecError::Resolver(e.into_resolver_error())),
-        // }))
+            // Ok(stream.map(|v| match v {
+            //     Ok(v) => serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+            //     Err(e) => Err(ExecError::Resolver(e.into_resolver_error())),
+            // }))
 
-        // TODO: Make this work
-        // // Trade runtime performance for reduced monomorphization
-        // #[cfg(debug_assertions)]
-        // let resolver = boxed(resolver);
+            Ok(stream::iter([Ok::<Value, ExecError>(Value::Null); 0]))
+        });
+
+        // In debug mode we box both the function and the stream.
+        // This logic is that it will reduce monomorphisation and improve debug builds.
+        // TODO: This needs more benchmarking. Should we always box the `Fn`??? Does boxing the `Stream` actually help build performance????
+        #[cfg(debug_assertions)]
+        let layer = layer.erased();
+
+        let dyn_layer = boxed(self.0.mw.build(layer));
 
         let build: ProcedureBuildFn<TMiddleware::Ctx> = Box::new(move |key, ctx| {
             // TODO: correct `ProcedureKind`
             // build(key, ctx, ProcedureKind::Query, self.0.mw.build(resolver))
+
+            ctx.queries.insert(
+                key.to_string(),
+                ProcedureTodo {
+                    exec: dyn_layer,
+                    // TODO: Correct types
+                    ty: ProcedureDef {
+                        key: "todo".into(),
+                        input: specta::DataType::Any,
+                        result: specta::DataType::Any,
+                        error: specta::DataType::Any,
+                    },
+                },
+            );
         });
 
         Procedure(HasResolver { build })
@@ -110,4 +137,8 @@ impl<TCtx> Procedure<HasResolver<TCtx>> {
     pub(crate) fn take(self) -> ProcedureBuildFn<TCtx> {
         self.0.build
     }
+}
+
+pub(crate) fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
+    Box::new(layer)
 }
