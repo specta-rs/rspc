@@ -5,7 +5,7 @@ use crate::{
     internal::{
         into_response::IntoResolverResponse,
         layer::{DynLayer, Layer, LayerBuilder, LayerFn, MiddlewareLayerBuilder},
-        middleware::Middleware,
+        middleware::{Middleware, ProcedureKind, RequestContext},
     },
     router::ProcedureDefinition,
     router_builder::{ProcedureBuildFn, ProcedureDef},
@@ -115,17 +115,15 @@ where
 
                         let dyn_layer = &dyn_layer;
 
-                        Box::pin(async move {
-                            // let y = dyn_layer;
+                        let mut stream = dyn_layer.dyn_call(
+                            todo,
+                            Value::Null, // TODO: From the request
+                            // TODO: Make `RequestContext` correct
+                            RequestContext::new(0, ProcedureKind::Query, "todo".into()),
+                        );
 
-                            // let mut stream = dyn_layer
-                            //     .call(
-                            //         todo,
-                            //         Value::Null, // TODO: From the request
-                            //         // TODO: Make `RequestContext` correct
-                            //         RequestContext::new(0, ProcedureKind::Query, "todo".into()),
-                            //     )
-                            //     .unwrap();
+                        Box::pin(async move {
+                            // let stream = stream;
 
                             // while let Some(v) = stream.next().await {
                             //     match v {

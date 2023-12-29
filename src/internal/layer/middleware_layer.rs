@@ -1,6 +1,6 @@
 use std::{future::ready, marker::PhantomData};
 
-use futures::{future::Either, FutureExt, Stream, TryStreamExt};
+use futures::{FutureExt, Stream, TryStreamExt};
 use serde_json::Value;
 
 use crate::{
@@ -29,13 +29,14 @@ where
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
-    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send, ExecError> {
+    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
         let (ctx, input, req, resp_fn) = self
             .mw
             .run_me(ctx, new_mw_ctx(input, req))
             .await
             .explode()?;
 
+        // TODO: In this case `resp_fn` is being borrowed. Can we avoid that???
         self.next.call(ctx, input, req).await.map(move |stream| {
             stream.and_then(move |v| {
                 match &resp_fn {

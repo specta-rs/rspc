@@ -63,6 +63,8 @@ async fn main() {
         .procedure(
             "version",
             R.with(mw(|mw, ctx| async move {
+                // let y = Mw::next();
+
                 mw.next(ctx).map(|resp| async move {
                     println!("Client requested version '{}'", resp);
                     resp
