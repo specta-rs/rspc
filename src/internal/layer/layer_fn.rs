@@ -1,6 +1,6 @@
 //! Move this into the `layer` module instead of the `resolver` module???
 
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
 use futures::Stream;
 use serde_json::Value;
@@ -50,18 +50,17 @@ impl<F> LayerFn<F> {
 
 impl<TLCtx, F, S> Layer<TLCtx> for LayerFn<F>
 where
-    TLCtx: 'static,
+    TLCtx: Send + 'static,
     F: Fn(TLCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
     S: Stream<Item = Result<Value, ExecError>> + Send + 'static,
 {
-    type Stream<'a> = S;
-
     fn call(
         &self,
         ctx: TLCtx,
         input: Value,
         req: RequestContext,
-    ) -> Result<Self::Stream<'_>, ExecError> {
-        (self.0)(ctx, input, req)
+    ) -> impl Future<Output = Result<impl Stream<Item = Result<Value, ExecError>> + Send, ExecError>>
+           + Send {
+        async move { (self.0)(ctx, input, req) }
     }
 }
