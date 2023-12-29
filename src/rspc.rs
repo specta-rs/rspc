@@ -4,8 +4,8 @@ use crate::{
     error::{private::IntoResolverError, Infallible},
     internal::{
         middleware::{BaseMiddleware, Middleware, MiddlewareLayerBuilder},
-        procedure::{resolvers, MissingResolver, Procedure},
-        resolver::{HasResolver, QueryOrMutation, Subscription},
+        procedure::{MissingResolver, Procedure},
+        resolver::{QueryOrMutation, Subscription},
     },
     layer::Layer,
     middleware_from_core::ProcedureKind,
@@ -53,22 +53,20 @@ where
         RouterBuilder::_internal_new()
     }
 
-    pub fn error<TNewError>(self) -> Procedure<MissingResolver<TNewError>, BaseMiddleware<TCtx>> {
-        Procedure::new(MissingResolver::default(), BaseMiddleware::default())
+    pub fn error<TNewError>(self) -> Procedure<MissingResolver<TNewError, BaseMiddleware<TCtx>>> {
+        MissingResolver::new(BaseMiddleware::default())
     }
 
     pub fn with<Mw: Middleware<TCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError>, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>> {
-        Procedure::new(
-            MissingResolver::default(),
-            MiddlewareLayerBuilder {
-                middleware: BaseMiddleware::default(),
-                mw,
-            },
-        )
+    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseMiddleware<TCtx>, Mw>>> {
+        MissingResolver::new(MiddlewareLayerBuilder {
+            middleware: BaseMiddleware::default(),
+            mw,
+        })
     }
 
-    resolvers!(_, TCtx, BaseMiddleware<TCtx>, BaseMiddleware::default());
+    // TODO:
+    // resolvers!(_, TCtx, BaseMiddleware<TCtx>, BaseMiddleware::default());
 }

@@ -1,7 +1,6 @@
 use futures::{future::ready, stream::once, Stream};
 use serde_json::Value;
-use specta::{ts, TypeMap};
-use std::{borrow::Cow, pin::Pin};
+use std::pin::Pin;
 
 use crate::{error::ExecError, middleware_from_core::RequestContext, ProcedureDef};
 
@@ -21,6 +20,7 @@ pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
     ) -> Result<Self::Stream<'_>, ExecError>;
 }
 
+// TODO: Replace this with `rspc_core::Procedure` if possible
 pub trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
     fn dyn_call(
         &self,
@@ -58,6 +58,6 @@ impl<TLCtx: Send + 'static> Layer<TLCtx> for Box<dyn DynLayer<TLCtx>> {
     }
 }
 
-pub(crate) fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
-    Box::new(layer)
-}
+// pub(crate) fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
+//     Box::new(layer)
+// }

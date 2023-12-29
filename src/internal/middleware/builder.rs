@@ -4,7 +4,8 @@ use crate::{internal::middleware::Middleware, layer::Layer};
 
 use super::MiddlewareLayer;
 
-pub(crate) trait MiddlewareBuilder: Send + Sync + 'static {
+// TODO: This must be public so sealed or not???
+pub trait MiddlewareBuilder: Send + Sync + 'static {
     type Ctx: Send + Sync + 'static;
     type LayerCtx: Send + Sync + 'static;
 

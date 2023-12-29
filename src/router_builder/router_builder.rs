@@ -1,16 +1,23 @@
 use std::{borrow::Cow, panic::Location};
 
+use serde::{de::DeserializeOwned, Serialize};
+use specta::Type;
+
 use crate::{
+    error::private::IntoResolverError,
     internal::{
-        build::build, middleware::MiddlewareBuilder, procedure::Procedure,
-        procedure_store::is_valid_name, resolver::HasResolver,
+        build::build,
+        middleware::MiddlewareBuilder,
+        procedure::{HasResolver, Procedure},
+        procedure_store::is_valid_name,
+        resolver::IntoResolverResponse,
     },
     layer::Layer,
     router::Router,
     router_builder2::{edit_build_error_name, new_build_error, BuildError, BuildResult},
 };
 
-type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
+pub(crate) type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
 
 pub struct RouterBuilder<TCtx>
 where
@@ -34,15 +41,7 @@ where
     }
 
     #[track_caller]
-    pub fn procedure<F, TError, TMiddleware, M1, M2>(
-        mut self,
-        key: &'static str,
-        procedure: Procedure<HasResolver<F, TError, M1, M2>, TMiddleware>,
-    ) -> Self
-    where
-        HasResolver<F, TError, M1, M2>: Layer<TMiddleware::LayerCtx>,
-        TMiddleware: MiddlewareBuilder<Ctx = TCtx>,
-    {
+    pub fn procedure(mut self, key: &'static str, procedure: Procedure<HasResolver<TCtx>>) -> Self {
         if let Some(cause) = is_valid_name(key) {
             self.errors.push(new_build_error(
                 cause,
@@ -53,15 +52,7 @@ where
             ));
         }
 
-        let Procedure { resolver, mw } = procedure;
-
-        let kind = resolver.kind;
-
-        self.procedures.push((
-            Cow::Borrowed(key),
-            Box::new(move |key, ctx| build(key, ctx, kind, mw.build(resolver))),
-        ));
-
+        self.procedures.push((Cow::Borrowed(key), procedure.take()));
         self
     }
 

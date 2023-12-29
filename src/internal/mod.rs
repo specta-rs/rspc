@@ -10,6 +10,7 @@ pub mod pinned_option;
 pub mod procedure;
 pub mod procedure_store;
 pub mod resolver;
+pub mod resolvers;
 
 // TODO: Fix this
 // #[cfg(test)]
