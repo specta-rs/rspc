@@ -4,6 +4,7 @@ mod base;
 mod builder;
 mod layer;
 mod layer_fn;
+mod layer_result;
 mod middleware_layer;
 
 pub(crate) use base::BaseLayer;

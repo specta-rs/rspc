@@ -5,13 +5,13 @@ use crate::{
     internal::{
         into_response::IntoResolverResponse,
         layer::{DynLayer, Layer, LayerBuilder, LayerFn, MiddlewareLayerBuilder},
-        middleware::{new_mw_ctx, Middleware, ProcedureKind, RequestContext},
+        middleware::Middleware,
     },
     router::ProcedureDefinition,
     router_builder::{ProcedureBuildFn, ProcedureDef},
 };
 
-use futures::{stream, StreamExt};
+use futures::stream;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::Type;

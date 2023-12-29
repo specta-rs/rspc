@@ -1,9 +1,6 @@
-use std::{
-    future::{ready, IntoFuture},
-    marker::PhantomData,
-};
+use std::{future::ready, marker::PhantomData};
 
-use futures::{future::Either, FutureExt, Stream, StreamExt, TryFutureExt, TryStreamExt};
+use futures::{future::Either, FutureExt, Stream, TryStreamExt};
 use serde_json::Value;
 
 use crate::{
@@ -41,17 +38,11 @@ where
 
         self.next.call(ctx, input, req).await.map(move |stream| {
             stream.and_then(move |v| {
-                let v = match &resp_fn {
-                    Some(resp_fn) => Either::Left(resp_fn.call(v)),
-                    None => Either::Right(v),
-                };
-
-                async move {
-                    match v {
-                        Either::Left(v) => Ok(v.await),
-                        Either::Right(v) => Ok(v),
-                    }
+                match &resp_fn {
+                    Some(resp_fn) => resp_fn.call(v).left_future(),
+                    None => ready(v).right_future(),
                 }
+                .map(Ok)
             })
         })
     }
