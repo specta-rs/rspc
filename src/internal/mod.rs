@@ -5,12 +5,12 @@
 
 pub(crate) mod build;
 
+pub mod into_response;
 pub mod layer;
 pub mod middleware;
 pub mod pinned_option;
 pub mod procedure;
 pub mod procedure_store;
-pub mod resolver;
 pub mod resolvers;
 
 // TODO: Fix this

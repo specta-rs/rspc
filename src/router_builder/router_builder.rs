@@ -10,7 +10,6 @@ use crate::{
         layer::LayerBuilder,
         procedure::{HasResolver, Procedure},
         procedure_store::is_valid_name,
-        resolver::IntoResolverResponse,
     },
     layer::Layer,
     router::Router,

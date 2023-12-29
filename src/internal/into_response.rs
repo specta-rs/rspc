@@ -5,7 +5,10 @@
 //!
 //! This module is sealed so although it contains public types they will not end up in the public API.
 
-use std::future::{ready, Future, Ready};
+use std::{
+    future::{ready, Future, Ready},
+    marker::PhantomData,
+};
 
 use futures::{
     future::Either,
@@ -13,7 +16,8 @@ use futures::{
     Stream, StreamExt,
 };
 
-use crate::internal::resolver::{QueryOrMutation, Subscription};
+pub struct QueryOrMutation<M>(PhantomData<M>);
+pub struct Subscription<M>(PhantomData<M>);
 
 #[cfg(test)]
 #[derive(thiserror::Error, serde::Serialize, specta::Type, Debug)]

@@ -6,7 +6,6 @@ use crate::{
         layer::{BaseLayer, MiddlewareLayerBuilder},
         middleware::Middleware,
         procedure::{MissingResolver, Procedure},
-        resolver::{QueryOrMutation, Subscription},
     },
     layer::Layer,
     RouterBuilder,

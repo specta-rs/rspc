@@ -5,17 +5,13 @@ use crate::{
     internal::{
         build::build,
         layer::{LayerBuilder, MiddlewareLayerBuilder},
-        resolver::{QueryOrMutation, Subscription},
     },
     layer::{DynLayer, Layer},
     procedure_store::ProcedureTodo,
     router, ProcedureBuildFn, ProcedureDef,
 };
 
-use super::{
-    middleware::Middleware,
-    resolver::{IntoResolverResponse, LayerFn},
-};
+use super::{into_response::IntoResolverResponse, layer::LayerFn, middleware::Middleware};
 
 use futures::stream;
 use serde::{de::DeserializeOwned, Serialize};
