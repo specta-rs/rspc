@@ -11,7 +11,7 @@ use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
 use rspc::{
-    internal::{middleware::mw, rspc_core::IntoRouter, todo::SerdeJsonFormat},
+    internal::{rspc_core::IntoRouter, todo::SerdeJsonFormat},
     Executor, ExportConfig, Rspc,
 };
 use serde::Serialize;
@@ -62,7 +62,7 @@ async fn main() {
         .router()
         .procedure(
             "version",
-            R.with(mw(|mw, ctx| async move {
+            R.with(|mw, ctx| async move {
                 let stream = mw.next(ctx);
                 // .map(|resp| async move {
                 //     println!("Client requested version '{}'", resp);
@@ -70,7 +70,7 @@ async fn main() {
                 // })
 
                 stream
-            }))
+            })
             // .with(mw(|mw, ctx| async move { mw.next(ctx) }))
             // .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {
             //     mw.next(ctx)

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::internal::middleware::Middleware;
+use crate::internal::middleware::MiddlewareFn;
 
 use super::{Layer, MiddlewareLayer};
 
@@ -20,10 +20,10 @@ pub trait LayerBuilder: Send + Sync + 'static {
 
 /// Is responsible for joining together two layers.
 /// A layer could be a middleware or a resolver.
-pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, TNewCtx> {
+pub struct MiddlewareLayerBuilder<TMiddleware, TNewMiddleware, M> {
     pub(crate) middleware: TMiddleware,
     pub(crate) mw: TNewMiddleware,
-    pub(crate) phantom: PhantomData<TNewCtx>,
+    pub(crate) phantom: PhantomData<M>,
 }
 
 impl<TMiddleware, TNewCtx, TNewMiddleware> LayerBuilder
@@ -31,10 +31,10 @@ impl<TMiddleware, TNewCtx, TNewMiddleware> LayerBuilder
 where
     TNewCtx: Send + Sync + 'static,
     TMiddleware: LayerBuilder + Send + Sync + 'static,
-    TNewMiddleware: Middleware<TMiddleware::LayerCtx, TNewCtx> + Send + Sync + 'static,
+    TNewMiddleware: MiddlewareFn<TMiddleware::LayerCtx, TNewCtx> + Send + Sync + 'static,
 {
     type Ctx = TMiddleware::Ctx;
-    type LayerCtx = TNewMiddleware::NewCtx;
+    type LayerCtx = TNewCtx;
     type LayerResult<T> = TMiddleware::LayerResult<MiddlewareLayer<TMiddleware::LayerCtx, TNewCtx, T, TNewMiddleware>>
         where
             T: Layer<Self::LayerCtx>;

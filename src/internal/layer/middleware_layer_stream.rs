@@ -5,7 +5,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{future::FusedFuture, stream::FusedStream, Stream};
+use futures::{stream::FusedStream, Stream};
 
 enum YieldMsg {
     PlzYieldChunk,

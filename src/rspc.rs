@@ -4,7 +4,7 @@ use crate::{
     error::{private::IntoResolverError, Infallible},
     internal::{
         layer::{BaseLayer, MiddlewareLayerBuilder},
-        middleware::Middleware,
+        middleware::MiddlewareFn,
     },
     procedure::{MissingResolver, Procedure},
     router_builder::RouterBuilder,
@@ -55,10 +55,10 @@ where
         MissingResolver::new(BaseLayer::default())
     }
 
-    pub fn with<TNewCtx, Mw: Middleware<TCtx, TNewCtx>>(
+    pub fn with<TNewCtx, Mw: MiddlewareFn<TCtx, TNewCtx>>(
         self,
         mw: Mw,
-    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseLayer<TCtx>, Mw, TNewCtx>>>
+    ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<BaseLayer<TCtx>, Mw, Mw::NewCtx>>>
     {
         MissingResolver::new(MiddlewareLayerBuilder {
             middleware: BaseLayer::default(),

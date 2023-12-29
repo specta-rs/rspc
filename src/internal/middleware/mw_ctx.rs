@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::internal::layer::NextStream;
 
-pub fn new_mw_ctx<TNewCtx>(
+pub(crate) fn new_mw_ctx<TNewCtx>(
     input: serde_json::Value,
     req: RequestContext,
 ) -> MiddlewareContext<TNewCtx> {

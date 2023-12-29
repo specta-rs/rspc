@@ -1,10 +1,12 @@
-mod middleware;
-mod mw;
+mod into_mw_result;
+mod middleware_fn;
 mod mw_ctx;
-mod mw_result;
 
-// TODO: Remove all `::*`
-pub use middleware::*;
-pub use mw::*;
-pub use mw_ctx::*;
-pub use mw_result::*;
+// TODO: How much of this public or private API??
+// TODO: Is both 'MiddlewareContext' and 'RequestContext' mean to be public???
+pub use into_mw_result::IntoMiddlewareResult;
+pub use middleware_fn::MiddlewareFn;
+pub(crate) use mw_ctx::new_mw_ctx;
+pub use mw_ctx::{MiddlewareContext, ProcedureKind, RequestContext};
+
+pub(crate) use into_mw_result::TODOTemporaryOnlyValidMarker;

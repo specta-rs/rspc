@@ -5,7 +5,7 @@ use crate::{
     internal::{
         into_response::IntoResolverResponse,
         layer::{DynLayer, Layer, LayerBuilder, LayerFn, MiddlewareLayerBuilder},
-        middleware::{Middleware, ProcedureKind, RequestContext},
+        middleware::{MiddlewareFn, ProcedureKind, RequestContext},
     },
     router::ProcedureDefinition,
     router_builder::{ProcedureBuildFn, ProcedureDef},
@@ -51,7 +51,7 @@ where
         MissingResolver::new(self.0.mw)
     }
 
-    pub fn with<TNewCtx, Mw: Middleware<TMiddleware::LayerCtx, TNewCtx>>(
+    pub fn with<TNewCtx, Mw: MiddlewareFn<TMiddleware::LayerCtx, TNewCtx>>(
         self,
         mw: Mw,
     ) -> Procedure<MissingResolver<TError, MiddlewareLayerBuilder<TMiddleware, Mw, TNewCtx>>> {

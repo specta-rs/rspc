@@ -1,6 +1,6 @@
-use futures::{FutureExt, Stream, StreamExt};
+use futures::Stream;
 use serde_json::Value;
-use std::{future::Future, pin::Pin};
+use std::future::Future;
 
 use crate::{
     error::ExecError,

@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::{
     error::ExecError,
-    internal::middleware::{new_mw_ctx, Executable2, Middleware, MwV2Result, RequestContext},
+    internal::middleware::{new_mw_ctx, MiddlewareFn, RequestContext},
 };
 
 use super::Layer;
@@ -22,8 +22,8 @@ impl<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
 where
     TLayerCtx: Send + Sync + 'static,
     TNewCtx: Send + Sync + 'static,
-    TNextMiddleware: Layer<TNewMiddleware::NewCtx> + Sync + 'static,
-    TNewMiddleware: Middleware<TLayerCtx, TNewCtx> + Send + Sync + 'static,
+    TNextMiddleware: Layer<TNewCtx> + Sync + 'static,
+    TNewMiddleware: MiddlewareFn<TLayerCtx, TNewCtx> + Send + Sync + 'static,
 {
     async fn call(
         &self,
@@ -31,21 +31,20 @@ where
         input: Value,
         req: RequestContext,
     ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
-        let (ctx, input, req, resp_fn) = self
-            .mw
-            .run_me(ctx, new_mw_ctx(input, req))
-            .await
-            .explode()?;
+        todo!();
+        // let y = self.mw.execute(ctx, new_mw_ctx(input, req)).await;s
 
         // TODO: In this case `resp_fn` is being borrowed. Can we avoid that???
-        self.next.call(ctx, input, req).await.map(move |stream| {
-            stream.and_then(move |v| {
-                match &resp_fn {
-                    Some(resp_fn) => resp_fn.call(v).left_future(),
-                    None => ready(v).right_future(),
-                }
-                .map(Ok)
-            })
-        })
+        // self.next.call(ctx, input, req).await.map(move |stream| {
+        //     stream.and_then(move |v| {
+        //         match &resp_fn {
+        //             Some(resp_fn) => resp_fn.call(v).left_future(),
+        //             None => ready(v).right_future(),
+        //         }
+        //         .map(Ok)
+        //     })
+        // })
+
+        Ok(futures::stream::iter([]))
     }
 }

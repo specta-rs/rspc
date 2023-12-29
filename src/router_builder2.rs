@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, panic::Location};
+use std::{borrow::Cow, panic::Location};
 
 use thiserror::Error;
 
