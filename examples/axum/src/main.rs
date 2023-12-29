@@ -10,7 +10,7 @@ use std::{
 use async_stream::stream;
 use axum::routing::get;
 use futures::{Stream, StreamExt};
-use rspc::{export_config::ExportConfig, internal::middleware::mw, Rspc};
+use rspc::{internal::middleware::mw, ExportConfig, Rspc};
 use serde::Serialize;
 use specta::Type;
 use tokio::{net::TcpListener, sync::broadcast, time::sleep};

@@ -1,4 +1,4 @@
-use crate::{internal::layer::DynLayer, ProcedureDef};
+use crate::{internal::layer::DynLayer, router_builder::ProcedureDef};
 
 // TODO: Rename this
 #[deprecated]

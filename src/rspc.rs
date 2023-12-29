@@ -7,7 +7,7 @@ use crate::{
         middleware::Middleware,
     },
     procedure::{MissingResolver, Procedure},
-    RouterBuilder,
+    router_builder::RouterBuilder,
 };
 
 /// Rspc is a starting point for constructing rspc procedures or routers.

@@ -8,7 +8,7 @@ use crate::{
         middleware::Middleware,
     },
     procedure_store::ProcedureTodo,
-    ProcedureBuildFn, ProcedureDef,
+    router_builder::{ProcedureBuildFn, ProcedureDef},
 };
 
 use futures::stream;
