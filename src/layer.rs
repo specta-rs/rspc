@@ -3,9 +3,7 @@ use serde_json::Value;
 use specta::{ts, TypeMap};
 use std::{borrow::Cow, pin::Pin};
 
-use crate::{
-    error::ExecError, middleware_from_core::RequestContext, procedure_store::ProcedureDef,
-};
+use crate::{error::ExecError, middleware_from_core::RequestContext, ProcedureDef};
 
 // TODO: Remove `SealedLayer`
 
@@ -15,6 +13,7 @@ use crate::{
 pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
     type Stream<'a>: Stream<Item = Result<Value, ExecError>> + Send + 'a;
 
+    // TODO: Remove this
     fn into_procedure_def(
         &self,
         key: Cow<'static, str>,

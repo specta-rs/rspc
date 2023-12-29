@@ -1,10 +1,7 @@
 mod private {
     use std::marker::PhantomData;
 
-    use serde::de::DeserializeOwned;
-    use specta::Type;
-
-    use crate::{internal::middleware::SealedMiddlewareBuilder, layer::Layer};
+    use crate::{internal::middleware::MiddlewareBuilder, layer::Layer};
 
     pub struct BaseMiddleware<TCtx>(PhantomData<TCtx>);
 
@@ -14,7 +11,7 @@ mod private {
         }
     }
 
-    impl<TCtx> SealedMiddlewareBuilder for BaseMiddleware<TCtx>
+    impl<TCtx> MiddlewareBuilder for BaseMiddleware<TCtx>
     where
         TCtx: Send + Sync + 'static,
     {

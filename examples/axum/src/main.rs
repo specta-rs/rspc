@@ -192,8 +192,7 @@ async fn main() {
             })
         })
         .build()
-        .unwrap()
-        .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+        .unwrap();
 
     router
         .export_ts(ExportConfig::new(
@@ -211,16 +210,19 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            rspc_axum::endpoint(), // rspc_httpz::endpoint(router, |req: rspc_httpz::Request| {
-                                   //     println!("Client requested operation '{}'", req.uri().path());
-                                   //     Ctx {
-                                   //         x_demo_header: req
-                                   //             .headers()
-                                   //             .get("X-Demo-Header")
-                                   //             .map(|v| v.to_str().unwrap().to_string()),
-                                   //     }
-                                   // })
-                                   // .axum(),
+            rspc_axum::endpoint(router, || {
+                // println!("Client requested operation '{}'", req.uri().path());
+                //     Ctx {
+                //         x_demo_header: req
+                //             .headers()
+                //             .get("X-Demo-Header")
+                //             .map(|v| v.to_str().unwrap().to_string()),
+                //     }
+
+                Ctx {
+                    x_demo_header: None,
+                }
+            }),
         )
         .layer(cors);
 

@@ -27,7 +27,7 @@ mod private {
         error::{private::IntoResolverError, ExecError},
         layer::Layer,
         middleware_from_core::RequestContext,
-        procedure_store::ProcedureDef,
+        ProcedureDef,
     };
 
     use super::*;
@@ -62,14 +62,15 @@ mod private {
             key: Cow<'static, str>,
             ty_store: &mut TypeMap,
         ) -> Result<ProcedureDef, ts::ExportError> {
-            let mut result =
-                ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)?;
-            // TODO: Bruh this is soooo bad
-            result.input = match (self.arg_ty)(ty_store).inner {
-                DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
-                t => t,
-            };
-            Ok(result)
+            // let mut result =
+            //     ProcedureDef::from_tys::<TArg, TResult::Ok, TResult::Err>(key, ty_store)?;
+            // // TODO: Bruh this is soooo bad
+            // result.input = match (self.arg_ty)(ty_store).inner {
+            //     DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
+            //     t => t,
+            // };
+            // Ok(result)
+            todo!();
         }
 
         fn call(

@@ -26,7 +26,6 @@ pub mod router_builder;
 pub mod router_builder2;
 pub mod rspc;
 pub mod types;
-pub mod util;
 
 pub use export_config::ExportConfig;
 

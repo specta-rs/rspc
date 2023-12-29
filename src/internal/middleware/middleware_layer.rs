@@ -13,11 +13,13 @@ mod private {
 
     use crate::{
         error::ExecError,
-        internal::middleware::Middleware,
+        internal::{
+            middleware::Middleware,
+            pinned_option::{PinnedOption, PinnedOptionProj},
+        },
         layer::Layer,
         middleware_from_core::{new_mw_ctx, Executable2, MwV2Result, RequestContext},
-        procedure_store::ProcedureDef,
-        util::{PinnedOption, PinnedOptionProj},
+        ProcedureDef,
     };
 
     #[doc(hidden)]

@@ -22,6 +22,6 @@ mod task;
 
 pub use executor::{Executor, Procedure};
 pub use format::{Format, TODOSerializer};
-pub use router::Router;
+pub use router::IntoRouter;
 pub use serializer::Serializer;
 pub use task::Task;

@@ -47,10 +47,10 @@ impl<TCtx> Router<TCtx>
 where
     TCtx: Send + 'static,
 {
-    // TODO: Remove this and force it to always be `Arc`ed from the point it was constructed???
-    pub fn arced(self) -> Arc<Self> {
-        Arc::new(self)
-    }
+    // // TODO: Remove this and force it to always be `Arc`ed from the point it was constructed???
+    // pub fn arced(self) -> Arc<Self> {
+    //     Arc::new(self)
+    // }
 
     #[allow(clippy::panic_in_result_fn)] // TODO: Error handling given we return `Result`
     pub fn export_ts(&self, cfg: ExportConfig) -> Result<(), ExportError> {
@@ -143,7 +143,7 @@ where
 }
 
 impl<TCtx> rspc_core::internal::SealedRouter for Router<TCtx> {}
-impl<TCtx> rspc_core::Router for Router<TCtx> {
+impl<TCtx> rspc_core::IntoRouter for Router<TCtx> {
     type Ctx = TCtx;
 
     fn build(self) -> rspc_core::Executor {

@@ -27,6 +27,7 @@ pub(crate) mod private {
 
     use super::*;
 
+    // TODO: Remove this now that we don't use `Body`
     pin_project! {
         pub struct StreamToBody<S> {
             #[pin]

@@ -6,6 +6,7 @@
 pub(crate) mod build;
 
 pub mod middleware;
+pub mod pinned_option;
 pub mod procedure;
 pub mod procedure_store;
 pub mod resolver;
