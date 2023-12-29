@@ -5,9 +5,8 @@ use crate::{
     internal::{
         layer::{BaseLayer, MiddlewareLayerBuilder},
         middleware::Middleware,
-        procedure::{MissingResolver, Procedure},
     },
-    layer::Layer,
+    procedure::{MissingResolver, Procedure},
     RouterBuilder,
 };
 

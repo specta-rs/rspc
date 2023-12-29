@@ -3,15 +3,13 @@ use std::marker::PhantomData;
 use crate::{
     error::{private::IntoResolverError, ExecError},
     internal::{
-        build::build,
-        layer::{LayerBuilder, MiddlewareLayerBuilder},
+        into_response::IntoResolverResponse,
+        layer::{DynLayer, Layer, LayerBuilder, LayerFn, MiddlewareLayerBuilder},
+        middleware::Middleware,
     },
-    layer::{DynLayer, Layer},
     procedure_store::ProcedureTodo,
-    router, ProcedureBuildFn, ProcedureDef,
+    ProcedureBuildFn, ProcedureDef,
 };
-
-use super::{into_response::IntoResolverResponse, layer::LayerFn, middleware::Middleware};
 
 use futures::stream;
 use serde::{de::DeserializeOwned, Serialize};
@@ -122,6 +120,39 @@ where
                     },
                 },
             );
+
+            // let (map, type_name) = match kind {
+            //     ProcedureKind::Query => (&mut ctx.queries, "query"),
+            //     // ProcedureKind::Mutation => (&mut ctx.mutations, "mutation"),
+            //     // ProcedureKind::Subscription => (&mut ctx.subscriptions, "subscription"),
+            //     _ => todo!(),
+            // };
+
+            // let key_org = key;
+            // let key = key_org.to_string();
+            // // let type_def = layer
+            // //     .into_procedure_def(key_org, &mut ctx.typ_store)
+            // //     .expect("error exporting types");
+            // let type_def = todo!();
+
+            // // TODO: Cleanup this logic and do better router merging
+            // #[allow(clippy::panic)]
+            // if key.is_empty() || key == "ws" || key.starts_with("rpc.") || key.starts_with("rspc.") {
+            //     panic!("rspc error: attempted to create {type_name} operation named '{key}', however this name is not allowed.");
+            // }
+
+            // #[allow(clippy::panic)]
+            // if map.contains_key(&key) {
+            //     panic!("rspc error: {type_name} operation already has resolver with name '{key}'");
+            // }
+
+            // map.insert(
+            //     key,
+            //     ProcedureTodo {
+            //         exec: boxed(layer),
+            //         ty: type_def,
+            //     },
+            // );
         });
 
         Procedure(HasResolver { build })
@@ -134,6 +165,6 @@ impl<TCtx> Procedure<HasResolver<TCtx>> {
     }
 }
 
-pub(crate) fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
+fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
     Box::new(layer)
 }

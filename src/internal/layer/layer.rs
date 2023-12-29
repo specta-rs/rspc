@@ -2,9 +2,7 @@ use futures::{future::ready, stream::once, Stream};
 use serde_json::Value;
 use std::pin::Pin;
 
-use crate::{error::ExecError, internal::middleware::RequestContext, ProcedureDef};
-
-// TODO: Remove `SealedLayer`
+use crate::{error::ExecError, internal::middleware::RequestContext};
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
 

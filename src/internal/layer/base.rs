@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use crate::{internal::layer::LayerBuilder, layer::Layer};
+use crate::internal::layer::LayerBuilder;
+
+use super::Layer;
 
 pub struct BaseLayer<TCtx>(PhantomData<TCtx>);
 

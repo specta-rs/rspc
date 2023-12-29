@@ -5,15 +5,12 @@ use specta::Type;
 
 use crate::{
     error::private::IntoResolverError,
-    internal::{
-        build::build,
-        layer::LayerBuilder,
-        procedure::{HasResolver, Procedure},
-        procedure_store::is_valid_name,
-    },
-    layer::Layer,
+    internal::layer::LayerBuilder,
+    procedure::{HasResolver, Procedure},
     router::Router,
-    router_builder2::{edit_build_error_name, new_build_error, BuildError, BuildResult},
+    router_builder2::{
+        edit_build_error_name, new_build_error, BuildError, BuildErrorCause, BuildResult,
+    },
 };
 
 pub(crate) type ProcedureBuildFn<TCtx> = Box<dyn FnOnce(Cow<'static, str>, &mut Router<TCtx>)>;
@@ -104,4 +101,22 @@ where
 
         BuildResult::Ok(router)
     }
+}
+
+pub(crate) fn is_valid_name(name: &str) -> Option<BuildErrorCause> {
+    if name.is_empty() || name.len() > 255 {
+        return Some(BuildErrorCause::InvalidName);
+    }
+
+    for c in name.chars() {
+        if !(c.is_alphanumeric() || c == '_' || c == '-' || c == '~') {
+            return Some(BuildErrorCause::InvalidCharInName(c));
+        }
+    }
+
+    if name == "rspc" || name == "_batch" {
+        return Some(BuildErrorCause::ReservedName(name.to_string()));
+    }
+
+    None
 }

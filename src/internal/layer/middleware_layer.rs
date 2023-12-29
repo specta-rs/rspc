@@ -10,12 +10,27 @@ use serde_json::Value;
 
 use crate::{
     error::ExecError,
-    internal::{
-        middleware::{new_mw_ctx, Executable2, Middleware, MwV2Result, RequestContext},
-        pinned_option::{PinnedOption, PinnedOptionProj},
-    },
-    layer::Layer,
+    internal::middleware::{new_mw_ctx, Executable2, Middleware, MwV2Result, RequestContext},
 };
+
+use super::Layer;
+
+pin_project_lite::pin_project! {
+    #[project = PinnedOptionProj]
+    pub enum PinnedOption<T> {
+        Some {
+            #[pin]
+            v: T,
+        },
+        None,
+    }
+}
+
+impl<T> From<T> for PinnedOption<T> {
+    fn from(value: T) -> Self {
+        Self::Some { v: value }
+    }
+}
 
 #[doc(hidden)]
 pub struct MiddlewareLayer<TLayerCtx, TNextLayer, TNewMiddleware> {

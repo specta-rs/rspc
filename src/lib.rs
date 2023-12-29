@@ -18,7 +18,7 @@
 pub mod error;
 pub mod export_config;
 pub mod internal2;
-pub mod layer;
+pub mod procedure;
 pub mod procedure_store;
 pub mod router;
 pub mod router_builder;

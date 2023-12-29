@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use crate::{internal::middleware::Middleware, layer::Layer};
+use crate::internal::middleware::Middleware;
 
-use super::MiddlewareLayer;
+use super::{Layer, MiddlewareLayer};
 
 /// TODO
 pub trait LayerBuilder: Send + Sync + 'static {

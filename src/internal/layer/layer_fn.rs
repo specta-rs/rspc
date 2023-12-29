@@ -5,7 +5,9 @@ use std::pin::Pin;
 use futures::Stream;
 use serde_json::Value;
 
-use crate::{error::ExecError, internal::middleware::RequestContext, layer::Layer};
+use crate::{error::ExecError, internal::middleware::RequestContext};
+
+use super::Layer;
 
 type ErasedLayerFn<TLCtx> = Box<
     dyn Fn(
