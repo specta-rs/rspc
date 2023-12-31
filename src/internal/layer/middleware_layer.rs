@@ -1,16 +1,13 @@
 use std::{
-    any::type_name,
-    future::{ready, Future},
+    future::{ready, Ready},
     marker::PhantomData,
-    pin::Pin,
     sync::Arc,
-    task::{Context, Poll},
 };
 
 use futures::{
-    future::{Either, Flatten, IntoStream, Map, Ready},
+    future::Either,
     stream::{once, Once},
-    FutureExt, Stream, StreamExt,
+    FutureExt, StreamExt,
 };
 use serde_json::Value;
 
@@ -22,7 +19,7 @@ use crate::{
     },
 };
 
-use super::Layer;
+use super::{middleware_layer_stream::MiddlewareInterceptor, Layer};
 
 #[doc(hidden)]
 pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> {
@@ -32,14 +29,14 @@ pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> 
     pub(crate) phantom: PhantomData<(TLayerCtx, TNewCtx)>,
 }
 
-// type CallbackFn<TNewMiddleware, TLayerCtx, TNewCtx> = fn(
-//     <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
-// ) -> Either<
-//     <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<
-//         TODOTemporaryOnlyValidMarker,
-//     >>::Stream,
-//     Once<std::future::Ready<Result<Value, ExecError>>>,
-// >;
+type CallbackFn<TNewMiddleware, TLayerCtx, TNewCtx> = fn(
+    <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
+) -> Either<
+    <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<
+        TODOTemporaryOnlyValidMarker,
+    >>::Stream,
+    Once<Ready<Result<Value, ExecError>>>,
+>;
 
 impl<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
     for MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware>
@@ -49,13 +46,18 @@ where
     TNextMiddleware: Layer<TNewCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareFn<TLayerCtx, TNewCtx> + Send + Sync + 'static,
 {
-    // TODO: Lol Rustfmt can't handle this
-    type Stream = MiddlewareLayerStream<futures::stream::Flatten<futures::future::IntoStream<futures::future::Map<<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Future, 
-    fn(
-        <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
-    ) -> Either<   <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<TODOTemporaryOnlyValidMarker>  >::Stream     , Once<std::future::Ready<Result<Value, ExecError>>>>
-
-                        >>>>;
+    type Stream = MiddlewareInterceptor<
+        futures::stream::Flatten<
+            futures::future::IntoStream<
+                futures::future::Map<
+                    <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Future,
+                    CallbackFn<TNewMiddleware, TLayerCtx, TNewCtx>,
+                >,
+            >,
+        >,
+        TNextMiddleware,
+        TNewCtx,
+    >;
 
     fn call(
         &self,
@@ -63,13 +65,10 @@ where
         input: Value,
         req: RequestContext,
     ) -> Result<Self::Stream, ExecError> {
-        let callback: fn(
-            <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
-        ) -> Either<   <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<TODOTemporaryOnlyValidMarker>  >::Stream     , Once<std::future::Ready<Result<Value, ExecError>>>> =
-            |f| match f.into_result() {
-                Ok(result) =>  Either::Left(result),
-                Err(err) => Either::Right(once(ready(Err(err)))),
-            };
+        let callback: CallbackFn<TNewMiddleware, TLayerCtx, TNewCtx> = |f| match f.into_result() {
+            Ok(result) => Either::Left(result),
+            Err(err) => Either::Right(once(ready(Err(err)))),
+        };
 
         let mw = self
             .mw
@@ -78,25 +77,11 @@ where
             .into_stream()
             .flatten();
 
-        Ok(MiddlewareLayerStream {
+        Ok(MiddlewareInterceptor {
             mw,
+            next: self.next.clone(),
+            stream: None,
             phantom: PhantomData,
         })
-    }
-}
-
-pub struct MiddlewareLayerStream<S> {
-    mw: S,
-    phantom: PhantomData<S>,
-}
-
-impl<S> Stream for MiddlewareLayerStream<S>
-where
-    S: Stream<Item = Result<Value, ExecError>>,
-{
-    type Item = Result<Value, ExecError>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        todo!()
     }
 }

@@ -7,13 +7,16 @@ use std::{
     future::poll_fn,
     marker::PhantomData,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
 use futures::{stream::FusedStream, Stream};
 use serde_json::Value;
 
-use crate::internal::middleware::RequestContext;
+use crate::{error::ExecError, internal::middleware::RequestContext};
+
+use super::Layer;
 
 enum YieldMsg {
     // The `&'static` lifetime is fake.
@@ -22,7 +25,7 @@ enum YieldMsg {
         input: Value,
         req: RequestContext,
     },
-    PlzYieldChunk,
+    YieldBodyChunk,
     YieldedChunk(Option<serde_json::Value>),
 }
 
@@ -31,59 +34,66 @@ thread_local! {
     static OPERATION: Cell<Option<YieldMsg>> = const { Cell::new(None) };
 }
 
-pub(crate) enum OnPendingAction {
-    Pending,
-    Continue,
+pub struct MiddlewareInterceptor<S, TNextMiddleware, TNewCtx>
+where
+    TNextMiddleware: Layer<TNewCtx>,
+    TNewCtx: 'static,
+{
+    pub(crate) mw: S,
+    pub(crate) next: Arc<TNextMiddleware>,
+    pub(crate) stream: Option<TNextMiddleware::Stream>,
+    pub(crate) phantom: PhantomData<TNewCtx>,
 }
 
-// TODO: Rename
-pub(crate) enum MiddlewareStreamIntersector<TNewCtx, F, S>
+impl<S, TNextMiddleware, TNewCtx> Stream for MiddlewareInterceptor<S, TNextMiddleware, TNewCtx>
 where
+    S: Stream<Item = Result<Value, ExecError>>,
+    TNextMiddleware: Layer<TNewCtx>,
     TNewCtx: 'static,
-    F: FnOnce(TNewCtx, Value, RequestContext) -> S,
-    S: Stream + 'static,
 {
-    WaitingInit(F),
-    PollingStream(S),
-    Done,
-    PhantomData(PhantomData<TNewCtx>),
-}
+    type Item = Result<Value, ExecError>;
 
-impl<TNewCtx, F, S> MiddlewareStreamIntersector<TNewCtx, F, S>
-where
-    TNewCtx: 'static,
-    F: FnOnce(TNewCtx, Value, RequestContext) -> S,
-    S: Stream + 'static,
-{
-    pub fn on_pending(&mut self) -> OnPendingAction {
-        if let Some(op) = OPERATION.take() {
-            match op {
-                // Holding onto `next_ctx` would be unsafe as it points to a stack value so we take it as early as possible.
-                YieldMsg::InitInnerStream { ctx, input, req } => {
-                    let next_ctx: &mut Option<TNewCtx> = ctx.downcast_mut().unwrap(); // TODO: Error handling
-                    let next_ctx = next_ctx.take().unwrap(); // TODO: Error handling
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        loop {
+            let result = unsafe { self.as_mut().map_unchecked_mut(|this| &mut this.mw) }
+                .as_mut()
+                .poll_next(cx);
 
-                    match self {
-                        MiddlewareStreamIntersector::WaitingInit(stream_fn) => {
-                            // *self = MiddlewareStreamIntersector::PollingStream((stream_fn)(
-                            //     next_ctx, input, req,
-                            // ));
-                            todo!();
+            if let Poll::Pending = result {
+                if let Some(op) = OPERATION.take() {
+                    match op {
+                        // Holding onto `next_ctx` would be unsafe as it points to a stack value so we take it as early as possible.
+                        YieldMsg::InitInnerStream { ctx, input, req } => {
+                            let ctx: &mut Option<TNewCtx> = ctx.downcast_mut().unwrap(); // TODO: Error handling
+                            let ctx = ctx.take().unwrap(); // TODO: Error handling
+
+                            let stream = self.next.call(ctx, input, req).unwrap(); // TODO: Error handling
+                            unsafe { self.as_mut().get_unchecked_mut() }.stream = Some(stream);
+                            continue; // Re-poll the middleware or it will stall
                         }
-                        MiddlewareStreamIntersector::PollingStream(_) => unreachable!(),
-                        MiddlewareStreamIntersector::Done => unreachable!(),
-                        MiddlewareStreamIntersector::PhantomData(_) => unreachable!(),
+                        YieldMsg::YieldBodyChunk => {
+                            let result = if let Some(stream) =
+                                &mut unsafe { self.as_mut().get_unchecked_mut() }.stream
+                            {
+                                let stream = unsafe { Pin::new_unchecked(stream) };
+                                match stream.poll_next(cx) {
+                                    Poll::Ready(v) => v.map(|v| v.unwrap()), // TODO: Error handling
+                                    Poll::Pending => todo!(), // return Poll::Pending, // TODO: We need to know that the stream must be re-polled on the next ready value.
+                                }
+                            } else {
+                                None
+                            };
+
+                            OPERATION.set(Some(YieldMsg::YieldedChunk(result)));
+                            continue; // Re-poll the middleware or it will stall
+                        }
+                        YieldMsg::YieldedChunk(_) => unreachable!(),
                     }
                 }
-                YieldMsg::PlzYieldChunk => {
-                    OPERATION.set(Some(YieldMsg::YieldedChunk(None))); // TODO: Poll inner stream for `Value` instead.
-                    return OnPendingAction::Continue;
-                }
-                YieldMsg::YieldedChunk(_) => unreachable!(),
             }
-        }
 
-        OnPendingAction::Pending
+            return result;
+        }
     }
 }
 
@@ -143,7 +153,7 @@ impl Stream for NextStream {
             let op = OPERATION.take().unwrap();
             match op {
                 YieldMsg::InitInnerStream { .. } => unreachable!(),
-                YieldMsg::PlzYieldChunk => unreachable!(),
+                YieldMsg::YieldBodyChunk => unreachable!(),
                 YieldMsg::YieldedChunk(chunk) => {
                     self.done = chunk.is_none();
                     Poll::Ready(chunk)
@@ -151,7 +161,7 @@ impl Stream for NextStream {
             }
         } else {
             self.yielded = true;
-            OPERATION.set(Some(YieldMsg::PlzYieldChunk));
+            OPERATION.set(Some(YieldMsg::YieldBodyChunk));
             // We don't register a waker. This is okay because it will be re-polled by `MiddlewareLayerStream`.
             Poll::Pending
         }

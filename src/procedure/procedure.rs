@@ -79,21 +79,20 @@ where
         // Given you can't attach middleware after the resolver (and supporting that would be painful)
         // we just type-erased everything as much as possible so it's less work on the compiler.
 
-        let layer = LayerFn::new(|ctx: TMiddleware::LayerCtx, input, req| {
+        let layer = LayerFn::new(move |ctx: TMiddleware::LayerCtx, input, req| {
             // TODO: Make this work
 
-            // let stream = (resolver)(
-            //     ctx,
-            //     serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
-            // )
-            // .to_stream();
+            let stream = (resolver)(
+                ctx,
+                serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
+            )
+            .to_stream();
 
-            // Ok(stream.map(|v| match v {
-            //     Ok(v) => serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
-            //     Err(e) => Err(ExecError::Resolver(e.into_resolver_error())),
-            // }))
-
-            Ok(stream::iter([Ok::<Value, ExecError>(Value::Null); 0]))
+            Ok(stream.map(|v| match v {
+                Ok(v) => serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
+                Err(e) => Err(ExecError::Resolver(e.into_resolver_error())),
+            }))
+            // Ok(stream::iter([Ok::<Value, ExecError>(Value::Null); 0]))
         });
 
         // In debug mode we box both the function and the stream.
@@ -116,7 +115,7 @@ where
 
                         let dyn_layer = &dyn_layer;
 
-                        let mut stream = dyn_layer.dyn_call(
+                        let stream = dyn_layer.dyn_call(
                             todo,
                             Value::Null, // TODO: From the request
                             // TODO: Make `RequestContext` correct

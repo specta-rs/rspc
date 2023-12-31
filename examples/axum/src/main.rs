@@ -71,7 +71,10 @@ async fn main() {
                     resp
                 });
 
-                // stream::iter([])
+                // futures::stream::iter([
+                //     serde_json::Value::String("Hello, world!".to_string()),
+                //     serde_json::Value::String("Hello, world2!".to_string()),
+                // ])
                 stream
             })
             // .with(mw(|mw, ctx| async move { mw.next(ctx) }))
