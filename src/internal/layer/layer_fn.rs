@@ -1,6 +1,6 @@
 //! Move this into the `layer` module instead of the `resolver` module???
 
-use std::{future::Future, pin::Pin};
+use std::pin::Pin;
 
 use futures::Stream;
 use serde_json::Value;

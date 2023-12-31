@@ -38,22 +38,6 @@ pub enum MyCustomError {
     IAmBroke,
 }
 
-// /// TODO
-// pub enum Demo {}
-
-// impl ArgumentMapper for Demo {
-//     type State = ();
-//     type Input<T> = (String, T)
-//     where
-//         T: DeserializeOwned + Type + 'static;
-
-//     fn map<T: Serialize + DeserializeOwned + Type + 'static>(
-//         arg: Self::Input<T>,
-//     ) -> (T, Self::State) {
-//         (arg.1, ())
-//     }
-// }
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -65,7 +49,6 @@ async fn main() {
             R.with(|mw, ctx| async move {
                 let stream = mw.next(ctx).await;
 
-                // TODO: Make sure async `map` closures work
                 let stream = stream.map(|resp| {
                     println!("Client requested version '{}'", resp);
                     resp
@@ -76,6 +59,13 @@ async fn main() {
                 //     serde_json::Value::String("Hello, world2!".to_string()),
                 // ])
                 stream
+            })
+            .with(|mw, ctx| async move {
+                println!("Got input {:?}", mw.input);
+                let result = mw.next(ctx).await.next().await.unwrap();
+                println!("Client requested version '{}'", result);
+                // This should work without being converted back into stream but I haven't worked out the generics yet.
+                futures::stream::iter([result])
             })
             // .with(mw(|mw, ctx| async move { mw.next(ctx) }))
             // .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {

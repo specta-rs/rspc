@@ -19,8 +19,8 @@ use crate::{error::ExecError, internal::middleware::RequestContext};
 use super::Layer;
 
 enum YieldMsg {
-    // The `&'static` lifetime is fake.
     InitInnerStream {
+        // The `&'static` lifetime is fake and this points to a stack value so it *should* not be stored or reused.
         ctx: &'static mut (dyn Any + Send),
         input: Value,
         req: RequestContext,
@@ -53,6 +53,7 @@ where
 {
     type Item = Result<Value, ExecError>;
 
+    // TODO: Use `pin-project` and a lot less `unsafe`
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             let result = unsafe { self.as_mut().map_unchecked_mut(|this| &mut this.mw) }
@@ -162,9 +163,14 @@ impl Stream for NextStream {
         } else {
             self.yielded = true;
             OPERATION.set(Some(YieldMsg::YieldBodyChunk));
-            // We don't register a waker. This is okay because it will be re-polled by `MiddlewareLayerStream`.
+            // We don't register a waker. This is okay because it will be re-polled by `MiddlewareInterceptor` once the inner stream is ready.
             Poll::Pending
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // TODO: Connect this properly with the underlying stream
+        (0, None)
     }
 }
 

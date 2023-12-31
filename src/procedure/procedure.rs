@@ -11,7 +11,7 @@ use crate::{
     router_builder::{ProcedureBuildFn, ProcedureDef},
 };
 
-use futures::{stream, StreamExt};
+use futures::StreamExt;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::Type;
@@ -77,11 +77,9 @@ where
         TResultMarker: 'static,
     {
         // Given you can't attach middleware after the resolver (and supporting that would be painful)
-        // we just type-erased everything as much as possible so it's less work on the compiler.
+        // so we just type-erased everything as much as possible for less compiler overhead.
 
-        let layer = LayerFn::new(move |ctx: TMiddleware::LayerCtx, input, req| {
-            // TODO: Make this work
-
+        let layer = LayerFn::new(move |ctx: TMiddleware::LayerCtx, input, _| {
             let stream = (resolver)(
                 ctx,
                 serde_json::from_value(input).map_err(ExecError::DeserializingArgErr)?,
@@ -92,12 +90,11 @@ where
                 Ok(v) => serde_json::to_value(v).map_err(ExecError::SerializingResultErr),
                 Err(e) => Err(ExecError::Resolver(e.into_resolver_error())),
             }))
-            // Ok(stream::iter([Ok::<Value, ExecError>(Value::Null); 0]))
         });
 
         // In debug mode we box both the function and the stream.
         // This logic is that it will reduce monomorphisation and improve debug builds.
-        // TODO: This needs more benchmarking. Should we always box the `Fn`??? Does boxing the `Stream` actually help build performance????
+        // TODO: This needs more benchmarking. Should we always box the `Fn`??? Does boxing the `Stream` actually help compile-time perf????
         #[cfg(debug_assertions)]
         let layer = layer.erased();
 
@@ -193,9 +190,3 @@ impl<TCtx> Procedure<HasResolver<TCtx>> {
 fn boxed<TLCtx: Send + 'static>(layer: impl Layer<TLCtx>) -> Box<dyn DynLayer<TLCtx>> {
     Box::new(layer)
 }
-
-// type TODOProcedure = Arc<
-//     dyn Fn(
-//         rspc_core::RequestContext,
-//     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>>,
-// >;
