@@ -8,12 +8,14 @@ use crate::{error::ExecError, internal::middleware::RequestContext};
 
 #[doc(hidden)]
 pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
+    type Stream: Stream<Item = Result<Value, ExecError>> + Send + 'static;
+
     fn call(
         &self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
-    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError>;
+    ) -> Result<Self::Stream, ExecError>;
 }
 
 // TODO: Replace this with `rspc_core::Procedure` if possible

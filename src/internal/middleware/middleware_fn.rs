@@ -6,15 +6,15 @@ use super::{IntoMiddlewareResult, MiddlewareContext, TODOTemporaryOnlyValidMarke
 
 // `TNewCtx` is sadly require to constrain the impl at the bottom of this file. If you can remove it your a god.
 pub trait MiddlewareFn<TLCtx, TNewCtx>:
-    Fn(MiddlewareContext<TNewCtx>, TLCtx) -> Self::Fut + Send + Sync + 'static
+    Fn(MiddlewareContext<TNewCtx>, TLCtx) -> Self::Future + Send + Sync + 'static
 where
     TLCtx: Send + Sync + 'static,
 {
-    type Fut: Future<Output = Self::Result> + Send + 'static;
+    type Future: Future<Output = Self::Result> + Send + 'static;
     type Result: IntoMiddlewareResult<TODOTemporaryOnlyValidMarker>;
     type NewCtx;
 
-    fn execute(&self, ctx: TLCtx, mw: MiddlewareContext<Self::NewCtx>) -> Self::Fut;
+    fn execute(&self, ctx: TLCtx, mw: MiddlewareContext<Self::NewCtx>) -> Self::Future;
 }
 
 impl<TLCtx, TNewCtx, F, Fu> MiddlewareFn<TLCtx, TNewCtx> for F
@@ -24,11 +24,11 @@ where
     Fu: Future + Send + 'static,
     Fu::Output: IntoMiddlewareResult<TODOTemporaryOnlyValidMarker> + Send + 'static,
 {
-    type Fut = Fu;
+    type Future = Fu;
     type Result = Fu::Output;
     type NewCtx = TNewCtx;
 
-    fn execute(&self, ctx: TLCtx, mw: MiddlewareContext<Self::NewCtx>) -> Self::Fut {
+    fn execute(&self, ctx: TLCtx, mw: MiddlewareContext<Self::NewCtx>) -> Self::Future {
         self(mw, ctx)
     }
 }

@@ -1,11 +1,25 @@
-use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc, task::Poll};
+use std::{
+    any::type_name,
+    future::{ready, Future},
+    marker::PhantomData,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
-use futures::{future::Either, Stream};
+use futures::{
+    future::{Either, Flatten, IntoStream, Map, Ready},
+    stream::{once, Once},
+    FutureExt, Stream, StreamExt,
+};
 use serde_json::Value;
 
 use crate::{
     error::ExecError,
-    internal::middleware::{new_mw_ctx, IntoMiddlewareResult, MiddlewareFn, RequestContext},
+    internal::middleware::{
+        new_mw_ctx, IntoMiddlewareResult, MiddlewareFn, RequestContext,
+        TODOTemporaryOnlyValidMarker,
+    },
 };
 
 use super::Layer;
@@ -18,6 +32,15 @@ pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> 
     pub(crate) phantom: PhantomData<(TLayerCtx, TNewCtx)>,
 }
 
+// type CallbackFn<TNewMiddleware, TLayerCtx, TNewCtx> = fn(
+//     <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
+// ) -> Either<
+//     <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<
+//         TODOTemporaryOnlyValidMarker,
+//     >>::Stream,
+//     Once<std::future::Ready<Result<Value, ExecError>>>,
+// >;
+
 impl<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> Layer<TLayerCtx>
     for MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware>
 where
@@ -26,75 +49,54 @@ where
     TNextMiddleware: Layer<TNewCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareFn<TLayerCtx, TNewCtx> + Send + Sync + 'static,
 {
+    // TODO: Lol Rustfmt can't handle this
+    type Stream = MiddlewareLayerStream<futures::stream::Flatten<futures::future::IntoStream<futures::future::Map<<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Future, 
+    fn(
+        <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
+    ) -> Either<   <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<TODOTemporaryOnlyValidMarker>  >::Stream     , Once<std::future::Ready<Result<Value, ExecError>>>>
+
+                        >>>>;
+
     fn call(
         &self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
-    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
-        let mut state = Either::Left(self.mw.execute(ctx, new_mw_ctx(input, req)));
-        let mut done = false;
-        // let mut intersector =
-        //     MiddlewareStreamIntersector::<TNewCtx, _, _>::WaitingInit(|ctx, input, req| {
-        //         self.next.call(ctx, input, req).unwrap() // TODO: Error handling
-        //     });
+    ) -> Result<Self::Stream, ExecError> {
+        let callback: fn(
+            <TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result,
+        ) -> Either<   <<TNewMiddleware as MiddlewareFn<TLayerCtx, TNewCtx>>::Result as IntoMiddlewareResult<TODOTemporaryOnlyValidMarker>  >::Stream     , Once<std::future::Ready<Result<Value, ExecError>>>> =
+            |f| match f.into_result() {
+                Ok(result) =>  Either::Left(result),
+                Err(err) => Either::Right(once(ready(Err(err)))),
+            };
 
-        Ok(futures::stream::poll_fn(move |cx| {
-            // let intersector = &mut intersector;
+        let mw = self
+            .mw
+            .execute(ctx, new_mw_ctx(input, req))
+            .map(callback)
+            .into_stream()
+            .flatten();
 
-            loop {
-                if done {
-                    return Poll::Ready(None);
-                }
+        Ok(MiddlewareLayerStream {
+            mw,
+            phantom: PhantomData,
+        })
+    }
+}
 
-                match &mut state {
-                    // Poll the middleware future
-                    Either::Left(fut) => {
-                        let fut = unsafe { Pin::new_unchecked(fut) };
-                        match fut.poll(cx) {
-                            Poll::Ready(result) => match result.into_result() {
-                                Ok(result) => {
-                                    state = Either::Right(result);
-                                    continue;
-                                }
-                                Err(err) => {
-                                    done = true;
-                                    return Poll::Ready(Some(Err(err)));
-                                }
-                            },
-                            Poll::Pending => {
-                                // let _ = interseptor.on_pending();
+pub struct MiddlewareLayerStream<S> {
+    mw: S,
+    phantom: PhantomData<S>,
+}
 
-                                // let y = self.next.call(ctx, input, req);
+impl<S> Stream for MiddlewareLayerStream<S>
+where
+    S: Stream<Item = Result<Value, ExecError>>,
+{
+    type Item = Result<Value, ExecError>;
 
-                                // match on_pending(cx, || fut.as_mut().poll(cx)) {
-                                //     OnPendingAction::Continue => continue,
-                                //     OnPendingAction::Pending => return Poll::Pending,
-                                // }
-                                todo!();
-                            }
-                        }
-                    }
-                    // Poll the middleware stream. This potentially be returned from the middleware future.
-                    Either::Right(stream) => {
-                        let stream = unsafe { Pin::new_unchecked(stream) };
-                        return match stream.poll_next(cx) {
-                            Poll::Ready(None) => {
-                                done = true;
-                                Poll::Ready(None)
-                            }
-                            Poll::Ready(v) => Poll::Ready(v),
-                            Poll::Pending => {
-                                // match on_pending() {
-                                //     OnPendingAction::Continue => continue,
-                                //     OnPendingAction::Pending => Poll::Pending,
-                                // }
-                                todo!();
-                            }
-                        };
-                    }
-                }
-            }
-        }))
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        todo!()
     }
 }

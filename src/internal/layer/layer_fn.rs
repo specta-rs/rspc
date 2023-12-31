@@ -54,12 +54,14 @@ where
     F: Fn(TLCtx, Value, RequestContext) -> Result<S, ExecError> + Send + Sync + 'static,
     S: Stream<Item = Result<Value, ExecError>> + Send + 'static,
 {
+    type Stream = S;
+
     fn call(
         &self,
         ctx: TLCtx,
         input: Value,
         req: RequestContext,
-    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
+    ) -> Result<Self::Stream, ExecError> {
         (self.0)(ctx, input, req)
     }
 }
