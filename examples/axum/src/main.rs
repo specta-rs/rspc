@@ -63,7 +63,7 @@ async fn main() {
         .procedure(
             "version",
             R.with(|mw, ctx| async move {
-                let stream = mw.next(ctx);
+                let stream = mw.next(ctx).await;
 
                 // TODO: Make sure async `map` closures work
                 let stream = stream.map(|resp| {

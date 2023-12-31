@@ -1,11 +1,12 @@
 use std::{
     borrow::Cow,
+    marker::PhantomData,
     sync::{Arc, Mutex, PoisonError},
 };
 
 use serde_json::Value;
 
-use crate::internal::layer::NextStream;
+use crate::internal::layer::{middleware_layer_stream::get_next_stream, NextStream};
 
 pub(crate) fn new_mw_ctx<TNewCtx>(
     input: serde_json::Value,
@@ -14,35 +15,26 @@ pub(crate) fn new_mw_ctx<TNewCtx>(
     MiddlewareContext {
         input,
         req,
-        new_ctx: Arc::new(Mutex::new(None)),
+        phantom: PhantomData,
     }
 }
 
 #[non_exhaustive]
 pub struct MiddlewareContext<TNewCtx> {
-    // Request
     pub input: Value,
     pub req: RequestContext,
-
-    // Response
-    // TODO: This is gonna have a performance impact and I don't like it.
-    new_ctx: Arc<Mutex<Option<TNewCtx>>>,
+    phantom: PhantomData<TNewCtx>,
 }
 
-impl<TNewCtx> MiddlewareContext<TNewCtx> {
+impl<TNewCtx: Send + 'static> MiddlewareContext<TNewCtx> {
     #[cfg(feature = "tracing")]
     pub fn with_span(mut self, span: Option<tracing::Span>) -> Self {
         self.req.span = Some(span);
         self
     }
 
-    pub fn next(self, ctx: TNewCtx) -> NextStream {
-        self.new_ctx
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .replace(ctx);
-
-        NextStream::new()
+    pub async fn next(self, ctx: TNewCtx) -> NextStream {
+        get_next_stream(ctx, self.input, self.req).await
     }
 }
 

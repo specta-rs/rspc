@@ -8,10 +8,7 @@ use crate::{
     internal::middleware::{new_mw_ctx, IntoMiddlewareResult, MiddlewareFn, RequestContext},
 };
 
-use super::{
-    middleware_layer_stream::{on_pending, OnPendingAction},
-    Layer,
-};
+use super::Layer;
 
 #[doc(hidden)]
 pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> {
@@ -37,7 +34,14 @@ where
     ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
         let mut state = Either::Left(self.mw.execute(ctx, new_mw_ctx(input, req)));
         let mut done = false;
+        // let mut intersector =
+        //     MiddlewareStreamIntersector::<TNewCtx, _, _>::WaitingInit(|ctx, input, req| {
+        //         self.next.call(ctx, input, req).unwrap() // TODO: Error handling
+        //     });
+
         Ok(futures::stream::poll_fn(move |cx| {
+            // let intersector = &mut intersector;
+
             loop {
                 if done {
                     return Poll::Ready(None);
@@ -58,10 +62,17 @@ where
                                     return Poll::Ready(Some(Err(err)));
                                 }
                             },
-                            Poll::Pending => match on_pending() {
-                                OnPendingAction::Continue => continue,
-                                OnPendingAction::Pending => return Poll::Pending,
-                            },
+                            Poll::Pending => {
+                                // let _ = interseptor.on_pending();
+
+                                // let y = self.next.call(ctx, input, req);
+
+                                // match on_pending(cx, || fut.as_mut().poll(cx)) {
+                                //     OnPendingAction::Continue => continue,
+                                //     OnPendingAction::Pending => return Poll::Pending,
+                                // }
+                                todo!();
+                            }
                         }
                     }
                     // Poll the middleware stream. This potentially be returned from the middleware future.
@@ -73,10 +84,13 @@ where
                                 Poll::Ready(None)
                             }
                             Poll::Ready(v) => Poll::Ready(v),
-                            Poll::Pending => match on_pending() {
-                                OnPendingAction::Continue => continue,
-                                OnPendingAction::Pending => Poll::Pending,
-                            },
+                            Poll::Pending => {
+                                // match on_pending() {
+                                //     OnPendingAction::Continue => continue,
+                                //     OnPendingAction::Pending => Poll::Pending,
+                                // }
+                                todo!();
+                            }
                         };
                     }
                 }

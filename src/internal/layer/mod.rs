@@ -5,7 +5,7 @@ mod builder;
 mod layer;
 mod layer_fn;
 mod middleware_layer;
-mod middleware_layer_stream;
+pub(crate) mod middleware_layer_stream;
 
 pub(crate) use base::BaseLayer;
 pub(crate) use builder::{LayerBuilder, MiddlewareLayerBuilder};
