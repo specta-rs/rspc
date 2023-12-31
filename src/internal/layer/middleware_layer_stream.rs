@@ -17,33 +17,23 @@ thread_local! {
     static OPERATION: Cell<Option<YieldMsg>> = const { Cell::new(None) };
 }
 
-pub struct MiddlewareLayerStream<S>(S);
+pub(crate) enum OnPendingAction {
+    Pending,
+    Continue,
+}
 
-impl<S: Stream> Stream for MiddlewareLayerStream<S> {
-    type Item = S::Item;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        loop {
-            // TODO: Safety
-            let inner = unsafe { self.as_mut().map_unchecked_mut(|s| &mut s.0) };
-            match inner.poll_next(cx) {
-                Poll::Ready(result) => return Poll::Ready(result),
-                Poll::Pending => {
-                    if let Some(op) = OPERATION.take() {
-                        match op {
-                            YieldMsg::PlzYieldChunk => {
-                                OPERATION.set(Some(YieldMsg::YieldedChunk(None))); // TODO: Poll inner stream for `Value` instead.
-                                continue; // We re-poll the inner stream and so it receives the chunk.
-                            }
-                            YieldMsg::YieldedChunk(_) => unreachable!(),
-                        }
-                    }
-
-                    return Poll::Pending;
-                }
+pub(crate) fn on_pending() -> OnPendingAction {
+    if let Some(op) = OPERATION.take() {
+        match op {
+            YieldMsg::PlzYieldChunk => {
+                OPERATION.set(Some(YieldMsg::YieldedChunk(None))); // TODO: Poll inner stream for `Value` instead.
+                return OnPendingAction::Continue;
             }
+            YieldMsg::YieldedChunk(_) => unreachable!(),
         }
     }
+
+    OnPendingAction::Pending
 }
 
 // TODO: Rename

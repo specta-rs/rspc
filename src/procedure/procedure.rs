@@ -11,7 +11,7 @@ use crate::{
     router_builder::{ProcedureBuildFn, ProcedureDef},
 };
 
-use futures::stream;
+use futures::{stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use specta::Type;
@@ -124,17 +124,18 @@ where
                         );
 
                         Box::pin(async move {
-                            // let stream = stream;
+                            let mut stream = stream;
 
-                            // while let Some(v) = stream.next().await {
-                            //     match v {
-                            //         Ok(v) => ctx.result.serialize(&v),
-                            //         Err(e) => todo!(),
-                            //     }
-                            // }
+                            while let Some(v) = stream.next().await {
+                                match v {
+                                    Ok(v) => ctx.result.serialize(&v),
+                                    Err(e) => todo!(),
+                                }
+                                break; // TODO: Handle more than one value
+                            }
 
                             // TODO: Hook this up correctly
-                            ctx.result.serialize(&"TODO: Finish implementing");
+                            // ctx.result.serialize(&"TODO: Finish implementing");
                         })
                     }),
                     ty: ProcedureDef {

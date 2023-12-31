@@ -59,9 +59,7 @@ where
         ctx: TLCtx,
         input: Value,
         req: RequestContext,
-    ) -> impl Future<
-        Output = Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError>,
-    > + Send {
-        async move { (self.0)(ctx, input, req) }
+    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
+        (self.0)(ctx, input, req)
     }
 }

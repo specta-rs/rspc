@@ -64,11 +64,14 @@ async fn main() {
             "version",
             R.with(|mw, ctx| async move {
                 let stream = mw.next(ctx);
-                // .map(|resp| async move {
-                //     println!("Client requested version '{}'", resp);
-                //     resp
-                // })
 
+                // TODO: Make sure async `map` closures work
+                let stream = stream.map(|resp| {
+                    println!("Client requested version '{}'", resp);
+                    resp
+                });
+
+                // stream::iter([])
                 stream
             })
             // .with(mw(|mw, ctx| async move { mw.next(ctx) }))

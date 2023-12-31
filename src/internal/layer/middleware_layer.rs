@@ -1,18 +1,22 @@
-use std::{future::ready, marker::PhantomData};
+use std::{future::Future, marker::PhantomData, pin::Pin, sync::Arc, task::Poll};
 
-use futures::{FutureExt, Stream, TryStreamExt};
+use futures::{future::Either, Stream};
 use serde_json::Value;
 
 use crate::{
     error::ExecError,
-    internal::middleware::{new_mw_ctx, MiddlewareFn, RequestContext},
+    internal::middleware::{new_mw_ctx, IntoMiddlewareResult, MiddlewareFn, RequestContext},
 };
 
-use super::Layer;
+use super::{
+    middleware_layer_stream::{on_pending, OnPendingAction},
+    Layer,
+};
 
 #[doc(hidden)]
-pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextLayer, TNewMiddleware> {
-    pub(crate) next: TNextLayer,
+pub struct MiddlewareLayer<TLayerCtx, TNewCtx, TNextMiddleware, TNewMiddleware> {
+    // TODO: This `Arc` saves us a hole load of pain.
+    pub(crate) next: Arc<TNextMiddleware>,
     pub(crate) mw: TNewMiddleware,
     pub(crate) phantom: PhantomData<(TLayerCtx, TNewCtx)>,
 }
@@ -25,26 +29,58 @@ where
     TNextMiddleware: Layer<TNewCtx> + Sync + 'static,
     TNewMiddleware: MiddlewareFn<TLayerCtx, TNewCtx> + Send + Sync + 'static,
 {
-    async fn call(
+    fn call(
         &self,
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
     ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError> {
-        todo!();
-        // let y = self.mw.execute(ctx, new_mw_ctx(input, req)).await;s
+        let mut state = Either::Left(self.mw.execute(ctx, new_mw_ctx(input, req)));
+        let mut done = false;
+        Ok(futures::stream::poll_fn(move |cx| {
+            loop {
+                if done {
+                    return Poll::Ready(None);
+                }
 
-        // TODO: In this case `resp_fn` is being borrowed. Can we avoid that???
-        // self.next.call(ctx, input, req).await.map(move |stream| {
-        //     stream.and_then(move |v| {
-        //         match &resp_fn {
-        //             Some(resp_fn) => resp_fn.call(v).left_future(),
-        //             None => ready(v).right_future(),
-        //         }
-        //         .map(Ok)
-        //     })
-        // })
-
-        Ok(futures::stream::iter([]))
+                match &mut state {
+                    // Poll the middleware future
+                    Either::Left(fut) => {
+                        let fut = unsafe { Pin::new_unchecked(fut) };
+                        match fut.poll(cx) {
+                            Poll::Ready(result) => match result.into_result() {
+                                Ok(result) => {
+                                    state = Either::Right(result);
+                                    continue;
+                                }
+                                Err(err) => {
+                                    done = true;
+                                    return Poll::Ready(Some(Err(err)));
+                                }
+                            },
+                            Poll::Pending => match on_pending() {
+                                OnPendingAction::Continue => continue,
+                                OnPendingAction::Pending => return Poll::Pending,
+                            },
+                        }
+                    }
+                    // Poll the middleware stream. This potentially be returned from the middleware future.
+                    Either::Right(stream) => {
+                        let stream = unsafe { Pin::new_unchecked(stream) };
+                        return match stream.poll_next(cx) {
+                            Poll::Ready(None) => {
+                                done = true;
+                                Poll::Ready(None)
+                            }
+                            Poll::Ready(v) => Poll::Ready(v),
+                            Poll::Pending => match on_pending() {
+                                OnPendingAction::Continue => continue,
+                                OnPendingAction::Pending => Poll::Pending,
+                            },
+                        };
+                    }
+                }
+            }
+        }))
     }
 }

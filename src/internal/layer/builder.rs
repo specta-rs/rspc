@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use crate::internal::middleware::MiddlewareFn;
 
@@ -44,7 +44,7 @@ where
         T: Layer<Self::LayerCtx> + Sync,
     {
         self.middleware.build(MiddlewareLayer {
-            next,
+            next: Arc::new(next),
             mw: self.mw,
             phantom: PhantomData,
         })

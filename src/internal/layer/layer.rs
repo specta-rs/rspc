@@ -1,11 +1,8 @@
-use futures::Stream;
+use futures::{stream::once, Stream};
 use serde_json::Value;
-use std::future::Future;
+use std::{future::ready, pin::Pin};
 
-use crate::{
-    error::ExecError,
-    internal::{layer::layer_result::DynLayerResult, middleware::RequestContext},
-};
+use crate::{error::ExecError, internal::middleware::RequestContext};
 
 // TODO: Make this an enum so it can be `Value || Pin<Box<dyn Stream>>`?
 
@@ -16,9 +13,7 @@ pub trait Layer<TLayerCtx: 'static>: Send + Sync + 'static {
         ctx: TLayerCtx,
         input: Value,
         req: RequestContext,
-    ) -> impl Future<
-        Output = Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError>,
-    > + Send;
+    ) -> Result<impl Stream<Item = Result<Value, ExecError>> + Send + 'static, ExecError>;
 }
 
 // TODO: Replace this with `rspc_core::Procedure` if possible
@@ -28,8 +23,7 @@ pub trait DynLayer<TLCtx: 'static>: Send + Sync + 'static {
         ctx: TLCtx,
         input: Value,
         req: RequestContext,
-    ) -> DynLayerResult<'_, Result<Value, ExecError>>;
-    // ) -> Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>>;
+    ) -> Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'static>>;
 }
 
 impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
@@ -38,27 +32,11 @@ impl<TLCtx: Send + 'static, L: Layer<TLCtx>> DynLayer<TLCtx> for L {
         ctx: TLCtx,
         input: Value,
         req: RequestContext,
-        // TODO: We gotta get rid of the lifetime
-        // ) -> Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + '_>> {
-    ) -> DynLayerResult<'_, Result<Value, ExecError>> {
-        // Box::pin(
-        //     async move {
-        //         match self.call(ctx, input, req).await {
-        //             Ok(stream) => stream,
-        //             // TODO: Avoid allocating error future here
-        //             Err(err) => todo!(), // Box::pin(once(ready(Err(err)))),
-        //         }
-        //     }
-        //     .into_stream()
-        //     .flatten(),
-        // )
-
-        DynLayerResult::new(async move {
-            match self.call(ctx, input, req).await {
-                Ok(stream) => stream,
-                // TODO: Avoid allocating error future here
-                Err(err) => todo!(), // Box::pin(once(ready(Err(err)))),
-            }
-        })
+    ) -> Pin<Box<dyn Stream<Item = Result<Value, ExecError>> + Send + 'static>> {
+        match self.call(ctx, input, req) {
+            Ok(stream) => Box::pin(stream),
+            // TODO: Avoid allocating error future here
+            Err(err) => Box::pin(once(ready(Err(err)))),
+        }
     }
 }

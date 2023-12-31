@@ -1,16 +1,26 @@
-use futures::Stream;
+use futures::{stream, Stream, StreamExt};
 use serde_json::Value;
 
 use crate::error::ExecError;
 
+// TODO: Normalise into a `type Stream` for better errors like we do for resolvers???
+
 pub trait IntoMiddlewareResult<M> {
-    // fn into_result(self) -> Result<Value, ExecError> {
-    //     todo!();
-    // }
+    type Stream: Stream<Item = Result<Value, ExecError>> + Send + 'static;
+
+    fn into_result(self) -> Result<Self::Stream, ExecError>;
 }
 
 pub enum TODOTemporaryOnlyValidMarker {}
-impl<S: Stream<Item = Value>> IntoMiddlewareResult<TODOTemporaryOnlyValidMarker> for S {}
+impl<S: Stream<Item = Value> + Send + 'static> IntoMiddlewareResult<TODOTemporaryOnlyValidMarker>
+    for S
+{
+    type Stream = stream::Map<S, fn(Value) -> Result<Value, ExecError>>;
+
+    fn into_result(self) -> Result<Self::Stream, ExecError> {
+        Ok(self.map(Ok))
+    }
+}
 
 // TODO: Should we allow any `impl Serialize`??? would make it too easy to get wrong!!!
 
