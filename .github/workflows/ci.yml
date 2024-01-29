@@ -61,7 +61,7 @@ jobs:
       - name: Test Rust crate
         run: cargo test --all --exclude create-rspc-app --all-features
 
-      - uses: dorny/paths-filter@v2
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
