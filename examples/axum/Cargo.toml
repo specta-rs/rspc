@@ -1,0 +1,10 @@
+[package]
+name = "rspc-example-axum"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rspc = { path = "../../rspc" }
+serde = { version = "1.0.196", features = ["derive"] }
+tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
