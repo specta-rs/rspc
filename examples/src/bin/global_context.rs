@@ -34,7 +34,7 @@ async fn main() {
 
     let app = axum::Router::new().nest(
         "/rspc",
-        rspc_axum::endpoint(router.endpoint(move || MyCtx { count })),
+        rspc_axum::endpoint(router, move || MyCtx { count }),
     );
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4

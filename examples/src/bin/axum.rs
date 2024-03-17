@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use example::{basic, selection, subscriptions};
 
-use axum::{extract::Path, routing::get};
-use rspc::{integrations::httpz::Request, Config, Router};
+use axum::{http::request::Parts, routing::get};
+use rspc::{Config, Router};
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -36,22 +36,11 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router.endpoint(|mut req: Request| {
-                // Official rspc API
-                println!("Client requested operation '{}'", req.uri().path());
-
-                // Deprecated Axum extractors - this API will be removed in the future
-                // The first generic is the Axum extractor and the second is the type of your Axum state.
-                // If the state generic is wrong you will get a **RUNTIME** error so be careful!
-                // TODO: Be aware these will NOT work for websockets. If this is a problem for you open an issue on GitHub!
-                let path = req
-                    .deprecated_extract::<Path<String>, ()>()
-                    .expect("I got the Axum state type wrong!")
-                    .unwrap();
-                println!("Client requested operation '{}'", path.0);
+            rspc_axum::endpoint(router, |parts: Parts| {
+                println!("Client requested operation '{}'", parts.uri.path());
 
                 ()
-            })),
+            }),
         )
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(
