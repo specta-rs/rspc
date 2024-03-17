@@ -15,7 +15,7 @@ import {
   UseMutationOptions,
   UseInfiniteQueryResult,
   UseInfiniteQueryOptions,
-  hashQueryKey,
+  hashKey,
   QueryClientProvider,
 } from "@tanstack/react-query";
 import {
@@ -118,13 +118,13 @@ export function createReactQueryHooks<
         client = useContext().client;
       }
 
-      return __useQuery(
-        map(keyAndInput as any),
-        async () => {
+      return __useQuery({
+        queryKey: map(keyAndInput as any),
+        queryFn: async () => {
           return await client!.query(map(keyAndInput as any) as any);
         },
-        rawOpts as any
-      );
+        ...(rawOpts as any),
+      });
     };
   }
 
@@ -154,13 +154,13 @@ export function createReactQueryHooks<
       client = useContext().client;
     }
 
-    return __useQuery(
-      keyAndInput,
-      async () => {
+    return __useQuery({
+      queryKey: keyAndInput,
+      queryFn: async () => {
         return await client!.query(keyAndInput);
       },
-      rawOpts as any
-    );
+      ...(rawOpts as any),
+    });
   }
 
   function useInfiniteQuery<
@@ -191,13 +191,13 @@ export function createReactQueryHooks<
       client = useContext().client;
     }
 
-    return __useInfiniteQuery(
-      keyAndInput,
-      async () => {
+    return __useInfiniteQuery({
+      queryKey: keyAndInput,
+      queryFn: async () => {
         throw new Error("TODO"); // TODO: Finish this
       },
-      rawOpts as any
-    );
+      ...(rawOpts as any),
+    });
   }
 
   type CustomMutationHookReturn<TConstrainedProcedures extends ProcedureDef> = <
@@ -245,10 +245,13 @@ export function createReactQueryHooks<
         client = useContext().client;
       }
 
-      return __useMutation(async (input: any) => {
-        const actualKey = Array.isArray(key) ? key[0] : key;
-        return client!.mutation(map([actualKey, input]) as any);
-      }, rawOpts as any);
+      return __useMutation({
+        mutationFn: async (input: any) => {
+          const actualKey = Array.isArray(key) ? key[0] : key;
+          return client!.mutation(map([actualKey, input]) as any);
+        },
+        ...(rawOpts as any),
+      });
     };
   }
 
@@ -280,10 +283,13 @@ export function createReactQueryHooks<
       client = useContext().client;
     }
 
-    return __useMutation(async (input: any) => {
-      const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation([actualKey, input] as any);
-    }, rawOpts as any);
+    return __useMutation({
+      mutationFn: async (input: any) => {
+        const actualKey = Array.isArray(key) ? key[0] : key;
+        return client!.mutation([actualKey, input] as any);
+      },
+      ...(rawOpts as any),
+    });
   }
 
   function useSubscription<
@@ -300,7 +306,7 @@ export function createReactQueryHooks<
     if (!client) {
       client = useContext().client;
     }
-    const queryKey = hashQueryKey(keyAndInput);
+    const queryKey = hashKey(keyAndInput);
 
     const enabled = opts?.enabled ?? true;
 

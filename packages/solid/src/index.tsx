@@ -179,7 +179,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     if (!client) {
       client = useContext().client;
     }
-    // const queryKey = hashQueryKey(keyAndInput);
+    // const queryKey = hashKey(keyAndInput);
     // const enabled = opts?.enabled ?? true;
 
     throw new Error("TODO: SolidJS Subscriptions are not supported yet!");
