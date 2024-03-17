@@ -1,5 +1,6 @@
 [package]
-name = "rspc-httpz"
+name = "rspc-httpz-interop"
+description = "Legacy interop between rspc and httpz"
 version = "0.1.0"
 edition = "2021"
 

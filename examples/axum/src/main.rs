@@ -1,7 +1,7 @@
 use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
-use axum::routing::get;
+use axum::{http::request::Parts, routing::get};
 use rspc::Config;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
@@ -67,10 +67,10 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router.clone().endpoint(|req: Request| {
-                println!("Client requested operation '{}'", req.uri().path());
+            rspc_axum::endpoint(router.clone(), |parts: Parts| {
+                println!("Client requested operation '{}'", parts.uri.path());
                 Ctx {}
-            })),
+            }),
         )
         .layer(cors);
 
