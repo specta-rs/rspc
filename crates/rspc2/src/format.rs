@@ -1,18 +1,3 @@
-// use serde::Serialize;
-
-// // TODO: Drop this trait if still unused
-
-// /// TODO
-// pub trait Format {
-//     type Output;
-
-//     fn new() -> Self;
-
-//     fn serialize<T: Serialize>(&mut self, v: T);
-
-//     fn take(self) -> Self::Output;
-// }
-
 pub(crate) trait DynFormat {
     fn serialize(&mut self, v: &dyn erased_serde::Serialize);
 }
@@ -23,7 +8,7 @@ pub(crate) trait DynFormat {
 //     }
 // }
 
-// // TODO: Move into another crate
+// TODO: Move into another crate
 
 // /// TODO
 // pub struct JsonValue {
@@ -56,5 +41,5 @@ pub(crate) trait DynFormat {
 //     }
 // }
 
-// // TODO: Json into Vec<u8> buffer
-// // TODO: FormData
+// TODO: Json into Vec<u8> buffer
+// TODO: FormData

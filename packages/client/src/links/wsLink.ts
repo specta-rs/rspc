@@ -74,6 +74,7 @@ export function _internal_wsLinkInternal<P extends ProceduresDef>([
       exec: async (resolve, reject) => {
         activeMap.set(id, {
           oneshot: op.method !== "subscription",
+          op: op,
           resolve,
           reject,
         });
@@ -119,6 +120,11 @@ function newWsManager<P extends ProceduresDef>(opts: WsLinkOpts) {
     {
       // Should delete after first response
       oneshot: boolean;
+      op: {
+        method: "query" | "mutation" | "subscription";
+        path: string;
+        input: any;
+      };
       resolve: (result: P[keyof ProceduresDef]["result"]) => void;
       reject: (error: P[keyof ProceduresDef]["error"] | rspc.Error) => void;
     }
@@ -126,6 +132,16 @@ function newWsManager<P extends ProceduresDef>(opts: WsLinkOpts) {
 
   let ws: WebSocket;
   const attachEventListeners = () => {
+    // Resume all in-progress tasks
+    for (const [id, item] of activeMap) {
+      ws.send(
+        JSON.stringify({
+          id,
+          ...item.op,
+        })
+      );
+    }
+
     ws.addEventListener("message", (event) => {
       const results: rspc.Response[] = JSON.parse(event.data);
       for (const result of results) {

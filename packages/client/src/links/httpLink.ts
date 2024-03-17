@@ -93,10 +93,10 @@ export function httpLink<P extends ProceduresDef>(opts: HttpLinkOpts): Link<P> {
                 op: { context, ...op },
               } = item;
               return { id, ...op };
-            }),
+            })
           ),
           // We don't handle the abort signal for a batch so a single req doesn't kill entire batch.
-        },
+        }
       );
       if (body === undefined) {
         return;
@@ -161,7 +161,7 @@ export function httpLink<P extends ProceduresDef>(opts: HttpLinkOpts): Link<P> {
     return {
       exec: async (resolve, reject) => {
         if (op.method === "subscription") {
-          reject(new Error(makeDoesntSupportSubscriptionsError(op.path)));\
+          reject(new Error(makeDoesntSupportSubscriptionsError(op.path)));
           return;
         }
 
@@ -183,7 +183,7 @@ export function httpLink<P extends ProceduresDef>(opts: HttpLinkOpts): Link<P> {
 
 function generateHeaders(
   opts: HttpLinkOpts,
-  arg: { op: Operation } | { ops: Operation[] },
+  arg: { op: Operation } | { ops: Operation[] }
 ) {
   const defaultHeaders =
     typeof opts.headers === "function"
@@ -212,7 +212,7 @@ async function doFetch<T>(
   url: string,
   init: RequestInit,
   // Signal is not used for batches
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<T | rspc.Error | undefined> {
   const resp = await fetchFn(url, init);
   if (resp.status !== 200) {
@@ -249,7 +249,7 @@ async function doFetch<T>(
 // Generate the params for a non-batch request
 function requestParams<P extends ProceduresDef>(
   opts: HttpLinkOpts,
-  { op, abort }: BatchedItem<P>,
+  { op, abort }: BatchedItem<P>
 ): [string, RequestInit] {
   const headers = generateHeaders(opts, { op: op });
 

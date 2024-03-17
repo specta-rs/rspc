@@ -68,9 +68,9 @@ async fn main() {
                 })
             }))
             .with(mw(|mw, ctx| async move { mw.next(ctx) }))
-            .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {
-                mw.next(ctx)
-            }))
+            // .with(ArgMapper::<Demo>::new(|mw, ctx, _state| async move {
+            //     mw.next(ctx)
+            // }))
             .query(|_, _: ()| {
                 info!("Client requested version");
                 Ok(env!("CARGO_PKG_VERSION"))
