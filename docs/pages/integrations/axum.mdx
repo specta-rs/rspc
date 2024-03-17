@@ -10,10 +10,10 @@ rspc has a built-in integration with [Axum](https://github.com/tokio-rs/axum) so
 
 You must install the [`rspc_axum`](https://docs.rs/rspc-axum/latest/rspc_axum/) crate to use Axum with rspc.
 
-```toml /rspc_axum = "0.0.0"/ copy filename="Cargo.toml"
+```toml /rspc_axum = { version = "0.0.0", features = ["ws"] }/ copy filename="Cargo.toml"
 [dependencies]
 rspc = "0.0.0"
-rspc_axum = "0.0.0"
+rspc_axum = { version = "0.0.0", features = ["ws"] }
 axum = "0.7.0"
 ```
 
@@ -27,14 +27,15 @@ let router = rspc::Router::<()>::new()
 
 let app = axum::Router::new()
     .route("/", get(|| async { "Hello 'rspc'!" }))
-    .nest("/rspc", rspc_axum::endpoint(router.endpoint(|| ())))
+    .nest("/rspc", rspc_axum::endpoint(router, || ()))
     .layer(cors);
 
 let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 axum::serve(listener, app).await.unwrap();
 ```
 
-### Extracting Context from Request
+{/* TODO: Bring this back */}
+{/* ### Extracting Context from Request
 
 **Warning: The Axum extractor API is probally going to be removed in a future release. If you are using this API, I would appreciate a message in the Discord about your usecase so I can ensure the replacement API can do everything you need.**
 
@@ -53,7 +54,7 @@ let app = axum::Router::new()
     // We use Axum `Path` extractor. The `rspc::Router` has `TCtx` set to `String` so we return the path string as the context.
     .nest("/rspc", rspc_axum::endpoint(|req: Request| req.uri().path()))
     .layer(cors);
-```
+``` */}
 
 ### Usage on frontend
 

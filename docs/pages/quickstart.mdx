@@ -111,7 +111,9 @@ function SomeComponent() {
 // TODO: Finish example -> show imports
 
 function SomeComponent() {
-  const version = rspc.useQuery(() => ["version"]);
+  const version = rspc.createQuery(() => ({
+    queryKey: ["version"]
+  }));
 
   return (
     <>

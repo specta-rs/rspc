@@ -32,8 +32,12 @@ const queryClient = new QueryClient();
 const rspc = createSolidQueryHooks<Procedures>();
 
 function SomeComponent() {
-  const echo = rspc.createQuery(() => ["echo", "somevalue"]);
-  const sendMsg = rspc.createMutation("sendMsg");
+  const echo = rspc.createQuery(() => ({
+    queryKey: ["echo", "somevalue"]
+  }));
+  const sendMsg = rspc.createMutation(() => ({
+    mutationKey: "sendMsg"
+  }));
 
   return (
     <>
