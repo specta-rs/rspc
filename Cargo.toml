@@ -1,7 +1,7 @@
 [package]
 name = "rspc"
 description = "A blazing fast and easy to use TRPC server for Rust."
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
@@ -41,6 +41,9 @@ mac_address = ["specta/mac_address"]
 bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
 
+# Internal (doesn't follow semver so don't use directly)
+internal_axum_07 = ["dep:axum"]
+
 [dependencies]
 specta = { version = "1.0.5", features = ["serde", "typescript"] }
 httpz = { version = "0.0.6", optional = true }                      # TODO: Move back to crates.io release
@@ -51,6 +54,10 @@ futures = "0.3.30"
 tokio = { version = "1.36.0", features = ["sync", "rt", "macros"] }
 tauri = { version = "1.6.1", optional = true }
 tracing = { version = "0.1.40", optional = true }
+
+
+# TODO: This is temporary. It won't stay in the core long term.
+axum = { version = "0.7.4", optional = true }
 
 [dev-dependencies]
 async-stream = "0.3.5"

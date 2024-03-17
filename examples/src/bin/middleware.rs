@@ -108,11 +108,9 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            router
-                .endpoint(|| UnauthenticatedContext {
-                    session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.
-                })
-                .axum(),
+            rspc_axum::endpoint(router.endpoint(|| UnauthenticatedContext {
+                session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.
+            })),
         )
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(
@@ -124,8 +122,7 @@ async fn main() {
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("listening on http://{}/rspc/version", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();
 }

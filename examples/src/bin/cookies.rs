@@ -43,6 +43,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
+            rspc_axum::endpoint(
             router
                 .endpoint(|mut req: Request| {
                     // TODO: This API is going to be replaced with a httpz cookie manager in the next release to deal with Axum's recent changes.
@@ -52,7 +53,7 @@ async fn main() {
                         .unwrap();
                     Ctx { cookies }
                 })
-                .axum(),
+            ),
         )
         .layer(CookieManagerLayer::new())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
@@ -65,8 +66,7 @@ async fn main() {
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("listening on http://{}/rspc/version", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();
 }

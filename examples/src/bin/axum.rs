@@ -36,24 +36,22 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            router
-                .endpoint(|mut req: Request| {
-                    // Official rspc API
-                    println!("Client requested operation '{}'", req.uri().path());
+            rspc_axum::endpoint(router.endpoint(|mut req: Request| {
+                // Official rspc API
+                println!("Client requested operation '{}'", req.uri().path());
 
-                    // Deprecated Axum extractors - this API will be removed in the future
-                    // The first generic is the Axum extractor and the second is the type of your Axum state.
-                    // If the state generic is wrong you will get a **RUNTIME** error so be careful!
-                    // TODO: Be aware these will NOT work for websockets. If this is a problem for you open an issue on GitHub!
-                    let path = req
-                        .deprecated_extract::<Path<String>, ()>()
-                        .expect("I got the Axum state type wrong!")
-                        .unwrap();
-                    println!("Client requested operation '{}'", path.0);
+                // Deprecated Axum extractors - this API will be removed in the future
+                // The first generic is the Axum extractor and the second is the type of your Axum state.
+                // If the state generic is wrong you will get a **RUNTIME** error so be careful!
+                // TODO: Be aware these will NOT work for websockets. If this is a problem for you open an issue on GitHub!
+                let path = req
+                    .deprecated_extract::<Path<String>, ()>()
+                    .expect("I got the Axum state type wrong!")
+                    .unwrap();
+                println!("Client requested operation '{}'", path.0);
 
-                    ()
-                })
-                .axum(),
+                ()
+            })),
         )
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
         .layer(
@@ -65,8 +63,7 @@ async fn main() {
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("listening on http://{}/rspc/version", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();
 }

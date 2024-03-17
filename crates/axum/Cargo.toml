@@ -13,4 +13,4 @@ categories = ["web-programming", "asynchronous"]
 [dependencies]
 axum = "0.7.4"
 httpz = { version = "0.0.6", features = ["axum"] }
-rspc = { version = "0.1.3", path = "../.." }
+rspc = { version = "0.1.4", path = "../..", features = ["internal_axum_07"] }
