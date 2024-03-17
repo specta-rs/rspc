@@ -127,42 +127,25 @@ where
         )?;
 
         // We sort by name to detect duplicate types BUT also to ensure the output is deterministic. The SID can change between builds so is not suitable for this.
-        let types = self
-            .typ_store
-            .clone()
-            .into_iter()
-            .filter(|(_, v)| match v {
-                Some(_) => true,
-                None => {
-                    unreachable!(
-                        "Placeholder type should never be returned from the Specta functions!"
-                    )
-                }
-            })
-            .collect::<BTreeMap<_, _>>();
+        let types = self.typ_store.iter().collect::<BTreeMap<_, _>>();
 
         // This is a clone of `detect_duplicate_type_names` but using a `BTreeMap` for deterministic ordering
         let mut map = BTreeMap::new();
         for (sid, dt) in &types {
-            match dt {
-                Some(dt) => {
-                    if let Some(ext) = dt.ext() {
-                        if let Some((existing_sid, existing_impl_location)) =
-                            map.insert(dt.name(), (sid, *ext.impl_location()))
-                        {
-                            if existing_sid != sid {
-                                return Err(ExportError::TsExportErr(
-                                    ts::ExportError::DuplicateTypeName(
-                                        dt.name().clone(),
-                                        *ext.impl_location(),
-                                        existing_impl_location,
-                                    ),
-                                ));
-                            }
-                        }
+            if let Some(ext) = dt.ext() {
+                if let Some((existing_sid, existing_impl_location)) =
+                    map.insert(dt.name(), (sid, *ext.impl_location()))
+                {
+                    if existing_sid != sid {
+                        return Err(ExportError::TsExportErr(
+                            ts::ExportError::DuplicateTypeName(
+                                dt.name().clone(),
+                                *ext.impl_location(),
+                                existing_impl_location,
+                            ),
+                        ));
                     }
                 }
-                None => unreachable!(),
             }
         }
 
@@ -173,10 +156,10 @@ where
                 ts::export_named_datatype(
                     &config,
                     match types.get(sid) {
-                        Some(Some(v)) => v,
+                        Some(v) => v,
                         _ => unreachable!(),
                     },
-                    &types
+                    &self.typ_store
                 )?
             )?;
         }

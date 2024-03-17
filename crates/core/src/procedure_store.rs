@@ -1,6 +1,6 @@
 use std::{borrow::Cow, convert::Infallible};
 
-use specta::{ts, DataType, DataTypeFrom, DefOpts, NamedDataType, StructType, Type, TypeMap};
+use specta::{ts, DataType, DataTypeFrom, NamedDataType, StructType, Type, TypeMap};
 
 use crate::{
     layer::{boxed, DynLayer, Layer},
@@ -56,13 +56,7 @@ pub struct ProcedureDef {
 }
 
 fn never() -> DataType {
-    Infallible::inline(
-        DefOpts {
-            parent_inline: false,
-            type_map: &mut Default::default(),
-        },
-        &[],
-    )
+    Infallible::inline(&mut Default::default(), &[])
 }
 
 impl ProcedureDef {
@@ -77,34 +71,12 @@ impl ProcedureDef {
     {
         Ok(ProcedureDef {
             key,
-            input: match TArg::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map,
-                },
-                &[],
-            )
-            .inner
-            {
+            input: match TArg::reference(type_map, &[]).inner {
                 DataType::Tuple(tuple) if tuple.elements().is_empty() => never(),
                 t => t,
             },
-            result: TResult::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map,
-                },
-                &[],
-            )
-            .inner,
-            error: TError::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map,
-                },
-                &[],
-            )
-            .inner,
+            result: TResult::reference(type_map, &[]).inner,
+            error: TError::reference(type_map, &[]).inner,
         })
     }
 }

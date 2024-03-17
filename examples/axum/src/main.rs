@@ -194,6 +194,10 @@ async fn main() {
                 }
             })
         })
+        // .middleware(mw(|mw, ctx| async move {
+        //     println!("Client requested operation '{}'", ctx.operation);
+        //     mw.next(ctx).await
+        // }))
         .build()
         .unwrap()
         .arced(); // This function is a shortcut to wrap the router in an `Arc`.
