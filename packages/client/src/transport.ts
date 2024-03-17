@@ -72,7 +72,13 @@ const timeouts = [1000, 2000, 5000, 10000]; // In milliseconds
 export class WebsocketTransport implements Transport {
   private url: string;
   private ws: WebSocket;
-  private requestMap = new Map<string, (data: any) => void>();
+  private requestMap = new Map<
+    string,
+    {
+      op: unknown;
+      cb: (data: any) => void;
+    }
+  >();
   clientSubscriptionCallback?: (id: string, value: any) => void;
 
   constructor(url: string) {
@@ -82,6 +88,11 @@ export class WebsocketTransport implements Transport {
   }
 
   attachEventListeners() {
+    // Resume all in-progress tasks
+    for (const [_, item] of this.requestMap) {
+      this.ws.send(JSON.stringify(item.op));
+    }
+
     this.ws.addEventListener("message", (event) => {
       const { id, result } = JSON.parse(event.data);
       if (result.type === "event") {
@@ -89,13 +100,15 @@ export class WebsocketTransport implements Transport {
           this.clientSubscriptionCallback(id, result.data);
       } else if (result.type === "response") {
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "response", result: result.data });
+          this.requestMap
+            .get(id)
+            ?.cb({ type: "response", result: result.data });
           this.requestMap.delete(id);
         }
       } else if (result.type === "error") {
         const { message, code } = result.data;
         if (this.requestMap.has(id)) {
-          this.requestMap.get(id)?.({ type: "error", message, code });
+          this.requestMap.get(id)?.cb({ type: "error", message, code });
           this.requestMap.delete(id);
         }
       } else {
@@ -151,8 +164,18 @@ export class WebsocketTransport implements Transport {
       resolve = res;
     });
 
-    // @ts-ignore
-    this.requestMap.set(id, resolve);
+    this.requestMap.set(id, {
+      op: {
+        id,
+        method: operation,
+        params: {
+          path: key,
+          input,
+        },
+      },
+      // @ts-ignore
+      cb: resolve,
+    });
 
     this.ws.send(
       JSON.stringify({

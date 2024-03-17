@@ -21,12 +21,15 @@ import {
   createQuery as __createQuery,
   createInfiniteQuery as __createInfiniteQuery,
   createMutation as __createMutation,
-  CreateInfiniteQueryOptions,
   CreateInfiniteQueryResult,
-  CreateMutationOptions,
   CreateMutationResult,
   QueryClientProvider,
+  SolidQueryOptions,
+  SolidInfiniteQueryOptions,
+  SolidMutationOptions,
 } from "@tanstack/solid-query";
+
+type FunctionedParams<T> = () => T;
 
 export interface BaseOptions<TProcedures extends ProceduresDef> {
   rspc?: {
@@ -66,85 +69,103 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     TQueryFnData = inferQueryResult<TProcedures, K>,
     TData = inferQueryResult<TProcedures, K>
   >(
-    keyAndInput: () => [
-      key: K,
-      ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
-    ],
-    opts?: Omit<
-      CreateQueryOptions<
-        TQueryFnData,
-        RSPCError,
-        TData,
-        () => [K, inferQueryInput<TProcedures, K>]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
+    opts?: FunctionedParams<
+      {
+        queryKey: [
+          key: K,
+          ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+        ];
+      } & Omit<
+        SolidQueryOptions<
+          TQueryFnData,
+          RSPCError,
+          TData,
+          [K, inferQueryInput<TProcedures, K>]
+        >,
+        "queryKey" | "queryFn"
+      > &
+        TBaseOptions
+    >
   ): CreateQueryResult<TData, RSPCError> {
-    const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+    return __createQuery(() => {
+      const { rspc, queryKey, ...rawOpts } = opts?.() ?? {};
+      let client = rspc?.client;
+      if (!client) {
+        client = useContext().client;
+      }
 
-    return __createQuery(
-      keyAndInput,
-      async () => client!.query(keyAndInput()),
-      rawOpts as any
-    );
+      return {
+        queryKey: queryKey,
+        queryFn: async () => {
+          return client!.query(queryKey as any);
+        },
+        ...(rawOpts as any),
+      };
+    });
   }
 
   function createInfiniteQuery<
     K extends inferInfiniteQueries<TProcedures>["key"] & string
   >(
-    keyAndInput: () => [
-      key: K,
-      ...input: _inferInfiniteQueryProcedureHandlerInput<TProcedures, K>
-    ],
-    opts?: Omit<
-      CreateInfiniteQueryOptions<
-        inferInfiniteQueryResult<TProcedures, K>,
-        RSPCError,
-        inferInfiniteQueryResult<TProcedures, K>,
-        inferInfiniteQueryResult<TProcedures, K>,
-        () => [K, inferQueryInput<TProcedures, K>]
-      >,
-      "queryKey" | "queryFn"
-    > &
-      TBaseOptions
+    opts?: FunctionedParams<
+      {
+        queryKey: [
+          key: K,
+          ...input: _inferInfiniteQueryProcedureHandlerInput<TProcedures, K>
+        ];
+      } & Omit<
+        SolidInfiniteQueryOptions<
+          inferInfiniteQueryResult<TProcedures, K>,
+          RSPCError,
+          inferInfiniteQueryResult<TProcedures, K>,
+          inferInfiniteQueryResult<TProcedures, K>,
+          [K, inferQueryInput<TProcedures, K>]
+        >,
+        "queryKey" | "queryFn"
+      > &
+        TBaseOptions
+    >
   ): CreateInfiniteQueryResult<
     inferInfiniteQueryResult<TProcedures, K>,
     RSPCError
   > {
-    const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+    return __createInfiniteQuery(() => {
+      const { rspc, queryKey, ...rawOpts } = opts?.() ?? {};
+      let client = rspc?.client;
+      if (!client) {
+        client = useContext().client;
+      }
 
-    return __createInfiniteQuery(
-      keyAndInput,
-      async () => {
-        throw new Error("TODO"); // TODO: Finish this
-      },
-      rawOpts as any
-    );
+      return {
+        queryKey: queryKey,
+        queryFn: async () => {
+          throw new Error("TODO"); // TODO: Finish this
+        },
+        ...(rawOpts as any),
+      };
+    });
   }
 
   function createMutation<
     K extends TProcedures["mutations"]["key"] & string,
     TContext = unknown
   >(
-    key: K | [K],
-    opts?: CreateMutationOptions<
-      inferMutationResult<TProcedures, K>,
-      RSPCError,
-      inferMutationInput<TProcedures, K> extends never
-        ? undefined
-        : inferMutationInput<TProcedures, K>,
-      TContext
-    > &
-      TBaseOptions
+    opts?: FunctionedParams<
+      {
+        mutationKey: K | [K];
+      } & Omit<
+        SolidMutationOptions<
+          inferMutationResult<TProcedures, K>,
+          RSPCError,
+          inferMutationInput<TProcedures, K> extends never
+            ? undefined
+            : inferMutationInput<TProcedures, K>,
+          TContext
+        >,
+        "mutationKey"
+      > &
+        TBaseOptions
+    >
   ): CreateMutationResult<
     inferMutationResult<TProcedures, K>,
     RSPCError,
@@ -153,16 +174,24 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       : inferMutationInput<TProcedures, K>,
     TContext
   > {
-    const { rspc, ...rawOpts } = opts ?? {};
-    let client = rspc?.client;
-    if (!client) {
-      client = useContext().client;
-    }
+    return __createMutation(() => {
+      const { rspc, mutationKey, ...rawOpts } = opts?.() ?? {};
+      let client = rspc?.client;
+      if (!client) {
+        client = useContext().client;
+      }
 
-    return __createMutation(async (input) => {
-      const actualKey = Array.isArray(key) ? key[0] : key;
-      return client!.mutation([actualKey, input] as any);
-    }, rawOpts as any);
+      return {
+        mutationKey,
+        mutationFn: async (input) => {
+          const actualKey = Array.isArray(mutationKey)
+            ? mutationKey[0]
+            : mutationKey;
+          return client!.mutation([actualKey, input] as any);
+        },
+        ...(rawOpts as any),
+      };
+    });
   }
 
   function createSubscription<

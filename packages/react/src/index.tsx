@@ -246,6 +246,7 @@ export function createReactQueryHooks<
       }
 
       return __useMutation({
+        mutationKey: map(key as any),
         mutationFn: async (input: any) => {
           const actualKey = Array.isArray(key) ? key[0] : key;
           return client!.mutation(map([actualKey, input]) as any);
