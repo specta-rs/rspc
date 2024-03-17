@@ -83,7 +83,7 @@ where
     )
 }
 
-pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
+async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
     req: Request,
@@ -213,7 +213,7 @@ where
 }
 
 #[cfg(feature = "ws")]
-pub async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
+async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
     ctx_fn: TCtxFn,
     mut socket: axum::extract::ws::WebSocket,
     parts: Parts,
