@@ -20,7 +20,7 @@ httpz = ["dep:httpz", "httpz/cookies"]
 # playground = []
 
 # Webservers
-axum = ["httpz", "httpz/axum", "httpz/tokio-ws", "httpz/axum"]
+axum = ["httpz", "httpz/axum", "httpz/tokio-ws"]
 # actix-web = ["httpz/actix-web"]
 # poem = ["httpz/poem"]
 # rocket = ["httpz/rocket"]
@@ -63,4 +63,10 @@ axum = { version = "0.7.4", optional = true }
 async-stream = "0.3.5"
 
 [workspace]
-members = ["./crates/*", "./examples", "./examples/axum", "crates/axum"]
+members = [
+    "./crates/*",
+    "./examples",
+    "./examples/axum",
+    "crates/axum",
+    "crates/httpz",
+]

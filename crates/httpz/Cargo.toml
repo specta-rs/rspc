@@ -1,0 +1,20 @@
+[package]
+name = "rspc-httpz"
+version = "0.1.0"
+edition = "2021"
+
+# TODO: Cleanup deps
+[dependencies]
+rspc = { path = "../../", features = ["httpz"] }
+specta = { version = "1.0.5", features = ["serde", "typescript"] }
+httpz = { version = "0.0.6", features = [
+    "axum",
+    "tokio-ws",
+    "cookies",
+] } # TODO: Move back to crates.io release
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+thiserror = "1.0.58"
+futures = "0.3.30"
+tokio = { version = "1.36.0", features = ["sync", "rt", "macros"] }
+axum = { version = "0.7.4" }

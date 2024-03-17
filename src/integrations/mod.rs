@@ -2,7 +2,7 @@
 pub mod httpz;
 
 #[cfg(feature = "httpz")]
-pub(crate) mod httpz_extractors;
+pub mod httpz_extractors; // TODO: Don't make public
 
 #[cfg(feature = "tauri")]
 pub mod tauri;

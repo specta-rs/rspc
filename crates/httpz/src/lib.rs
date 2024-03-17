@@ -1,6 +1,7 @@
+//! Temporary crate.
+
 use futures::{SinkExt, StreamExt};
 use httpz::{
-    axum::axum::extract::FromRequestParts,
     http::{self, Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
     Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
@@ -13,7 +14,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use crate::{
+use rspc::{
     internal::{
         jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
         ProcedureKind,
@@ -21,8 +22,10 @@ use crate::{
     Router,
 };
 
-pub use super::httpz_extractors::*;
 pub use httpz::cookie::Cookie;
+pub use httpz_extractors::*;
+
+mod httpz_extractors;
 
 /// TODO
 ///
@@ -32,7 +35,7 @@ pub use httpz::cookie::Cookie;
 pub struct CookieJar(Arc<Mutex<httpz::cookie::CookieJar>>);
 
 impl CookieJar {
-    pub(super) fn new(cookies: Arc<Mutex<httpz::cookie::CookieJar>>) -> Self {
+    fn new(cookies: Arc<Mutex<httpz::cookie::CookieJar>>) -> Self {
         Self(cookies)
     }
 
@@ -299,44 +302,38 @@ impl Request {
     }
 }
 
-impl<TCtx> Router<TCtx>
+pub fn endpoint<TCtx, TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
+    router: Arc<Router<TCtx>>,
+    ctx_fn: TCtxFn,
+) -> Endpoint<impl HttpEndpoint>
 where
     TCtx: Send + Sync + 'static,
 {
-    pub fn endpoint<TCtxFnMarker: Send + Sync + 'static, TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>>(
-        self: Arc<Self>,
-        ctx_fn: TCtxFn,
-    ) -> Endpoint<impl HttpEndpoint> {
-        GenericEndpoint::new(
-            "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
-            [Method::GET, Method::POST],
-            move |req: httpz::Request| {
-                // TODO: It would be nice if these clones weren't per request.
-                // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
-                let router = self.clone();
-                let ctx_fn = ctx_fn.clone();
+    GenericEndpoint::new(
+        "/:id", // TODO: I think this is Axum specific. Fix in `httpz`!
+        [Method::GET, Method::POST],
+        move |req: httpz::Request| {
+            // TODO: It would be nice if these clones weren't per request.
+            // TODO: Maybe httpz can `Box::leak` a ref to a context type and allow it to be shared.
+            let router = router.clone();
+            let ctx_fn = ctx_fn.clone();
 
-                async move {
-                    match (req.method(), &req.uri().path()[1..]) {
-                        (&Method::GET, "ws") => {
-                            handle_websocket(ctx_fn, req, router).into_response()
-                        }
-                        (&Method::GET, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Query, req, &router)
-                                .await
-                                .into_response()
-                        }
-                        (&Method::POST, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
-                                .await
-                                .into_response()
-                        }
-                        _ => unreachable!(),
+            async move {
+                match (req.method(), &req.uri().path()[1..]) {
+                    (&Method::GET, "ws") => handle_websocket(ctx_fn, req, router).into_response(),
+                    (&Method::GET, _) => handle_http(ctx_fn, ProcedureKind::Query, req, &router)
+                        .await
+                        .into_response(),
+                    (&Method::POST, _) => {
+                        handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
+                            .await
+                            .into_response()
                     }
+                    _ => unreachable!(),
                 }
-            },
-        )
-    }
+            }
+        },
+    )
 }
 
 pub async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(

@@ -116,7 +116,7 @@ where
                     _ => unreachable!(),
                 };
                 new_parts.headers = headers_interop2(parts.headers);
-                // new_parts.extensions = parts.extensions; // TODO: We can't interop this
+                // new_parts.extensions.extend(parts.extensions.clone());
 
                 match endpoint
                     .handler(httpz::Request::new(
