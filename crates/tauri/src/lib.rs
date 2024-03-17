@@ -1,10 +1,15 @@
 //! rspc-tauri: Tauri integration for [rspc](https://rspc.dev).
+#![cfg_attr(docsrs2, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
+    html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
+)]
 
 use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Manager, Runtime,
+    AppHandle, Manager, Runtime,
 };
 use tokio::sync::{mpsc, Mutex};
 
@@ -15,7 +20,7 @@ use rspc::{
 
 pub fn plugin<R: Runtime, TCtx, TMeta>(
     router: Arc<Router<TCtx, TMeta>>,
-    ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
+    ctx_fn: impl Fn(AppHandle<R>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
     TCtx: Send + 'static,
@@ -28,22 +33,25 @@ where
             // TODO: Don't keep using a tokio mutex. We don't need to hold it over the await point.
             let subscriptions = Arc::new(Mutex::new(HashMap::new()));
 
-            tokio::spawn(async move {
-                while let Some(req) = rx.recv().await {
-                    let ctx = ctx_fn();
-                    let router = router.clone();
-                    let mut resp_tx = resp_tx.clone();
-                    let subscriptions = subscriptions.clone();
-                    tokio::spawn(async move {
-                        handle_json_rpc(
-                            ctx,
-                            req,
-                            &router,
-                            &mut Sender::ResponseChannel(&mut resp_tx),
-                            &mut SubscriptionMap::Mutex(subscriptions.borrow()),
-                        )
-                        .await;
-                    });
+            tokio::spawn({
+                let app_handle = app_handle.clone();
+                async move {
+                    while let Some(req) = rx.recv().await {
+                        let ctx = ctx_fn(app_handle.clone());
+                        let router = router.clone();
+                        let mut resp_tx = resp_tx.clone();
+                        let subscriptions = subscriptions.clone();
+                        tokio::spawn(async move {
+                            handle_json_rpc(
+                                ctx,
+                                req,
+                                &router,
+                                &mut Sender::ResponseChannel(&mut resp_tx),
+                                &mut SubscriptionMap::Mutex(subscriptions.borrow()),
+                            )
+                            .await;
+                        });
+                    }
                 }
             });
 

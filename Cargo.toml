@@ -11,6 +11,14 @@ documentation = "https://docs.rs/rspc/latest/rspc"
 keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs2" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs2",
+] # TODO: Rename to `docsrs` once Tokio fixes https://github.com/tokio-rs/tokio/pull/6360
+
 [features]
 default = []
 tracing = ["dep:tracing"]

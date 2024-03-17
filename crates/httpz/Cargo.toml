@@ -4,6 +4,14 @@ description = "Interop between rspc and the deprecated httpz crate"
 version = "0.0.1"
 edition = "2021"
 
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs2" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs2",
+] # TODO: Rename to `docsrs` once Tokio fixes https://github.com/tokio-rs/tokio/pull/6360
+
 # TODO: Cleanup deps
 [dependencies]
 rspc = { path = "../../" }

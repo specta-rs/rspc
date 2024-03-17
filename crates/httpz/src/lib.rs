@@ -1,4 +1,9 @@
-//! Temporary crate.
+//! Interop between rspc and the deprecated httpz crate
+#![cfg_attr(docsrs2, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
+    html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
+)]
 
 use futures::{SinkExt, StreamExt};
 use httpz::{
