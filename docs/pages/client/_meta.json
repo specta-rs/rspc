@@ -1,5 +1,6 @@
 {
   "index": "Vanilla",
   "react": "React",
-  "solid": "SolidJS"
+  "solid": "SolidJS",
+  "svelte": "Svelte"
 }
