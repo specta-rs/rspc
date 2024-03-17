@@ -1,4 +1,5 @@
-use rspc::{selection, Router, RouterBuilder, Type};
+use rspc::{selection, Router, RouterBuilder};
+use specta::Type;
 
 #[derive(Type)]
 pub struct User {

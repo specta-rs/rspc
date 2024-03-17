@@ -2,6 +2,7 @@
 
 use futures::{SinkExt, StreamExt};
 use httpz::{
+    axum::axum::extract::FromRequestParts,
     http::{self, Method, Response, StatusCode},
     ws::{Message, WebsocketUpgrade},
     Endpoint, GenericEndpoint, HttpEndpoint, HttpResponse,
@@ -224,7 +225,6 @@ impl Request {
     /// This methods allows using Axum extractors.
     /// This was previously supported but in Axum 0.6 it's not typesafe anymore so we are going to remove this API.
     // TODO: Remove this API once rspc's official cookie API is more stabilised.
-    #[cfg(all(not(feature = "internal_axum_07"), feature = "axum"))]
     pub fn deprecated_extract<E, S>(&mut self) -> Option<Result<E, E::Rejection>>
     where
         E: FromRequestParts<S>,
@@ -240,63 +240,6 @@ impl Request {
         Some(futures::executor::block_on(async {
             let resp = <E as FromRequestParts<S>>::from_request_parts(parts, &state.0).await;
             parts.extensions.insert(state);
-            resp
-        }))
-    }
-
-    /// This methods allows using Axum extractors.
-    /// This was previously supported but in Axum 0.6 it's not typesafe anymore so we are going to remove this API.
-    // TODO: Remove this API once rspc's official cookie API is more stabilised.
-    #[cfg(all(feature = "internal_axum_07", feature = "axum"))]
-    pub fn deprecated_extract<E, S>(&mut self) -> Option<Result<E, E::Rejection>>
-    where
-        E: axum::extract::FromRequestParts<S>,
-        S: Clone + Send + Sync + 'static,
-    {
-        let parts = self.0.parts_mut();
-
-        let state = parts
-            .extensions
-            .remove::<httpz::axum::axum::extract::State<S>>()?;
-
-        // This is bad but it's a temporary API so I don't care.
-        Some(futures::executor::block_on(async {
-            let (mut new_parts, _) = axum::http::Request::new(()).into_parts();
-            new_parts.method = match parts.method {
-                httpz::http::Method::OPTIONS => axum::http::Method::OPTIONS,
-                httpz::http::Method::GET => axum::http::Method::GET,
-                httpz::http::Method::POST => axum::http::Method::POST,
-                httpz::http::Method::PUT => axum::http::Method::PUT,
-                httpz::http::Method::DELETE => axum::http::Method::DELETE,
-                httpz::http::Method::HEAD => axum::http::Method::HEAD,
-                httpz::http::Method::TRACE => axum::http::Method::TRACE,
-                httpz::http::Method::CONNECT => axum::http::Method::CONNECT,
-                httpz::http::Method::PATCH => axum::http::Method::PATCH,
-                _ => unreachable!(),
-            };
-            new_parts.uri = axum::http::Uri::try_from(parts.uri.to_string()).expect("unreachable");
-            new_parts.version = match parts.version {
-                httpz::http::Version::HTTP_10 => axum::http::Version::HTTP_10,
-                httpz::http::Version::HTTP_11 => axum::http::Version::HTTP_11,
-                httpz::http::Version::HTTP_2 => axum::http::Version::HTTP_2,
-                httpz::http::Version::HTTP_3 => axum::http::Version::HTTP_3,
-                _ => unreachable!(),
-            };
-            for (key, value) in parts.headers.iter() {
-                new_parts.headers.insert(
-                    axum::http::HeaderName::from_bytes(key.as_str().as_bytes())
-                        .expect("unreachable"),
-                    axum::http::HeaderValue::from_bytes(value.as_bytes()).expect("unreachable"),
-                );
-            }
-            // parts.extensions: Extensions, // TODO: This can't be converted.
-
-            let resp = <E as axum::extract::FromRequestParts<S>>::from_request_parts(
-                &mut new_parts,
-                &state.0,
-            )
-            .await;
-            new_parts.extensions.insert(state);
             resp
         }))
     }

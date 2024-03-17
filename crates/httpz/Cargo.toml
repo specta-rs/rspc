@@ -1,18 +1,14 @@
 [package]
 name = "rspc-httpz-interop"
-description = "Legacy interop between rspc and httpz"
-version = "0.1.0"
+description = "Interop between rspc and the deprecated httpz crate"
+version = "0.0.1"
 edition = "2021"
 
 # TODO: Cleanup deps
 [dependencies]
-rspc = { path = "../../", features = ["httpz"] }
+rspc = { path = "../../" }
 specta = { version = "1.0.5", features = ["serde", "typescript"] }
-httpz = { version = "0.0.6", features = [
-    "axum",
-    "tokio-ws",
-    "cookies",
-] } # TODO: Move back to crates.io release
+httpz = { version = "0.0.6", features = ["axum", "tokio-ws", "cookies"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
 thiserror = "1.0.58"

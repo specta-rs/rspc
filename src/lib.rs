@@ -31,8 +31,6 @@ pub use selection::*;
 
 pub mod internal;
 
-pub use specta::RSPCType as Type;
-
 #[cfg(debug_assertions)]
 #[allow(clippy::panic)]
 pub fn test_result_type<T: specta::Type + serde::Serialize>() {

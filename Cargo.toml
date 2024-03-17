@@ -13,54 +13,16 @@ categories = ["web-programming", "asynchronous"]
 
 [features]
 default = []
-tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
-# httpz = ["dep:httpz", "httpz/cookies"]
-# openapi = ["dep:openapiv3"]
-# playground = []
-
-# Webservers
-axum = ["httpz", "httpz/axum", "httpz/tokio-ws"]
-# actix-web = ["httpz/actix-web"]
-# poem = ["httpz/poem"]
-# rocket = ["httpz/rocket"]
-# warp = ["httpz/warp"]
-# TODO: Following ones are exposed but not officially supported
-lambda = ["httpz", "httpz/lambda", "httpz/ws", "httpz/axum"]
-workers = ["httpz", "httpz/workers", "httpz/ws"]
-
-# Specta
-uuid = ["specta/uuid"]
-chrono = ["specta/chrono"]
-time = ["specta/time"]
-bigdecimal = ["specta/bigdecimal"]
-rust_decimal = ["specta/rust_decimal"]
-indexmap = ["specta/indexmap"]
-ipnetwork = ["specta/ipnetwork"]
-mac_address = ["specta/mac_address"]
-bit-vec = ["specta/bit-vec"]
-bson = ["specta/bson"]
-
-# Internal (doesn't follow semver so don't use directly)
-internal_axum_07 = ["dep:axum"]
 
 [dependencies]
 specta = { version = "1.0.5", features = ["serde", "typescript"] }
-httpz = { version = "0.0.6", optional = true }                      # TODO: Move back to crates.io release
 serde = { version = "1.0.197", features = ["derive"] }
-serde_json = "1.0.114"
+serde_json = "1.0.114"                                              # TODO: Drop this
 thiserror = "1.0.58"
 futures = "0.3.30"
 tokio = { version = "1.36.0", features = ["sync", "rt", "macros"] }
-tauri = { version = "1.6.1", optional = true }
 tracing = { version = "0.1.40", optional = true }
-
-
-# TODO: This is temporary. It won't stay in the core long term.
-axum = { version = "0.7.4", optional = true }
-
-[dev-dependencies]
-async-stream = "0.3.5"
 
 [workspace]
 members = ["./crates/*", "./examples", "./examples/axum"]
