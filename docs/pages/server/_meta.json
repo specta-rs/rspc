@@ -1,11 +1,10 @@
 {
-  "basics": {},
-  "request": {},
+  "router": {},
+  "concepts": {},
+  "error-handling": {},
+  "middleware": {},
   "plugins": {},
   "selection": {},
-  "specta": {
-    "title": "Specta [docs.rs]",
-    "href": "https://docs.rs/specta"
-  },
-  "advanced": {}
+  "common-errors": {},
+  "specta": {}
 }

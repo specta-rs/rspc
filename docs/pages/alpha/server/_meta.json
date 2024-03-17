@@ -1,0 +1,11 @@
+{
+  "basics": {},
+  "request": {},
+  "plugins": {},
+  "selection": {},
+  "specta": {
+    "title": "Specta [docs.rs]",
+    "href": "https://docs.rs/specta"
+  },
+  "advanced": {}
+}

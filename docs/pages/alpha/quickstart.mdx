@@ -1,6 +1,6 @@
 import { Steps } from "nextra-theme-docs";
-import { Interpolate, IfFramework } from "../components/Switchers";
-import vscodeIntegrationImg from "../images/vscode-integration.png";
+import { Interpolate, IfFramework } from "../../components/Switchers";
+import vscodeIntegrationImg from "../../images/vscode-integration.png";
 import Image from "next/image";
 
 # Quickstart
@@ -42,13 +42,17 @@ This command will not exist if your running a Rust version earlier than `1.62.0`
 Go into `src/main.rs` and add the following code:
 
 ```rs copy filename="src/main.rs"
-use rspc::Router;
+use rspc::{Rspc, Router};
+
+const R: Rspc<()> = Rspc::new();
 
 fn router() -> Router<()> {
-    <Router>::new()
-        .query("version", |t| t(|ctx, input: ()| env!("CARGO_PKG_VERSION")))
-        .build()
+    R.router()
+        // TODO: Set ts export path using config
+        .procedure("version", R.query(|ctx, _: ()| env!("CARGO_PKG_VERSION")))
+        .compat()
 }
+
 
 #[tokio::main]
 async fn main() {
@@ -75,9 +79,7 @@ Now that you have a router your probably wondering how you access it from your f
 
 ### Usage on the frontend
 
-Refer to the [Vanilla](/client), [React](/client/react) or [Solid](/client/solid) documentation for how to use the rspc client in your frontend.
-
-{/* Install the frontend package using the following command:
+Install the frontend package using the following command:
 
 <Interpolate>
 
@@ -121,7 +123,7 @@ function SomeComponent() {
 }
 ```
 
-</IfFramework> */}
+</IfFramework>
 
 ### (Optional) Setup your editor
 
