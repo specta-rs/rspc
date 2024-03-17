@@ -1,14 +1,14 @@
 //! rspc-axum: Axum integration for [rspc](https://rspc.dev).
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     body::{to_bytes, Body},
     extract::Request,
-    http::{Method, Response, StatusCode},
+    http::{request::Parts, Method, Response, StatusCode},
     response::IntoResponse,
     routing::{on, MethodFilter},
-    Router,
+    RequestExt, Router,
 };
 use extractors::TCtxFunc;
 use rspc::internal::{
@@ -40,7 +40,26 @@ where
                     let ctx_fn = ctx_fn.clone();
 
                     match (req.method(), &req.uri().path()[1..]) {
-                        // (&Method::GET, "ws") => handle_websocket(ctx_fn, req, router).into_response(),
+                        (&Method::GET, "ws") => {
+                            #[cfg(feature = "ws")]
+                            {
+                                let mut req = req;
+                                return req
+                                    .extract_parts::<axum::extract::ws::WebSocketUpgrade>()
+                                    .await
+                                    .unwrap() // TODO: error handling
+                                    .on_upgrade(|socket| {
+                                        handle_websocket(ctx_fn, socket, req.into_parts().0, router)
+                                    })
+                                    .into_response();
+                            }
+
+                            #[cfg(not(feature = "ws"))]
+                            Response::builder()
+                                .status(StatusCode::NOT_FOUND)
+                                .body(Body::from("[]")) // TODO: Better error message which frontend is actually setup to handle.
+                                .unwrap()
+                        }
                         (&Method::GET, _) => {
                             handle_http(ctx_fn, ProcedureKind::Query, req, &router)
                                 .await
@@ -188,116 +207,107 @@ where
     }
 }
 
-// pub fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
-//     ctx_fn: TCtxFn,
-//     req: httpz::Request,
-//     router: Arc<Router<TCtx>>,
-// ) -> impl HttpResponse
-// where
-//     TCtx: Send + Sync + 'static,
-//     TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
-// {
-//     #[cfg(feature = "tracing")]
-//     tracing::debug!("Accepting websocket connection");
+#[cfg(feature = "ws")]
+pub async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
+    ctx_fn: TCtxFn,
+    mut socket: axum::extract::ws::WebSocket,
+    parts: Parts,
+    router: Arc<rspc::Router<TCtx>>,
+) where
+    TCtx: Send + Sync + 'static,
+    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+{
+    use axum::extract::ws::Message;
+    use futures::StreamExt;
+    use tokio::sync::mpsc;
 
-//     if !req.server().supports_websockets() {
-//         #[cfg(feature = "tracing")]
-//         tracing::debug!("Websocket are not supported on your webserver!");
+    #[cfg(feature = "tracing")]
+    tracing::debug!("Accepting websocket connection");
 
-//         // TODO: Make this error be picked up on the frontend and expose it with a logical name
-//         return Ok(Response::builder()
-//             .status(StatusCode::INTERNAL_SERVER_ERROR)
-//             .body(vec![])?);
-//     }
+    let mut subscriptions = HashMap::new();
+    let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
 
-//     let cookies = req.cookies();
-//     WebsocketUpgrade::from_req_with_cookies(req, cookies, move |req, mut socket| async move {
-//         let mut subscriptions = HashMap::new();
-//         let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
+    loop {
+        tokio::select! {
+            biased; // Note: Order is important here
+            msg = rx.recv() => {
+                match socket.send(Message::Text(match serde_json::to_string(&msg) {
+                    Ok(v) => v,
+                    Err(_err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error serializing websocket message: {}", _err);
 
-//         loop {
-//             tokio::select! {
-//                 biased; // Note: Order is important here
-//                 msg = rx.recv() => {
-//                     match socket.send(Message::Text(match serde_json::to_string(&msg) {
-//                         Ok(v) => v,
-//                         Err(_err) => {
-//                             #[cfg(feature = "tracing")]
-//                             tracing::error!("Error serializing websocket message: {}", _err);
+                        continue;
+                    }
+                })).await {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error sending websocket message: {}", _err);
 
-//                             continue;
-//                         }
-//                     })).await {
-//                         Ok(_) => {}
-//                         Err(_err) => {
-//                             #[cfg(feature = "tracing")]
-//                             tracing::error!("Error sending websocket message: {}", _err);
+                        continue;
+                    }
+                }
+            }
+            msg = socket.next() => {
+                match msg {
+                    Some(Ok(msg)) => {
+                       let res = match msg {
+                            Message::Text(text) => serde_json::from_str::<Value>(&text),
+                            Message::Binary(binary) => serde_json::from_slice(&binary),
+                            Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
+                                continue;
+                            }
+                        };
 
-//                             continue;
-//                         }
-//                     }
-//                 }
-//                 msg = socket.next() => {
-//                     match msg {
-//                         Some(Ok(msg) )=> {
-//                            let res = match msg {
-//                                 Message::Text(text) => serde_json::from_str::<Value>(&text),
-//                                 Message::Binary(binary) => serde_json::from_slice(&binary),
-//                                 Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
-//                                     continue;
-//                                 }
-//                                 Message::Frame(_) => unreachable!(),
-//                             };
+                        match res.and_then(|v| match v.is_array() {
+                                true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
+                                false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                            }) {
+                            Ok(reqs) => {
+                                for request in reqs {
+                                    let ctx = ctx_fn.exec(parts.clone());
 
-//                             match res.and_then(|v| match v.is_array() {
-//                                     true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
-//                                     false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
-//                                 }) {
-//                                 Ok(reqs) => {
-//                                     for request in reqs {
-//                                         let ctx = ctx_fn.exec(req._internal_dangerously_clone(), None);
+                                    handle_json_rpc(match ctx {
+                                        Ok(v) => v,
+                                        Err(_err) => {
+                                            #[cfg(feature = "tracing")]
+                                            tracing::error!("Error executing context function: {}", _err);
 
-//                                             handle_json_rpc(match ctx {
-//                                                 Ok(v) => v,
-//                                                 Err(_err) => {
-//                                                     #[cfg(feature = "tracing")]
-//                                                     tracing::error!("Error executing context function: {}", _err);
+                                            continue;
+                                        }
+                                    }, request, &router, &mut Sender::Channel(&mut tx),
+                                    &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                }
+                            },
+                            Err(_err) => {
+                                #[cfg(feature = "tracing")]
+                                tracing::error!("Error parsing websocket message: {}", _err);
 
-//                                                     continue;
-//                                                 }
-//                                             }, request, &router, &mut Sender::Channel(&mut tx),
-//                                             &mut SubscriptionMap::Ref(&mut subscriptions)).await;
-//                                     }
-//                                 },
-//                                 Err(_err) => {
-//                                     #[cfg(feature = "tracing")]
-//                                     tracing::error!("Error parsing websocket message: {}", _err);
+                                // TODO: Send report of error to frontend
 
-//                                     // TODO: Send report of error to frontend
+                                continue;
+                            }
+                        };
+                    }
+                    Some(Err(_err)) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error in websocket: {}", _err);
 
-//                                     continue;
-//                                 }
-//                             };
-//                         }
-//                         Some(Err(_err)) => {
-//                             #[cfg(feature = "tracing")]
-//                             tracing::error!("Error in websocket: {}", _err);
+                        // TODO: Send report of error to frontend
 
-//                             // TODO: Send report of error to frontend
+                        continue;
+                    },
+                    None => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Shutting down websocket connection");
 
-//                             continue;
-//                         },
-//                         None => {
-//                             #[cfg(feature = "tracing")]
-//                             tracing::debug!("Shutting down websocket connection");
+                        // TODO: Send report of error to frontend
 
-//                             // TODO: Send report of error to frontend
-
-//                             return;
-//                         },
-//                     }
-//                 }
-//             }
-//         }
-//     }).into_response()
-// }
+                        return;
+                    },
+                }
+            }
+        }
+    }
+}

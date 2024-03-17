@@ -3,6 +3,7 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "downlevelIteration": true,
     "lib": ["esnext", "dom"]
   },
   "include": ["src/**/*"],
