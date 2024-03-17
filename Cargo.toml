@@ -43,7 +43,7 @@ bson = ["specta/bson"]
 
 [dependencies]
 specta = { version = "1.0.0", features = ["serde", "typescript"] }
-httpz = { version = "0.0.4", optional = true } # TODO: Move back to crates.io release
+httpz = { version = "0.0.4", optional = true }                      # TODO: Move back to crates.io release
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.93"
 thiserror = "1.0.38"
@@ -56,8 +56,4 @@ tracing = { version = "0.1.37", optional = true }
 async-stream = "0.3.4"
 
 [workspace]
-members = [
-    "./create-rspc-app",
-    "./examples",
-    "./examples/axum",
-]
+members = ["./examples", "./examples/axum"]
