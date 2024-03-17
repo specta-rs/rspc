@@ -1,10 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
     Manager, Runtime,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 
 use crate::{
     internal::jsonrpc::{self, handle_json_rpc, Sender, SubscriptionMap},
@@ -22,19 +22,26 @@ where
     Builder::new("rspc")
         .setup(|app_handle| {
             let (tx, mut rx) = mpsc::unbounded_channel::<jsonrpc::Request>();
-            let (mut resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
-            let mut subscriptions = HashMap::new();
+            let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
+            // TODO: Don't keep using a tokio mutex. We don't need to hold it over the await point.
+            let subscriptions = Arc::new(Mutex::new(HashMap::new()));
 
             tokio::spawn(async move {
                 while let Some(req) = rx.recv().await {
-                    handle_json_rpc(
-                        ctx_fn(),
-                        req,
-                        &router,
-                        &mut Sender::ResponseChannel(&mut resp_tx),
-                        &mut SubscriptionMap::Ref(&mut subscriptions),
-                    )
-                    .await;
+                    let ctx = ctx_fn();
+                    let router = router.clone();
+                    let mut resp_tx = resp_tx.clone();
+                    let subscriptions = subscriptions.clone();
+                    tokio::spawn(async move {
+                        handle_json_rpc(
+                            ctx,
+                            req,
+                            &router,
+                            &mut Sender::ResponseChannel(&mut resp_tx),
+                            &mut SubscriptionMap::Mutex(subscriptions.borrow()),
+                        )
+                        .await;
+                    });
                 }
             });
 
