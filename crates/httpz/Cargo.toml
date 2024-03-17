@@ -14,7 +14,7 @@ rustdoc-args = [
 
 # TODO: Cleanup deps
 [dependencies]
-rspc = { path = "../../" }
+rspc = { version = "0.2.0", path = "../../" }
 specta = { version = "1.0.5", features = ["serde", "typescript"] }
 httpz = { version = "0.0.6", features = ["axum", "tokio-ws", "cookies"] }
 serde = { version = "1.0.197", features = ["derive"] }
