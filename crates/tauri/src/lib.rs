@@ -1,3 +1,5 @@
+//! rspc-tauri: Tauri integration for [rspc](https://rspc.dev).
+
 use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
 use tauri::{
@@ -6,7 +8,7 @@ use tauri::{
 };
 use tokio::sync::{mpsc, Mutex};
 
-use crate::{
+use rspc::{
     internal::jsonrpc::{self, handle_json_rpc, Sender, SubscriptionMap},
     Router,
 };

@@ -1,0 +1,21 @@
+[package]
+name = "rspc-tauri"
+description = "Tauri adapter for rspc"
+version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/oscartbeaumont/rspc"
+documentation = "https://docs.rs/rspc-axum/latest/rspc-axum"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# TODO: Cleanup deps
+[dependencies]
+specta = { version = "1.0.5", features = ["serde", "typescript"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+thiserror = "1.0.58"
+futures = "0.3.30"
+tokio = { version = "1.36.0", features = ["sync", "rt", "macros"] }
+tauri = { version = "1.6.1" }

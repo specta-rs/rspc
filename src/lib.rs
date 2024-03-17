@@ -29,7 +29,6 @@ pub use router_builder::*;
 
 pub use selection::*;
 
-pub mod integrations;
 pub mod internal;
 
 pub use specta::RSPCType as Type;

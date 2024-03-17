@@ -15,7 +15,7 @@ categories = ["web-programming", "asynchronous"]
 default = []
 tauri = ["dep:tauri"]
 tracing = ["dep:tracing"]
-httpz = ["dep:httpz", "httpz/cookies"]
+# httpz = ["dep:httpz", "httpz/cookies"]
 # openapi = ["dep:openapiv3"]
 # playground = []
 
@@ -63,10 +63,4 @@ axum = { version = "0.7.4", optional = true }
 async-stream = "0.3.5"
 
 [workspace]
-members = [
-    "./crates/*",
-    "./examples",
-    "./examples/axum",
-    "crates/axum",
-    "crates/httpz",
-]
+members = ["./crates/*", "./examples", "./examples/axum"]

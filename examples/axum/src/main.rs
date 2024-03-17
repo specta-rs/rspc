@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
 use axum::routing::get;
-use rspc::{integrations::httpz::Request, Config};
+use rspc::Config;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
