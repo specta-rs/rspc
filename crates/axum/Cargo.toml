@@ -1,0 +1,16 @@
+[package]
+name = "rspc-axum"
+description = "Axum adapter for rspc"
+version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/oscartbeaumont/rspc"
+documentation = "https://docs.rs/rspc-axum/latest/rspc-axum"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+[dependencies]
+axum = "0.7.4"
+httpz = { version = "0.0.6", features = ["axum"] }
+rspc = { version = "0.1.3", path = "../.." }

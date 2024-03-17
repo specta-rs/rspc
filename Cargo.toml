@@ -42,18 +42,18 @@ bit-vec = ["specta/bit-vec"]
 bson = ["specta/bson"]
 
 [dependencies]
-specta = { version = "1.0.0", features = ["serde", "typescript"] }
-httpz = { version = "0.0.4", optional = true }                      # TODO: Move back to crates.io release
-serde = { version = "1.0.152", features = ["derive"] }
-serde_json = "1.0.93"
-thiserror = "1.0.38"
-futures = "0.3.26"
-tokio = { version = "1.26.0", features = ["sync", "rt", "macros"] }
-tauri = { version = "1.2.4", optional = true }
-tracing = { version = "0.1.37", optional = true }
+specta = { version = "1.0.5", features = ["serde", "typescript"] }
+httpz = { version = "0.0.6", optional = true }                      # TODO: Move back to crates.io release
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+thiserror = "1.0.58"
+futures = "0.3.30"
+tokio = { version = "1.36.0", features = ["sync", "rt", "macros"] }
+tauri = { version = "1.6.1", optional = true }
+tracing = { version = "0.1.40", optional = true }
 
 [dev-dependencies]
-async-stream = "0.3.4"
+async-stream = "0.3.5"
 
 [workspace]
-members = ["./examples", "./examples/axum"]
+members = ["./crates/*", "./examples", "./examples/axum", "crates/axum"]

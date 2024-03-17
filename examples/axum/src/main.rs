@@ -67,20 +67,16 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            router
-                .clone()
-                .endpoint(|req: Request| {
-                    println!("Client requested operation '{}'", req.uri().path());
-                    Ctx {}
-                })
-                .axum(),
+            rspc_axum::endpoint(router.clone().endpoint(|req: Request| {
+                println!("Client requested operation '{}'", req.uri().path());
+                Ctx {}
+            })),
         )
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
     println!("listening on http://{}/rspc/version", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();
 }

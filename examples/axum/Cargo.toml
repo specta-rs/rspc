@@ -6,7 +6,10 @@ publish = false
 
 [dependencies]
 rspc = { path = "../../", features = ["axum"] }
-tokio = { version = "1.26.0", features = ["full"] }
-async-stream = "0.3.4"
-axum = { version = "0.6.10", features = ["ws"] }
-tower-http = { version = "0.4.0", default-features = false, features = ["cors"] }
+rspc-axum = { path = "../../crates/axum" }
+tokio = { version = "1.36.0", features = ["full"] }
+async-stream = "0.3.5"
+axum = { version = "0.7.4", features = ["ws"] }
+tower-http = { version = "0.5.2", default-features = false, features = [
+    "cors",
+] }
