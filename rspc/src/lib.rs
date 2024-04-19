@@ -15,6 +15,4 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod procedure;
-
-pub use procedure::{Next, Procedure};
+pub mod procedure;
