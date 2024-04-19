@@ -1,0 +1,18 @@
+[package]
+name = "rspc"
+description = "A blazing fast and easy to use tRPC server for Rust."
+version = "0.3.0"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/oscartbeaumont/rspc"
+documentation = "https://rspc.dev"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
