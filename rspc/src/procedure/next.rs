@@ -9,7 +9,7 @@ use std::{fmt, marker::PhantomData};
 ///  - `I` - // TODO
 ///  - `TCtx` - // TODO
 ///
-pub struct Next<R, I, TCtx = ()>(PhantomData<(R, I, TCtx)>);
+pub struct Next<R, I, TCtx>(PhantomData<(R, I, TCtx)>);
 
 impl<R, I, TCtx> fmt::Debug for Next<R, I, TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -19,7 +19,7 @@ impl<R, I, TCtx> fmt::Debug for Next<R, I, TCtx> {
 
 impl<R, I, TCtx> Next<R, I, TCtx> {
     /// execute the next thing in the chain and return the result
-    pub fn exec(self, ctx: TCtx, input: I) -> R {
+    pub async fn exec(self, ctx: TCtx, input: I) -> R {
         todo!();
     }
 }

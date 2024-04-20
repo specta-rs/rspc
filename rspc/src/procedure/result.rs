@@ -1,0 +1,2 @@
+/// TODO
+pub trait Result {}

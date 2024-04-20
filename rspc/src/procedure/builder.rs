@@ -1,6 +1,8 @@
-use std::{fmt, marker::PhantomData};
+use std::{fmt, future::Future, marker::PhantomData};
 
-use super::Next;
+use crate::middleware::MiddlewareBuilder;
+
+use super::{Next, Procedure};
 
 // TODO: Should these be public so they can be used in middleware? If so document them.
 // We hide the generics from the public API so we can change them without a major.
@@ -26,13 +28,24 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
     /// TODO
     pub fn with<NextR, NextI, TNextCtx>(
         &self,
-        a: impl Fn(TCtx, I, Next<NextR, NextI, TNextCtx>) -> R,
+        mw: MiddlewareBuilder<TCtx, I, Next<NextR, NextI, TNextCtx>, R>,
     ) -> ProcedureBuilder<TNextCtx, GG<NextR, NextI>> {
         todo!();
     }
 
+    // pub fn with<F, NextR, NextI, TNextCtx>(
+    //     &self,
+    //     handler: impl Fn(TCtx, I, Next<NextR, NextI, TNextCtx>) -> F,
+    // ) -> ProcedureBuilder<TNextCtx, GG<NextR, NextI>>
+    // where
+    //     F: Future<Output = R>,
+    // {
+    //     todo!();
+    // }
+
     /// TODO
-    pub fn query(&self, f: impl Fn(TCtx, I) -> R) {
+    pub fn query<F: Future<Output = R>>(&self, handler: impl Fn(TCtx, I) -> F) -> Procedure<TCtx> {
+        // TODO: The return type here is wrong. It needs TNewCtx
         todo!();
     }
 }
