@@ -39,7 +39,7 @@
 > [!WARNING]  
 > This branch contains some major changes for the 0.3.0 release.
 > 
-> For 0.2.x checkout [v0.1.4-dev](https://github.com/oscartbeaumont/rspc/tree/v0.1.4-dev)
+> For 0.2.x checkout [v0.x](https://github.com/oscartbeaumont/rspc/tree/v0.x)
 > 
 > For v1.0.0-rc.x (deprecated for now) checkout [mainmain](https://github.com/oscartbeaumont/rspc/tree/mainmain)
 
