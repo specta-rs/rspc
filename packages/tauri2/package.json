@@ -1,0 +1,51 @@
+{
+  "name": "@rspc/tauri",
+  "version": "0.2.0",
+  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup",
+    "prepare": "tsup"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "format": [
+      "esm",
+      "cjs"
+    ],
+    "dts": {
+      "resolve": true
+    },
+    "splitting": true,
+    "clean": true,
+    "sourcemap": true
+  },
+  "dependencies": {
+    "@rspc/client": "workspace:*"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "next",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.2"
+  },
+  "peerDependencies": {
+    "@tauri-apps/api": "^1.2.0"
+  }
+}
