@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
+use crate::specta::Type;
 use futures::{Stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::{DefOpts, Type, TypeDefs};
+use specta::TypeDefs;
 
 use crate::{
     internal::{LayerResult, ProcedureDataType},
@@ -83,26 +84,8 @@ where
         self(ctx, input).into_layer_result()
     }
 
-    #[allow(clippy::unwrap_used)] // TODO
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-        ProcedureDataType {
-            arg_ty: <TArg as Type>::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: defs,
-                },
-                &[],
-            )
-            .unwrap(), // TODO: Error handling the `unwrap`'s in this file
-            result_ty: <TResult::Result as Type>::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: defs,
-                },
-                &[],
-            )
-            .unwrap(),
-        }
+        crate::specta::typedef::<TArg, TResult::Result>(defs)
     }
 }
 
@@ -130,25 +113,7 @@ where
         }))))
     }
 
-    #[allow(clippy::unwrap_used)] // TODO
     fn typedef(defs: &mut TypeDefs) -> ProcedureDataType {
-        ProcedureDataType {
-            arg_ty: <TArg as Type>::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: defs,
-                },
-                &[],
-            )
-            .unwrap(),
-            result_ty: <TResult as Type>::reference(
-                DefOpts {
-                    parent_inline: false,
-                    type_map: defs,
-                },
-                &[],
-            )
-            .unwrap(),
-        }
+        crate::specta::typedef::<TArg, TResult>(defs)
     }
 }

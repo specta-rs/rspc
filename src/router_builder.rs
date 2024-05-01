@@ -1,8 +1,9 @@
 use std::marker::PhantomData;
 
+use crate::specta::Type;
 use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
-use specta::{Type, TypeDefs};
+use specta::TypeDefs;
 
 use crate::{
     internal::{

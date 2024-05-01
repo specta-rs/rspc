@@ -23,6 +23,7 @@ mod resolver_result;
 mod router;
 mod router_builder;
 mod selection;
+mod specta;
 
 pub use config::*;
 pub use error::*;
