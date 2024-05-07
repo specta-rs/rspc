@@ -4,7 +4,8 @@ use super::{builder::GG, ProcedureBuilder};
 
 /// TODO
 pub struct Procedure<TCtx = ()> {
-    phantom: PhantomData<TCtx>,
+    pub(super) handler: Box<dyn Fn(TCtx, &mut dyn erased_serde::Deserializer<'_>) -> ()>,
+    // phantom: PhantomData<TCtx>,
 }
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {

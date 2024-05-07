@@ -1,8 +1,8 @@
 //! TODO: Remove this file
 
-use std::{future::Future, ops::Deref};
+use std::{future::Future, marker::PhantomData, ops::Deref};
 
-use rspc::{middleware::MiddlewareBuilder, procedure::*};
+use rspc::{middleware::MiddlewareBuilder, playground::*, procedure::*};
 
 // TODO: Fix library args example
 
@@ -14,7 +14,88 @@ use rspc::{middleware::MiddlewareBuilder, procedure::*};
 
 // TODO: Syntax testing with `trybuild` & convert this file into unit tests
 
+// fn library_args<TCtx, T, NextR>(
+// ) -> impl Fn(TCtx, LibraryArgs<T>, Next<NextR, T, TCtx>) -> Future<Output = NextR> {
+//     |ctx, input, next| async move { next.exec(ctx, input.data).await }
+// }
+
+// pub fn error_only<N: NextGenerics>() -> impl Middleware<N> {
+//     // You must always constrain the input types (but they can be generics)
+//     mw(|ctx: (), input: (), next| async move {
+//         // We don't touch `next` so Rust doesn't care that we don't know it's generics
+//     })
+// }
+
+// pub fn any<TCtx, TInput, N: NextGenerics<Ctx = TCtx, Input = TInput>>() -> impl Middleware<N> {
+//     mw(|ctx: TCtx, input: TInput, next| async move {
+//         // As we touch `next` we need to constrain it. `NextTrait<Ctx = ..., TInput = ...`
+//         let _result = next.exec(ctx, input).await;
+//     })
+// }
+
+// pub fn todo_register<N: NextGenerics<Ctx = (), Input = ()>>() -> impl Middleware<N> {
+//     mw(|ctx: (), input: (), next| async move {
+//         let _result = next.exec(ctx, input).await;
+//     })
+// }
+
+// pub fn doesnt_call_next<TCtx, TInput, TNextResult>() -> impl Middleware {
+//     mw(|ctx: TCtx, input: TInput, next: PlaceholderNext| async move {})
+// }
+
+/// A middleware that takes in anything and returns it
+// pub fn any<TCtx, TInput, TNextResult>() -> impl Middleware<Next<i32, TInput, TCtx>> {
+//     mw(
+//         // TODO: Generic return type
+//         |ctx: TCtx, input: TInput, next: Next<i32, TInput, TCtx>| async move {
+//             let _result = next.exec(ctx, input).await;
+//         },
+//     )
+// }
+
+// pub fn hardcoded<T>() -> impl Middleware {
+//     mw(|ctx: (), input: T, next| async move {
+//         let _result: i32 = next.exec(ctx, input).await;
+//     })
+// }
+
+pub fn todo_plz_work() -> impl Middleware<Next<i32, (), ()>> {
+    mw(
+        // TODO: Generic return type
+        |ctx: (), input: (), next: Next<i32, (), ()>| async move {
+            let _result = next.exec(ctx, input).await;
+        },
+    )
+}
+
 fn main() {
+    <Procedure>::builder()
+        // .register(|ctx| {
+        //     println!("Run during router builder!");
+        //     // ctx.procedure_name;
+        //     // ctx.state.insert(todo!());
+        //     |ctx, _: (), next| async move {
+        //         let _result = next.exec(ctx, ()).await;
+        //     }
+        // })
+        // .with(mw(|ctx, _: (), next| async move {
+        //     let _result = next.exec(ctx, ()).await;
+        // }))
+        // .with(error_only())
+        // .with(todo_plz_work())
+        // TODO: Don't hardcode `_ctx` here
+        .query(|_ctx: (), _input: ()| async move { 42i32 }); // TODO: Hardcode input here
+
+    // TODO: BREAK
+
+    <Procedure>::builder()
+        // .with(
+        //     MiddlewareBuilder::builder().with(|ctx, _: (), next| async move {
+        //         let _result = next.exec(ctx, ()).await;
+        //     }),
+        // )
+        .query(|_ctx, _: ()| async move { 42i32 });
+
     // Everything here:
     // - Runs top to bottom (using `next.exec` to continue to chain)
     // - The resolver *must* be defined last
@@ -33,14 +114,14 @@ fn main() {
     //     .query(|_ctx, _: ()| async move { 42i32 });
 
     <Procedure>::builder()
-        .with(
-            MiddlewareBuilder::builder()
-                .state(())
-                .start(|| println!("Setting up!"))
-                .with(|ctx, _: (), next| async move {
-                    let _result = next.exec(ctx, ()).await;
-                }),
-        )
+        // .with(
+        //     MiddlewareBuilder::builder()
+        //         .state(())
+        //         .start(|| println!("Setting up!"))
+        //         .with(|ctx, _: (), next| async move {
+        //             let _result = next.exec(ctx, ()).await;
+        //         }),
+        // )
         .query(|_ctx, _: ()| async move { 42i32 });
 
     // // Confirm result type behavior if we have multiple middleware

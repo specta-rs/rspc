@@ -16,4 +16,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod middleware;
+pub mod playground;
 pub mod procedure;

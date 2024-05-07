@@ -18,4 +18,5 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 serde = "1.0.198"
 specta = "1.0.5"
-specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }
+# specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }
+erased-serde = "0.4.4"
