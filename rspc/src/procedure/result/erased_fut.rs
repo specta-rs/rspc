@@ -1,6 +1,12 @@
 //! This file contains the magic behind `ProcedureResult`
 
-use std::{any::Any, future::Future, pin::Pin, task::Poll};
+use std::{
+    any::Any,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
+use futures::Stream;
 
 // Rust doesn't allow `+` with `dyn` for non-auto traits.
 pub(super) trait ErasedSerdeSerializePlusAny:
@@ -9,8 +15,9 @@ pub(super) trait ErasedSerdeSerializePlusAny:
 }
 impl<T> ErasedSerdeSerializePlusAny for T where T: erased_serde::Serialize + Any + 'static {}
 
-pub(super) trait AnyErasedFut {
-    fn poll(self: Pin<&mut Self>) -> Poll<()>;
+// TODO: Not being `pub(super)` is cringe. Maybe this should be in procedure stuff.
+pub(crate) trait AnyErasedFut {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>>;
 
     fn take_any(self: Pin<&mut Self>) -> &mut dyn Any;
 
@@ -25,9 +32,9 @@ pub(super) enum ErasedFut<F, R> {
 
 impl<F, R> AnyErasedFut for ErasedFut<F, R>
 where
-    F: Future<Output = R> + 'static,
+    F: Stream<Item = R> + 'static,
 {
-    fn poll(self: Pin<&mut Self>) -> Poll<()> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>> {
         todo!();
     }
 

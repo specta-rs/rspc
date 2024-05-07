@@ -80,10 +80,19 @@ use rspc::procedure::*;
 // .with(error_only())
 // .with(todo_plz_work())
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // TODO: The format is local to the procedure which is kinda problematic as you can only have one per-router (Eg. no Json and FormData)
 
-    <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+    let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+
+    let result = procedure.exec((), ()).await.unwrap();
+    match result {
+        ProcedureExecResult::Future(fut) => {
+            let result = fut.await;
+            println!("Result: {:?}", result);
+        }
+    }
 
     // TODO: BREAK
 

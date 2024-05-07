@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::ProcedureResult;
+use super::result::ProcedureResult;
 
 pub trait Output {
     fn result(self) -> ProcedureResult;

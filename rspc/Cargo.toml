@@ -20,6 +20,8 @@ serde = "1.0.198"
 specta = "1.0.5"
 # specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }
 erased-serde = "0.4.4"
+futures = { version = "0.3.30", default-features = false, features = ["alloc", "std"] }
 
 # TODO: Remove
 serde_json = "1.0.116"
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }

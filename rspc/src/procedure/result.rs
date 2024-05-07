@@ -4,29 +4,33 @@ use std::{
     pin::Pin,
 };
 
+use futures::stream::once;
 use serde::{Serialize, Serializer};
 
 use erased_fut::{AnyErasedFut, ErasedFut};
 
 mod erased_fut;
 
+// TODO: Maybe this primitive is tied to `Procedure` cause of the whole `pub(crate)` on `inner`
+
+// TODO: Different name cause this primitive it's tied to the Procedure
 pub struct ProcedureResult {
     type_id: std::any::TypeId,
-    inner: Pin<Box<dyn AnyErasedFut>>,
+    pub(crate) inner: Pin<Box<dyn AnyErasedFut>>,
 }
 
 impl ProcedureResult {
     pub fn new<T: Any + 'static>(value: T) -> Self {
         Self {
             type_id: TypeId::of::<T>(),
-            inner: Box::pin(ErasedFut::Execute(ready(value))), // TODO: `ready` is not right
+            inner: Box::pin(ErasedFut::Execute(once(ready(value)))), // TODO: `ready` is not right
         }
     }
 
     pub fn with_serde<T: Serialize + Any + 'static>(value: T) -> Self {
         Self {
             type_id: TypeId::of::<T>(),
-            inner: Box::pin(ErasedFut::Execute(ready(value))), // TODO: `ready` is not right
+            inner: Box::pin(ErasedFut::Execute(once(ready(value)))), // TODO: `ready` is not right
         }
     }
 
