@@ -16,3 +16,6 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod procedure;
+mod result;
+
+pub use result::ProcedureResult;

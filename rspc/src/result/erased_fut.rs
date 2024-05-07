@@ -2,8 +2,6 @@
 
 use std::{any::Any, future::Future, pin::Pin, task::Poll};
 
-// TODO: Hide this all in a submodule with `result`
-
 // Rust doesn't allow `+` with `dyn` for non-auto traits.
 pub(super) trait ErasedSerdeSerializePlusAny:
     erased_serde::Serialize + Any + 'static

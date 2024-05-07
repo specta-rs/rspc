@@ -3,9 +3,7 @@
 mod builder;
 mod output;
 mod procedure;
-mod result;
 
 pub use builder::ProcedureBuilder;
 pub use output::Output;
 pub use procedure::Procedure;
-pub use result::ProcedureResult;
