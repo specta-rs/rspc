@@ -1,8 +1,6 @@
 //! TODO: Remove this file
 
-use std::{future::Future, marker::PhantomData, ops::Deref};
-
-use rspc::{middleware::MiddlewareBuilder, playground::*, procedure::*};
+use rspc::procedure::*;
 
 // TODO: Fix library args example
 
@@ -59,42 +57,43 @@ use rspc::{middleware::MiddlewareBuilder, playground::*, procedure::*};
 //     })
 // }
 
-pub fn todo_plz_work() -> impl Middleware<Next<i32, (), ()>> {
-    mw(
-        // TODO: Generic return type
-        |ctx: (), input: (), next: Next<i32, (), ()>| async move {
-            let _result = next.exec(ctx, input).await;
-        },
-    )
-}
+// pub fn todo_plz_work() -> impl Middleware<Next<i32, (), ()>> {
+//     mw(
+//         // TODO: Generic return type
+//         |ctx: (), input: (), next: Next<i32, (), ()>| async move {
+//             let _result = next.exec(ctx, input).await;
+//         },
+//     )
+// }
+
+// .register(|ctx| {
+//     println!("Run during router builder!");
+//     // ctx.procedure_name;
+//     // ctx.state.insert(todo!());
+//     |ctx, _: (), next| async move {
+//         let _result = next.exec(ctx, ()).await;
+//     }
+// })
+// .with(mw(|ctx, _: (), next| async move {
+//     let _result = next.exec(ctx, ()).await;
+// }))
+// .with(error_only())
+// .with(todo_plz_work())
 
 fn main() {
-    <Procedure>::builder()
-        // .register(|ctx| {
-        //     println!("Run during router builder!");
-        //     // ctx.procedure_name;
-        //     // ctx.state.insert(todo!());
-        //     |ctx, _: (), next| async move {
-        //         let _result = next.exec(ctx, ()).await;
-        //     }
-        // })
-        // .with(mw(|ctx, _: (), next| async move {
-        //     let _result = next.exec(ctx, ()).await;
-        // }))
-        // .with(error_only())
-        // .with(todo_plz_work())
-        // TODO: Don't hardcode `_ctx` here
-        .query(|_ctx: (), _input: ()| async move { 42i32 }); // TODO: Hardcode input here
+    // TODO: The format is local to the procedure which is kinda problematic as you can only have one per-router (Eg. no Json and FormData)
+
+    <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
 
     // TODO: BREAK
 
-    <Procedure>::builder()
-        // .with(
-        //     MiddlewareBuilder::builder().with(|ctx, _: (), next| async move {
-        //         let _result = next.exec(ctx, ()).await;
-        //     }),
-        // )
-        .query(|_ctx, _: ()| async move { 42i32 });
+    // <Procedure>::builder()
+    //     // .with(
+    //     //     MiddlewareBuilder::builder().with(|ctx, _: (), next| async move {
+    //     //         let _result = next.exec(ctx, ()).await;
+    //     //     }),
+    //     // )
+    //     .query(|_ctx, _: ()| async move { 42i32 });
 
     // Everything here:
     // - Runs top to bottom (using `next.exec` to continue to chain)
@@ -102,9 +101,9 @@ fn main() {
     // These semantics match the current rspc middleware system from v1 alphas.
 
     // Just a procedure
-    <Procedure>::builder().query(|_ctx, _: ()| async move { 42i32 });
-    Procedure::<i32>::builder().query(|_ctx, _: ()| async move { 42i32 });
-    Procedure::builder().query(|ctx: (), _: ()| async move { 42i32 });
+    // <Procedure>::builder().query(|_ctx, _: ()| async move { 42i32 });
+    // Procedure::<i32>::builder().query(|_ctx, _: ()| async move { 42i32 });
+    // Procedure::builder().query(|ctx: (), _: ()| async move { 42i32 });
 
     // Single middleware
     // <Procedure>::builder()
@@ -113,16 +112,16 @@ fn main() {
     //     }))
     //     .query(|_ctx, _: ()| async move { 42i32 });
 
-    <Procedure>::builder()
-        // .with(
-        //     MiddlewareBuilder::builder()
-        //         .state(())
-        //         .start(|| println!("Setting up!"))
-        //         .with(|ctx, _: (), next| async move {
-        //             let _result = next.exec(ctx, ()).await;
-        //         }),
-        // )
-        .query(|_ctx, _: ()| async move { 42i32 });
+    // <Procedure>::builder()
+    //     // .with(
+    //     //     MiddlewareBuilder::builder()
+    //     //         .state(())
+    //     //         .start(|| println!("Setting up!"))
+    //     //         .with(|ctx, _: (), next| async move {
+    //     //             let _result = next.exec(ctx, ()).await;
+    //     //         }),
+    //     // )
+    //     .query(|_ctx, _: ()| async move { 42i32 });
 
     // // Confirm result type behavior if we have multiple middleware
     // <Procedure>::builder() // (bool, (&str, i32))

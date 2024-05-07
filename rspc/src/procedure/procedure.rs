@@ -24,4 +24,11 @@ impl<TCtx> Procedure<TCtx> {
 
     // TODO: Export types
     // TODO: Run this procedure
+
+    // TODO: Allow running synchronously
+    pub async fn exec(&self, ctx: TCtx, input: ()) -> Result<(), ()> {
+        todo!();
+    }
 }
+
+struct HandlerResult {}
