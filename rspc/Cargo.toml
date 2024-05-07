@@ -16,11 +16,14 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-serde = "1.0.198"
-specta = "1.0.5"
+# Public
+serde = "1"
+futures-core = "0.3"
+specta = "1"
 # specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }
-erased-serde = "0.4.4"
-futures = { version = "0.3.30", default-features = false, features = ["alloc", "std"] }
+
+# Private
+erased-serde = "0.4"
 
 # TODO: Remove
 serde_json = "1.0.116"

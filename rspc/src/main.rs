@@ -1,6 +1,10 @@
 //! TODO: Remove this file
 
+use std::any::Any;
+
+use erased_serde::Serialize;
 use rspc::procedure::*;
+use serde_json::Value;
 
 // TODO: Fix library args example
 
@@ -80,18 +84,34 @@ use rspc::procedure::*;
 // .with(error_only())
 // .with(todo_plz_work())
 
+pub trait Format {
+    // TODO: This can't take `T` cause it would make it not-dyn safe
+    fn serialize(&mut self, value: &dyn Any) {
+        // TODO: dyn Any -> Serialize????
+        // *self =
+    }
+}
+
+pub struct SerdeJson(serde_json::Value);
+
+impl Format for SerdeJson {}
+
 #[tokio::main]
 async fn main() {
     // TODO: The format is local to the procedure which is kinda problematic as you can only have one per-router (Eg. no Json and FormData)
 
     let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
 
-    let result = procedure.exec((), ()).await.unwrap();
-    match result {
+    match procedure.exec((), ()) {
         ProcedureExecResult::Future(fut) => {
-            let result = fut.await;
+            let result = fut
+                .await
+                .unwrap()
+                .serialize(serde_json::value::Serializer)
+                .unwrap();
             println!("Result: {:?}", result);
         }
+        ProcedureExecResult::Stream(_) => unreachable!(),
     }
 
     // TODO: BREAK

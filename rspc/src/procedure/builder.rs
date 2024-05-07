@@ -39,7 +39,7 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
                 // TODO: Spawn onto runtime without returning boxed but does that actually make a performance difference???
                 let result = handler(ctx, erased_serde::deserialize(input).unwrap());
                 // let t: R = todo!(); // TODO: Async
-                // F::exec(t)
+                //    .into_result()
 
                 todo!();
             }),
