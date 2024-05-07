@@ -6,7 +6,9 @@ use std::{
 
 use serde::{Serialize, Serializer};
 
-use super::erased_fut::{AnyErasedFut, ErasedFut};
+use erased_fut::{AnyErasedFut, ErasedFut};
+
+mod erased_fut;
 
 pub struct ProcedureResult {
     type_id: std::any::TypeId,
