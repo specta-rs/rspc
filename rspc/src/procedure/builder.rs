@@ -37,7 +37,7 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
             // TODO: Error handling
             handler: Box::new(move |ctx, input| {
                 // TODO: Spawn onto runtime without returning boxed but does that actually make a performance difference???
-                let result = handler(ctx, erased_serde::deserialize(input).unwrap());
+                // let result = handler(ctx, erased_serde::deserialize(input).unwrap());
                 // let t: R = todo!(); // TODO: Async
                 //    .into_result()
 

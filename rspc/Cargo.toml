@@ -23,6 +23,7 @@ specta = "1"
 # specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }
 
 # Private
+serde-value = "0.7"
 erased-serde = "0.4"
 
 # TODO: Remove

@@ -1,43 +1,50 @@
 use std::any::{Any, TypeId};
 
-use serde::{Serialize, Serializer};
+use serde::{de::DeserializeOwned, Serialize, Serializer};
+use serde_value::DeserializerError;
 
-// Rust doesn't allow `+` with `dyn` for non-auto traits.
-trait ErasedSerdeSerializePlusAny: erased_serde::Serialize + Any + 'static {
-    /// `downcast` is implemented for `Box<dyn Any>` so we need to upcast
-    fn to_box(self: Box<Self>) -> Box<dyn Any>;
-}
-impl<T> ErasedSerdeSerializePlusAny for T
-where
-    T: erased_serde::Serialize + Any + 'static,
-{
-    fn to_box(self: Box<Self>) -> Box<dyn Any> {
-        self
+trait Inner: Any + 'static {
+    fn to_box_any(self: Box<Self>) -> Box<dyn Any>;
+
+    fn to_value(&self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
+        None
     }
 }
 
-enum Inner {
-    Any(Box<dyn Any>),
-    Serde(Box<dyn ErasedSerdeSerializePlusAny>),
+struct AnyT<T>(T);
+impl<T: Any + 'static> Inner for AnyT<T> {
+    fn to_box_any(self: Box<Self>) -> Box<dyn Any> {
+        Box::new(self.0)
+    }
+}
+
+impl<T: Serialize + Any + 'static> Inner for T {
+    fn to_box_any(self: Box<Self>) -> Box<dyn Any> {
+        Box::new(self)
+    }
+
+    fn to_value(&self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
+        Some(serde_value::to_value(self))
+    }
 }
 
 pub struct ProcedureResult {
     type_id: std::any::TypeId,
-    inner: Inner,
+    inner: Box<dyn Inner>,
 }
 
 impl ProcedureResult {
     pub fn new<T: Any + 'static>(value: T) -> Self {
         Self {
             type_id: TypeId::of::<T>(),
-            inner: Inner::Any(Box::new(value)),
+            inner: Box::new(AnyT(value)),
         }
     }
 
     pub fn with_serde<T: Serialize + Any + 'static>(value: T) -> Self {
         Self {
             type_id: TypeId::of::<T>(),
-            inner: Inner::Serde(Box::new(value)),
+            inner: Box::new(value),
         }
     }
 
@@ -46,22 +53,33 @@ impl ProcedureResult {
     }
 
     pub fn downcast<T: Any>(self) -> Option<T> {
-        match self.inner {
-            Inner::Any(v) => v,
-            Inner::Serde(v) => v.to_box(),
-        }
-        .downcast()
-        .map(|v| *v)
-        .ok()
+        self.inner.to_box_any().downcast().map(|v| *v).ok()
     }
 
     pub fn serialize<S: Serializer>(self, ser: S) -> Result<S::Ok, ()> {
-        // match self.inner {
-        //     Inner::Any(_) => Err(()), // TODO: This value doesn't support Serde error
-        //     Inner::Serde(v) => v
-        //         .erased_serialize(&mut <dyn erased_serde::Serializer>::erase(ser))
-        //         .map_err(|_| ()),
-        // }
-        todo!();
+        let value = self
+            .inner
+            .to_value()
+            // TODO: This value doesn't support Serde error
+            .ok_or(())?
+            // TODO: This value had a Serde error
+            .map_err(|_| ())?;
+
+        value.serialize(ser).map_err(|_| ())
+    }
+
+    pub fn deserialize<T: DeserializeOwned>(self) -> Result<T, ()> {
+        let value = self
+            .inner
+            .to_value()
+            // TODO: This value doesn't support Serde error
+            .ok_or(())?
+            // TODO: This value had a Serde error
+            .map_err(|_| ())?;
+
+        T::deserialize(serde_value::ValueDeserializer::<DeserializerError>::new(
+            value,
+        ))
+        .map_err(|_| ())
     }
 }
