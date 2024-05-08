@@ -27,14 +27,26 @@ impl<T: Serialize + Any + 'static> Input for AnyInput<T> {
     }
 }
 
-/// Sealed methods and keep `serde_value` out of the public API.
+/// This is the internal version of `Input`.
+///
+/// It's sealed because:
+///  - `serde_value` should not appear in the public API.
+///  - It's methods are relatively unsafe due to the usage of `Option` to ensure dyn-safety with owned values.
 pub(super) trait InputSealed: 'static {
-    fn to_box_any(self: Box<Self>) -> Box<dyn Any> {
-        Box::new(self)
+    // This method returns `Option<T>` as `dyn Any` so we can take the value out of the `Option` while remaining dyn-safe.
+    fn to_option_dyn_any(&mut self) -> &mut dyn Any;
+
+    fn to_value(&mut self) -> Option<Result<serde_value::Value, serde_value::SerializerError>>;
+}
+impl<T: Input> InputSealed for Option<T> {
+    fn to_option_dyn_any(&mut self) -> &mut dyn Any {
+        self
     }
 
-    fn to_value(&self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
-        None
+    fn to_value(&mut self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
+        self.take()
+            .expect("value already taken")
+            .value()
+            .map(serde_value::to_value)
     }
 }
-impl<T: Input> InputSealed for T {}

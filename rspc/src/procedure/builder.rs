@@ -1,5 +1,7 @@
 use std::{fmt, future::Future, marker::PhantomData};
 
+use crate::procedure::{ProcedureExecResult, ProcedureExecResultFuture};
+
 use super::{Output, Procedure};
 
 // TODO: Should these be public so they can be used in middleware? If so document them.
@@ -23,25 +25,32 @@ impl<TCtx, G> fmt::Debug for ProcedureBuilder<TCtx, G> {
     }
 }
 
-// TODO: Backwards or forwards infer the format - forwards in annoying but default generics are a thing???
 impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
     /// TODO
     pub fn query<F>(&self, handler: impl Fn(TCtx, I) -> F + 'static) -> Procedure<TCtx>
     where
-        F: Future<Output = R> + 'static,
+        F: Future<Output = R> + Send + 'static,
         I: DeserializeOwned,
         R: Output,
+        I: 'static,
     {
         // TODO: The return type here is wrong. It needs TNewCtx
         Procedure {
-            // TODO: Error handling
             handler: Box::new(move |ctx, input| {
-                // TODO: Spawn onto runtime without returning boxed but does that actually make a performance difference???
-                // let result = handler(ctx, erased_serde::deserialize(input).unwrap());
-                // let t: R = todo!(); // TODO: Async
-                //    .into_result()
+                let input: I = match input.to_value() {
+                    Some(v) => v.unwrap().deserialize_into().unwrap(),
+                    None => input
+                        .to_option_dyn_any()
+                        .downcast_mut::<Option<I>>()
+                        .unwrap() // TODO: Invalid input error
+                        .take()
+                        .expect("value already taken"),
+                };
 
-                todo!();
+                let fut = handler(ctx, input);
+                ProcedureExecResult::Future(ProcedureExecResultFuture::new(async move {
+                    fut.await.into_result()
+                }))
             }),
         }
     }

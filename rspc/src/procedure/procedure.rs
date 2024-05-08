@@ -25,6 +25,6 @@ impl<TCtx> Procedure<TCtx> {
     // TODO: Export types
 
     pub fn exec<I: Input>(&self, ctx: TCtx, mut input: I) -> ProcedureExecResult {
-        (self.handler)(ctx, &mut input)
+        (self.handler)(ctx, &mut Some(input))
     }
 }
