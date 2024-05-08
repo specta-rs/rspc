@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use super::result::ProcedureResult;
+use super::output_value::ProcedureResult;
 
 pub trait Output {
     fn into_result(self) -> ProcedureResult;
@@ -13,13 +13,3 @@ impl<T: Serialize + 'static> Output for T {
 }
 
 // TODO: Supporting regular streams?
-
-// TODO: Break this outta the core.
-pub struct SomeFile<T>(T);
-// TODO: `std::any::Any` would be a `tokio::io::AsyncWrite` type thing.
-impl<T: std::any::Any + 'static> Output for SomeFile<T> {
-    fn into_result(self) -> ProcedureResult {
-        let result: SomeFile<Box<dyn std::any::Any>> = SomeFile(Box::new(self.0));
-        ProcedureResult::new(result)
-    }
-}

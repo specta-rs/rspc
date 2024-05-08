@@ -1,12 +1,10 @@
-use std::{fmt, marker::PhantomData};
+use std::{any::TypeId, fmt, marker::PhantomData};
 
-use super::{
-    builder::GG, input::InputSealed, r#async::ProcedureExecResult, Input, ProcedureBuilder,
-};
+use super::{builder::GG, stream::ProcedureStream, Input, InputValue, ProcedureBuilder};
 
 /// TODO
 pub struct Procedure<TCtx = ()> {
-    pub(super) handler: Box<dyn Fn(TCtx, &mut dyn InputSealed) -> ProcedureExecResult>,
+    pub(super) handler: Box<dyn Fn(TCtx, InputValue) -> ProcedureStream>,
 }
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {
@@ -24,7 +22,13 @@ impl<TCtx> Procedure<TCtx> {
 
     // TODO: Export types
 
-    pub fn exec<I: Input>(&self, ctx: TCtx, mut input: I) -> ProcedureExecResult {
-        (self.handler)(ctx, &mut Some(input))
+    pub fn exec<I: Input>(&self, ctx: TCtx, input: I) -> ProcedureStream {
+        (self.handler)(
+            ctx,
+            InputValue {
+                type_id: TypeId::of::<I>(),
+                inner: &mut Some(input),
+            },
+        )
     }
 }

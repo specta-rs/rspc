@@ -1,52 +1,25 @@
 use std::any::Any;
 
-use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-// TODO: This should be public but sealed????
-pub trait Input: 'static {
-    type T: Serialize;
+use super::InputValue;
 
-    fn value(self) -> Option<Self::T>;
+pub trait Input: Sized + 'static {
+    type Input: DeserializeOwned;
+
+    fn deserialize(self) -> Option<Self::Input>;
+
+    fn from_value(value: InputValue) -> Option<Self>;
 }
 
-impl<T: Serialize + Any + 'static> Input for T {
-    type T = T;
+impl<T: DeserializeOwned + Any + 'static> Input for T {
+    type Input = Self;
 
-    fn value(self) -> Option<Self::T> {
+    fn deserialize(self) -> Option<Self::Input> {
         Some(self)
     }
-}
 
-pub struct AnyInput<T>(T);
-
-impl<T: Serialize + Any + 'static> Input for AnyInput<T> {
-    type T = ();
-
-    fn value(self) -> Option<Self::T> {
-        None
-    }
-}
-
-/// This is the internal version of `Input`.
-///
-/// It's sealed because:
-///  - `serde_value` should not appear in the public API.
-///  - It's methods are relatively unsafe due to the usage of `Option` to ensure dyn-safety with owned values.
-pub(super) trait InputSealed: 'static {
-    // This method returns `Option<T>` as `dyn Any` so we can take the value out of the `Option` while remaining dyn-safe.
-    fn to_option_dyn_any(&mut self) -> &mut dyn Any;
-
-    fn to_value(&mut self) -> Option<Result<serde_value::Value, serde_value::SerializerError>>;
-}
-impl<T: Input> InputSealed for Option<T> {
-    fn to_option_dyn_any(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn to_value(&mut self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
-        self.take()
-            .expect("value already taken")
-            .value()
-            .map(serde_value::to_value)
+    fn from_value(value: InputValue) -> Option<Self> {
+        value.deserialize().ok() // TODO: Error handling
     }
 }
