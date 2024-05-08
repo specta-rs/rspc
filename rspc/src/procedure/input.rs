@@ -1,32 +1,40 @@
-use std::any::{Any, TypeId};
+use std::any::Any;
 
-use serde::{de::DeserializeOwned, Serialize, Serializer};
-use serde_value::DeserializerError;
+use serde::Serialize;
 
 // TODO: This should be public but sealed????
-pub trait Input {
-    fn to_box_any(self: Box<Self>) -> Box<dyn Any>;
+pub trait Input: 'static {
+    type T: Serialize;
 
-    fn to_value(&self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
-        None
-    }
+    fn value(self) -> Option<Self::T>;
 }
 
 impl<T: Serialize + Any + 'static> Input for T {
-    fn to_box_any(self: Box<Self>) -> Box<dyn Any> {
-        Box::new(self)
-    }
+    type T = T;
 
-    // TODO: This should shadow the `Input::to_value` method to achieve specialisation with stable Rust
-    fn to_value(&self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
-        Some(serde_value::to_value(&self))
+    fn value(self) -> Option<Self::T> {
+        Some(self)
     }
 }
 
 pub struct AnyInput<T>(T);
 
-impl<T: Any + 'static> Input for AnyInput<T> {
+impl<T: Serialize + Any + 'static> Input for AnyInput<T> {
+    type T = ();
+
+    fn value(self) -> Option<Self::T> {
+        None
+    }
+}
+
+/// Sealed methods and keep `serde_value` out of the public API.
+pub(super) trait InputSealed: 'static {
     fn to_box_any(self: Box<Self>) -> Box<dyn Any> {
         Box::new(self)
     }
+
+    fn to_value(&self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
+        None
+    }
 }
+impl<T: Input> InputSealed for T {}

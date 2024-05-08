@@ -1,14 +1,12 @@
 use std::{fmt, marker::PhantomData};
 
 use super::{
-    r#async::ProcedureExecResult,
-    Input,
-    {builder::GG, ProcedureBuilder},
+    builder::GG, input::InputSealed, r#async::ProcedureExecResult, Input, ProcedureBuilder,
 };
 
 /// TODO
 pub struct Procedure<TCtx = ()> {
-    pub(super) handler: Box<dyn Fn(TCtx, &mut dyn Input) -> ProcedureExecResult>,
+    pub(super) handler: Box<dyn Fn(TCtx, &mut dyn InputSealed) -> ProcedureExecResult>,
 }
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {
@@ -26,7 +24,7 @@ impl<TCtx> Procedure<TCtx> {
 
     // TODO: Export types
 
-    pub fn exec<I: Input>(&self, ctx: TCtx, input: I) -> ProcedureExecResult {
-        (self.handler)(ctx, todo!())
+    pub fn exec<I: Input>(&self, ctx: TCtx, mut input: I) -> ProcedureExecResult {
+        (self.handler)(ctx, &mut input)
     }
 }
