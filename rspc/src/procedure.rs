@@ -7,6 +7,7 @@
 //!  - `Procedure::exec` and `Procedure::exec_any` should be merged into one
 //!  - handling of result types is less efficient that it could be
 
+mod argument;
 mod builder;
 mod input;
 mod input_value;
@@ -15,6 +16,7 @@ mod output_value;
 mod procedure;
 mod stream;
 
+pub use argument::Argument;
 pub use builder::ProcedureBuilder;
 pub use input::Input;
 pub use input_value::InputValue;
@@ -33,16 +35,16 @@ impl<T: tokio::io::AsyncWrite + 'static> Output for File<T> {
         ProcedureResult::new(result)
     }
 }
-impl<F: tokio::io::AsyncWrite + 'static> Input for File<F> {
+impl<F: tokio::io::AsyncWrite + 'static> Argument for File<F> {
     type Value = File;
 
     fn into_value(self) -> Self::Value {
         // TODO: Only reallocate if not already `Pin<Box<_>>`
         File(Box::pin(self.0))
     }
-
-    // TODO: Make this downcast typesafe (cause of `Self::Value`)
-    fn from_value(value: InputValue) -> Result<Self, ()> {
+}
+impl Input for File {
+    fn from_value(value: InputValue<Self>) -> Result<Self, ()> {
         Ok(value.downcast().ok_or(())?)
     }
 }

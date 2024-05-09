@@ -1,6 +1,11 @@
-use std::any::{type_name, Any, TypeId};
+use std::{
+    any::{type_name, Any, TypeId},
+    marker::PhantomData,
+};
 
 use serde::de::DeserializeOwned;
+
+use super::Argument;
 
 pub(super) trait InputValueInner<'de> {
     fn into_deserializer(&mut self) -> Option<&mut dyn erased_serde::Deserializer<'de>>;
@@ -43,11 +48,11 @@ impl<'de, D: erased_serde::Deserializer<'de>> InputValueInner<'de> for D {
     }
 }
 
-pub struct InputValue<'a, 'b>(&'a mut dyn InputValueInner<'b>);
+pub struct InputValue<'a, 'b, T>(&'a mut dyn InputValueInner<'b>, PhantomData<T>);
 
-impl<'a, 'b> InputValue<'a, 'b> {
+impl<'a, 'b, T> InputValue<'a, 'b, T> {
     pub(crate) fn new(value: &'a mut dyn InputValueInner<'b>) -> Self {
-        Self(value)
+        Self(value, PhantomData)
     }
 
     pub fn type_name(&self) -> Option<&'static str> {
@@ -58,17 +63,21 @@ impl<'a, 'b> InputValue<'a, 'b> {
         self.0.get_type_id()
     }
 
-    pub fn downcast<T: Any + 'static>(self) -> Option<T> {
+    pub fn downcast(self) -> Option<T>
+    where
+        T: Argument,
+    {
         Some(
             self.0
                 .into_dyn_any()?
-                .downcast_mut::<Option<T>>()?
+                .downcast_mut::<Option<T>>()
+                .expect("todo: this is typesafe")
                 .take()
                 .expect("value already taken"),
         )
     }
 
-    pub fn deserialize<T: DeserializeOwned>(self) -> Result<T, ()> {
+    pub fn deserialize<U: DeserializeOwned>(self) -> Result<U, ()> {
         erased_serde::deserialize(
             self.0
                 .into_deserializer()
