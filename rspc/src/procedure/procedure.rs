@@ -5,7 +5,7 @@ use serde::Deserializer;
 use crate::procedure::input_value::AnyInput;
 
 use super::{
-    builder::GG, input_value::InputValueInner, stream::ProcedureStream, Argument, ProcedureBuilder,
+    builder::GG, input_value::InputValueInner, stream::ProcedureStream, Input, ProcedureBuilder,
 };
 
 /// TODO
@@ -38,7 +38,7 @@ impl<TCtx> Procedure<TCtx> {
         (self.handler)(ctx, &mut <dyn erased_serde::Deserializer>::erase(input))
     }
 
-    pub fn exec_any<T: Argument>(&self, ctx: TCtx, input: T) -> ProcedureStream {
+    pub fn exec_any<T: Input>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         let input = input.into_value();
         (self.handler)(ctx, &mut AnyInput(Some(input)))
     }
