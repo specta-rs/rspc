@@ -63,9 +63,10 @@ impl<'a, 'b, T> InputValue<'a, 'b, T> {
         self.0.get_type_id()
     }
 
+    // TODO: Should we have a generic downcast???? -> This is typesafe but it means the `TypeId` stuff can't be used for matching???
     pub fn downcast(self) -> Option<T>
     where
-        T: Argument,
+        T: Argument<'b> + 'static,
     {
         Some(
             self.0

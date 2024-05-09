@@ -1,11 +1,10 @@
-use std::{fmt, marker::PhantomData};
-
-use serde::Deserializer;
-
-use crate::procedure::input_value::AnyInput;
+use std::{any::TypeId, fmt, marker::PhantomData};
 
 use super::{
-    builder::GG, input_value::InputValueInner, stream::ProcedureStream, Argument, ProcedureBuilder,
+    builder::GG,
+    input_value::{AnyInput, InputValueInner},
+    stream::ProcedureStream,
+    Argument, ProcedureBuilder,
 };
 
 /// TODO
@@ -28,18 +27,13 @@ impl<TCtx> Procedure<TCtx> {
 
     // TODO: Export types
 
-    // TODO: Can `exec` and `exec_any` be merged into one method
-
-    pub fn exec<'de, 'a: 'de, D: Deserializer<'de> + 'a>(
-        &self,
-        ctx: TCtx,
-        input: D,
-    ) -> ProcedureStream {
-        (self.handler)(ctx, &mut <dyn erased_serde::Deserializer>::erase(input))
-    }
-
-    pub fn exec_any<T: Argument>(&self, ctx: TCtx, input: T) -> ProcedureStream {
-        let input = input.into_value();
-        (self.handler)(ctx, &mut AnyInput(Some(input)))
+    pub fn exec<'de, T: Argument<'de>>(&self, ctx: TCtx, input: T) -> ProcedureStream {
+        match input.into_deserializer() {
+            Ok(deserializer) => {
+                let mut input = <dyn erased_serde::Deserializer>::erase(deserializer);
+                (self.handler)(ctx, &mut input)
+            }
+            Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value()))),
+        }
     }
 }

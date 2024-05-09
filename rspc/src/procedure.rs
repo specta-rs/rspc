@@ -4,7 +4,6 @@
 //!
 //!
 //! Area's that need more work:
-//!  - `Procedure::exec` and `Procedure::exec_any` should be merged into one
 //!  - handling of result types is less efficient that it could be
 
 mod argument;
@@ -35,7 +34,7 @@ impl<T: tokio::io::AsyncWrite + 'static> Output for File<T> {
         ProcedureResult::new(result)
     }
 }
-impl<F: tokio::io::AsyncWrite + 'static> Argument for File<F> {
+impl<'de, F: tokio::io::AsyncWrite + 'static> Argument<'de> for File<F> {
     type Value = File;
 
     fn into_value(self) -> Self::Value {

@@ -109,7 +109,7 @@ async fn main() {
         <Procedure>::builder().query(|_ctx, _input: rspc::procedure::File| async move { 42i32 });
 
     let result = procedure
-        .exec_any(
+        .exec(
             (),
             rspc::procedure::File(tokio::fs::File::create("test.txt").await.unwrap()),
         )
