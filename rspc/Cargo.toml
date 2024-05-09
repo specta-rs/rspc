@@ -28,5 +28,5 @@ erased-serde = "0.4"
 
 # TODO: Remove
 serde_json = "1.0.116"
-tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "fs"] }
 futures = "0.3.30"

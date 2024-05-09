@@ -1,61 +1,67 @@
-use std::any::{Any, TypeId};
+use std::any::{type_name, Any, TypeId};
 
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::de::DeserializeOwned;
 
-use super::Input;
+pub(super) trait InputValueInner<'de> {
+    fn into_deserializer(&mut self) -> Option<&mut dyn erased_serde::Deserializer<'de>>;
 
-/// This is the internal version of `Input`.
-///
-/// It's sealed because:
-///  - `erased_serde` should not appear in the public API.
-///  - It's methods are relatively unsafe due to the usage of `Option` to ensure dyn-safety with owned values.
-pub(super) trait InputSealed: 'static {
-    // This method returns `Option<T>` as `dyn Any` so we can take the value out of the `Option` while remaining dyn-safe.
-    fn to_option_dyn_any(&mut self) -> &mut dyn Any;
-
-    fn to_value(&mut self) -> Option<Result<serde_value::Value, serde_value::SerializerError>>;
-}
-impl<T: Input> InputSealed for Option<T> {
-    fn to_option_dyn_any(&mut self) -> &mut dyn Any {
-        self
+    fn get_type_name(&self) -> Option<&'static str> {
+        None
     }
 
-    fn to_value(&mut self) -> Option<Result<serde_value::Value, serde_value::SerializerError>> {
-        // let t = self.take().expect("value already taken");
-        // let t = T::deserialize(t).unwrap(); // TODO: How to handle this one???
+    fn get_type_id(&self) -> Option<TypeId> {
+        None
+    }
 
-        // let mut format = <dyn erased_serde::Deserializer>::erase(serde_value::Value::Unit);
-
-        // let y: serde_value::Value = erased_serde::deserialize(&mut format).unwrap();
-
-        // <serde_value::Value::Unit as Deserialize>::deserialize().unwrap();
-
-        // let value =
-        // let y =
-        //     <<T as Input>::Input as Deserialize>::deserialize(serde_value::Value::Unit).unwrap();
-
-        // let value = serde_value::ValueDeserializer::new(value)
-
-        // Some(serde_value::to_value(&t))
-
-        todo!();
+    fn into_dyn_any(&mut self) -> Option<&mut dyn Any> {
+        None
     }
 }
 
-pub struct InputValue<'a> {
-    pub(super) type_id: TypeId,
-    // This holds `Option<T>` so we can `.take()` an owned `T` while remaining dyn-safe.
-    pub(super) inner: &'a mut dyn Any,
+pub(super) struct AnyInput<T>(pub Option<T>);
+impl<'de, T: Any + 'static> InputValueInner<'de> for AnyInput<T> {
+    fn into_deserializer(&mut self) -> Option<&mut dyn erased_serde::Deserializer<'de>> {
+        None
+    }
+
+    fn get_type_name(&self) -> Option<&'static str> {
+        Some(type_name::<T>())
+    }
+
+    fn get_type_id(&self) -> Option<TypeId> {
+        Some(TypeId::of::<T>())
+    }
+
+    fn into_dyn_any(&mut self) -> Option<&mut dyn Any> {
+        Some(&mut self.0)
+    }
 }
 
-impl<'a> InputValue<'a> {
-    pub fn type_id(&self) -> std::any::TypeId {
-        self.type_id
+impl<'de, D: erased_serde::Deserializer<'de>> InputValueInner<'de> for D {
+    fn into_deserializer(&mut self) -> Option<&mut dyn erased_serde::Deserializer<'de>> {
+        Some(self)
+    }
+}
+
+pub struct InputValue<'a, 'b>(&'a mut dyn InputValueInner<'b>);
+
+impl<'a, 'b> InputValue<'a, 'b> {
+    pub(crate) fn new(value: &'a mut dyn InputValueInner<'b>) -> Self {
+        Self(value)
+    }
+
+    pub fn type_name(&self) -> Option<&'static str> {
+        self.0.get_type_name()
+    }
+
+    pub fn type_id(&self) -> Option<TypeId> {
+        self.0.get_type_id()
     }
 
     pub fn downcast<T: Any + 'static>(self) -> Option<T> {
         Some(
-            self.inner
+            self.0
+                .into_dyn_any()?
                 .downcast_mut::<Option<T>>()?
                 .take()
                 .expect("value already taken"),
@@ -63,6 +69,12 @@ impl<'a> InputValue<'a> {
     }
 
     pub fn deserialize<T: DeserializeOwned>(self) -> Result<T, ()> {
-        todo!();
+        erased_serde::deserialize(
+            self.0
+                .into_deserializer()
+                // TODO: Not serde type
+                .unwrap(),
+        )
+        .map_err(|_| ())
     }
 }

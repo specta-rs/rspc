@@ -2,7 +2,7 @@ use std::{fmt, future::Future, marker::PhantomData};
 
 use crate::procedure::ProcedureStream;
 
-use super::{Input, Output, Procedure};
+use super::{Input, InputValue, Output, Procedure};
 
 // TODO: Should these be public so they can be used in middleware? If so document them.
 // We hide the generics from the public API so we can change them without a major.
@@ -35,7 +35,7 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         // TODO: The return type here is wrong. It needs TNewCtx
         Procedure {
             handler: Box::new(move |ctx, input| {
-                let fut = handler(ctx, I::from_value(input).unwrap()); // TODO: Invalid input error
+                let fut = handler(ctx, I::from_value(InputValue::new(input)).unwrap()); // TODO: Invalid input error
                 ProcedureStream::new(async move { fut.await.into_result() })
             }),
         }

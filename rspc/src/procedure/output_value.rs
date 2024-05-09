@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::{type_name, Any, TypeId};
 
 use serde::{de::DeserializeOwned, Serialize, Serializer};
 use serde_value::DeserializerError;
@@ -29,13 +29,15 @@ impl<T: Serialize + Any + 'static> Inner for T {
 }
 
 pub struct ProcedureResult {
-    type_id: std::any::TypeId,
+    type_map: &'static str,
+    type_id: TypeId,
     inner: Box<dyn Inner>,
 }
 
 impl ProcedureResult {
     pub fn new<T: Any + 'static>(value: T) -> Self {
         Self {
+            type_map: type_name::<T>(),
             type_id: TypeId::of::<T>(),
             inner: Box::new(AnyT(value)),
         }
@@ -43,12 +45,17 @@ impl ProcedureResult {
 
     pub fn with_serde<T: Serialize + Any + 'static>(value: T) -> Self {
         Self {
+            type_map: type_name::<T>(),
             type_id: TypeId::of::<T>(),
             inner: Box::new(value),
         }
     }
 
-    pub fn type_id(&self) -> std::any::TypeId {
+    pub fn type_name(&self) -> &'static str {
+        self.type_map
+    }
+
+    pub fn type_id(&self) -> TypeId {
         self.type_id
     }
 

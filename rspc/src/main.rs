@@ -88,13 +88,37 @@ async fn main() {
     let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
 
     let result = procedure
-        .exec((), ())
+        .exec((), serde_json::Value::Null)
         .next()
         .await
         .unwrap()
         .serialize(serde_json::value::Serializer)
         .unwrap();
     println!("Result: {:?}", result);
+
+    let result = procedure
+        .exec((), serde_value::Value::Unit)
+        .next()
+        .await
+        .unwrap()
+        .serialize(serde_json::value::Serializer)
+        .unwrap();
+    println!("Result: {:?}", result);
+
+    let procedure =
+        <Procedure>::builder().query(|_ctx, _input: rspc::procedure::File| async move { 42i32 });
+
+    let result = procedure
+        .exec_any(
+            (),
+            rspc::procedure::File(tokio::fs::File::create("test.txt").await.unwrap()),
+        )
+        .next()
+        .await
+        .unwrap()
+        .serialize(serde_json::value::Serializer)
+        .unwrap();
+    println!("File Result: {:?}", result);
 
     // TODO: BREAK
 
