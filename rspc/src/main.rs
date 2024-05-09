@@ -1,6 +1,6 @@
 //! TODO: Remove this file
 
-use futures::StreamExt;
+use futures::{stream::once, StreamExt};
 use rspc::procedure::*;
 
 // TODO: Fix library args example
@@ -119,6 +119,19 @@ async fn main() {
         .serialize(serde_json::value::Serializer)
         .unwrap();
     println!("File Result: {:?}", result);
+
+    let procedure = <Procedure>::builder()
+        .query(|_ctx, _input: ()| async move { rspc::Stream(once(async move { 42i32 })) });
+
+    let result = procedure
+        .exec((), serde_json::Value::Null)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .map(|result| result.serialize(serde_json::value::Serializer).unwrap())
+        .collect::<Vec<_>>();
+
+    println!("Stream Result: {:?}", result);
 
     // TODO: BREAK
 

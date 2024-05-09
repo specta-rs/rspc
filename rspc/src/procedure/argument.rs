@@ -1,5 +1,3 @@
-use std::any::Any;
-
 use serde::Deserializer;
 
 use super::Input;

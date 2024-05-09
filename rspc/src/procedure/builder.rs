@@ -1,7 +1,5 @@
 use std::{fmt, future::Future, marker::PhantomData};
 
-use crate::procedure::ProcedureStream;
-
 use super::{Input, InputValue, Output, Procedure};
 
 // TODO: Should these be public so they can be used in middleware? If so document them.
@@ -10,6 +8,7 @@ mod sealed {
     use super::*;
     pub struct GG<R, I>(PhantomData<(R, I)>);
 }
+use futures::Stream;
 pub use sealed::GG;
 
 /// TODO
@@ -35,9 +34,52 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         // TODO: The return type here is wrong. It needs TNewCtx
         Procedure {
             handler: Box::new(move |ctx, input| {
-                let fut = handler(ctx, I::from_value(InputValue::new(input)).unwrap()); // TODO: Invalid input error
-                ProcedureStream::new(async move { fut.await.into_result() })
+                R::into_procedure_stream(handler(
+                    ctx,
+                    // TODO: Invalid input error
+                    I::from_value(InputValue::new(input)).unwrap(),
+                ))
             }),
         }
+    }
+
+    /// TODO
+    pub fn mutation<F>(&self, handler: impl Fn(TCtx, I) -> F + 'static) -> Procedure<TCtx>
+    where
+        F: Future<Output = R> + Send + 'static,
+        I: Input + 'static,
+        R: Output,
+    {
+        // TODO: The return type here is wrong. It needs TNewCtx
+        Procedure {
+            handler: Box::new(move |ctx, input| {
+                R::into_procedure_stream(handler(
+                    ctx,
+                    // TODO: Invalid input error
+                    I::from_value(InputValue::new(input)).unwrap(),
+                ))
+            }),
+        }
+    }
+
+    /// TODO
+    pub fn subscription<F, S>(&self, handler: impl Fn(TCtx, I) -> F + 'static) -> Procedure<TCtx>
+    where
+        F: Future<Output = S> + Send + 'static,
+        S: Stream<Item = R> + Send + 'static,
+        I: Input + 'static,
+        R: Output,
+    {
+        // TODO: The return type here is wrong. It needs TNewCtx
+        // Procedure {
+        //     handler: Box::new(move |ctx, input| {
+        //         R::into_procedure_stream(handler(
+        //             ctx,
+        //             // TODO: Invalid input error
+        //             I::from_value(InputValue::new(input)).unwrap(),
+        //         ))
+        //     }),
+        // }
+        todo!();
     }
 }

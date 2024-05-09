@@ -1,15 +1,48 @@
+use std::future::Future;
+
+use futures::{FutureExt, Stream, StreamExt};
 use serde::Serialize;
+use specta::Type;
 
-use super::output_value::ProcedureResult;
+use super::{ProcedureResult, ProcedureStream};
 
-pub trait Output {
-    fn into_result(self) -> ProcedureResult;
+pub trait Output: Sized {
+    fn into_procedure_stream(
+        procedure: impl Future<Output = Self> + Send + 'static,
+    ) -> ProcedureStream {
+        ProcedureStream::from_stream(procedure.into_stream().map(|v| v.into_procedure_result()))
+    }
+
+    fn into_procedure_result(self) -> ProcedureResult;
 }
 
-impl<T: Serialize + 'static> Output for T {
-    fn into_result(self) -> ProcedureResult {
+impl<T> Output for T
+where
+    T: Serialize + Type + Send + 'static,
+{
+    fn into_procedure_result(self) -> ProcedureResult {
         ProcedureResult::with_serde(self)
     }
 }
 
-// TODO: Supporting regular streams?
+impl<S> Output for crate::Stream<S>
+where
+    S: Stream + Send + 'static,
+    S::Item: Output,
+{
+    fn into_procedure_stream(
+        procedure: impl Future<Output = Self> + Send + 'static,
+    ) -> ProcedureStream {
+        ProcedureStream::from_stream(
+            procedure
+                .into_stream()
+                .map(|v| v.0)
+                .flatten()
+                .map(|v| v.into_procedure_result()),
+        )
+    }
+
+    fn into_procedure_result(self) -> ProcedureResult {
+        todo!() // TODO: This would be hit if you return an `rspc::Stream` from an `rspc::Stream`
+    }
+}

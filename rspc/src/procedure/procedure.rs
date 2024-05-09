@@ -1,4 +1,4 @@
-use std::{any::TypeId, fmt, marker::PhantomData};
+use std::{fmt, marker::PhantomData};
 
 use super::{
     builder::GG,

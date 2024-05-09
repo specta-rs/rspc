@@ -4,24 +4,35 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_core::Stream;
+use futures::Stream;
 
 use super::output_value::ProcedureResult;
 
 enum Inner {
-    // Value(ProcedureResult), // TODO: Avoid boxing when already ready
+    Value(ProcedureResult),
     Future(Pin<Box<dyn Future<Output = ProcedureResult> + Send>>),
-    // Stream(...)
+    Stream(Pin<Box<dyn Stream<Item = ProcedureResult> + Send>>),
 }
 
-pub struct ProcedureStream(Inner);
+pub struct ProcedureStream(Option<Inner>);
 
 impl ProcedureStream {
-    pub(super) fn new<F>(future: F) -> Self
+    pub fn from_value(value: ProcedureResult) -> Self {
+        Self(Some(Inner::Value(value)))
+    }
+
+    pub fn from_future<F>(future: F) -> Self
     where
         F: Future<Output = ProcedureResult> + Send + 'static,
     {
-        Self(Inner::Future(Box::pin(future)))
+        Self(Some(Inner::Future(Box::pin(future))))
+    }
+
+    pub fn from_stream<S>(stream: S) -> Self
+    where
+        S: Stream<Item = ProcedureResult> + Send + 'static,
+    {
+        Self(Some(Inner::Stream(Box::pin(stream))))
     }
 }
 
@@ -29,8 +40,19 @@ impl Stream for ProcedureStream {
     type Item = ProcedureResult;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match &mut self.0 {
-            Inner::Future(future) => future.as_mut().poll(cx).map(Some), // TODO: Handle emitting `None` when done
+        match self.0.as_mut() {
+            Some(Inner::Value(_)) => {
+                let Inner::Value(value) = self.0.take().expect("checked above") else {
+                    panic!("checked above");
+                };
+                Poll::Ready(Some(value))
+            }
+            Some(Inner::Future(future)) => future.as_mut().poll(cx).map(|v| {
+                self.0 = None;
+                Some(v)
+            }),
+            Some(Inner::Stream(stream)) => stream.as_mut().poll_next(cx),
+            None => Poll::Ready(None),
         }
     }
 }

@@ -2,6 +2,8 @@
 //!
 //! Checkout the official docs <https://rspc.dev>
 //!
+//! TODO: Explain these docs are technical
+//!
 #![warn(
     clippy::all,
     clippy::cargo,
@@ -16,3 +18,5 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod procedure;
+
+pub struct Stream<T>(pub T);
