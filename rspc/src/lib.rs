@@ -21,6 +21,11 @@
 
 pub mod notes;
 pub mod procedure;
+mod router;
+mod rspc;
+
+pub use router::Router;
+pub use rspc::Rspc;
 
 /// Return a [`Stream`](futures::Stream) of values from a [`Procedure::query`](procedure::ProcedureBuilder::query) or [`Procedure::mutation`](procedure::ProcedureBuilder::mutation).
 ///
