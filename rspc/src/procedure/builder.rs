@@ -13,7 +13,6 @@ mod sealed {
 use futures::Stream;
 pub use sealed::GG;
 
-/// TODO
 // TODO: Maybe default generics
 pub struct ProcedureBuilder<TCtx, G> {
     pub(super) phantom: PhantomData<(TCtx, G)>,
@@ -26,7 +25,6 @@ impl<TCtx, G> fmt::Debug for ProcedureBuilder<TCtx, G> {
 }
 
 impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
-    /// TODO
     pub fn query<F>(&self, handler: impl Fn(TCtx, I) -> F + 'static) -> Procedure<TCtx>
     where
         F: Future<Output = R> + Send + 'static,
@@ -48,7 +46,6 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         }
     }
 
-    /// TODO
     pub fn mutation<F>(&self, handler: impl Fn(TCtx, I) -> F + 'static) -> Procedure<TCtx>
     where
         F: Future<Output = R> + Send + 'static,
@@ -70,7 +67,6 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         }
     }
 
-    /// TODO
     pub fn subscription<F, S>(&self, handler: impl Fn(TCtx, I) -> F + 'static) -> Procedure<TCtx>
     where
         F: Future<Output = S> + Send + 'static,

@@ -25,14 +25,14 @@ use super::ProcedureInput;
 ///
 /// impl Input for MyCoolThing {
 ///     fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
-///        Ok(value.downcast().ok_or(())?)
+///        Ok(todo!()) // Refer to ProcedureInput's docs
 ///     }
 /// }
 ///
 /// // You should also implement `Argument`.
 ///
 /// fn usage_within_rspc() {
-///     <Procedure>::builder().query(|_, _input: MyCoolThing| async move { () });
+///     <Procedure>::builder().query(|_, _: MyCoolThing| async move { () });
 /// }
 /// ```
 pub trait Input: Sized + Any + 'static {
