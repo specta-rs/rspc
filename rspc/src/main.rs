@@ -133,6 +133,19 @@ async fn main() {
 
     println!("Stream Result: {:?}", result);
 
+    let procedure = <Procedure>::builder()
+        .subscription(|_ctx, _input: ()| async move { once(async move { 42i32 }) });
+
+    let result = procedure
+        .exec((), serde_json::Value::Null)
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .map(|result| result.serialize(serde_json::value::Serializer).unwrap())
+        .collect::<Vec<_>>();
+
+    println!("Subscription Result: {:?}", result);
+
     // TODO: BREAK
 
     // <Procedure>::builder()

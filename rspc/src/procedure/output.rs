@@ -8,9 +8,9 @@ use super::{ProcedureOutput, ProcedureStream};
 
 pub trait Output: Sized {
     fn into_procedure_stream(
-        procedure: impl Future<Output = Self> + Send + 'static,
+        procedure: impl Stream<Item = Self> + Send + 'static,
     ) -> ProcedureStream {
-        ProcedureStream::from_stream(procedure.into_stream().map(|v| v.into_procedure_result()))
+        ProcedureStream::from_stream(procedure.map(|v| v.into_procedure_result()))
     }
 
     fn into_procedure_result(self) -> ProcedureOutput;
@@ -31,11 +31,10 @@ where
     S::Item: Output,
 {
     fn into_procedure_stream(
-        procedure: impl Future<Output = Self> + Send + 'static,
+        procedure: impl Stream<Item = Self> + Send + 'static,
     ) -> ProcedureStream {
         ProcedureStream::from_stream(
             procedure
-                .into_stream()
                 .map(|v| v.0)
                 .flatten()
                 .map(|v| v.into_procedure_result()),

@@ -1,5 +1,7 @@
 use std::{fmt, future::Future, marker::PhantomData};
 
+use futures::{FutureExt, StreamExt};
+
 use super::{Input, Output, Procedure, ProcedureInput};
 
 // TODO: Should these be public so they can be used in middleware? If so document them.
@@ -34,11 +36,14 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         // TODO: The return type here is wrong. It needs TNewCtx
         Procedure {
             handler: Box::new(move |ctx, input| {
-                R::into_procedure_stream(handler(
-                    ctx,
-                    // TODO: Invalid input error
-                    I::from_value(ProcedureInput::new(input)).unwrap(),
-                ))
+                R::into_procedure_stream(
+                    handler(
+                        ctx,
+                        // TODO: Invalid input error
+                        I::from_value(ProcedureInput::new(input)).unwrap(),
+                    )
+                    .into_stream(),
+                )
             }),
         }
     }
@@ -53,11 +58,14 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         // TODO: The return type here is wrong. It needs TNewCtx
         Procedure {
             handler: Box::new(move |ctx, input| {
-                R::into_procedure_stream(handler(
-                    ctx,
-                    // TODO: Invalid input error
-                    I::from_value(ProcedureInput::new(input)).unwrap(),
-                ))
+                R::into_procedure_stream(
+                    handler(
+                        ctx,
+                        // TODO: Invalid input error
+                        I::from_value(ProcedureInput::new(input)).unwrap(),
+                    )
+                    .into_stream(),
+                )
             }),
         }
     }
@@ -71,15 +79,18 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
         R: Output,
     {
         // TODO: The return type here is wrong. It needs TNewCtx
-        // Procedure {
-        //     handler: Box::new(move |ctx, input| {
-        //         R::into_procedure_stream(handler(
-        //             ctx,
-        //             // TODO: Invalid input error
-        //             I::from_value(InputValue::new(input)).unwrap(),
-        //         ))
-        //     }),
-        // }
-        todo!();
+        Procedure {
+            handler: Box::new(move |ctx, input| {
+                R::into_procedure_stream(
+                    handler(
+                        ctx,
+                        // TODO: Invalid input error
+                        I::from_value(ProcedureInput::new(input)).unwrap(),
+                    )
+                    .into_stream()
+                    .flatten(),
+                )
+            }),
+        }
     }
 }
