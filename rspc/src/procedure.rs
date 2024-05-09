@@ -9,16 +9,8 @@
 //!  - [`Future`](#todo) or [`Stream`](#todo) results
 //!  - Typesafe error handling
 //!
-//! Some tradeoffs:
-//!  - Procedure return types are way less flexible -> but better errors and less complexity
 //!
-//! Area's that need more work:
-//!  - handling of result types is less efficient that it could be
-//!  - `rspc::Stream` in `rspc::Stream` will panic
-//!  - Am I happy with `Output::into_procedure_stream`?
-//!
-//! Area's that require Rust improvements:
-//!  - Serde zero-copy deserialization. We need a way to express `where F: Fn(..., I<'_>), I<'a>: Input<'a>`.
+//! TODO: Request flow overview
 
 mod argument;
 mod builder;

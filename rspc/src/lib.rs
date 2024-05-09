@@ -19,6 +19,7 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub mod notes;
 pub mod procedure;
 
 pub struct Stream<T>(pub T);

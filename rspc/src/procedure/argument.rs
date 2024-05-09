@@ -12,11 +12,11 @@ use super::Input;
 ///
 /// ## How this works?
 ///
-/// If you provide a type which implements [`Deserialize`](serde::Deserialize) we will use it to construct the [`Input`] value of the procedure, otherwise downcasting will be used.
+/// If you provide a type which implements [`Deserializer`](serde::Deserializer) we will use it to construct the [`Input`] value of the procedure, otherwise downcasting will be used.
+///
+/// [`Self::Value`] be converted into a [`ProcedureInput`](super::ProcedureInput) which is provided to [`Input::from_value`] to allow deserializing or downcasting the value back into the correct type.
 ///
 /// ## Implementation for custom types
-///
-/// Say you have a type `MyCoolThing` which you want to use as an argument to an rspc procedure:
 ///
 /// ```
 /// pub struct MyCoolThing(pub String);
@@ -29,10 +29,8 @@ use super::Input;
 ///     }
 /// }
 ///
-/// impl Input for MyCoolThing {
-///     fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
-///        Ok(value.downcast().ok_or(())?)
-///     }
+/// fn usage_within_rspc(procedure: Procedure) {
+///     let _ = procedure.exec((), MyCoolThing("Hello, World!".to_string()));
 /// }
 /// ```
 pub trait Argument<'de>: Sized {
