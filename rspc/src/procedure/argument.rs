@@ -2,8 +2,10 @@ use std::any::Any;
 
 use serde::Deserializer;
 
+use super::Input;
+
 pub trait Argument<'de>: Sized {
-    type Value: Any + 'static;
+    type Value: Input;
 
     fn into_value(self) -> Self::Value;
 

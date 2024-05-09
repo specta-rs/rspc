@@ -1,8 +1,10 @@
+use std::any::Any;
+
 use serde::de::DeserializeOwned;
 
 use super::InputValue;
 
-pub trait Input: Sized {
+pub trait Input: Sized + Any + 'static {
     fn from_value(value: InputValue<Self>) -> Result<Self, ()>;
 }
 
