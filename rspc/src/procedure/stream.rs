@@ -6,38 +6,38 @@ use std::{
 
 use futures::Stream;
 
-use super::output_value::ProcedureResult;
+use super::procedure_output::ProcedureOutput;
 
 enum Inner {
-    Value(ProcedureResult),
-    Future(Pin<Box<dyn Future<Output = ProcedureResult> + Send>>),
-    Stream(Pin<Box<dyn Stream<Item = ProcedureResult> + Send>>),
+    Value(ProcedureOutput),
+    Future(Pin<Box<dyn Future<Output = ProcedureOutput> + Send>>),
+    Stream(Pin<Box<dyn Stream<Item = ProcedureOutput> + Send>>),
 }
 
 pub struct ProcedureStream(Option<Inner>);
 
 impl ProcedureStream {
-    pub fn from_value(value: ProcedureResult) -> Self {
+    pub fn from_value(value: ProcedureOutput) -> Self {
         Self(Some(Inner::Value(value)))
     }
 
     pub fn from_future<F>(future: F) -> Self
     where
-        F: Future<Output = ProcedureResult> + Send + 'static,
+        F: Future<Output = ProcedureOutput> + Send + 'static,
     {
         Self(Some(Inner::Future(Box::pin(future))))
     }
 
     pub fn from_stream<S>(stream: S) -> Self
     where
-        S: Stream<Item = ProcedureResult> + Send + 'static,
+        S: Stream<Item = ProcedureOutput> + Send + 'static,
     {
         Self(Some(Inner::Stream(Box::pin(stream))))
     }
 }
 
 impl Stream for ProcedureStream {
-    type Item = ProcedureResult;
+    type Item = ProcedureOutput;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.0.as_mut() {

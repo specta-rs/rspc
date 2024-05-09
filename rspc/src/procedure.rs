@@ -23,19 +23,19 @@
 mod argument;
 mod builder;
 mod input;
-mod input_value;
 mod output;
-mod output_value;
 mod procedure;
+mod procedure_input;
+mod procedure_output;
 mod stream;
 
 pub use argument::Argument;
 pub use builder::ProcedureBuilder;
 pub use input::Input;
-pub use input_value::InputValue;
 pub use output::Output;
-pub use output_value::ProcedureResult;
 pub use procedure::Procedure;
+pub use procedure_input::ProcedureInput;
+pub use procedure_output::ProcedureOutput;
 pub use stream::ProcedureStream;
 
 // TODO: Remove this, it's just as a prototype
@@ -43,9 +43,9 @@ use std::pin::Pin;
 #[doc(hidden)]
 pub struct File<T = Pin<Box<dyn tokio::io::AsyncWrite>>>(pub T);
 impl<T: tokio::io::AsyncWrite + 'static> Output for File<T> {
-    fn into_procedure_result(self) -> ProcedureResult {
+    fn into_procedure_result(self) -> ProcedureOutput {
         let result: File = File(Box::pin(self.0));
-        ProcedureResult::new(result)
+        ProcedureOutput::new(result)
     }
 }
 impl<'de, F: tokio::io::AsyncWrite + 'static> Argument<'de> for File<F> {
@@ -57,7 +57,7 @@ impl<'de, F: tokio::io::AsyncWrite + 'static> Argument<'de> for File<F> {
     }
 }
 impl Input for File {
-    fn from_value(value: InputValue<Self>) -> Result<Self, ()> {
+    fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
         Ok(value.downcast().ok_or(())?)
     }
 }

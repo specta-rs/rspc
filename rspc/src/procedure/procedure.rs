@@ -2,7 +2,7 @@ use std::{fmt, marker::PhantomData};
 
 use super::{
     builder::GG,
-    input_value::{AnyInput, InputValueInner},
+    procedure_input::{AnyInput, InputValueInner},
     stream::ProcedureStream,
     Argument, ProcedureBuilder,
 };

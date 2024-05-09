@@ -28,13 +28,13 @@ impl<T: Serialize + Any + 'static> Inner for T {
     }
 }
 
-pub struct ProcedureResult {
+pub struct ProcedureOutput {
     type_map: &'static str,
     type_id: TypeId,
     inner: Box<dyn Inner>,
 }
 
-impl ProcedureResult {
+impl ProcedureOutput {
     pub fn new<T: Any + 'static>(value: T) -> Self {
         Self {
             type_map: type_name::<T>(),

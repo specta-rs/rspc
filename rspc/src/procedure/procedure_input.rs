@@ -48,9 +48,9 @@ impl<'de, D: erased_serde::Deserializer<'de>> InputValueInner<'de> for D {
     }
 }
 
-pub struct InputValue<'a, 'b, T>(&'a mut dyn InputValueInner<'b>, PhantomData<T>);
+pub struct ProcedureInput<'a, 'b, T>(&'a mut dyn InputValueInner<'b>, PhantomData<T>);
 
-impl<'a, 'b, T> InputValue<'a, 'b, T> {
+impl<'a, 'b, T> ProcedureInput<'a, 'b, T> {
     pub(crate) fn new(value: &'a mut dyn InputValueInner<'b>) -> Self {
         Self(value, PhantomData)
     }

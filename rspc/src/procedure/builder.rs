@@ -1,6 +1,6 @@
 use std::{fmt, future::Future, marker::PhantomData};
 
-use super::{Input, InputValue, Output, Procedure};
+use super::{Input, Output, Procedure, ProcedureInput};
 
 // TODO: Should these be public so they can be used in middleware? If so document them.
 // We hide the generics from the public API so we can change them without a major.
@@ -37,7 +37,7 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
                 R::into_procedure_stream(handler(
                     ctx,
                     // TODO: Invalid input error
-                    I::from_value(InputValue::new(input)).unwrap(),
+                    I::from_value(ProcedureInput::new(input)).unwrap(),
                 ))
             }),
         }
@@ -56,7 +56,7 @@ impl<TCtx, R, I> ProcedureBuilder<TCtx, GG<R, I>> {
                 R::into_procedure_stream(handler(
                     ctx,
                     // TODO: Invalid input error
-                    I::from_value(InputValue::new(input)).unwrap(),
+                    I::from_value(ProcedureInput::new(input)).unwrap(),
                 ))
             }),
         }

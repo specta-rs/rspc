@@ -4,7 +4,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use serde::Serialize;
 use specta::Type;
 
-use super::{ProcedureResult, ProcedureStream};
+use super::{ProcedureOutput, ProcedureStream};
 
 pub trait Output: Sized {
     fn into_procedure_stream(
@@ -13,15 +13,15 @@ pub trait Output: Sized {
         ProcedureStream::from_stream(procedure.into_stream().map(|v| v.into_procedure_result()))
     }
 
-    fn into_procedure_result(self) -> ProcedureResult;
+    fn into_procedure_result(self) -> ProcedureOutput;
 }
 
 impl<T> Output for T
 where
     T: Serialize + Type + Send + 'static,
 {
-    fn into_procedure_result(self) -> ProcedureResult {
-        ProcedureResult::with_serde(self)
+    fn into_procedure_result(self) -> ProcedureOutput {
+        ProcedureOutput::with_serde(self)
     }
 }
 
@@ -42,7 +42,7 @@ where
         )
     }
 
-    fn into_procedure_result(self) -> ProcedureResult {
+    fn into_procedure_result(self) -> ProcedureOutput {
         todo!() // TODO: This would be hit if you return an `rspc::Stream` from an `rspc::Stream`
     }
 }
