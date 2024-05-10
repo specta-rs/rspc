@@ -9,7 +9,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     body::{to_bytes, Body},
-    extract::Request,
+    extract::{Request, State},
     http::{request::Parts, Method, Response, StatusCode},
     response::IntoResponse,
     routing::{on, MethodFilter},
@@ -32,18 +32,16 @@ where
     S: Clone + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
     TCtxFnMarker: Send + Sync + 'static,
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+    TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
 {
     Router::<S>::new().route(
         "/:id",
         on(
             MethodFilter::GET.or(MethodFilter::POST),
-            move |req: axum::extract::Request<Body>| {
+            move |state: State<S>, req: axum::extract::Request<Body>| {
                 let router = router.clone();
 
                 async move {
-                    let ctx_fn = ctx_fn.clone();
-
                     match (req.method(), &req.uri().path()[1..]) {
                         (&Method::GET, "ws") => {
                             #[cfg(feature = "ws")]
@@ -54,7 +52,13 @@ where
                                     .await
                                     .unwrap() // TODO: error handling
                                     .on_upgrade(|socket| {
-                                        handle_websocket(ctx_fn, socket, req.into_parts().0, router)
+                                        handle_websocket(
+                                            ctx_fn,
+                                            socket,
+                                            req.into_parts().0,
+                                            router,
+                                            state.0,
+                                        )
                                     })
                                     .into_response();
                             }
@@ -66,12 +70,12 @@ where
                                 .unwrap()
                         }
                         (&Method::GET, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Query, req, &router)
+                            handle_http(ctx_fn, ProcedureKind::Query, req, &router, state.0)
                                 .await
                                 .into_response()
                         }
                         (&Method::POST, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &router)
+                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &router, state.0)
                                 .await
                                 .into_response()
                         }
@@ -83,15 +87,17 @@ where
     )
 }
 
-async fn handle_http<TCtx, TCtxFn, TCtxFnMarker>(
+async fn handle_http<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
     req: Request,
     router: &Arc<rspc::Router<TCtx>>,
+    state: TState,
 ) -> impl IntoResponse
 where
     TCtx: Send + Sync + 'static,
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+    TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
+    TState: Send + Sync + 'static,
 {
     let procedure_name = req.uri().path()[1..].to_string(); // Has to be allocated because `TCtxFn` takes ownership of `req`
     let (parts, body) = req.into_parts();
@@ -142,10 +148,8 @@ where
 
     let mut resp = Sender::Response(None);
 
-    let ctx = ctx_fn.exec(parts);
-
-    let ctx = match ctx {
-        Ok(v) => v,
+    let ctx = match ctx_fn.exec(parts, &state).await {
+        Ok(ctx) => ctx,
         Err(_err) => {
             #[cfg(feature = "tracing")]
             tracing::error!("Error executing context function: {}", _err);
@@ -213,14 +217,16 @@ where
 }
 
 #[cfg(feature = "ws")]
-async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
+async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     mut socket: axum::extract::ws::WebSocket,
     parts: Parts,
     router: Arc<rspc::Router<TCtx>>,
+    state: TState,
 ) where
     TCtx: Send + Sync + 'static,
-    TCtxFn: TCtxFunc<TCtx, TCtxFnMarker>,
+    TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
+    TState: Send + Sync,
 {
     use axum::extract::ws::Message;
     use futures::StreamExt;
@@ -266,22 +272,25 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker>(
                         };
 
                         match res.and_then(|v| match v.is_array() {
-                                true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
-                                false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
-                            }) {
+                            true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
+                            false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                        }) {
                             Ok(reqs) => {
                                 for request in reqs {
-                                    let ctx = ctx_fn.exec(parts.clone());
-
-                                    handle_json_rpc(match ctx {
-                                        Ok(v) => v,
+                                    let ctx = match ctx_fn.exec(parts.clone(), &state).await {
+                                        Ok(ctx) => {
+                                            ctx
+                                        },
                                         Err(_err) => {
+
                                             #[cfg(feature = "tracing")]
                                             tracing::error!("Error executing context function: {}", _err);
 
                                             continue;
                                         }
-                                    }, request, &router, &mut Sender::Channel(&mut tx),
+                                    };
+
+                                    handle_json_rpc(ctx, request, &router, &mut Sender::Channel(&mut tx),
                                     &mut SubscriptionMap::Ref(&mut subscriptions)).await;
                                 }
                             },
