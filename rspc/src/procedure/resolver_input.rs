@@ -23,7 +23,7 @@ use super::ProcedureExecInput;
 /// ```
 /// pub struct MyCoolThing(pub String);
 ///
-/// impl Input for MyCoolThing {
+/// impl ResolverInput for MyCoolThing {
 ///     fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
 ///        Ok(todo!()) // Refer to ProcedureInput's docs
 ///     }

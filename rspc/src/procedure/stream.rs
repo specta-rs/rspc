@@ -1,4 +1,5 @@
 use std::{
+    error,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -8,36 +9,36 @@ use futures::Stream;
 
 use super::output::ProcedureOutput;
 
-enum Inner {
-    Value(ProcedureOutput),
-    Future(Pin<Box<dyn Future<Output = ProcedureOutput> + Send>>),
-    Stream(Pin<Box<dyn Stream<Item = ProcedureOutput> + Send>>),
+enum Inner<TErr: error::Error> {
+    Value(Result<ProcedureOutput, TErr>),
+    Future(Pin<Box<dyn Future<Output = Result<ProcedureOutput, TErr>> + Send>>),
+    Stream(Pin<Box<dyn Stream<Item = Result<ProcedureOutput, TErr>> + Send>>),
 }
 
-pub struct ProcedureStream(Option<Inner>);
+pub struct ProcedureStream<TErr: error::Error>(Option<Inner<TErr>>);
 
-impl ProcedureStream {
-    pub fn from_value(value: ProcedureOutput) -> Self {
+impl<TErr: error::Error> ProcedureStream<TErr> {
+    pub fn from_value(value: Result<ProcedureOutput, TErr>) -> Self {
         Self(Some(Inner::Value(value)))
     }
 
     pub fn from_future<F>(future: F) -> Self
     where
-        F: Future<Output = ProcedureOutput> + Send + 'static,
+        F: Future<Output = Result<ProcedureOutput, TErr>> + Send + 'static,
     {
         Self(Some(Inner::Future(Box::pin(future))))
     }
 
     pub fn from_stream<S>(stream: S) -> Self
     where
-        S: Stream<Item = ProcedureOutput> + Send + 'static,
+        S: Stream<Item = Result<ProcedureOutput, TErr>> + Send + 'static,
     {
         Self(Some(Inner::Stream(Box::pin(stream))))
     }
 }
 
-impl Stream for ProcedureStream {
-    type Item = ProcedureOutput;
+impl<TErr: error::Error + Unpin> Stream for ProcedureStream<TErr> {
+    type Item = Result<ProcedureOutput, TErr>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.0.as_mut() {

@@ -1,0 +1,11 @@
+[package]
+name = "rspc-example-axum"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+axum = "0.7.5"
+rspc = { version = "0.3.0", path = "../../rspc" }
+rspc-axum = { version = "0.2.0", path = "../../integrations/axum", features = ["ws"] }
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }

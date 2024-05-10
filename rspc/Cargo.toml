@@ -17,7 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 # Public
-serde = "1"
+serde = { version = "1", festures = ["derive"] }
 futures = "0.3"
 specta = "1"
 # specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }

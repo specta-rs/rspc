@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = ["./rspc"]
+members = ["./rspc", "./integrations/*", "./examples/*"]

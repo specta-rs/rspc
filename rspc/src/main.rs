@@ -89,8 +89,10 @@ async fn main() {
 
     let result = procedure
         .exec((), serde_json::Value::Null)
+        .unwrap()
         .next()
         .await
+        .unwrap()
         .unwrap()
         .serialize(serde_json::value::Serializer)
         .unwrap();
@@ -98,37 +100,47 @@ async fn main() {
 
     let result = procedure
         .exec((), serde_value::Value::Unit)
+        .unwrap()
         .next()
         .await
+        .unwrap()
         .unwrap()
         .serialize(serde_json::value::Serializer)
         .unwrap();
     println!("Result: {:?}", result);
 
-    let procedure =
-        <Procedure>::builder().query(|_ctx, _input: rspc::procedure::File| async move { 42i32 });
+    // let procedure =
+    //     <Procedure>::builder().query(|_ctx, _input: rspc::procedure::File| async move { 42i32 });
 
-    let result = procedure
-        .exec(
-            (),
-            rspc::procedure::File(tokio::fs::File::create("test.txt").await.unwrap()),
-        )
-        .next()
-        .await
-        .unwrap()
-        .serialize(serde_json::value::Serializer)
-        .unwrap();
-    println!("File Result: {:?}", result);
+    // let result = procedure
+    //     .exec(
+    //         (),
+    //         rspc::procedure::File(tokio::fs::File::create("test.txt").await.unwrap()),
+    //     )
+    //     .unwrap()
+    //     .next()
+    //     .await
+    //     .unwrap()
+    //     .unwrap()
+    //     .serialize(serde_json::value::Serializer)
+    //     .unwrap();
+    // println!("File Result: {:?}", result);
 
     let procedure = <Procedure>::builder()
         .query(|_ctx, _input: ()| async move { rspc::Stream(once(async move { 42i32 })) });
 
     let result = procedure
         .exec((), serde_json::Value::Null)
+        .unwrap()
         .collect::<Vec<_>>()
         .await
         .into_iter()
-        .map(|result| result.serialize(serde_json::value::Serializer).unwrap())
+        .map(|result| {
+            result
+                .unwrap()
+                .serialize(serde_json::value::Serializer)
+                .unwrap()
+        })
         .collect::<Vec<_>>();
 
     println!("Stream Result: {:?}", result);
@@ -138,10 +150,16 @@ async fn main() {
 
     let result = procedure
         .exec((), serde_json::Value::Null)
+        .unwrap()
         .collect::<Vec<_>>()
         .await
         .into_iter()
-        .map(|result| result.serialize(serde_json::value::Serializer).unwrap())
+        .map(|result| {
+            result
+                .unwrap()
+                .serialize(serde_json::value::Serializer)
+                .unwrap()
+        })
         .collect::<Vec<_>>();
 
     println!("Subscription Result: {:?}", result);

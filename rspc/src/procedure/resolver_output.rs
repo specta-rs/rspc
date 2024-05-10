@@ -1,3 +1,5 @@
+use std::{convert::Infallible, error, marker::PhantomData};
+
 use futures::{Stream, StreamExt};
 use serde::Serialize;
 use specta::Type;
@@ -18,7 +20,7 @@ use super::{ProcedureOutput, ProcedureStream};
 /// ```rust
 /// pub struct MyCoolThing(pub String);
 ///
-/// impl Output for MyCoolThing {
+/// impl ResolverOutput<Self> for MyCoolThing {
 ///     fn into_procedure_result(self) -> ProcedureOutput {
 ///        Ok(todo!()) // Refer to ProcedureOutput's docs
 ///     }
@@ -28,37 +30,51 @@ use super::{ProcedureOutput, ProcedureStream};
 ///     <Procedure>::builder().query(|_, _: ()| async move { MyCoolThing("Hello, World!".to_string()) });
 /// }
 /// ```
-pub trait ResolverOutput: Sized {
+pub trait ResolverOutput<M, TErr: error::Error>: Sized {
     /// Convert the procedure and any async part of the value into a [`ProcedureStream`].
     ///
     /// This primarily exists so the [`rspc::Stream`](crate::Stream) implementation can merge it's stream into the procedure stream.
     fn into_procedure_stream(
         procedure: impl Stream<Item = Self> + Send + 'static,
-    ) -> ProcedureStream {
+    ) -> ProcedureStream<TErr> {
         ProcedureStream::from_stream(procedure.map(|v| v.into_procedure_result()))
     }
 
     /// Convert the value from the user into a [`ProcedureOutput`].
-    fn into_procedure_result(self) -> ProcedureOutput;
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr>;
 }
 
-impl<T> ResolverOutput for T
+impl<T, TErr> ResolverOutput<Self, TErr> for T
 where
     T: Serialize + Type + Send + 'static,
+    TErr: error::Error,
 {
-    fn into_procedure_result(self) -> ProcedureOutput {
-        ProcedureOutput::with_serde(self)
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
+        Ok(ProcedureOutput::with_serde(self))
     }
 }
 
-impl<S> ResolverOutput for crate::Stream<S>
+pub struct ResultMarker<M>(Infallible, PhantomData<M>);
+impl<T, M, TErr> ResolverOutput<ResultMarker<M>, TErr> for Result<T, TErr>
+where
+    T: ResolverOutput<M, TErr>,
+    TErr: error::Error,
+{
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
+        self?.into_procedure_result()
+    }
+}
+
+pub struct StreamMarker<M>(Infallible, PhantomData<M>);
+impl<S, M, TErr> ResolverOutput<StreamMarker<M>, TErr> for crate::Stream<S>
 where
     S: Stream + Send + 'static,
-    S::Item: ResolverOutput,
+    S::Item: ResolverOutput<M, TErr>,
+    TErr: error::Error,
 {
     fn into_procedure_stream(
         procedure: impl Stream<Item = Self> + Send + 'static,
-    ) -> ProcedureStream {
+    ) -> ProcedureStream<TErr> {
         ProcedureStream::from_stream(
             procedure
                 .map(|v| v.0)
@@ -67,7 +83,7 @@ where
         )
     }
 
-    fn into_procedure_result(self) -> ProcedureOutput {
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
         panic!("returning nested rspc::Stream's is not currently supported.")
     }
 }
