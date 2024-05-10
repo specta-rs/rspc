@@ -35,12 +35,7 @@ impl<TCtx, TErr: error::Error, R, I> ProcedureBuilder<TCtx, TErr, GG<R, I>> {
         Procedure {
             handler: Box::new(move |ctx, input| {
                 Ok(R::into_procedure_stream(
-                    handler(
-                        ctx,
-                        I::from_value(ProcedureExecInput::new(input))
-                            .map_err(InternalError::FromValue)?,
-                    )
-                    .into_stream(),
+                    handler(ctx, I::from_value(ProcedureExecInput::new(input))?).into_stream(),
                 ))
             }),
         }
@@ -56,12 +51,7 @@ impl<TCtx, TErr: error::Error, R, I> ProcedureBuilder<TCtx, TErr, GG<R, I>> {
         Procedure {
             handler: Box::new(move |ctx, input| {
                 Ok(R::into_procedure_stream(
-                    handler(
-                        ctx,
-                        I::from_value(ProcedureExecInput::new(input))
-                            .map_err(InternalError::FromValue)?,
-                    )
-                    .into_stream(),
+                    handler(ctx, I::from_value(ProcedureExecInput::new(input))?).into_stream(),
                 ))
             }),
         }
@@ -81,13 +71,9 @@ impl<TCtx, TErr: error::Error, R, I> ProcedureBuilder<TCtx, TErr, GG<R, I>> {
         Procedure {
             handler: Box::new(move |ctx, input| {
                 Ok(R::into_procedure_stream(
-                    handler(
-                        ctx,
-                        I::from_value(ProcedureExecInput::new(input))
-                            .map_err(InternalError::FromValue)?,
-                    )
-                    .into_stream()
-                    .flatten(),
+                    handler(ctx, I::from_value(ProcedureExecInput::new(input))?)
+                        .into_stream()
+                        .flatten(),
                 ))
             }),
         }

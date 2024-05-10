@@ -20,8 +20,8 @@ use super::{ProcedureOutput, ProcedureStream};
 /// ```rust
 /// pub struct MyCoolThing(pub String);
 ///
-/// impl ResolverOutput<Self> for MyCoolThing {
-///     fn into_procedure_result(self) -> ProcedureOutput {
+/// impl<TErr: std::error::Error> ResolverOutput<Self, TErr> for MyCoolThing {
+///     fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
 ///        Ok(todo!()) // Refer to ProcedureOutput's docs
 ///     }
 /// }

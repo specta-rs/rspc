@@ -1,7 +1,9 @@
-use std::any::{type_name, Any, TypeId};
+use std::{
+    any::{type_name, Any, TypeId},
+    error, fmt,
+};
 
-use serde::{de::DeserializeOwned, Serialize, Serializer};
-use serde_value::DeserializerError;
+use serde::{Serialize, Serializer};
 
 trait Inner: Any + 'static {
     fn to_box_any(self: Box<Self>) -> Box<dyn Any>;
@@ -29,7 +31,7 @@ impl<T: Serialize + Any + 'static> Inner for T {
 }
 
 pub struct ProcedureOutput {
-    type_map: &'static str,
+    type_name: &'static str,
     type_id: TypeId,
     inner: Box<dyn Inner>,
 }
@@ -37,7 +39,7 @@ pub struct ProcedureOutput {
 impl ProcedureOutput {
     pub fn new<T: Any + 'static>(value: T) -> Self {
         Self {
-            type_map: type_name::<T>(),
+            type_name: type_name::<T>(),
             type_id: TypeId::of::<T>(),
             inner: Box::new(AnyT(value)),
         }
@@ -45,14 +47,14 @@ impl ProcedureOutput {
 
     pub fn with_serde<T: Serialize + Any + 'static>(value: T) -> Self {
         Self {
-            type_map: type_name::<T>(),
+            type_name: type_name::<T>(),
             type_id: TypeId::of::<T>(),
             inner: Box::new(value),
         }
     }
 
     pub fn type_name(&self) -> &'static str {
-        self.type_map
+        self.type_name
     }
 
     pub fn type_id(&self) -> TypeId {
@@ -63,30 +65,46 @@ impl ProcedureOutput {
         self.inner.to_box_any().downcast().map(|v| *v).ok()
     }
 
-    pub fn serialize<S: Serializer>(self, ser: S) -> Result<S::Ok, ()> {
+    pub fn serialize<S: Serializer>(
+        self,
+        ser: S,
+    ) -> Result<S::Ok, ProcedureOutputSerializeError<S>> {
         let value = self
             .inner
             .to_value()
-            // TODO: This value doesn't support Serde error
-            .ok_or(())?
-            // TODO: This value had a Serde error
-            .map_err(|_| ())?;
+            .ok_or(ProcedureOutputSerializeError::ErrResultNotDeserializable(
+                self.type_name,
+            ))?
+            .expect("serde_value doesn't panic");
 
-        value.serialize(ser).map_err(|_| ())
-    }
-
-    pub fn deserialize<T: DeserializeOwned>(self) -> Result<T, ()> {
-        let value = self
-            .inner
-            .to_value()
-            // TODO: This value doesn't support Serde error
-            .ok_or(())?
-            // TODO: This value had a Serde error
-            .map_err(|_| ())?;
-
-        T::deserialize(serde_value::ValueDeserializer::<DeserializerError>::new(
-            value,
-        ))
-        .map_err(|_| ())
+        value
+            .serialize(ser)
+            .map_err(ProcedureOutputSerializeError::ErrSerializer)
     }
 }
+
+pub enum ProcedureOutputSerializeError<S: Serializer> {
+    /// Attempted to deserialize input but found downcastable input.
+    ErrResultNotDeserializable(&'static str),
+    /// Error occurred in the serializer you provided.
+    ErrSerializer(S::Error),
+}
+
+impl<S: Serializer> fmt::Debug for ProcedureOutputSerializeError<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ErrResultNotDeserializable(type_name) => {
+                write!(f, "Result type {type_name} is not deserializable")
+            }
+            Self::ErrSerializer(err) => write!(f, "Serializer error: {err:?}"),
+        }
+    }
+}
+
+impl<S: Serializer> fmt::Display for ProcedureOutputSerializeError<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl<S: Serializer> error::Error for ProcedureOutputSerializeError<S> {}

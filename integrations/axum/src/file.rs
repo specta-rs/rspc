@@ -1,15 +1,18 @@
 use std::pin::Pin;
 
-use rspc::procedure::{ProcedureExecInput, ProcedureInput, ResolverInput, ResolverOutput};
+use rspc::procedure::{
+    InternalError, ProcedureExecInput, ProcedureInput, ProcedureOutput, ResolverInput,
+    ResolverOutput,
+};
 use tokio::io::AsyncWrite;
 
 // TODO: Clone, Debug, etc
 pub struct File<T = Pin<Box<dyn AsyncWrite>>>(pub T);
 
-impl<T: AsyncWrite + 'static> ResolverOutput for File<T> {
-    fn into_procedure_result(self) -> ProcedureOutput {
+impl<T: AsyncWrite + 'static, TErr: std::error::Error> ResolverOutput<Self, TErr> for File<T> {
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
         let result: File = File(Box::pin(self.0));
-        ProcedureOutput::new(result)
+        Ok(ProcedureOutput::new(result))
     }
 }
 
@@ -23,7 +26,7 @@ impl<'de, F: AsyncWrite + 'static> ProcedureInput<'de> for File<F> {
 }
 
 impl ResolverInput for File {
-    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, ()> {
-        Ok(value.downcast().ok_or(())?)
+    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, InternalError> {
+        Ok(value.downcast())
     }
 }

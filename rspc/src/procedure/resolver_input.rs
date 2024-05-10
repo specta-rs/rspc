@@ -2,7 +2,7 @@ use std::any::Any;
 
 use serde::de::DeserializeOwned;
 
-use super::ProcedureExecInput;
+use super::{InternalError, ProcedureExecInput};
 
 /// The input to a procedure which is derived from an [`ProcedureInput`](crate::procedure::Argument).
 ///
@@ -24,7 +24,7 @@ use super::ProcedureExecInput;
 /// pub struct MyCoolThing(pub String);
 ///
 /// impl ResolverInput for MyCoolThing {
-///     fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
+///     fn from_value(value: ProcedureInput<Self>) -> Result<Self, InternalError> {
 ///        Ok(todo!()) // Refer to ProcedureInput's docs
 ///     }
 /// }
@@ -37,11 +37,11 @@ use super::ProcedureExecInput;
 /// ```
 pub trait ResolverInput: Sized + Any + 'static {
     /// Convert the [`ProcedureInput`] into the type the user specified for the procedure.
-    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, ()>;
+    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, InternalError>;
 }
 
 impl<T: DeserializeOwned + 'static> ResolverInput for T {
-    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, ()> {
+    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, InternalError> {
         Ok(value.deserialize()?)
     }
 }

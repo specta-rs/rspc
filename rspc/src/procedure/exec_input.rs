@@ -5,7 +5,7 @@ use std::{
 
 use serde::de::DeserializeOwned;
 
-use super::ProcedureInput;
+use super::{InternalError, ProcedureInput};
 
 pub(super) trait InputValueInner<'de> {
     fn into_deserializer(&mut self) -> Option<&mut dyn erased_serde::Deserializer<'de>>;
@@ -64,27 +64,31 @@ impl<'a, 'b, T> ProcedureExecInput<'a, 'b, T> {
     }
 
     // TODO: Should we have a generic downcast???? -> This is typesafe but it means the `TypeId` stuff can't be used for matching???
-    pub fn downcast(self) -> Option<T>
+    pub fn downcast(self) -> Result<T, InternalError>
     where
         T: ProcedureInput<'b> + 'static,
     {
-        Some(
-            self.0
-                .into_dyn_any()?
-                .downcast_mut::<Option<T>>()
-                .expect("todo: this is typesafe")
-                .take()
-                .expect("value already taken"),
-        )
+        Ok(self
+            .0
+            .into_dyn_any()
+            .ok_or(InternalError::ErrInputNotDowncastable)?
+            .downcast_mut::<Option<T>>()
+            .expect("todo: this is typesafe")
+            .take()
+            .expect("value already taken"))
     }
 
-    pub fn deserialize<U: DeserializeOwned>(self) -> Result<U, ()> {
-        erased_serde::deserialize(
-            self.0
-                .into_deserializer()
-                // TODO: Not serde type
-                .unwrap(),
-        )
-        .map_err(|_| ())
+    pub fn deserialize<D: DeserializeOwned>(self) -> Result<D, InternalError> {
+        erased_serde::deserialize(match self.0.into_deserializer() {
+            Some(deserializer) => deserializer,
+            None => {
+                return Err(InternalError::ErrInputNotDeserializable(
+                    self.0
+                        .get_type_name()
+                        .expect("if it's not a serde type this must be valid"),
+                ))
+            }
+        })
+        .map_err(|err| InternalError::ErrDeserializingInput(Box::new(err)))
     }
 }
