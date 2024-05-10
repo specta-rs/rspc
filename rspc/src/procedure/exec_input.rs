@@ -5,7 +5,7 @@ use std::{
 
 use serde::de::DeserializeOwned;
 
-use super::Argument;
+use super::ProcedureInput;
 
 pub(super) trait InputValueInner<'de> {
     fn into_deserializer(&mut self) -> Option<&mut dyn erased_serde::Deserializer<'de>>;
@@ -48,9 +48,9 @@ impl<'de, D: erased_serde::Deserializer<'de>> InputValueInner<'de> for D {
     }
 }
 
-pub struct ProcedureInput<'a, 'b, T>(&'a mut dyn InputValueInner<'b>, PhantomData<T>);
+pub struct ProcedureExecInput<'a, 'b, T>(&'a mut dyn InputValueInner<'b>, PhantomData<T>);
 
-impl<'a, 'b, T> ProcedureInput<'a, 'b, T> {
+impl<'a, 'b, T> ProcedureExecInput<'a, 'b, T> {
     pub(crate) fn new(value: &'a mut dyn InputValueInner<'b>) -> Self {
         Self(value, PhantomData)
     }
@@ -66,7 +66,7 @@ impl<'a, 'b, T> ProcedureInput<'a, 'b, T> {
     // TODO: Should we have a generic downcast???? -> This is typesafe but it means the `TypeId` stuff can't be used for matching???
     pub fn downcast(self) -> Option<T>
     where
-        T: Argument<'b> + 'static,
+        T: ProcedureInput<'b> + 'static,
     {
         Some(
             self.0

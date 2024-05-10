@@ -6,7 +6,7 @@ use std::{
 
 use futures::Stream;
 
-use super::procedure_output::ProcedureOutput;
+use super::output::ProcedureOutput;
 
 enum Inner {
     Value(ProcedureOutput),

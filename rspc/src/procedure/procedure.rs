@@ -4,9 +4,9 @@ use specta::TypeDefs;
 
 use super::{
     builder::GG,
-    procedure_input::{AnyInput, InputValueInner},
+    exec_input::{AnyInput, InputValueInner},
     stream::ProcedureStream,
-    Argument, ProcedureBuilder,
+    ProcedureBuilder, ProcedureInput,
 };
 
 /// Represents a single operations on the server that can be executed.
@@ -59,7 +59,7 @@ impl<TCtx> Procedure<TCtx> {
     ///         .collect::<Vec<_>>()
     /// }
     /// ```
-    pub fn exec<'de, T: Argument<'de>>(&self, ctx: TCtx, input: T) -> ProcedureStream {
+    pub fn exec<'de, T: ProcedureInput<'de>>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         match input.into_deserializer() {
             Ok(deserializer) => {
                 let mut input = <dyn erased_serde::Deserializer>::erase(deserializer);

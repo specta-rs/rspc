@@ -12,35 +12,35 @@
 //!
 //! TODO: Request flow overview
 
-mod argument;
 mod builder;
+mod exec_input;
 mod input;
 mod output;
 mod procedure;
-mod procedure_input;
-mod procedure_output;
+mod resolver_input;
+mod resolver_output;
 mod stream;
 
-pub use argument::Argument;
 pub use builder::ProcedureBuilder;
-pub use input::Input;
-pub use output::Output;
+pub use exec_input::ProcedureExecInput;
+pub use input::ProcedureInput;
+pub use output::ProcedureOutput;
 pub use procedure::Procedure;
-pub use procedure_input::ProcedureInput;
-pub use procedure_output::ProcedureOutput;
+pub use resolver_input::ResolverInput;
+pub use resolver_output::ResolverOutput;
 pub use stream::ProcedureStream;
 
 // TODO: Remove this, it's just as a prototype
 use std::pin::Pin;
 #[doc(hidden)]
 pub struct File<T = Pin<Box<dyn tokio::io::AsyncWrite>>>(pub T);
-impl<T: tokio::io::AsyncWrite + 'static> Output for File<T> {
+impl<T: tokio::io::AsyncWrite + 'static> ResolverOutput for File<T> {
     fn into_procedure_result(self) -> ProcedureOutput {
         let result: File = File(Box::pin(self.0));
         ProcedureOutput::new(result)
     }
 }
-impl<'de, F: tokio::io::AsyncWrite + 'static> Argument<'de> for File<F> {
+impl<'de, F: tokio::io::AsyncWrite + 'static> ProcedureInput<'de> for File<F> {
     type Value = File;
 
     fn into_value(self) -> Self::Value {
@@ -48,8 +48,8 @@ impl<'de, F: tokio::io::AsyncWrite + 'static> Argument<'de> for File<F> {
         File(Box::pin(self.0))
     }
 }
-impl Input for File {
-    fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
+impl ResolverInput for File {
+    fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, ()> {
         Ok(value.downcast().ok_or(())?)
     }
 }

@@ -1,47 +1,65 @@
-use std::any::Any;
+use serde::Deserializer;
 
-use serde::de::DeserializeOwned;
+use super::ResolverInput;
 
-use super::ProcedureInput;
-
-/// The input to a procedure which is derived from an [`Argument`](crate::procedure::Argument).
+/// Any value that can be used as the input to [`Procedure::exec`](crate::procedure::Procedure::exec).
 ///
-/// This trait has a built in implementation for any type which implements [`DeserializeOwned`](serde::de::DeserializeOwned).
+/// This trait has a built in implementation for any [`Deserializer`](serde::Deserializer)'s so you can provide:
+///  - [`serde_json::Value`]
+///  - [`serde_value::Value`]
+///  - [`serde_json::Deserializer::from_str`]
+///  - etc.
 ///
 /// ## How this works?
 ///
-/// [`Self::from_value`] will be provided with a [`ProcedureInput`] which wraps the [`Argument::Value`](super::Argument::Value) from the argument provided to the [`Procedure::exec`](super::Procedure) call.
+/// If you provide a type which implements [`Deserializer`](serde::Deserializer) we will use it to construct the [`ResolverInput`] value of the procedure, otherwise downcasting will be used.
 ///
-/// Input is responsible for converting this value into the type the user specified for the procedure.
-///
-/// If the type implements [`DeserializeOwned`](serde::de::DeserializeOwned) we will use Serde, otherwise we will attempt to downcast the value.
+/// [`Self::Value`] be converted into a [`ProcedureInput`](super::ProcedureInput) which is provided to [`Input::from_value`] to allow deserializing or downcasting the value back into the correct type.
 ///
 /// ## Implementation for custom types
-///
-/// Say you have a type `MyCoolThing` which you want to use as an argument to an rspc procedure:
 ///
 /// ```
 /// pub struct MyCoolThing(pub String);
 ///
-/// impl Input for MyCoolThing {
-///     fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
-///        Ok(todo!()) // Refer to ProcedureInput's docs
+/// impl<'de> Argument<'de> for MyCoolThing {
+///     type Value = Self;
+///     
+///     fn into_value(self) -> Self::Value {
+///         self
 ///     }
 /// }
 ///
-/// // You should also implement `Argument`.
-///
-/// fn usage_within_rspc() {
-///     <Procedure>::builder().query(|_, _: MyCoolThing| async move { () });
+/// fn usage_within_rspc(procedure: Procedure) {
+///     let _ = procedure.exec((), MyCoolThing("Hello, World!".to_string()));
 /// }
 /// ```
-pub trait Input: Sized + Any + 'static {
-    /// Convert the [`ProcedureInput`] into the type the user specified for the procedure.
-    fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()>;
+pub trait ProcedureInput<'de>: Sized {
+    /// The value which is available from your [`ResolverInput`] implementation to downcast from.
+    ///
+    /// This exists so your able to accept `SomeType<T>` as an [`ProcedureInput`], but then type-erase to `SomeType<Box<dyn Trait>>` so your [`ResolverInput`] implementation is able to downcast the value.
+    ///
+    /// It's recommended to set this to `Self` unless you hit the case described above.
+    type Value: ResolverInput;
+
+    /// Convert self into `Self::Value`
+    fn into_value(self) -> Self::Value;
+
+    /// Convert self into a [`Deserializer`](serde::Deserializer) if possible or return the original value.
+    ///
+    /// This will be executed and if it returns `Err(Self)` we will fallback to [`Self::into_value`] and use downcasting.
+    fn into_deserializer(self) -> Result<impl Deserializer<'de>, Self> {
+        Err::<serde_value::Value, _>(self)
+    }
 }
 
-impl<T: DeserializeOwned + 'static> Input for T {
-    fn from_value(value: ProcedureInput<Self>) -> Result<Self, ()> {
-        Ok(value.deserialize()?)
+impl<'de, D: Deserializer<'de>> ProcedureInput<'de> for D {
+    type Value = ();
+
+    fn into_value(self) -> Self::Value {
+        unreachable!();
+    }
+
+    fn into_deserializer(self) -> Result<impl Deserializer<'de>, Self> {
+        Ok(self)
     }
 }
