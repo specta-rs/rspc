@@ -2,7 +2,7 @@ use std::{convert::Infallible, error, marker::PhantomData};
 
 use futures::{Stream, StreamExt};
 use serde::Serialize;
-use specta::Type;
+use specta::{DataType, DefOpts, EnumVariant, Type, TypeDefs};
 
 use super::{ProcedureOutput, ProcedureStream};
 
@@ -40,6 +40,8 @@ pub trait ResolverOutput<M, TErr: error::Error>: Sized {
         ProcedureStream::from_stream(procedure.map(|v| v.into_procedure_result()))
     }
 
+    fn data_type(type_map: &mut TypeDefs) -> DataType;
+
     /// Convert the value from the user into a [`ProcedureOutput`].
     fn into_procedure_result(self) -> Result<ProcedureOutput, TErr>;
 }
@@ -49,6 +51,14 @@ where
     T: Serialize + Type + Send + 'static,
     TErr: error::Error,
 {
+    fn data_type(type_map: &mut TypeDefs) -> DataType {
+        T::definition(DefOpts {
+            parent_inline: false,
+            type_map,
+        })
+        .unwrap() // Specta v2 doesn't panic
+    }
+
     fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
         Ok(ProcedureOutput::with_serde(self))
     }
@@ -60,6 +70,21 @@ where
     T: ResolverOutput<M, TErr>,
     TErr: error::Error,
 {
+    fn data_type(type_map: &mut TypeDefs) -> DataType {
+        // TODO: Should we wrap into a `Result`
+
+        // export type Result<TOk, TErr> =
+        // | { status: "ok"; data: TOk }
+        // | { status: "error"; error: TErr };
+
+        // DataType::Enum(specta::EnumType::Untagged {
+        //     variants: vec![EnumVariant::Unnamed((T::data_type(type_map)))],
+        //     generics: vec![],
+        // })
+
+        todo!();
+    }
+
     fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
         self?.into_procedure_result()
     }
@@ -72,6 +97,10 @@ where
     S::Item: ResolverOutput<M, TErr>,
     TErr: error::Error,
 {
+    fn data_type(type_map: &mut TypeDefs) -> DataType {
+        S::Item::data_type(type_map)
+    }
+
     fn into_procedure_stream(
         procedure: impl Stream<Item = Self> + Send + 'static,
     ) -> ProcedureStream<TErr> {

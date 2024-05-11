@@ -1,6 +1,6 @@
-use std::{error, fmt, marker::PhantomData};
+use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
-use specta::TypeDefs;
+use specta::{DataType, TypeDefs};
 
 use super::{
     builder::GG,
@@ -14,6 +14,9 @@ use super::{
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
 pub struct Procedure<TCtx = (), TErr: error::Error = crate::Infallible> {
+    pub(super) ty: ProcedureType,
+    pub(super) input: fn(&mut TypeDefs) -> DataType,
+    pub(super) result: fn(&mut TypeDefs) -> DataType,
     pub(super) handler:
         Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream<TErr>, InternalError>>,
 }
@@ -26,20 +29,32 @@ impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
 
 impl<TCtx, TErr: error::Error> Procedure<TCtx, TErr> {
     /// Construct a new procedure using [`ProcedureBuilder`].
-    pub fn builder<R, I>() -> ProcedureBuilder<TCtx, TErr, GG<R, I>> {
+    pub fn builder<R, I>() -> ProcedureBuilder<TCtx, TErr, GG<TCtx, R, I>> {
         ProcedureBuilder::<_, TErr, _> {
+            input: None,
             phantom: PhantomData,
         }
     }
 
     /// Export the [Specta](https://docs.rs/specta) types for this procedure.
     ///
+    /// TODO - Use this with `rspc::typescript`
+    ///
     /// # Usage
     /// ```rust
     /// todo!(); # TODO: Example
     /// ```
-    pub fn types(&self, type_map: &mut TypeDefs) {
-        todo!();
+    pub fn types(
+        &self,
+        key: Cow<'static, str>,
+        type_map: &mut TypeDefs,
+    ) -> ProcedureTypeDefinition {
+        ProcedureTypeDefinition {
+            key,
+            ty: self.ty,
+            input: (self.input)(type_map),
+            result: (self.result)(type_map),
+        }
     }
 
     /// Execute a procedure with the given context and input.
@@ -73,4 +88,18 @@ impl<TCtx, TErr: error::Error> Procedure<TCtx, TErr> {
             Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value()))),
         }
     }
+}
+
+pub struct ProcedureTypeDefinition {
+    pub key: Cow<'static, str>,
+    pub ty: ProcedureType,
+    pub input: DataType,
+    pub result: DataType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ProcedureType {
+    Query,
+    Mutation,
+    Subscription,
 }

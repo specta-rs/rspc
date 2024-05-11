@@ -6,6 +6,10 @@
 //!
 //! Checkout the official docs at <https://rspc.dev>. This documentation is **for authors of middleware and adapter**,
 //!
+#![doc(
+    html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
+    html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
+)]
 #![warn(
     clippy::all,
     clippy::cargo,
@@ -19,10 +23,11 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[doc(hidden)]
-pub mod internal;
 pub mod notes;
 pub mod procedure;
+#[cfg(feature = "typescript")]
+#[cfg_attr(docsrs, doc(cfg(feature = "typescript")))]
+pub mod typescript;
 
 mod infallible;
 mod router;
@@ -33,3 +38,10 @@ pub use infallible::Infallible;
 pub use router::Router;
 pub use rspc::Rspc;
 pub use stream::Stream;
+
+#[doc(hidden)]
+pub mod internal {
+    // To make versioning easier we reexport it so libraries such as `rspc_axum` don't need a direct dependency on `specta`.
+    pub use serde::Serialize;
+    pub use specta::{DataType, Type};
+}

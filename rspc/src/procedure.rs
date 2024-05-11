@@ -29,7 +29,7 @@ pub use error::InternalError;
 pub use exec_input::ProcedureExecInput;
 pub use input::ProcedureInput;
 pub use output::{ProcedureOutput, ProcedureOutputSerializeError};
-pub use procedure::Procedure;
+pub use procedure::{Procedure, ProcedureType, ProcedureTypeDefinition};
 pub use resolver_input::ResolverInput;
 pub use resolver_output::ResolverOutput;
 pub use stream::ProcedureStream;
