@@ -56,8 +56,6 @@ export const Provider = ({ children }: PropsWithChildren) => {
     const framework = frameworks.find((f) => f.id === frameworkId);
     if (framework) {
       setActiveFramework(framework);
-    } else {
-      localStorage.removeItem(LS_FW_KEY);
     }
 
     const packageManagerId = localStorage.getItem(LS_PM_KEY);
@@ -66,10 +64,38 @@ export const Provider = ({ children }: PropsWithChildren) => {
     );
     if (packageManager) {
       setActivePackageManager(packageManager);
-    } else {
-      localStorage.removeItem(LS_PM_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const frameworkId = localStorage.getItem(LS_FW_KEY);
+      const packageManagerId = localStorage.getItem(LS_PM_KEY);
+
+      const framework = frameworks.find((f) => f.id === frameworkId);
+      const packageManager = packageManagers.find((f) => f.id === packageManagerId);
+
+      const newQuery: any = {};
+
+      if (framework) {
+        setActiveFramework(framework);
+        newQuery.fw = framework.id;
+      }
+
+      if (packageManager) {
+        setActivePackageManager(packageManager);
+        newQuery.pm = packageManager.id;
+      }
+
+      router.replace({ query: newQuery }, undefined, { shallow: true });
+    };
+
+    router.events.on("routeChangeComplete", handleRouteChange);
+
+    return () => {
+      router.events.off("routeChangeComplete", handleRouteChange);
+    };
+  }, [router]);
 
   useEffect(() => {
     const { query } = router;
@@ -78,6 +104,7 @@ export const Provider = ({ children }: PropsWithChildren) => {
       const framework = frameworks.find((f) => f.id === query.fw);
       if (framework) {
         setActiveFramework(framework);
+        localStorage.setItem(LS_FW_KEY, framework.id);
       }
     }
 
@@ -85,37 +112,10 @@ export const Provider = ({ children }: PropsWithChildren) => {
       const packageManager = packageManagers.find((f) => f.id === query.pm);
       if (packageManager) {
         setActivePackageManager(packageManager);
+        localStorage.setItem(LS_PM_KEY, packageManager.id);
       }
     }
   }, [router.query]);
-
-  useEffect(() => {
-    console.log("route changed");
-
-    const newQuery = { ...router.query };
-
-    const frameworkId = localStorage.getItem(LS_FW_KEY);
-    const framework = frameworks.find((f) => f.id === frameworkId);
-    if (framework) {
-      setActiveFramework(framework);
-      newQuery.fw = framework.id;
-    } else {
-      localStorage.removeItem(LS_FW_KEY);
-    }
-
-    const packageManagerId = localStorage.getItem(LS_PM_KEY);
-    const packageManager = packageManagers.find(
-      (f) => f.id === packageManagerId
-    );
-    if (packageManager) {
-      setActivePackageManager(packageManager);
-      newQuery.pm = packageManager.id;
-    } else {
-      localStorage.removeItem(LS_PM_KEY);
-    }
-
-    router.replace({ query: newQuery });
-  }, [router.route]);
 
   return (
     <ctx.Provider
@@ -146,7 +146,6 @@ export const Provider = ({ children }: PropsWithChildren) => {
         },
       }}
     >
-    <p>{JSON.stringify(router.query, null, 2)}</p>
       {children}
     </ctx.Provider>
   );
