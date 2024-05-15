@@ -15,7 +15,7 @@ Then you can do the following:
 <script lang="ts">
     import { createSvelteQueryHooks } from "@rspc/svelte-query";
     import type { Procedures } from "../../../../bindings.ts";
-    
+
     const rspc = createSvelteQueryHooks<Procedures>();
 
     const version = rspc.createQuery(["version"]);

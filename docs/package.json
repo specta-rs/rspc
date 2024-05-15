@@ -5,13 +5,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "format": "prettier --write .",
+    "clean": "rm -rf node_modules .next"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",
-    "@vercel/og": "^0.5.20",
-    "next": "^13.5.6",
+    "@vercel/og": "^0.6.2",
+    "next": "^14.2.3",
     "nextra": "^2.13.2",
     "nextra-theme-docs": "^2.13.2",
     "react": "^18.2.0",
@@ -19,10 +21,13 @@
     "react-popper": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "20.8.7",
+    "@types/node": "20.12.12",
     "@types/react": "^18.2.31",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31",
+    "prettier": "^3.2.5",
+    "prettier-plugin-organize-imports": "^3.2.4",
+    "prettier-plugin-tailwindcss": "^0.5.14",
     "tailwindcss": "^3.3.3",
     "tslib": "^2.6.2",
     "typescript": "^5.2.2"

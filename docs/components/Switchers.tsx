@@ -1,23 +1,23 @@
+import npmLogo from "@/images/npm-logo.svg";
+import pnpmLogo from "@/images/pnpm-logo.svg";
+import reactLogo from "@/images/react-logo.svg";
+import solidLogo from "@/images/solid-logo.svg";
+import svelteLogo from "@/images/svelte-logo.svg";
+import vueLogo from "@/images/vue-logo.svg";
+import yarnLogo from "@/images/yarn-logo.svg";
+import { Listbox, Portal, Transition } from "@headlessui/react";
+import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
+import Image from "next/image";
+import { useRouter } from "next/router";
 import {
-  createContext,
   Fragment,
-  PropsWithChildren,
+  type PropsWithChildren,
+  createContext,
   useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { Listbox, Portal, Transition } from "@headlessui/react";
-import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
-import Image from "next/image";
-import { useRouter } from "next/router";
-import reactLogo from "../images/react-logo.svg";
-import solidLogo from "../images/solid-logo.svg";
-import vueLogo from "../images/vue-logo.svg";
-import svelteLogo from "../images/svelte-logo.svg";
-import pnpmLogo from "../images/pnpm-logo.svg";
-import npmLogo from "../images/npm-logo.svg";
-import yarnLogo from "../images/yarn-logo.svg";
 import { usePopper } from "react-popper";
 
 const LS_FW_KEY = "rspc-fw";
@@ -48,7 +48,7 @@ export const Provider = ({ children }: PropsWithChildren) => {
 
   const [activeFramework, setActiveFramework] = useState(frameworks[0]);
   const [activePackageManager, setActivePackageManager] = useState(
-    packageManagers[0]
+    packageManagers[0],
   );
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export const Provider = ({ children }: PropsWithChildren) => {
 
     const packageManagerId = localStorage.getItem(LS_PM_KEY);
     const packageManager = packageManagers.find(
-      (f) => f.id === packageManagerId
+      (f) => f.id === packageManagerId,
     );
     if (packageManager) {
       setActivePackageManager(packageManager);
@@ -79,7 +79,9 @@ export const Provider = ({ children }: PropsWithChildren) => {
       }
 
       const packageManagerId = localStorage.getItem(LS_PM_KEY);
-      const packageManager = packageManagers.find((f) => f.id === packageManagerId);
+      const packageManager = packageManagers.find(
+        (f) => f.id === packageManagerId,
+      );
       if (packageManager) {
         setActivePackageManager(packageManager);
         newQuery.pm = packageManager.id;
@@ -125,10 +127,18 @@ export const Provider = ({ children }: PropsWithChildren) => {
           let framework = frameworks.find((f) => f.id === fw?.id);
           if (framework) {
             localStorage.setItem(LS_FW_KEY, framework.id);
-            router.replace({ query: { ...router.query, fw: framework.id } }, undefined, { shallow: true });
+            router.replace(
+              { query: { ...router.query, fw: framework.id } },
+              undefined,
+              { shallow: true },
+            );
           } else {
             localStorage.removeItem(LS_FW_KEY);
-            router.replace({ query: { ...router.query, fw: undefined } }, undefined, { shallow: true });
+            router.replace(
+              { query: { ...router.query, fw: undefined } },
+              undefined,
+              { shallow: true },
+            );
           }
         },
         setActivePackageManager: (pm) => {
@@ -136,10 +146,18 @@ export const Provider = ({ children }: PropsWithChildren) => {
           let packageManager = packageManagers.find((f) => f.id === pm?.id);
           if (packageManager) {
             localStorage.setItem(LS_PM_KEY, packageManager.id);
-            router.replace({ query: { ...router.query, pm: packageManager.id } }, undefined, { shallow: true });
+            router.replace(
+              { query: { ...router.query, pm: packageManager.id } },
+              undefined,
+              { shallow: true },
+            );
           } else {
             localStorage.removeItem(LS_PM_KEY);
-            router.replace({ query: { ...router.query, pm: undefined } }, undefined, { shallow: true });
+            router.replace(
+              { query: { ...router.query, pm: undefined } },
+              undefined,
+              { shallow: true },
+            );
           }
         },
       }}
@@ -188,7 +206,7 @@ export function Interpolate({ children }: PropsWithChildren) {
             .replace("pnpm", activePackageManager.name.toLowerCase())
             .replace(
               "@rspc/react-query",
-              `@rspc/${activeFramework.name.toLowerCase()}`
+              `@rspc/${activeFramework.name.toLowerCase()}`,
             );
           if (text != node.data) {
             modifiedNodes.add(node);
@@ -210,7 +228,7 @@ export function Interpolate({ children }: PropsWithChildren) {
           .replace(activePackageManager.name.toLowerCase(), "pnpm")
           .replace(
             `@rspc/${activeFramework.name.toLowerCase()}`,
-            "@rspc/react-query"
+            "@rspc/react-query",
           );
       }
     };
@@ -220,23 +238,6 @@ export function Interpolate({ children }: PropsWithChildren) {
 }
 
 export function Switchers() {
-  const {
-    activeFramework,
-    activePackageManager,
-    setActiveFramework,
-    setActivePackageManager,
-  } = useCtx();
-
-  const referenceElement = useRef<HTMLButtonElement>(null);
-  const popperElement = useRef<HTMLDivElement>(null);
-  let { styles, attributes } = usePopper(
-    referenceElement.current,
-    popperElement.current,
-    {
-      placement: "bottom-start",
-    }
-  );
-
   return (
     <div className="flex">
       <FrameworkSwitch />
@@ -255,7 +256,7 @@ function FrameworkSwitch() {
     popperElement.current,
     {
       placement: "bottom-start",
-    }
+    },
   );
 
   return (
@@ -289,12 +290,10 @@ function FrameworkSwitch() {
                     key={framework.id}
                     value={framework}
                     className={({ active }) =>
-                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${
-                        active ? "text-blue-500" : ""
-                      } ${
-                        framework.disabled
-                          ? "cursor-not-allowed"
-                          : "cursor-pointer"
+                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${active ? "text-blue-500" : ""
+                      } ${framework.disabled
+                        ? "cursor-not-allowed"
+                        : "cursor-pointer"
                       }`
                     }
                     disabled={framework.disabled}
@@ -323,7 +322,7 @@ function PackageManagerSwitcher() {
     popperElement.current,
     {
       placement: "bottom-start",
-    }
+    },
   );
 
   return (
@@ -362,8 +361,7 @@ function PackageManagerSwitcher() {
                     key={pkg.id}
                     value={pkg}
                     className={({ active }) =>
-                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${
-                        active ? "text-blue-500" : ""
+                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${active ? "text-blue-500" : ""
                       }`
                     }
                   >

@@ -1,0 +1,2 @@
+# MDX files with multiline comments causing issues with prettier
+**/*.mdx

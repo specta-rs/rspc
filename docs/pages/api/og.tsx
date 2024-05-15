@@ -1,8 +1,8 @@
-import { NextRequest } from "next/server";
 import { ImageResponse } from "@vercel/og";
+import type { NextRequest } from "next/server";
 
 const font = fetch(new URL("./Inter-SemiBold.otf", import.meta.url)).then(
-  (res) => res.arrayBuffer()
+  (res) => res.arrayBuffer(),
 );
 
 export const config = {
@@ -35,6 +35,6 @@ export default async function handler(req: NextRequest) {
       width: 1200,
       height: 600,
       fonts: [{ name: "Inter", data: await font, weight: 900 }],
-    }
+    },
   );
 }
