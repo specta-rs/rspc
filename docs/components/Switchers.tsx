@@ -10,6 +10,7 @@ import {
 import { Listbox, Portal, Transition } from "@headlessui/react";
 import { CheckIcon, ChevronUpDownIcon } from "@heroicons/react/20/solid";
 import Image from "next/image";
+import { useRouter } from "next/router";
 import reactLogo from "../images/react-logo.svg";
 import solidLogo from "../images/solid-logo.svg";
 import vueLogo from "../images/vue-logo.svg";
@@ -43,6 +44,8 @@ type CtxType = {
 const ctx = createContext<CtxType>(undefined!);
 
 export const Provider = ({ children }: PropsWithChildren) => {
+  const router = useRouter();
+
   const [activeFramework, setActiveFramework] = useState(frameworks[0]);
   const [activePackageManager, setActivePackageManager] = useState(
     packageManagers[0]
@@ -53,8 +56,6 @@ export const Provider = ({ children }: PropsWithChildren) => {
     const framework = frameworks.find((f) => f.id === frameworkId);
     if (framework) {
       setActiveFramework(framework);
-    } else {
-      localStorage.removeItem(LS_FW_KEY);
     }
 
     const packageManagerId = localStorage.getItem(LS_PM_KEY);
@@ -63,10 +64,56 @@ export const Provider = ({ children }: PropsWithChildren) => {
     );
     if (packageManager) {
       setActivePackageManager(packageManager);
-    } else {
-      localStorage.removeItem(LS_PM_KEY);
     }
   }, []);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const newQuery: any = {};
+
+      const frameworkId = localStorage.getItem(LS_FW_KEY);
+      const framework = frameworks.find((f) => f.id === frameworkId);
+      if (framework) {
+        setActiveFramework(framework);
+        newQuery.fw = framework.id;
+      }
+
+      const packageManagerId = localStorage.getItem(LS_PM_KEY);
+      const packageManager = packageManagers.find((f) => f.id === packageManagerId);
+      if (packageManager) {
+        setActivePackageManager(packageManager);
+        newQuery.pm = packageManager.id;
+      }
+
+      router.replace({ query: newQuery }, undefined, { shallow: true });
+    };
+
+    router.events.on("routeChangeComplete", handleRouteChange);
+
+    return () => {
+      router.events.off("routeChangeComplete", handleRouteChange);
+    };
+  }, [router]);
+
+  useEffect(() => {
+    const { query } = router;
+
+    if (query.fw) {
+      const framework = frameworks.find((f) => f.id === query.fw);
+      if (framework) {
+        setActiveFramework(framework);
+        localStorage.setItem(LS_FW_KEY, framework.id);
+      }
+    }
+
+    if (query.pm) {
+      const packageManager = packageManagers.find((f) => f.id === query.pm);
+      if (packageManager) {
+        setActivePackageManager(packageManager);
+        localStorage.setItem(LS_PM_KEY, packageManager.id);
+      }
+    }
+  }, [router.query]);
 
   return (
     <ctx.Provider
@@ -78,8 +125,10 @@ export const Provider = ({ children }: PropsWithChildren) => {
           let framework = frameworks.find((f) => f.id === fw?.id);
           if (framework) {
             localStorage.setItem(LS_FW_KEY, framework.id);
+            router.replace({ query: { ...router.query, fw: framework.id } }, undefined, { shallow: true });
           } else {
             localStorage.removeItem(LS_FW_KEY);
+            router.replace({ query: { ...router.query, fw: undefined } }, undefined, { shallow: true });
           }
         },
         setActivePackageManager: (pm) => {
@@ -87,8 +136,10 @@ export const Provider = ({ children }: PropsWithChildren) => {
           let packageManager = packageManagers.find((f) => f.id === pm?.id);
           if (packageManager) {
             localStorage.setItem(LS_PM_KEY, packageManager.id);
+            router.replace({ query: { ...router.query, pm: packageManager.id } }, undefined, { shallow: true });
           } else {
             localStorage.removeItem(LS_PM_KEY);
+            router.replace({ query: { ...router.query, pm: undefined } }, undefined, { shallow: true });
           }
         },
       }}
