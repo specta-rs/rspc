@@ -43,7 +43,7 @@ axum::serve(listener, app).await.unwrap();
 
 You may want to use <a href="https://docs.rs/axum/latest/axum/index.html#extractors" target="_blank">Axum extractors</a> to get data from the request such as cookies and put them on the request context. The `axum_handler` function takes a closure that can take up to 16 valid Axum extractors as arguments and then returns the [request context](/server/request-context) (of type `TCtx`).
 
-````rs copy filename="src/main.rs"
+```rs copy filename="src/main.rs"
 let router = rspc::Router::<String>::new()
     .query("currentPath", |ctx, _: ()| ctx)
     .build()
@@ -73,4 +73,4 @@ const client = createClient<Procedures>({
 });
 
 client.query(["version"]).then((data) => console.log(data));
-````
+```

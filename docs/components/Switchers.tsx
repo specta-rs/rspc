@@ -11,12 +11,12 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import {
   Fragment,
-  type PropsWithChildren,
   createContext,
   useContext,
   useEffect,
   useRef,
   useState,
+  type PropsWithChildren,
 } from "react";
 import { usePopper } from "react-popper";
 
@@ -290,10 +290,12 @@ function FrameworkSwitch() {
                     key={framework.id}
                     value={framework}
                     className={({ active }) =>
-                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${active ? "text-blue-500" : ""
-                      } ${framework.disabled
-                        ? "cursor-not-allowed"
-                        : "cursor-pointer"
+                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${
+                        active ? "text-blue-500" : ""
+                      } ${
+                        framework.disabled
+                          ? "cursor-not-allowed"
+                          : "cursor-pointer"
                       }`
                     }
                     disabled={framework.disabled}
@@ -361,7 +363,8 @@ function PackageManagerSwitcher() {
                     key={pkg.id}
                     value={pkg}
                     className={({ active }) =>
-                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${active ? "text-blue-500" : ""
+                      `flex relative cursor-default select-none py-2 pl-4 pr-4 hover:bg-gray-100  dark:hover:bg-zinc-800 ${
+                        active ? "text-blue-500" : ""
                       }`
                     }
                   >
