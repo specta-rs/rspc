@@ -10,7 +10,7 @@
     "clean": "rm -rf node_modules .next"
   },
   "dependencies": {
-    "@headlessui/react": "^1.7.17",
+    "@headlessui/react": "^2.0.3",
     "@heroicons/react": "^2.0.18",
     "@vercel/og": "^0.6.2",
     "next": "^14.2.3",
