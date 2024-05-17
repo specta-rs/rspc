@@ -1,8 +1,8 @@
 import Image from "next/image";
-import { DocsThemeConfig } from "nextra-theme-docs";
-import logoIcon from "./public/logo.png";
 import { useRouter } from "next/router";
+import { DocsThemeConfig } from "nextra-theme-docs";
 import { Switchers } from "./components/Switchers";
+import logoIcon from "./public/logo.png";
 
 const config: DocsThemeConfig = {
   docsRepositoryBase: "https://github.com/oscartbeaumont/rspc/tree/main/docs",
@@ -13,7 +13,7 @@ const config: DocsThemeConfig = {
       "The best way to build typesafe APIs between Rust and Typescript.";
 
     return {
-      titleTemplate: "%s – rspc",
+      titleTemplate: "%s - rspc",
       description,
       keywords: [],
       additionalMetaTags: [

@@ -73,7 +73,7 @@ const client = createClient<Procedures>({
   transport: new FetchTransport(
     "http://localhost:4000/rspc",
     // Include Cookies for cross-origin requests
-    (input, init) => fetch(input, { ...init, credentials: "include" })
+    (input, init) => fetch(input, { ...init, credentials: "include" }),
   ),
 });
 ```
