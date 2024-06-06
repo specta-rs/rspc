@@ -10,7 +10,7 @@ To get started first install the required packages.
 
 ```bash copy
 pnpm i @rspc/client # The core client
-pnpm i @rspc/solid-query # The SolidJS integration
+pnpm i @rspc/solid # The SolidJS integration
 ```
 
 Then you can do the following:
@@ -18,7 +18,7 @@ Then you can do the following:
 ```tsx copy filename="index.ts"
 import { QueryClient } from "@tanstack/solid-query";
 import { FetchTransport, createClient } from "@rspc/client";
-import { createSolidQueryHooks } from "@rspc/solid-query";
+import { createSolidQueryHooks } from "@rspc/solid";
 
 import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 
