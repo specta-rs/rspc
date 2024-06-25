@@ -66,7 +66,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
     return ctx;
   }
 
-  function createQueryUtils() {
+  function useUtils() {
     return createRSPCQueryUtils<TProceduresLike>(useContext());
   }
 
@@ -272,7 +272,7 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       ) as any;
     },
     useContext,
-    createQueryUtils,
+    useUtils,
     createQuery,
     // createInfiniteQuery,
     createMutation,
