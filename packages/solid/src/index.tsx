@@ -13,6 +13,7 @@ import {
   RSPCError,
   _inferInfiniteQueryProcedureHandlerInput,
   _inferProcedureHandlerInput,
+  ProceduresLike,
 } from "@rspc/client";
 import {
   QueryClient,
@@ -27,6 +28,7 @@ import {
   SolidQueryOptions,
   SolidInfiniteQueryOptions,
   SolidMutationOptions,
+  FetchQueryOptions,
 } from "@tanstack/solid-query";
 
 type FunctionedParams<T> = () => T;
@@ -62,6 +64,10 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
         "The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree."
       );
     return ctx;
+  }
+
+  function useUtils() {
+    return createRSPCQueryUtils<TProceduresLike>(useContext());
   }
 
   function createQuery<
@@ -266,9 +272,71 @@ export function createSolidQueryHooks<TProceduresLike extends ProceduresDef>() {
       ) as any;
     },
     useContext,
+    useUtils,
     createQuery,
     // createInfiniteQuery,
     createMutation,
     // createSubscription,
+  };
+}
+
+function createRSPCQueryUtils<TProceduresLike extends ProceduresDef>(
+  context: Context<inferProcedures<TProceduresLike>>
+) {
+  type TProcedures = inferProcedures<TProceduresLike>;
+  type TBaseOptions = BaseOptions<TProcedures>;
+  type QueryKey<K extends string, TProcedures extends ProceduresLike> = [
+    key: K,
+    ...input: _inferProcedureHandlerInput<TProcedures, "queries", K>
+  ];
+  type AllowedKeys = TProcedures["queries"]["key"] & string;
+  type QueryOptions<
+    K extends string,
+    TData,
+    TProcedures extends ProceduresLike
+  > = Omit<
+    FetchQueryOptions<TData, RSPCError, TData, QueryKey<K, TProcedures>>,
+    "queryKey" | "queryFn"
+  > &
+    TBaseOptions;
+
+  const queryClient = context.queryClient;
+  const client = context.client;
+
+  function fetchQuery<
+    K extends AllowedKeys,
+    TData = inferQueryResult<TProcedures, K>
+  >(
+    queryKey: QueryKey<K, TProcedures>,
+    opts?: QueryOptions<K, TData, TProcedures>
+  ): Promise<TData> {
+    return queryClient.fetchQuery({
+      queryKey: queryKey,
+      queryFn: async () => {
+        return client.query(queryKey as any);
+      },
+      ...(opts as any),
+    });
+  }
+
+  function prefetchQuery<
+    K extends AllowedKeys,
+    TData = inferQueryResult<TProcedures, K>
+  >(
+    queryKey: QueryKey<K, TProcedures>,
+    opts?: QueryOptions<K, TData, TProcedures>
+  ): Promise<void> {
+    return queryClient.prefetchQuery({
+      queryKey: queryKey,
+      queryFn: async () => {
+        return client.query(queryKey as any);
+      },
+      ...(opts as any),
+    });
+  }
+
+  return {
+    fetchQuery,
+    prefetchQuery,
   };
 }
