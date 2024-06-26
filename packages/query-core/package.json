@@ -1,5 +1,5 @@
 {
-	"name": "@rspc/solid",
+	"name": "@rspc/query-core",
 	"version": "0.2.0",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
@@ -15,7 +15,6 @@
 	],
 	"exports": {
 		".": {
-			"solid": "./dist/source/index.jsx",
 			"import": "./dist/esm/index.js",
 			"browser": "./dist/esm/index.js",
 			"require": "./dist/cjs/index.js",
@@ -28,18 +27,15 @@
 		"prepare": "rollup -c"
 	},
 	"dependencies": {
-		"@rspc/client": "workspace:*",
-		"@rspc/query-core": "workspace:*"
+		"@rspc/client": "workspace:*"
 	},
 	"devDependencies": {
-		"@tanstack/solid-query": "^5.48.0",
+		"@tanstack/query-core": "^5.48.0",
 		"rollup": "^4.13.0",
 		"rollup-preset-solid": "^2.0.1",
-		"solid-js": "^1.8.15",
 		"typescript": "^5.4.2"
 	},
 	"peerDependencies": {
-		"@tanstack/solid-query": "^5.0.0",
-		"solid-js": "^1.0.0"
+		"@tanstack/query-core": "^5.0.0"
 	}
 }

@@ -1,27 +1,31 @@
 {
-  "name": "rspc",
-  "version": "0.0.0",
-  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
-  "keywords": [],
-  "author": "Oscar Beaumont",
-  "license": "MIT",
-  "private": true,
-  "scripts": {
-    "dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-*  --filter=!rspc-vscode exec pnpm dev",
-    "build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
-    "typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
-    "docs": "pnpm --filter @rspc/docs -- ",
-    "client": "pnpm --filter @rspc/client -- ",
-    "examples": "pnpm --filter @rspc/examples-* -- ",
-    "playground": "pnpm --filter @rspc/playground -- ",
-    "react": "pnpm --filter @rspc/react -- ",
-    "solid": "pnpm --filter @rspc/solid -- ",
-    "tauri": "pnpm --filter @rspc/tauri -- "
-  },
-  "engines": {
-    "pnpm": ">=7.0.0",
-    "npm": "pnpm",
-    "yarn": "pnpm",
-    "node": ">=16.0.0"
-  }
+	"name": "rspc",
+	"version": "0.0.0",
+	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
+	"keywords": [],
+	"author": "Oscar Beaumont",
+	"license": "MIT",
+	"private": true,
+	"scripts": {
+		"dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-*  --filter=!rspc-vscode exec pnpm dev",
+		"build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
+		"typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
+		"docs": "pnpm --filter @rspc/docs -- ",
+		"client": "pnpm --filter @rspc/client -- ",
+		"examples": "pnpm --filter @rspc/examples-* -- ",
+		"playground": "pnpm --filter @rspc/playground -- ",
+		"react": "pnpm --filter @rspc/react -- ",
+		"solid": "pnpm --filter @rspc/solid -- ",
+		"tauri": "pnpm --filter @rspc/tauri -- ",
+		"fix": "biome lint --apply . && biome format --write . && biome check . --apply"
+	},
+	"engines": {
+		"pnpm": ">=7.0.0",
+		"npm": "pnpm",
+		"yarn": "pnpm",
+		"node": ">=16.0.0"
+	},
+	"devDependencies": {
+		"biome": "^0.3.3"
+	}
 }
