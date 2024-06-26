@@ -149,19 +149,13 @@ importers:
 
   packages/query-core:
     dependencies:
-      '@rspc/client':
-        specifier: workspace:*
-        version: link:../client
-    devDependencies:
       '@tanstack/query-core':
         specifier: ^5.48.0
         version: 5.48.0
-      rollup:
-        specifier: ^4.13.0
-        version: 4.13.0
-      rollup-preset-solid:
-        specifier: ^2.0.1
-        version: 2.0.1(@types/babel__core@7.20.5)
+    devDependencies:
+      tsup:
+        specifier: ^8.0.2
+        version: 8.0.2(postcss@8.4.35)(typescript@5.4.2)
       typescript:
         specifier: ^5.4.2
         version: 5.4.2

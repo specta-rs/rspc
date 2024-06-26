@@ -5,37 +5,36 @@
 	"keywords": [],
 	"author": "Oscar Beaumont",
 	"license": "MIT",
-	"type": "module",
-	"source": "src/index.tsx",
-	"main": "dist/cjs/index.js",
-	"module": "dist/esm/index.js",
-	"types": "dist/types/index.d.ts",
-	"files": [
-		"dist"
-	],
+	"main": "dist/index.js",
 	"exports": {
+		"./package.json": "./package.json",
 		".": {
-			"import": "./dist/esm/index.js",
-			"browser": "./dist/esm/index.js",
-			"require": "./dist/cjs/index.js",
-			"node": "./dist/cjs/index.js"
+			"import": "./dist/index.mjs",
+			"default": "./dist/index.js"
 		}
 	},
+	"types": "dist/index.d.ts",
+	"files": ["dist"],
 	"scripts": {
-		"dev": "rollup -c -w",
-		"build": "rollup -c",
-		"prepare": "rollup -c"
+		"dev": "tsup --watch",
+		"build": "tsup",
+		"prepare": "tsup"
 	},
 	"dependencies": {
-		"@rspc/client": "workspace:*"
+		"@tanstack/query-core": "^5.48.0"
 	},
 	"devDependencies": {
-		"@tanstack/query-core": "^5.48.0",
-		"rollup": "^4.13.0",
-		"rollup-preset-solid": "^2.0.1",
+		"tsup": "^8.0.2",
 		"typescript": "^5.4.2"
 	},
-	"peerDependencies": {
-		"@tanstack/query-core": "^5.0.0"
+	"tsup": {
+		"entry": ["src/index.ts"],
+		"format": ["esm", "cjs"],
+		"dts": {
+			"resolve": true
+		},
+		"splitting": true,
+		"clean": true,
+		"sourcemap": true
 	}
 }
