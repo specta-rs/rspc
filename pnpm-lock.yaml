@@ -150,8 +150,8 @@ importers:
   packages/query-core:
     dependencies:
       '@rspc/client':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: workspace:*
+        version: link:../client
       '@tanstack/query-core':
         specifier: ^5.48.0
         version: 5.48.0
@@ -168,6 +168,9 @@ importers:
       '@rspc/client':
         specifier: workspace:*
         version: link:../client
+      '@rspc/query-core':
+        specifier: workspace:*
+        version: link:../query-core
     devDependencies:
       '@tanstack/react-query':
         specifier: ^5.48.0
@@ -1399,9 +1402,6 @@ packages:
     resolution: {integrity: sha512-UKXUQNbO3DOhzLRwHSpa0HnhhCgNODvfoPWv2FCXme8N/ANFfhIPMGuOT+QuKd16+B5yxZ0HdpNlqPvTMS1qfw==}
     cpu: [x64]
     os: [win32]
-
-  '@rspc/client@0.2.0':
-    resolution: {integrity: sha512-IIOfAk4g+bzbfr3cmvm42EocsjtzMO9CRCc95ZMx9mFh5ixHzP4Na1lun+KipGzsFV1QsmV6uYSBg/4Kpnu9iA==}
 
   '@shikijs/core@1.2.0':
     resolution: {integrity: sha512-OlFvx+nyr5C8zpcMBnSGir0YPD6K11uYhouqhNmm1qLiis4GA7SsGtu07r9gKS9omks8RtQqHrJL4S+lqWK01A==}
@@ -5320,8 +5320,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.13.0':
     optional: true
-
-  '@rspc/client@0.2.0': {}
 
   '@shikijs/core@1.2.0': {}
 

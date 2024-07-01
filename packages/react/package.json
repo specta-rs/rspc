@@ -1,6 +1,6 @@
 {
   "name": "@rspc/react",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A blazing fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
   "author": "Oscar Beaumont",
@@ -38,7 +38,8 @@
     "sourcemap": true
   },
   "dependencies": {
-    "@rspc/client": "workspace:*"
+    "@rspc/client": "workspace:*",
+    "@rspc/query-core": "workspace:*"
   },
   "devDependencies": {
     "@tanstack/react-query": "^5.48.0",

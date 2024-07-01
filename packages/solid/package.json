@@ -1,45 +1,45 @@
 {
-	"name": "@rspc/solid",
-	"version": "0.2.0",
-	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
-	"keywords": [],
-	"author": "Oscar Beaumont",
-	"license": "MIT",
-	"type": "module",
-	"source": "src/index.tsx",
-	"main": "dist/cjs/index.js",
-	"module": "dist/esm/index.js",
-	"types": "dist/types/index.d.ts",
-	"files": [
-		"dist"
-	],
-	"exports": {
-		".": {
-			"solid": "./dist/source/index.jsx",
-			"import": "./dist/esm/index.js",
-			"browser": "./dist/esm/index.js",
-			"require": "./dist/cjs/index.js",
-			"node": "./dist/cjs/index.js"
-		}
-	},
-	"scripts": {
-		"dev": "rollup -c -w",
-		"build": "rollup -c",
-		"prepare": "rollup -c"
-	},
-	"dependencies": {
-		"@rspc/client": "workspace:*",
-		"@rspc/query-core": "workspace:*"
-	},
-	"devDependencies": {
-		"@tanstack/solid-query": "^5.48.0",
-		"rollup": "^4.13.0",
-		"rollup-preset-solid": "^2.0.1",
-		"solid-js": "^1.8.15",
-		"typescript": "^5.4.2"
-	},
-	"peerDependencies": {
-		"@tanstack/solid-query": "^5.0.0",
-		"solid-js": "^1.0.0"
-	}
+  "name": "@rspc/solid",
+  "version": "0.2.1",
+  "description": "A blazing fast and easy to use TRPC-like server for Rust.",
+  "keywords": [],
+  "author": "Oscar Beaumont",
+  "license": "MIT",
+  "type": "module",
+  "source": "src/index.tsx",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "solid": "./dist/source/index.jsx",
+      "import": "./dist/esm/index.js",
+      "browser": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "node": "./dist/cjs/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "prepare": "rollup -c"
+  },
+  "dependencies": {
+    "@rspc/client": "workspace:*",
+    "@rspc/query-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@tanstack/solid-query": "^5.48.0",
+    "rollup": "^4.13.0",
+    "rollup-preset-solid": "^2.0.1",
+    "solid-js": "^1.8.15",
+    "typescript": "^5.4.2"
+  },
+  "peerDependencies": {
+    "@tanstack/solid-query": "^5.0.0",
+    "solid-js": "^1.0.0"
+  }
 }
