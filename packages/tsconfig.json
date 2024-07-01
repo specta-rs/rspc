@@ -1,11 +1,14 @@
 {
-  "compilerOptions": {
-    "baseUrl": "./packages",
-    "strict": true,
-    "paths": {
-      "@rspc/client": ["../client/src"],
-      "@rspc/react": ["../react/src"],
-      "@rspc/tauri": ["../tauri/src"]
-    }
-  }
+	"compilerOptions": {
+		"baseUrl": "./packages",
+		"strict": true,
+		"target": "ES2015",
+		"noEmit": true,
+		"paths": {
+			"@rspc/client": ["../client/src"],
+			"@rspc/react": ["../react/src"],
+			"@rspc/tauri": ["../tauri/src"],
+			"@rspc/query-core": ["../query-core/src"]
+		}
+	}
 }
