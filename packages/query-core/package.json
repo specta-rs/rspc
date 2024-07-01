@@ -27,6 +27,9 @@
 		"tsup": "^8.0.2",
 		"typescript": "^5.4.2"
 	},
+	"peerDependencies": {
+		"@rspc/client": "^0.2.0"
+	},
 	"tsup": {
 		"entry": ["src/index.ts"],
 		"format": ["esm", "cjs"],
