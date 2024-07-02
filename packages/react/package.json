@@ -5,11 +5,13 @@
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
+  "type": "module",
   "main": "dist/index.js",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
@@ -42,11 +44,11 @@
     "@rspc/query-core": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/react-query": "^5.48.0",
-    "@types/react": "^18.2.66",
-    "react": "^18.2.0",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.2"
+    "@tanstack/react-query": "^5.49.2",
+    "@types/react": "^18.3.3",
+    "react": "^18.3.1",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.3"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",

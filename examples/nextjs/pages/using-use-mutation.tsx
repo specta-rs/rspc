@@ -4,7 +4,7 @@ import { useMutation } from "../src/rspc";
 import styles from "../styles/Home.module.css";
 
 const UsingUseMutation: NextPage = () => {
-  const { mutate, data, isLoading, error } = useMutation("sendMsg");
+  const { mutate, data, isPending, error } = useMutation("sendMsg");
 
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>
@@ -35,7 +35,7 @@ const UsingUseMutation: NextPage = () => {
         </form>
 
         <p className={styles.description}>
-          {isLoading && "Loading data ..."}
+          {isPending && "Loading data ..."}
           {data && `Server received message: ${data}`}
           {error?.message}
         </p>

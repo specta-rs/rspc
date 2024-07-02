@@ -5,11 +5,13 @@
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
+  "type": "module",
   "main": "dist/index.js",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
@@ -41,9 +43,9 @@
     "@rspc/client": "workspace:*"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^1.5.3",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.2"
+    "@tauri-apps/api": "^1.6.0",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.3"
   },
   "peerDependencies": {
     "@tauri-apps/api": "^1.2.0"

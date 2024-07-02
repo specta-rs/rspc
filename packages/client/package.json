@@ -5,11 +5,13 @@
   "keywords": [],
   "author": "Oscar Beaumont",
   "license": "MIT",
+  "type": "module",
   "main": "dist/index.js",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }
   },
@@ -23,8 +25,8 @@
     "prepare": "tsup"
   },
   "devDependencies": {
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.2"
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.3"
   },
   "tsup": {
     "entry": [

@@ -2,8 +2,9 @@
 	"compilerOptions": {
 		"baseUrl": "./packages",
 		"strict": true,
-		"target": "ES2015",
+		"target": "ESNext",
 		"noEmit": true,
+		"skipLibCheck": true,
 		"paths": {
 			"@rspc/client": ["../client/src"],
 			"@rspc/react": ["../react/src"],
