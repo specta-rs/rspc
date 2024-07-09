@@ -37,7 +37,7 @@ import {
 	useEffect,
 } from "react";
 
-export { BaseOptions } from "@rspc/query-core";
+export type { BaseOptions } from "@rspc/query-core";
 
 export interface SubscriptionOptions<TOutput> {
 	enabled?: boolean;
