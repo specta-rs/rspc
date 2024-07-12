@@ -272,8 +272,8 @@ use rspc::{middleware::*, procedure::*, Infallible};
 //     })
 // }
 
-fn logging<TError, TThisCtx, TThisInput, TThisResult>(// TODO: i32
-) -> Middleware<TError, TThisCtx, TThisInput, i32, TThisCtx, TThisInput, TThisResult>
+fn logging<TError, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TError, TThisCtx, TThisInput, u128, TThisCtx, TThisInput, TThisResult>
 where
     TThisCtx: Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
@@ -308,7 +308,17 @@ where
 async fn main() {
     let procedure = <Procedure>::builder()
         .with(logging())
-        .query(|_ctx, _input: ()| async move { 42i32 });
+        .query(|_ctx, _input: u64| async move { true });
+
+    let procedure = <Procedure>::builder::<_, u128>() // TODO: Remove hardcoded `R`
+        .with::<(), u64, bool>(logging()) // TODO: Remove hardcoded generics
+        .query(|_ctx, _input: u64| async move { true });
+
+    // let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+
+    // let procedure = <Procedure>::builder()
+    //     .with(logging())
+    //     .query(|_ctx, _input: ()| async move { 42i32 });
 
     let result = procedure
         .exec((), serde_json::Value::Null)

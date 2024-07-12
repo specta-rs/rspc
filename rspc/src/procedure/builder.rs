@@ -43,10 +43,10 @@ where
     pub fn with<TNextCtx, I, R>(
         self,
         mw: Middleware<TErr, TCtx, TInput, TResult, TNextCtx, I, R>,
-    ) -> ProcedureBuilder<TErr, TCtx, TCtx, TInput, TResult> {
+    ) -> ProcedureBuilder<TErr, TCtx, TCtx, I, R> {
         ProcedureBuilder {
             // TODO: Merge in the previous middleware with the incoming middleware
-            mw: Some(mw.inner),
+            mw: todo!(), // Some(mw.inner),
             input: self.input,
             phantom: PhantomData,
         }
