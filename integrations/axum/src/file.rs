@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
 use rspc::{
-    internal::DataType,
+    internal::{DataType, TypeDefs},
     procedure::{
         InternalError, ProcedureExecInput, ProcedureInput, ProcedureOutput, ResolverInput,
         ResolverOutput,

@@ -17,14 +17,12 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-typescript = []
 
 [dependencies]
 # Public
-serde = { version = "1", festures = ["derive"] }
+serde = { version = "1", features = ["derive"] } # TODO: We should not require `derive` in the core!!!!! -> This if for `main.rs` rn
 futures = "0.3"
-specta = "1"
-# specta2 = { package = "specta", version = "=2.0.0-rc.8", features = ["typescript"] }
+specta = "1" # TODO: Specta v2
 
 # Private
 serde-value = "0.7"

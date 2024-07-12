@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, error, fmt};
 
-use crate::procedure::Procedure;
+use crate::{procedure::Procedure, State};
 
 pub struct Router<TCtx = (), TErr: error::Error = crate::Infallible>(
     HashMap<Cow<'static, str>, Procedure<TCtx, TErr>>,
@@ -26,6 +26,12 @@ impl<TCtx, TErr: error::Error> Router<TCtx, TErr> {
     ) -> Self {
         let name = name.into();
 
+        // TODO: Delayed: -> Running the procedure's `init` function with the plugin store.
+
+        todo!();
+    }
+
+    pub fn state(&self) -> State {
         todo!();
     }
 

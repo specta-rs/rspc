@@ -1,17 +1,9 @@
 //! TODO: Remove this file
 
+use std::{borrow::Cow, marker::PhantomData};
+
 use futures::{stream::once, StreamExt};
-use rspc::procedure::*;
-
-// TODO: Fix library args example
-
-// TODO: TCtx vs TNewCtx
-// TODO: Typesafe error handling (Using `.error`)
-// TODO: Return types (either Serde or Stream or files)
-
-// TODO: Runtime part working
-
-// TODO: Syntax testing with `trybuild` & convert this file into unit tests
+use rspc::{middleware::*, procedure::*, Infallible};
 
 // fn library_args<TCtx, T, NextR>(
 // ) -> impl Fn(TCtx, LibraryArgs<T>, Next<NextR, T, TCtx>) -> Future<Output = NextR> {
@@ -58,15 +50,6 @@ use rspc::procedure::*;
 //     })
 // }
 
-// pub fn todo_plz_work() -> impl Middleware<Next<i32, (), ()>> {
-//     mw(
-//         // TODO: Generic return type
-//         |ctx: (), input: (), next: Next<i32, (), ()>| async move {
-//             let _result = next.exec(ctx, input).await;
-//         },
-//     )
-// }
-
 // .register(|ctx| {
 //     println!("Run during router builder!");
 //     // ctx.procedure_name;
@@ -81,11 +64,258 @@ use rspc::procedure::*;
 // .with(error_only())
 // .with(todo_plz_work())
 
+// // TODO: Make this work
+// fn my_middleware_chain() {
+//     // <Procedure>::builder()
+//     //     .with(|ctx, _: (), next| async move {
+//     //         let _result = next.exec(ctx, ()).await;
+//     //     })
+//     //     .with(|ctx, _: (), next| async move {
+//     //         let _result = next.exec(ctx, ()).await;
+//     //     })
+// }
+
+// pub fn my_middleware<N: NextExt>() -> impl Middleware<N, N::Ctx, N::Input, N::Return> {
+//     mw(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         _result
+//     })
+// }
+
+// pub fn my_middleware<N: NextExt>(builder: MiddlewareBuilder<N, N::Ctx, N::Input, N::Return>) {
+//     builder.define(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         _result
+//     })
+// }
+
+// pub fn my_middleware_with_input<N: NextExt>(
+//     url: impl Into<Cow<'static, str>>,
+// ) -> impl MiddlewareBuilderFn<N, N::Ctx, N::Input, N::Return> {
+//     |builder| {
+//         builder.define(|ctx, input, next| async move {
+//             let _result = next.exec(ctx, input).await;
+//             _result
+//         })
+//     }
+// }
+
+// pub fn my_middleware2<N: NextExt>() -> MiddlewareBuilder<N, N::Ctx, N::Input, N::Return> {
+//     MiddlewareBuilder::new()
+//         .state(())
+//         .define(|ctx, input, next| async move {
+//             let _result = next.exec(ctx, input).await;
+//             _result
+//         })
+// }
+
+// pub fn my_middleware3<N: NextExt>(
+// ) -> MiddlewareBuilder<N, N::Ctx, N::Input, N::Return, impl Middleware> {
+//     MiddlewareBuilder::new()
+//         .state(())
+//         .define(|ctx, input, next| async move {
+//             let _result = next.exec(ctx, input).await;
+//             // _result
+//         })
+// }
+
+// pub fn my_middleware3<N: NextExt>() -> MiddlewareBuilder<N, (), (), i32> {
+//     MiddlewareBuilder::new()
+//         .state(())
+//         .define(|ctx, input, next| async move {
+//             let _result = next.exec(ctx, input).await;
+//             // _result
+//         })
+// }
+
+// TODO: N::Ctx, N::Input, N::Return
+// pub fn my_middleware_with_input<N: NextExt>(
+//     url: impl Into<Cow<'static, str>>,
+// ) -> impl MiddlewareBuilderFn<N, N::Ctx, (), ()> {
+//     |builder| {
+//         // builder.define(|ctx, input, next| async move {
+//         //     let _result = next.exec(ctx, input).await;
+//         //     _result
+//         // })
+//     }
+// }
+
+// pub fn test() -> impl Middleware<TCtx> {}
+
+// struct MiddlewareBuilder {}
+
+// impl MiddlewareBuilder {
+//     // TODO: State, etc
+
+//     pub fn build(self) -> impl Middleware<()> {
+//         todo!();
+//     }
+// }
+
+// TODO: Middleware which takes args
+
+// TODO: Use `NextExt` example
+// TODO: Can `I` and `R` for the return type be infered instead? Well no cause `impl` elides them
+// <TCtx, I, R>
+// pub fn demo(builder: MiddlewareBuilder<Next<(), i32, i32>>) -> impl Middleware<(), (), ()> {
+//     builder.define(|ctx, input, next| async move {
+//         let _result = next.exec((), 42).await;
+//         _result
+//     })
+// }
+
+// fn logging_mw<N: NextExt>() -> Middleware<N> {
+//     Middleware::new().define(|ctx, input, next| async move {
+//         println!("Handling request");
+//         let _result = next.exec(ctx, input).await;
+//         _result
+//     })
+// }
+
+// fn input_swapping<N: NextExt<Input = bool>>() -> Middleware<N, N::Ctx, u64, N::Return> {
+//     Middleware::new().define(|ctx, input: u64, next| async move {
+//         let _result = next.exec(ctx, input < 420).await;
+//         _result
+//     })
+// }
+
+// fn context_swapping<N: NextExt<Ctx = (N::, ())>>() -> Middleware<N, N::Ctx, (), N::Return> {
+//     Middleware::new().define(|ctx, input: u64, next| async move {
+//         let _result = next.exec(ctx, input < 420).await;
+//         _result
+//     })
+// }
+
+// TODO: Context swapping
+
+// Standalone `ProcedureBuilder`'s are easier to define than middleware but can't be joined.
+// fn procedure() -> ProcedureBuilder<(), Infallible, Next<(), (), ()>> {
+//     <Procedure>::builder()
+//     .with(|builder| {
+//         builder.define(|ctx, input: (), next| async move {
+//             let _result = next.exec((), true).await;
+//             _result
+//         })
+//     })
+// }
+
+// // Curried
+// fn todo0<TCtx, TErr, I, R>() -> Middleware<TErr, Next<TCtx, I, R>, Next<TCtx, I, R>> {
+//     Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await })
+// }
+// fn todo_with_default<TCtx, TErr, I, R>() -> Middleware<TErr, Next<TCtx, I, R>> {
+//     Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await })
+// }
+
+// // Reordered + default generics
+// fn todo_identical_input_to_output<TCtx, TErr, I, R>() -> Middleware<TCtx, TErr, I, R> {
+//     Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await })
+// }
+// fn todo_all_generics<TCtx, TErr, I, R>() -> Middleware<TCtx, TErr, I, R, I, R, TCtx> {
+//     Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await })
+// }
+// fn todo_identical_ctx<TCtx, TErr, I, R>() -> Middleware<TErr, TCtx, I, R, I, R, TCtx> {
+//     Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await })
+// }
+
+// // Flat generics
+// fn todo3<TCtx, TErr, I, R>() -> Middleware<TCtx, TErr, I, R, TCtx, I, R> {
+//     Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await })
+// }
+// fn todo3<TCtx, TErr, I, R>() -> Middleware<TCtx, TErr, (), R, TCtx, I, i32> {
+//     Middleware::new(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         42
+//     })
+// }
+
+// // Although this is *logically* incorrect I think it's more understandable
+// // Basically [Incoming Context, Error Type, This layers input type (inferred back), This layers result type (inferred forward), Next layer's result]
+// fn todo3<TCtx, TErr, I, R>() -> Middleware<TCtx, TErr, (), i32, R, TCtx, I> {
+//     Middleware::new(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         42
+//     })
+// }
+
+// TODO: This is a wacky idea
+// const P: ProcedureBuilder<(), (), ()> = <Procedure>::builder().with(logging()); // P.query(...);
+// const PP: Procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+
+// [
+//  Context of previous layer (`ctx`),
+//  Error type,
+//  The input to the middleware (`input`),
+//  The result of the middleware (return type of future),
+//  The context returned by the middleware (`next.exec({dis_bit}, ...)`),
+//  The input to the next layer (`next.exec(..., {dis_bit})`),
+//  The result of the next layer (`let _result: {dis_bit} = next.exec(...)`),
+// ]
+// fn todo3() -> Middleware<(), Infallible, u128, i32, (), bool, i32> {
+//     Middleware::new(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         42u32
+//     })
+// }
+
+// fn todo4() -> Middleware<(), Infallible, u128, i32, Next<(), bool, i32>> {
+//     Middleware::new(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         42u32
+//     })
+// }
+
+// fn todo5() -> Middleware<Infallible, Next<(), u128, i32>, Next<(), bool, i32>> {
+//     Middleware::new(|ctx, input, next| async move {
+//         let _result = next.exec(ctx, input).await;
+//         42u32
+//     })
+// }
+
+fn logging<TError, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TError, TThisCtx, TThisInput, TThisResult> {
+    Middleware::new(|ctx, input, next| async move {
+        let start = std::time::Instant::now();
+        let _result = next.exec(ctx, input).await;
+        println!("{} {} in {:?}", "QUERY", "todo.todo", start.elapsed()); // TODO: Make `next.meta()` work
+        _result
+    })
+}
+
+// fn procedure() -> ProcedureBuilder<...> {
+//     Procedure::builder().with(logging())
+// }
+// TODO
+// TODO: Can we make `procedure.query` work with some trait stuff? Probs not but worth a try.
+// let todo = procedure().query(|_ctx, _input: bool| async move { 42i32 });
+
 #[tokio::main]
 async fn main() {
-    // TODO: The format is local to the procedure which is kinda problematic as you can only have one per-router (Eg. no Json and FormData)
+    let procedure = <Procedure>::builder()
+        .with(logging())
+        .query(|_ctx, _input: bool| async move { 42i32 });
 
-    let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+    let result = procedure
+        .exec((), serde_json::Value::Null)
+        .unwrap()
+        .next()
+        .await
+        .unwrap()
+        .unwrap()
+        .serialize(serde_json::value::Serializer)
+        .unwrap();
+    println!("Result: {:?}", result);
+
+    return;
+
+    let procedure = <Procedure>::builder()
+        // .with(|ctx, input, next| async move {
+        //     let _result = next.exec(ctx, input).await;
+        //     _result
+        // })
+        .query(|_ctx, _input: ()| async move { 42i32 });
+
+    // let router = Router::builder().procedure(procedure);
 
     let result = procedure
         .exec((), serde_json::Value::Null)

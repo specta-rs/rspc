@@ -2,8 +2,9 @@ use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
 use specta::{DataType, TypeDefs};
 
+use crate::middleware::Next;
+
 use super::{
-    builder::GG,
     exec_input::{AnyInput, InputValueInner},
     stream::ProcedureStream,
     InternalError, ProcedureBuilder, ProcedureInput,
@@ -29,8 +30,9 @@ impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
 
 impl<TCtx, TErr: error::Error> Procedure<TCtx, TErr> {
     /// Construct a new procedure using [`ProcedureBuilder`].
-    pub fn builder<R, I>() -> ProcedureBuilder<TCtx, TErr, GG<TCtx, R, I>> {
-        ProcedureBuilder::<_, TErr, _> {
+    pub fn builder<R, I>() -> ProcedureBuilder<TCtx, TErr, TCtx, R, I> {
+        ProcedureBuilder {
+            mw: None,
             input: None,
             phantom: PhantomData,
         }

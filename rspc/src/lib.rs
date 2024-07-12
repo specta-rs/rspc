@@ -4,7 +4,7 @@
 //!
 //! ## WARNING
 //!
-//! Checkout the official docs at <https://rspc.dev>. This documentation is **for authors of middleware and adapter**,
+//! Checkout the official docs at <https://rspc.dev>. This documentation is generally written **for authors of middleware and adapter**.
 //!
 #![doc(
     html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
@@ -23,25 +23,23 @@
 #![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub mod middleware;
 pub mod notes;
 pub mod procedure;
-#[cfg(feature = "typescript")]
-#[cfg_attr(docsrs, doc(cfg(feature = "typescript")))]
-pub mod typescript;
 
 mod infallible;
 mod router;
-mod rspc;
+mod state;
 mod stream;
 
 pub use infallible::Infallible;
 pub use router::Router;
-pub use rspc::Rspc;
+pub use state::State;
 pub use stream::Stream;
 
 #[doc(hidden)]
 pub mod internal {
     // To make versioning easier we reexport it so libraries such as `rspc_axum` don't need a direct dependency on `specta`.
     pub use serde::Serialize;
-    pub use specta::{DataType, Type};
+    pub use specta::{DataType, Type, TypeDefs};
 }

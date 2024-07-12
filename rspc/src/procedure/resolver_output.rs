@@ -2,7 +2,7 @@ use std::{convert::Infallible, error, marker::PhantomData};
 
 use futures::{Stream, StreamExt};
 use serde::Serialize;
-use specta::{DataType, DefOpts, EnumVariant, Type, TypeDefs};
+use specta::{DataType, DefOpts, Type, TypeDefs};
 
 use super::{ProcedureOutput, ProcedureStream};
 
