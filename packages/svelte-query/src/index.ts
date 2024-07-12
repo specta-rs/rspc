@@ -1,25 +1,38 @@
 import type * as rspc from "@rspc/client";
 import * as queryCore from "@rspc/query-core";
-import * as tanstack from "@tanstack/solid-query";
-import * as solid from "solid-js";
+import * as tanstack from "@tanstack/svelte-query";
+import { getRspcClientContext } from "./context";
+import { derived, get, readable, type Readable } from "svelte/store";
+import { onDestroy } from "svelte";
 
 export * from "@rspc/query-core";
 
-export function createSolidQueryHooks<
+function isSvelteStore<T extends object>(
+	obj: tanstack.StoreOrVal<T>,
+): obj is Readable<T> {
+	return "subscribe" in obj && typeof obj.subscribe === "function";
+}
+
+function enforceSvelteStore<T extends object>(
+	obj: tanstack.StoreOrVal<T>,
+): Readable<T> {
+	if (isSvelteStore(obj)) {
+		return obj;
+	}
+	return readable(obj);
+}
+
+export function createSvelteQueryHooks<
 	TProceduresLike extends rspc.ProceduresDef,
 >() {
 	type TProcedures = rspc.inferProcedures<TProceduresLike>;
 
-	const Context = solid.createContext<queryCore.Context<TProcedures> | null>(
-		null,
-	);
-
 	const helpers = queryCore.createQueryHookHelpers({
-		useContext: () => solid.useContext(Context),
+		useContext: () => getRspcClientContext<TProcedures>(),
 	});
 
 	function useContext() {
-		const ctx = solid.useContext(Context);
+		const ctx = getRspcClientContext<TProcedures>();
 		if (ctx?.queryClient === undefined)
 			throw new Error(
 				"The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree.",
@@ -35,18 +48,18 @@ export function createSolidQueryHooks<
 	function createQuery<
 		K extends rspc.inferQueries<TProcedures>["key"] & string,
 	>(
-		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts: solid.Accessor<
+		keyAndInput: tanstack.StoreOrVal<
+			queryCore.KeyAndInputSkipToken<TProcedures, K>
+		>,
+		opts: tanstack.StoreOrVal<
 			queryCore.WrapQueryOptions<
 				TProcedures,
-				tanstack.SolidQueryOptions<
+				tanstack.UndefinedInitialDataOptions<
 					rspc.inferQueryResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferQueryResult<TProcedures, K>,
 					queryCore.KeyAndInputSkipToken<TProcedures, K>
-				> & {
-					initialData?: undefined;
-				}
+				>
 			>
 		>,
 	): tanstack.CreateQueryResult<
@@ -56,31 +69,31 @@ export function createSolidQueryHooks<
 	function createQuery<
 		K extends rspc.inferQueries<TProcedures>["key"] & string,
 	>(
-		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts: solid.Accessor<
+		keyAndInput: tanstack.StoreOrVal<
+			queryCore.KeyAndInputSkipToken<TProcedures, K>
+		>,
+		opts: tanstack.StoreOrVal<
 			queryCore.WrapQueryOptions<
 				TProcedures,
-				tanstack.SolidQueryOptions<
+				tanstack.DefinedInitialDataOptions<
 					rspc.inferQueryResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferQueryResult<TProcedures, K>,
 					queryCore.KeyAndInputSkipToken<TProcedures, K>
-				> & {
-					initialData:
-						| rspc.inferQueryResult<TProcedures, K>
-						| (() => rspc.inferQueryResult<TProcedures, K>);
-				}
+				>
 			>
 		>,
-	): tanstack.DefinedCreateBaseQueryResult<
+	): tanstack.DefinedCreateQueryResult<
 		rspc.inferQueryResult<TProcedures, K>,
 		rspc.RSPCError
 	>;
 	function createQuery<
 		K extends rspc.inferQueries<TProcedures>["key"] & string,
 	>(
-		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts: solid.Accessor<
+		keyAndInput: tanstack.StoreOrVal<
+			queryCore.KeyAndInputSkipToken<TProcedures, K>
+		>,
+		opts: tanstack.StoreOrVal<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.CreateQueryOptions<
@@ -91,12 +104,16 @@ export function createSolidQueryHooks<
 				>
 			>
 		>,
-	): tanstack.QueryObserverResult<
+	): tanstack.CreateBaseQueryResult<
 		rspc.inferQueryResult<TProcedures, K>,
 		rspc.RSPCError
 	> {
 		return tanstack.createQuery(
-			() => helpers.useQueryArgs(keyAndInput(), opts()) as any,
+			derived(
+				[enforceSvelteStore(keyAndInput), enforceSvelteStore(opts)],
+				([$keyAndInput, $opts]) =>
+					helpers.useQueryArgs($keyAndInput, $opts) as any,
+			),
 		);
 	}
 
@@ -104,11 +121,11 @@ export function createSolidQueryHooks<
 		K extends rspc.inferMutations<TProcedures>["key"] & string,
 		TContext = unknown,
 	>(
-		key: solid.Accessor<K>,
-		opts?: tanstack.FunctionedParams<
+		key: K,
+		opts: tanstack.StoreOrVal<
 			queryCore.WrapMutationOptions<
 				TProcedures,
-				tanstack.SolidMutationOptions<
+				tanstack.CreateMutationOptions<
 					rspc.inferMutationResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferMutationInput<TProcedures, K> extends never
@@ -119,62 +136,44 @@ export function createSolidQueryHooks<
 			>
 		>,
 	) {
-		return tanstack.createMutation(() =>
-			helpers.useMutationArgs(key(), opts?.()),
+		return tanstack.createMutation(
+			derived([enforceSvelteStore(opts)], ([$opts]) =>
+				helpers.useMutationArgs(key, $opts),
+			),
 		);
 	}
 
 	function createSubscription<
 		K extends rspc.inferSubscriptions<TProcedures>["key"] & string,
 	>(
-		keyAndInput: () => [
-			key: K,
-			...input:
-				| rspc._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
-				| [tanstack.SkipToken],
-		],
-		opts: () => queryCore.SubscriptionOptions<TProcedures, K>,
+		keyAndInput: tanstack.StoreOrVal<
+			[
+				key: K,
+				...input:
+					| rspc._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
+					| [tanstack.SkipToken],
+			]
+		>,
+		opts: tanstack.StoreOrVal<queryCore.SubscriptionOptions<TProcedures, K>>,
 	) {
-		solid.createEffect(
-			solid.on(
-				() => [keyAndInput(), opts()] as const,
-				([keyAndInput, opts]) => {
-					const unsubscribe = helpers.handleSubscription(
-						keyAndInput,
-						() => opts,
-						helpers.useClient(),
-					);
+		const optsStore = enforceSvelteStore(opts);
 
-					solid.onCleanup(() => unsubscribe?.());
-				},
-			),
-		);
+		enforceSvelteStore(keyAndInput).subscribe((keyAndInput) => {
+			const unsubscribe = helpers.handleSubscription(
+				keyAndInput,
+				() => get(optsStore),
+				helpers.useClient(),
+			);
+
+			onDestroy(() => unsubscribe?.());
+		});
 	}
 
 	return {
-		_rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
-		Provider: (props: {
-			children?: solid.JSX.Element;
-			client: rspc.Client<TProcedures>;
-			queryClient: tanstack.QueryClient;
-		}): solid.JSX.Element => {
-			return (
-				<Context.Provider
-					value={{
-						client: props.client,
-						queryClient: props.queryClient,
-					}}
-				>
-					<tanstack.QueryClientProvider client={props.queryClient}>
-						{props.children}
-					</tanstack.QueryClientProvider>
-				</Context.Provider>
-			);
-		},
+		_rspc_def: undefined! as TProceduresLike,
 		useContext,
 		useUtils,
 		createQuery,
-		// createInfiniteQuery,
 		createMutation,
 		createSubscription,
 	};
