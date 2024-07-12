@@ -38,11 +38,6 @@ pub(crate) type MiddlewareHandler<TNextCtx, TNextInput, TNextResult> = Box<
         + 'static,
 >;
 
-pub(crate) struct MiddlewareInner<TNextCtx, TNextInput, TNextResult> {
-    pub(crate) setup: Option<Box<dyn FnOnce(&mut State, ProcedureMeta) + 'static>>,
-    pub(crate) handler: MiddlewareHandler<TNextCtx, TNextInput, TNextResult>,
-}
-
 /// An abstraction for common logic that can be applied to procedures.
 ///
 /// A middleware can be used to run custom logic and modify the context, input, and result of the next procedure. This makes is perfect for logging, authentication and many other things!
@@ -81,11 +76,12 @@ pub struct Middleware<
     TNextInput = TThisInput,
     TNextResult = TThisResult,
 > {
+    pub(crate) setup: Option<Box<dyn FnOnce(&mut State, ProcedureMeta) + 'static>>,
     // TODO: Move the builder `Fn` down onto `handler` without breaking everything!
     pub(crate) inner: Box<
         dyn FnOnce(
             Arc<(dyn Any + Send + Sync + 'static)>,
-        ) -> MiddlewareInner<TThisCtx, TThisInput, TThisResult>,
+        ) -> MiddlewareHandler<TThisCtx, TThisInput, TThisResult>,
     >,
     phantom: PhantomData<(TError, TNextCtx, TNextInput, TNextResult)>,
 }
@@ -105,9 +101,9 @@ where
             + 'static,
     ) -> Self {
         Self {
-            inner: Box::new(move |next| MiddlewareInner {
-                setup: None,
-                handler: Box::new(move |ctx, input, meta| {
+            setup: None,
+            inner: Box::new(move |next| {
+                Box::new(move |ctx, input, meta| {
                     let f = func(
                         ctx,
                         input,
@@ -121,15 +117,14 @@ where
                     );
 
                     Box::pin(f)
-                }),
+                })
             }),
             phantom: PhantomData,
         }
     }
 
     pub fn setup(mut self, func: impl FnOnce(&mut State, ProcedureMeta) + 'static) -> Self {
-        // self.inner.setup = Some(Box::new(func));
-        todo!();
+        self.setup = Some(Box::new(func));
         self
     }
 }

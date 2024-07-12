@@ -5,7 +5,7 @@ use specta::{DataType, TypeDefs};
 
 use crate::{middleware::Middleware, Infallible};
 
-use super::{mw::Mw, Procedure, ProcedureType, ResolverInput, ResolverOutput};
+use super::{mw::Mw, Procedure, ProcedureMeta, ProcedureType, ResolverInput, ResolverOutput};
 
 // TODO: Document the generics like `Middleware`
 pub struct ProcedureBuilder<TErr: error::Error, TCtx, TNextCtx, TInput, TResult> {
@@ -58,14 +58,14 @@ where
         ProcedureBuilder {
             mw: Mw {
                 build: Box::new(|handler| {
-                    // if let Some(setup) = setup {
-                    //     setup(todo!(), ProcedureMeta {});
-                    // }
-                    // drop(setup);
+                    if let Some(setup) = mw.setup {
+                        setup(todo!(), ProcedureMeta {});
+                    }
+                    drop(mw.setup);
 
                     // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
                     let handler = Arc::new(handler);
-                    (self.mw.build)((mw.inner)(handler).handler)
+                    (self.mw.build)((mw.inner)(handler))
                 }),
             },
             input: self.input,
