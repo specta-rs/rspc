@@ -61,6 +61,10 @@ pub(crate) struct MiddlewareInner<TNextCtx, TNextInput, TNextResult> {
 /// TODO: Example to show where the generics line up.
 /// ```
 ///
+/// # Stacking
+///
+/// TODO: Guide the user through stacking.
+///
 /// # Example
 ///
 /// TODO:
@@ -104,11 +108,7 @@ impl<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResul
                         },
                     );
 
-                    Box::pin(async move {
-                        let f = f.await;
-
-                        todo!();
-                    })
+                    Box::pin(f)
                 }),
             },
             phantom: PhantomData,

@@ -1,18 +1,19 @@
 use std::{error, fmt, future::Future, marker::PhantomData};
 
-use futures::{FutureExt, Stream, StreamExt};
+use futures::Stream;
 use specta::{DataType, TypeDefs};
 
 use crate::{
     middleware::{Middleware, MiddlewareInner},
     procedure::ProcedureMeta,
+    Infallible,
 };
 
-use super::{Procedure, ProcedureExecInput, ProcedureType, ResolverInput, ResolverOutput};
+use super::{mw::Mw, Procedure, ProcedureType, ResolverInput, ResolverOutput};
 
 // TODO: Document the generics like `Middleware`
-pub struct ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult> {
-    pub(super) mw: Option<MiddlewareInner<TNextCtx, TInput, TResult>>, // TODO: Should this have a default instead of an `Option`???
+pub struct ProcedureBuilder<TErr: error::Error, TCtx, TNextCtx, TInput, TResult> {
+    pub(super) mw: Mw<TErr, TCtx, TNextCtx, TInput, TResult>,
     pub(super) input: Option<fn(&mut TypeDefs) -> DataType>,
     pub(super) phantom: PhantomData<(TErr, TCtx)>,
 }
@@ -25,34 +26,55 @@ impl<TCtx, TErr: error::Error, TNextCtx, TInput, TResult> fmt::Debug
     }
 }
 
-// TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
-impl<TCtx, TErr: error::Error, TInput, TResult> ProcedureBuilder<TErr, TCtx, TCtx, TInput, TResult>
+// We enforce this can only be called once.
+// This is because switching it would require us to track the initial type or erased it. // TODO: Clarify this
+impl<TCtx, TNewCtx, TInput, TResult> ProcedureBuilder<Infallible, TCtx, TNewCtx, TInput, TResult>
 where
     TCtx: 'static,
 {
     pub fn error<TNewErr: error::Error>(
         self,
-    ) -> ProcedureBuilder<TNewErr, TCtx, TCtx, TInput, TResult> {
+    ) -> ProcedureBuilder<TNewErr, TCtx, TNewCtx, TInput, TResult> {
         ProcedureBuilder {
-            mw: self.mw,
+            mw: todo!(), // TODO: self.mw,
             input: self.input,
             phantom: PhantomData,
         }
     }
+}
 
+// TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
+impl<TCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TCtx, TCtx, TInput, TResult>
+where
+    TErr: error::Error + 'static,
+    TCtx: 'static,
+    TInput: 'static,
+    TResult: 'static,
+{
     pub fn with<TNextCtx, I, R>(
         self,
         mw: Middleware<TErr, TCtx, TInput, TResult, TNextCtx, I, R>,
     ) -> ProcedureBuilder<TErr, TCtx, TCtx, I, R> {
         ProcedureBuilder {
-            // TODO: Merge in the previous middleware with the incoming middleware
-            mw: todo!(), // Some(mw.inner),
+            mw: Mw {
+                build: Box::new(|MiddlewareInner { setup, handler }| {
+                    if let Some(setup) = setup {
+                        setup(todo!(), ProcedureMeta {});
+                    }
+                    drop(setup);
+
+                    (self.mw.build)(mw.inner)
+                }),
+            },
             input: self.input,
             phantom: PhantomData,
         }
     }
 
-    pub fn query<F, M>(self, handler: impl Fn(TCtx, TInput) -> F + 'static) -> Procedure<TCtx, TErr>
+    pub fn query<F, M>(
+        self,
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+    ) -> Procedure<TCtx, TErr>
     where
         F: Future<Output = TResult> + Send + 'static,
         TInput: ResolverInput,
@@ -62,23 +84,16 @@ where
             input: self.input.unwrap_or(TInput::data_type),
             ty: ProcedureType::Query,
             result: TResult::data_type,
-            handler: Box::new(move |ctx, input| {
-                let f = (self.mw.as_ref().unwrap().handler)(
-                    ctx,
-                    TInput::from_value(ProcedureExecInput::new(input))?,
-                    ProcedureMeta {},
-                );
-
-                // handler(ctx, input).into_stream(),
-
-                Ok(TResult::into_procedure_stream(f.into_stream()))
+            handler: (self.mw.build)(MiddlewareInner {
+                setup: None,
+                handler: Box::new(move |ctx, input, meta| Box::pin(handler(ctx, input))),
             }),
         }
     }
 
     pub fn mutation<F, M>(
         self,
-        handler: impl Fn(TCtx, TInput) -> F + 'static,
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
     ) -> Procedure<TCtx, TErr>
     where
         F: Future<Output = TResult> + Send + 'static,
@@ -89,17 +104,16 @@ where
             input: self.input.unwrap_or(TInput::data_type),
             ty: ProcedureType::Mutation,
             result: TResult::data_type,
-            handler: Box::new(move |ctx, input| {
-                Ok(TResult::into_procedure_stream(
-                    handler(ctx, TInput::from_value(ProcedureExecInput::new(input))?).into_stream(),
-                ))
+            handler: (self.mw.build)(MiddlewareInner {
+                setup: None,
+                handler: Box::new(move |ctx, input, meta| Box::pin(handler(ctx, input))),
             }),
         }
     }
 
     pub fn subscription<F, S, M>(
         self,
-        handler: impl Fn(TCtx, TInput) -> F + 'static,
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
     ) -> Procedure<TCtx, TErr>
     where
         F: Future<Output = S> + Send + 'static,
@@ -111,13 +125,18 @@ where
             input: self.input.unwrap_or(TInput::data_type),
             ty: ProcedureType::Subscription,
             result: TResult::data_type,
-            handler: Box::new(move |ctx, input| {
-                Ok(TResult::into_procedure_stream(
-                    handler(ctx, TInput::from_value(ProcedureExecInput::new(input))?)
-                        .into_stream()
-                        .flatten(),
-                ))
-            }),
+            // handler: Box::new(move |ctx, input| {
+            //     Ok(TResult::into_procedure_stream(
+            //         handler(ctx, TInput::from_value(ProcedureExecInput::new(input))?)
+            //             .into_stream()
+            //             .flatten(),
+            //     ))
+            // }),
+            // handler: (self.mw.build)(MiddlewareInner {
+            //     setup: None,
+            //     handler: Box::new(move |ctx, input, meta| Box::pin(handler(ctx, input))),
+            // }),
+            handler: todo!(),
         }
     }
 }

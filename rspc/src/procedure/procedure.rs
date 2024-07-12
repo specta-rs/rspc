@@ -1,11 +1,16 @@
 use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
+use futures::FutureExt;
 use specta::{DataType, TypeDefs};
+
+use crate::middleware::MiddlewareInner;
 
 use super::{
     exec_input::{AnyInput, InputValueInner},
+    mw::Mw,
     stream::ProcedureStream,
-    InternalError, ProcedureBuilder, ProcedureInput,
+    InternalError, ProcedureBuilder, ProcedureExecInput, ProcedureInput, ProcedureMeta,
+    ResolverInput, ResolverOutput,
 };
 
 /// Represents a single operations on the server that can be executed.
@@ -36,9 +41,33 @@ where
     TErr: error::Error,
 {
     /// Construct a new procedure using [`ProcedureBuilder`].
-    pub fn builder<I, R>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R> {
+    pub fn builder<I, R, M>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>
+    where
+        TCtx: 'static,
+        I: ResolverInput + 'static,
+        R: ResolverOutput<M, TErr> + 'static,
+    {
         ProcedureBuilder {
-            mw: None,
+            mw: Mw {
+                build: Box::new(|MiddlewareInner { setup, handler }| {
+                    if let Some(setup) = setup {
+                        setup(todo!(), ProcedureMeta {});
+                    }
+                    drop(setup);
+
+                    Box::new(move |ctx, input| {
+                        let fut = handler(
+                            ctx,
+                            I::from_value(ProcedureExecInput::new(input))?,
+                            ProcedureMeta {},
+                        );
+
+                        // TODO: Invoking in `next` from within `fut`
+
+                        Ok(R::into_procedure_stream(fut.into_stream()))
+                    })
+                }),
+            },
             input: None,
             phantom: PhantomData,
         }

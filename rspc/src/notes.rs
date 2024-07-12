@@ -40,6 +40,7 @@
 //!  - Can we abstract a middleware chain. All `register`, `with` and `error` methods abstracted out into a dedicated function.
 //!  - Support for Cloudflare Workers/single-threaded async runtimes. I recall this being problematic with `Send + Sync`.
 //!  - Review all generics on middleware and procedure types to ensure consistent ordering.
+//!     - Consistency between `TErr` and `TError`
 //!  - Documentation for everything
 //!  - Yank all v1 releases once 0.3.0 is out
 //!

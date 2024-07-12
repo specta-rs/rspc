@@ -273,7 +273,7 @@ use rspc::{middleware::*, procedure::*, Infallible};
 // }
 
 fn logging<TError, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TError, TThisCtx, TThisInput, u128, TThisCtx, TThisInput, TThisResult>
+) -> Middleware<TError, TThisCtx, TThisInput, u64, TThisCtx, TThisInput, TThisResult>
 where
     TThisCtx: Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
@@ -310,18 +310,8 @@ async fn main() {
         .with(logging())
         .query(|_ctx, _input: u64| async move { true });
 
-    let procedure = <Procedure>::builder::<_, u128>() // TODO: Remove hardcoded `R`
-        .with::<(), u64, bool>(logging()) // TODO: Remove hardcoded generics
-        .query(|_ctx, _input: u64| async move { true });
-
-    // let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
-
-    // let procedure = <Procedure>::builder()
-    //     .with(logging())
-    //     .query(|_ctx, _input: ()| async move { 42i32 });
-
     let result = procedure
-        .exec((), serde_json::Value::Null)
+        .exec((), serde_json::Value::Number(42u32.into()))
         .unwrap()
         .next()
         .await
@@ -332,6 +322,16 @@ async fn main() {
     println!("Result: {:?}", result);
 
     return;
+
+    // let procedure = <Procedure>::builder::<_, u128, _>() // TODO: Remove hardcoded `R`
+    //     .with::<(), u64, bool>(logging()) // TODO: Remove hardcoded generics
+    //     .query(|_ctx, _input: u64| async move { true });
+
+    // let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+
+    // let procedure = <Procedure>::builder()
+    //     .with(logging())
+    //     .query(|_ctx, _input: ()| async move { 42i32 });
 
     let procedure = <Procedure>::builder()
         // .with(|ctx, input, next| async move {
@@ -400,24 +400,24 @@ async fn main() {
 
     println!("Stream Result: {:?}", result);
 
-    let procedure = <Procedure>::builder()
-        .subscription(|_ctx, _input: ()| async move { once(async move { 42i32 }) });
+    // let procedure = <Procedure>::builder()
+    //     .subscription(|_ctx, _input: ()| async move { once(async move { 42i32 }) });
 
-    let result = procedure
-        .exec((), serde_json::Value::Null)
-        .unwrap()
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .map(|result| {
-            result
-                .unwrap()
-                .serialize(serde_json::value::Serializer)
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
+    // let result = procedure
+    //     .exec((), serde_json::Value::Null)
+    //     .unwrap()
+    //     .collect::<Vec<_>>()
+    //     .await
+    //     .into_iter()
+    //     .map(|result| {
+    //         result
+    //             .unwrap()
+    //             .serialize(serde_json::value::Serializer)
+    //             .unwrap()
+    //     })
+    //     .collect::<Vec<_>>();
 
-    println!("Subscription Result: {:?}", result);
+    // println!("Subscription Result: {:?}", result);
 
     // TODO: BREAK
 
