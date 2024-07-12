@@ -36,3 +36,5 @@ pub use procedure::{Procedure, ProcedureType, ProcedureTypeDefinition};
 pub use resolver_input::ResolverInput;
 pub use resolver_output::ResolverOutput;
 pub use stream::ProcedureStream;
+
+pub(crate) use mw::Mw;

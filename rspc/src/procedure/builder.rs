@@ -1,13 +1,9 @@
-use std::{error, fmt, future::Future, marker::PhantomData};
+use std::{error, fmt, future::Future, marker::PhantomData, sync::Arc};
 
 use futures::Stream;
 use specta::{DataType, TypeDefs};
 
-use crate::{
-    middleware::{Middleware, MiddlewareInner},
-    procedure::ProcedureMeta,
-    Infallible,
-};
+use crate::{middleware::Middleware, Infallible};
 
 use super::{mw::Mw, Procedure, ProcedureType, ResolverInput, ResolverOutput};
 
@@ -54,16 +50,22 @@ where
     pub fn with<TNextCtx, I, R>(
         self,
         mw: Middleware<TErr, TCtx, TInput, TResult, TNextCtx, I, R>,
-    ) -> ProcedureBuilder<TErr, TCtx, TCtx, I, R> {
+    ) -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>
+    where
+        I: 'static,
+        R: 'static,
+    {
         ProcedureBuilder {
             mw: Mw {
-                build: Box::new(|MiddlewareInner { setup, handler }| {
-                    if let Some(setup) = setup {
-                        setup(todo!(), ProcedureMeta {});
-                    }
-                    drop(setup);
+                build: Box::new(|handler| {
+                    // if let Some(setup) = setup {
+                    //     setup(todo!(), ProcedureMeta {});
+                    // }
+                    // drop(setup);
 
-                    (self.mw.build)(mw.inner)
+                    // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
+                    let handler = Arc::new(handler);
+                    (self.mw.build)((mw.inner)(handler).handler)
                 }),
             },
             input: self.input,
@@ -84,10 +86,7 @@ where
             input: self.input.unwrap_or(TInput::data_type),
             ty: ProcedureType::Query,
             result: TResult::data_type,
-            handler: (self.mw.build)(MiddlewareInner {
-                setup: None,
-                handler: Box::new(move |ctx, input, meta| Box::pin(handler(ctx, input))),
-            }),
+            handler: (self.mw.build)(Box::new(move |ctx, input, _| Box::pin(handler(ctx, input)))),
         }
     }
 
@@ -104,10 +103,7 @@ where
             input: self.input.unwrap_or(TInput::data_type),
             ty: ProcedureType::Mutation,
             result: TResult::data_type,
-            handler: (self.mw.build)(MiddlewareInner {
-                setup: None,
-                handler: Box::new(move |ctx, input, meta| Box::pin(handler(ctx, input))),
-            }),
+            handler: (self.mw.build)(Box::new(move |ctx, input, _| Box::pin(handler(ctx, input)))),
         }
     }
 
@@ -134,7 +130,7 @@ where
             // }),
             // handler: (self.mw.build)(MiddlewareInner {
             //     setup: None,
-            //     handler: Box::new(move |ctx, input, meta| Box::pin(handler(ctx, input))),
+            //     handler: Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
             // }),
             handler: todo!(),
         }

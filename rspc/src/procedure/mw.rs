@@ -1,11 +1,9 @@
-use crate::middleware::MiddlewareInner;
+use crate::middleware::MiddlewareHandler;
 
-use super::{exec_input::InputValueInner, InternalError, ProcedureStream};
+use super::procedure::InvokeFn;
 
-pub(super) type InvokeFn<TCtx, TErr> =
-    Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream<TErr>, InternalError>>;
-
-pub(super) struct Mw<
+// TODO: `pub(crate)` or `pub(super)`
+pub(crate) struct Mw<
     // Must be same through whole chain
     TError: std::error::Error,
     TCtx,
@@ -14,26 +12,7 @@ pub(super) struct Mw<
     TNextInput,
     TNextResult,
 > {
-    // TODO: I think it would be more logical for the argument to be just `MiddlewareInner.handler`. Parsing `setup` around adds no value and is plain confusing.
     pub build: Box<
-        dyn FnOnce(MiddlewareInner<TNextCtx, TNextInput, TNextResult>) -> InvokeFn<TCtx, TError>,
+        dyn FnOnce(MiddlewareHandler<TNextCtx, TNextInput, TNextResult>) -> InvokeFn<TCtx, TError>,
     >,
 }
-
-// impl<TError, TCtx, TNextCtx, TNextInput, TNextResult>
-//     Mw<TError, TCtx, TNextCtx, TNextInput, TNextResult>
-// where
-//     TError: std::error::Error,
-//     TNextCtx: 'static,
-//     TNextInput: 'static,
-//     TNextResult: 'static,
-// {
-//     // pub fn new(
-//     //     build: impl Fn(MiddlewareInner<TNextCtx, TNextInput, TNextResult>) -> InvokeFn<TCtx, TError>
-//     //         + 'static,
-//     // ) -> Self {
-//     //     Self {
-//     //         build: Box::new(build),
-//     //     }
-//     // }
-// }

@@ -1,21 +1,44 @@
-use std::marker::PhantomData;
+use std::{any::Any, fmt, marker::PhantomData, sync::Arc};
 
-use crate::procedure::ProcedureMeta;
+use crate::{middleware::middleware::MiddlewareHandler, procedure::ProcedureMeta};
 
-pub struct Next<TCtx, TInput, TReturn> {
-    pub(super) meta: ProcedureMeta,
-    pub(super) phantom: PhantomData<(TCtx, TInput, TReturn)>,
+pub(crate) struct NextInner {
+    // TODO: `pub(super)` over `pub(crate)`
+    pub(crate) meta: ProcedureMeta,
+    // TODO: This holds: MiddlewareHandler<TCtx, TInput, TReturn>
+    pub(crate) next: Arc<dyn Any + Send + Sync>,
 }
 
-// TODO: Debug impl
+pub struct Next<TCtx, TInput, TReturn> {
+    // TODO: `pub(super)` over `pub(crate)`
+    pub(crate) inner: NextInner,
+    pub(crate) phantom: PhantomData<(TCtx, TInput, TReturn)>,
+}
+
+impl<TCtx, TInput, TReturn> fmt::Debug for Next<TCtx, TInput, TReturn> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Next").finish()
+    }
+}
 
 // TODO: Constrain these generics to the required stuff
-impl<TCtx, TInput, TReturn> Next<TCtx, TInput, TReturn> {
+impl<TCtx, TInput, TReturn> Next<TCtx, TInput, TReturn>
+where
+    TCtx: 'static,
+    TInput: 'static,
+    TReturn: 'static,
+{
     pub fn meta(&self) -> ProcedureMeta {
-        self.meta.clone()
+        self.inner.meta.clone()
     }
 
     pub async fn exec(self, ctx: TCtx, input: TInput) -> TReturn {
-        todo!()
+        let handler = self
+            .inner
+            .next
+            .downcast_ref::<MiddlewareHandler<TCtx, TInput, TReturn>>()
+            .expect("bruh");
+
+        handler(ctx, input, ProcedureMeta {}).await
     }
 }

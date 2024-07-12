@@ -1,6 +1,6 @@
 //! TODO: Remove this file
 
-use std::{borrow::Cow, fmt, marker::PhantomData};
+use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
 use futures::{stream::once, StreamExt};
 use rspc::{middleware::*, procedure::*, Infallible};
@@ -272,37 +272,36 @@ use rspc::{middleware::*, procedure::*, Infallible};
 //     })
 // }
 
-fn logging<TError, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TError, TThisCtx, TThisInput, u64, TThisCtx, TThisInput, TThisResult>
-where
-    TThisCtx: Send + 'static,
-    TThisInput: fmt::Debug + Send + 'static,
-    TThisResult: fmt::Debug + Send + 'static,
-{
-    Middleware::new(|ctx, input, next| async move {
-        println!("TODO: Inside Future {input:?}"); // TODO: Remove
-
-        return 42;
-
-        // let input_str = format!("{input:?}");
-        // let start = std::time::Instant::now();
-        // let result = next.exec(ctx, input).await;
-        // println!(
-        //     "{} {} took {:?} with input {input_str:?} and returned {result:?}",
-        //     "QUERY",     // TODO: Make `next.meta()` work
-        //     "todo.todo", // TODO: Make `next.meta()` work
-        //     start.elapsed()
-        // );
-        // result
-    })
-}
-
 // fn procedure() -> ProcedureBuilder<...> {
 //     Procedure::builder().with(logging())
 // }
 // TODO
 // TODO: Can we make `procedure.query` work with some trait stuff? Probs not but worth a try.
 // let todo = procedure().query(|_ctx, _input: bool| async move { 42i32 });
+
+fn logging<TError, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TError, TThisCtx, TThisInput, u64, TThisCtx, TThisInput, TThisResult>
+where
+    TError: error::Error + 'static,
+    TThisCtx: Send + 'static,
+    TThisInput: fmt::Debug + Send + 'static,
+    TThisResult: fmt::Debug + Send + 'static,
+{
+    Middleware::new(|ctx, input, next| async move {
+        let input_str = format!("{input:?}");
+        let start = std::time::Instant::now();
+        let result = next.exec(ctx, input).await;
+        println!(
+            "{} {} took {:?} with input {input_str:?} and returned {result:?}",
+            "QUERY",     // TODO: Make `next.meta()` work
+            "todo.todo", // TODO: Make `next.meta()` work
+            start.elapsed()
+        );
+
+        // result
+        return 42;
+    })
+}
 
 #[tokio::main]
 async fn main() {

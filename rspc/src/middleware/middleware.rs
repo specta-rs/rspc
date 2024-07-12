@@ -19,26 +19,28 @@
 //!
 //! TODO: Why we can't use `const`'s for declaring middleware -> Boxing
 
-use std::{marker::PhantomData, pin::Pin};
+use std::{any::Any, error, marker::PhantomData, pin::Pin, sync::Arc};
 
 use futures::Future;
 
 use crate::{procedure::ProcedureMeta, State};
 
-use super::Next;
+use super::{next::NextInner, Next};
+
+pub(crate) type MiddlewareHandler<TNextCtx, TNextInput, TNextResult> = Box<
+    dyn Fn(
+            TNextCtx,
+            TNextInput,
+            ProcedureMeta,
+        ) -> Pin<Box<dyn Future<Output = TNextResult> + Send + 'static>>
+        + Send
+        + Sync
+        + 'static,
+>;
 
 pub(crate) struct MiddlewareInner<TNextCtx, TNextInput, TNextResult> {
     pub(crate) setup: Option<Box<dyn FnOnce(&mut State, ProcedureMeta) + 'static>>,
-    pub(crate) handler: Box<
-        dyn Fn(
-                TNextCtx,
-                TNextInput,
-                ProcedureMeta,
-            ) -> Pin<Box<dyn Future<Output = TNextResult> + Send + 'static>>
-            + Send
-            + Sync
-            + 'static,
-    >,
+    pub(crate) handler: MiddlewareHandler<TNextCtx, TNextInput, TNextResult>,
 }
 
 /// An abstraction for common logic that can be applied to procedures.
@@ -71,7 +73,7 @@ pub(crate) struct MiddlewareInner<TNextCtx, TNextInput, TNextResult> {
 ///
 // TODO: Explain why they are required -> inference not supported across boundaries.
 pub struct Middleware<
-    TError,
+    TError: error::Error,
     TThisCtx,
     TThisInput,
     TThisResult,
@@ -79,7 +81,12 @@ pub struct Middleware<
     TNextInput = TThisInput,
     TNextResult = TThisResult,
 > {
-    pub(crate) inner: MiddlewareInner<TThisCtx, TThisInput, TThisResult>,
+    // TODO: Move the builder `Fn` down onto `handler` without breaking everything!
+    pub(crate) inner: Box<
+        dyn FnOnce(
+            Arc<(dyn Any + Send + Sync + 'static)>,
+        ) -> MiddlewareInner<TThisCtx, TThisInput, TThisResult>,
+    >,
     phantom: PhantomData<(TError, TNextCtx, TNextInput, TNextResult)>,
 }
 
@@ -87,6 +94,8 @@ pub struct Middleware<
 
 impl<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
     Middleware<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
+where
+    TError: error::Error,
 {
     // TODO: Allow returning results with `TErr`
     pub fn new<F: Future<Output = TThisResult> + Send + 'static>(
@@ -96,27 +105,31 @@ impl<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResul
             + 'static,
     ) -> Self {
         Self {
-            inner: MiddlewareInner {
+            inner: Box::new(move |next| MiddlewareInner {
                 setup: None,
                 handler: Box::new(move |ctx, input, meta| {
                     let f = func(
                         ctx,
                         input,
                         Next {
-                            meta,
+                            inner: NextInner {
+                                meta,
+                                next: next.clone(),
+                            },
                             phantom: PhantomData,
                         },
                     );
 
                     Box::pin(f)
                 }),
-            },
+            }),
             phantom: PhantomData,
         }
     }
 
     pub fn setup(mut self, func: impl FnOnce(&mut State, ProcedureMeta) + 'static) -> Self {
-        self.inner.setup = Some(Box::new(func));
+        // self.inner.setup = Some(Box::new(func));
+        todo!();
         self
     }
 }

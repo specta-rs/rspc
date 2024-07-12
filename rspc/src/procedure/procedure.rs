@@ -1,9 +1,7 @@
-use std::{borrow::Cow, error, fmt, marker::PhantomData};
+use std::{borrow::Cow, error, fmt, marker::PhantomData, sync::Arc};
 
 use futures::FutureExt;
 use specta::{DataType, TypeDefs};
-
-use crate::middleware::MiddlewareInner;
 
 use super::{
     exec_input::{AnyInput, InputValueInner},
@@ -12,6 +10,14 @@ use super::{
     InternalError, ProcedureBuilder, ProcedureExecInput, ProcedureInput, ProcedureMeta,
     ResolverInput, ResolverOutput,
 };
+
+pub(super) type InvokeFn<TCtx, TErr> = Box<
+    dyn Fn(
+        TCtx,
+        &mut dyn InputValueInner,
+        ProcedureMeta,
+    ) -> Result<ProcedureStream<TErr>, InternalError>,
+>;
 
 /// Represents a single operations on the server that can be executed.
 ///
@@ -25,8 +31,7 @@ where
     pub(super) ty: ProcedureType,
     pub(super) input: fn(&mut TypeDefs) -> DataType,
     pub(super) result: fn(&mut TypeDefs) -> DataType,
-    pub(super) handler:
-        Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream<TErr>, InternalError>>,
+    pub(super) handler: InvokeFn<TCtx, TErr>,
 }
 
 impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
@@ -49,20 +54,18 @@ where
     {
         ProcedureBuilder {
             mw: Mw {
-                build: Box::new(|MiddlewareInner { setup, handler }| {
-                    if let Some(setup) = setup {
-                        setup(todo!(), ProcedureMeta {});
-                    }
-                    drop(setup);
+                build: Box::new(|handler| {
+                    // if let Some(setup) = setup {
+                    //     setup(todo!(), ProcedureMeta {});
+                    // }
+                    // drop(setup);
 
-                    Box::new(move |ctx, input| {
-                        let fut = handler(
-                            ctx,
-                            I::from_value(ProcedureExecInput::new(input))?,
-                            ProcedureMeta {},
-                        );
+                    // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
+                    let handler = Arc::new(handler);
 
-                        // TODO: Invoking in `next` from within `fut`
+                    Box::new(move |ctx, input, meta| {
+                        let fut =
+                            handler(ctx, I::from_value(ProcedureExecInput::new(input))?, meta);
 
                         Ok(R::into_procedure_stream(fut.into_stream()))
                     })
@@ -117,12 +120,13 @@ where
         ctx: TCtx,
         input: T,
     ) -> Result<ProcedureStream<TErr>, InternalError> {
+        let meta = ProcedureMeta {};
         match input.into_deserializer() {
             Ok(deserializer) => {
                 let mut input = <dyn erased_serde::Deserializer>::erase(deserializer);
-                (self.handler)(ctx, &mut input)
+                (self.handler)(ctx, &mut input, meta)
             }
-            Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value()))),
+            Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value())), meta),
         }
     }
 }
