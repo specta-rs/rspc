@@ -72,7 +72,7 @@ importers:
       '@rspc/react-query':
         specifier: workspace:*
         version: link:../../packages/react-query
-      '@rspc/solid':
+      '@rspc/solid-query':
         specifier: workspace:*
         version: link:../../packages/solid-query
       '@tanstack/react-query':

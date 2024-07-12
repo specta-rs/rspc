@@ -51,7 +51,7 @@ export function createSvelteQueryHooks<
 		keyAndInput: tanstack.StoreOrVal<
 			queryCore.KeyAndInputSkipToken<TProcedures, K>
 		>,
-		opts: tanstack.StoreOrVal<
+		opts?: tanstack.StoreOrVal<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.UndefinedInitialDataOptions<
@@ -72,7 +72,7 @@ export function createSvelteQueryHooks<
 		keyAndInput: tanstack.StoreOrVal<
 			queryCore.KeyAndInputSkipToken<TProcedures, K>
 		>,
-		opts: tanstack.StoreOrVal<
+		opts?: tanstack.StoreOrVal<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.DefinedInitialDataOptions<
@@ -93,7 +93,7 @@ export function createSvelteQueryHooks<
 		keyAndInput: tanstack.StoreOrVal<
 			queryCore.KeyAndInputSkipToken<TProcedures, K>
 		>,
-		opts: tanstack.StoreOrVal<
+		opts?: tanstack.StoreOrVal<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.CreateQueryOptions<
@@ -110,7 +110,7 @@ export function createSvelteQueryHooks<
 	> {
 		return tanstack.createQuery(
 			derived(
-				[enforceSvelteStore(keyAndInput), enforceSvelteStore(opts)],
+				[enforceSvelteStore(keyAndInput), enforceSvelteStore(opts ?? {})],
 				([$keyAndInput, $opts]) =>
 					helpers.useQueryArgs($keyAndInput, $opts) as any,
 			),
@@ -122,7 +122,7 @@ export function createSvelteQueryHooks<
 		TContext = unknown,
 	>(
 		key: K,
-		opts: tanstack.StoreOrVal<
+		opts?: tanstack.StoreOrVal<
 			queryCore.WrapMutationOptions<
 				TProcedures,
 				tanstack.CreateMutationOptions<
@@ -137,7 +137,7 @@ export function createSvelteQueryHooks<
 		>,
 	) {
 		return tanstack.createMutation(
-			derived([enforceSvelteStore(opts)], ([$opts]) =>
+			derived([enforceSvelteStore(opts ?? {})], ([$opts]) =>
 				helpers.useMutationArgs(key, $opts),
 			),
 		);

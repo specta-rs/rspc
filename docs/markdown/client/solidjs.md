@@ -3,13 +3,13 @@ title: SolidJS
 index: 32
 ---
 
-rspc can be used on the frontend with [SolidJS](https://www.solidjs.com/) via [Tanstack Solid Query](https://tanstack.com/query/v4/docs/adapters/solid-query) which provides caching, refetching and a lot more. 
+rspc can be used on the frontend with [SolidJS](https://www.solidjs.com/) via [Tanstack Solid Query](https://tanstack.com/query/v4/docs/adapters/solid-query) which provides caching, refetching and a lot more.
 
 To get started first install the required packages.
 
 ```bash
 npm i @rspc/client # The core client
-pnpm i @rspc/solid # The SolidJS integration
+pnpm i @rspc/solid-query # The SolidJS integration
 ```
 
 Then you can do the following:
@@ -17,7 +17,7 @@ Then you can do the following:
 ```ts
 import { QueryClient } from '@tanstack/solid-query';
 import { FetchTransport, createClient } from '@rspc/client';
-import { createSolidQueryHooks } from '@rspc/solid';
+import { createSolidQueryHooks } from '@rspc/solid-query';
 
 import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 
@@ -49,4 +49,4 @@ function App() {
         </rspc.Provider>
     )
 }
-````
+```

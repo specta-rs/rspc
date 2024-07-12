@@ -36,7 +36,7 @@ export function createSolidQueryHooks<
 		K extends rspc.inferQueries<TProcedures>["key"] & string,
 	>(
 		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts: solid.Accessor<
+		opts?: solid.Accessor<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.SolidQueryOptions<
@@ -57,7 +57,7 @@ export function createSolidQueryHooks<
 		K extends rspc.inferQueries<TProcedures>["key"] & string,
 	>(
 		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts: solid.Accessor<
+		opts?: solid.Accessor<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.SolidQueryOptions<
@@ -80,7 +80,7 @@ export function createSolidQueryHooks<
 		K extends rspc.inferQueries<TProcedures>["key"] & string,
 	>(
 		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts: solid.Accessor<
+		opts?: solid.Accessor<
 			queryCore.WrapQueryOptions<
 				TProcedures,
 				tanstack.CreateQueryOptions<
@@ -96,7 +96,7 @@ export function createSolidQueryHooks<
 		rspc.RSPCError
 	> {
 		return tanstack.createQuery(
-			() => helpers.useQueryArgs(keyAndInput(), opts()) as any,
+			() => helpers.useQueryArgs(keyAndInput(), opts?.()) as any,
 		);
 	}
 

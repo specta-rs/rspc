@@ -1,6 +1,6 @@
 /** @jsxImportSource solid-js */
 import { RSPCError, Client, createClient, NoOpTransport } from "@rspc/client";
-import { createSolidQueryHooks } from "@rspc/solid";
+import { createSolidQueryHooks } from "@rspc/solid-query";
 import { QueryClient } from "@tanstack/solid-query";
 import { Procedures } from "./bindings";
 
@@ -13,26 +13,26 @@ assert<Client<Procedures>>(rspc.useContext().client);
 
 // createQuery
 const { data, error } = rspc.createQuery(() => ["noArgQuery"], {
-  onSuccess(data) {
-    assert<string>(data);
-  },
-  onError(err) {
-    assert<RSPCError>(err);
-  },
+	onSuccess(data) {
+		assert<string>(data);
+	},
+	onError(err) {
+		assert<RSPCError>(err);
+	},
 });
 assert<string | undefined>(data);
 assert<RSPCError | null>(error);
 
 const { data: data2, error: error2 } = rspc.createQuery(
-  () => ["singleArgQuery", 42],
-  {
-    onSuccess(data) {
-      assert<number>(data);
-    },
-    onError(err) {
-      assert<RSPCError>(err);
-    },
-  }
+	() => ["singleArgQuery", 42],
+	{
+		onSuccess(data) {
+			assert<number>(data);
+		},
+		onError(err) {
+			assert<RSPCError>(err);
+		},
+	},
 );
 assert<number | undefined>(data2);
 assert<RSPCError | null>(error2);
@@ -44,32 +44,32 @@ assert<RSPCError | null>(error2);
 
 // createMutation
 const {
-  mutate,
-  error: error3,
-  data: data3,
+	mutate,
+	error: error3,
+	data: data3,
 } = rspc.createMutation("noArgMutation", {
-  onSuccess(data) {
-    assert<string>(data);
-  },
-  onError(err) {
-    assert<RSPCError>(err);
-  },
+	onSuccess(data) {
+		assert<string>(data);
+	},
+	onError(err) {
+		assert<RSPCError>(err);
+	},
 });
 mutate(undefined);
 assert<RSPCError | null>(error3);
 assert<string | undefined>(data3);
 
 const {
-  mutate: mutate2,
-  error: error4,
-  data: data4,
+	mutate: mutate2,
+	error: error4,
+	data: data4,
 } = rspc.createMutation("singleArgMutation", {
-  onSuccess(data) {
-    assert<number>(data);
-  },
-  onError(err) {
-    assert<RSPCError>(err);
-  },
+	onSuccess(data) {
+		assert<number>(data);
+	},
+	onError(err) {
+		assert<RSPCError>(err);
+	},
 });
 mutate2(42);
 assert<RSPCError | null>(error4);
@@ -101,23 +101,23 @@ assert<number | undefined>(data4);
 // Provider
 const queryClient = new QueryClient();
 const client = createClient<Procedures>({
-  transport: new NoOpTransport(),
+	transport: new NoOpTransport(),
 });
 
 function NoChildrenWithProvider() {
-  return (
-    <div>
-      <rspc.Provider client={client} queryClient={queryClient} />
-    </div>
-  );
+	return (
+		<div>
+			<rspc.Provider client={client} queryClient={queryClient} />
+		</div>
+	);
 }
 
 function ChildrenWithProvider() {
-  return (
-    <div>
-      <rspc.Provider client={client} queryClient={queryClient}>
-        <h1>My App</h1>
-      </rspc.Provider>
-    </div>
-  );
+	return (
+		<div>
+			<rspc.Provider client={client} queryClient={queryClient}>
+				<h1>My App</h1>
+			</rspc.Provider>
+		</div>
+	);
 }

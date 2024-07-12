@@ -17,7 +17,7 @@ Then you can do the following:
 ```ts
 import { QueryClient } from '@tanstack/react-query';
 import { FetchTransport, createClient } from '@rspc/client';
-import { createReactQueryHooks } from '@rspc/react';
+import { createReactQueryHooks } from '@rspc/react-query';
 
 import type { Procedures } from "./ts/index"; // These were the bindings exported from your Rust code!
 
@@ -49,4 +49,4 @@ function App() {
         </rspc.Provider>
     )
 }
-````
+```

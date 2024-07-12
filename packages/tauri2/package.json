@@ -22,7 +22,7 @@
 	"scripts": {
 		"dev": "tsup --watch",
 		"build": "tsup",
-		"prepare": "tsu"
+		"prepare": "tsup"
 	},
 	"tsup": {
 		"entry": [
