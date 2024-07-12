@@ -5,6 +5,7 @@
 //!    - We need a way to express `where F: Fn(..., I<'_>), I<'a>: Input<'a>` which to my best knowledge is impossible.
 //!
 //! ## More work needed:
+//!  - Make `Middleware::setup` work.
 //!  - The order of `.error` in the procedure chain and it's affects on middleware
 //!     - Can we allow changing it between middleware if an `Into` impl exists?
 //!  - Error handling with middleware
@@ -12,7 +13,8 @@
 //!  - Can `R` be replaced with something like middleware chains???
 //!     - For something like logging it would be nice to apply it to the router (I don't like this) or have a base procedure concept like tRPC.
 //!     - We could approach this from `Middleware::with` & `Middleware::error` or `ProcedureBuilder::merge`. I suspect the latter is the better approach tbh.
-//!  - Specta more safely
+//! - Should `Middleware::setup` return a `Result`? Probs aye?
+//! - Specta more safely
 //!     - [`ResolverOutput`] & [`ResolverInput`] should probs ensure the value returned and the Specta type match
 //!     - That being said for `dyn Any` that could prove annoying so maybe a `Untyped<T>` escape hatch???
 //!  - new middleware system
@@ -36,6 +38,8 @@
 //!  - Can we drop second generic for middleware and constrain the associated type instead???
 //!     - I don't know if this is a good idea or not but worth considering.
 //!  - Can we abstract a middleware chain. All `register`, `with` and `error` methods abstracted out into a dedicated function.
+//!  - Support for Cloudflare Workers/single-threaded async runtimes. I recall this being problematic with `Send + Sync`.
+//!  - Review all generics on middleware and procedure types to ensure consistent ordering.
 //!  - Documentation for everything
 //!  - Yank all v1 releases once 0.3.0 is out
 //!

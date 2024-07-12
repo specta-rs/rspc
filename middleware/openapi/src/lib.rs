@@ -9,6 +9,7 @@ pub struct OpenAPIState(HashMap<Cow<'static, str>, ()>);
 
 // TODO: Configure other OpenAPI stuff like auth
 
+// TODO: Make convert this into a builder like: Endpoint::get("/todo").some_other_stuff().build()
 pub fn openapi<TError, TThisCtx, TThisInput, TThisResult>(
     // method: Method,
     path: impl Into<Cow<'static, str>>,

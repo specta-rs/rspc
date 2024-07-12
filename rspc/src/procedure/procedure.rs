@@ -2,8 +2,6 @@ use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
 use specta::{DataType, TypeDefs};
 
-use crate::middleware::Next;
-
 use super::{
     exec_input::{AnyInput, InputValueInner},
     stream::ProcedureStream,
@@ -14,7 +12,11 @@ use super::{
 ///
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
-pub struct Procedure<TCtx = (), TErr: error::Error = crate::Infallible> {
+pub struct Procedure<TCtx = (), TErr = crate::Infallible>
+where
+    TCtx: 'static,
+    TErr: error::Error,
+{
     pub(super) ty: ProcedureType,
     pub(super) input: fn(&mut TypeDefs) -> DataType,
     pub(super) result: fn(&mut TypeDefs) -> DataType,
@@ -28,9 +30,13 @@ impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
     }
 }
 
-impl<TCtx, TErr: error::Error> Procedure<TCtx, TErr> {
+impl<TCtx, TErr> Procedure<TCtx, TErr>
+where
+    TCtx: 'static,
+    TErr: error::Error,
+{
     /// Construct a new procedure using [`ProcedureBuilder`].
-    pub fn builder<R, I>() -> ProcedureBuilder<TCtx, TErr, TCtx, R, I> {
+    pub fn builder<I, R>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R> {
         ProcedureBuilder {
             mw: None,
             input: None,

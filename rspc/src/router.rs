@@ -2,9 +2,12 @@ use std::{borrow::Cow, collections::HashMap, error, fmt};
 
 use crate::{procedure::Procedure, State};
 
-pub struct Router<TCtx = (), TErr: error::Error = crate::Infallible>(
+pub struct Router<TCtx = (), TErr = crate::Infallible>(
     HashMap<Cow<'static, str>, Procedure<TCtx, TErr>>,
-);
+)
+where
+    TCtx: 'static,
+    TErr: error::Error;
 
 impl<TCtx, TErr: error::Error> fmt::Debug for Router<TCtx, TErr> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -12,13 +15,21 @@ impl<TCtx, TErr: error::Error> fmt::Debug for Router<TCtx, TErr> {
     }
 }
 
-impl<TCtx, TErr: error::Error> Default for Router<TCtx, TErr> {
+impl<TCtx, TErr> Default for Router<TCtx, TErr>
+where
+    TCtx: 'static,
+    TErr: error::Error,
+{
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<TCtx, TErr: error::Error> Router<TCtx, TErr> {
+impl<TCtx, TErr> Router<TCtx, TErr>
+where
+    TCtx: 'static,
+    TErr: error::Error,
+{
     pub fn procedure(
         mut self,
         name: impl Into<Cow<'static, str>>,

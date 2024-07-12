@@ -19,7 +19,7 @@
 //!
 //! TODO: Why we can't use `const`'s for declaring middleware -> Boxing
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, pin::Pin};
 
 use futures::Future;
 
@@ -27,7 +27,19 @@ use crate::{procedure::ProcedureMeta, State};
 
 use super::Next;
 
-pub(crate) type MiddlewareFn<TNextCtx> = Box<dyn Fn(TNextCtx)>;
+pub(crate) struct MiddlewareInner<TNextCtx, TNextInput, TNextResult> {
+    pub(crate) setup: Option<Box<dyn FnOnce(&mut State, ProcedureMeta) + 'static>>,
+    pub(crate) handler: Box<
+        dyn Fn(
+                TNextCtx,
+                TNextInput,
+                ProcedureMeta,
+            ) -> Pin<Box<dyn Future<Output = TNextResult> + Send + 'static>>
+            + Send
+            + Sync
+            + 'static,
+    >,
+}
 
 /// An abstraction for common logic that can be applied to procedures.
 ///
@@ -63,32 +75,48 @@ pub struct Middleware<
     TNextInput = TThisInput,
     TNextResult = TThisResult,
 > {
-    handler: Box<dyn Fn(TNextCtx)>,
-    phantom: PhantomData<(
-        TError,
-        TThisCtx,
-        TThisInput,
-        TThisResult,
-        TNextCtx,
-        TNextInput,
-        TNextResult,
-    )>,
+    pub(crate) inner: MiddlewareInner<TThisCtx, TThisInput, TThisResult>,
+    phantom: PhantomData<(TError, TNextCtx, TNextInput, TNextResult)>,
 }
+
+// TODO: Debug impl
 
 impl<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
     Middleware<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
 {
     // TODO: Allow returning results with `TErr`
-    pub fn new<F: Future<Output = TThisResult>>(
-        func: impl FnOnce(TThisCtx, TThisInput, Next<TNextCtx, TNextInput, TNextResult>) -> F,
+    pub fn new<F: Future<Output = TThisResult> + Send + 'static>(
+        func: impl Fn(TThisCtx, TThisInput, Next<TNextCtx, TNextInput, TNextResult>) -> F
+            + Send
+            + Sync
+            + 'static,
     ) -> Self {
         Self {
-            handler: todo!(),
+            inner: MiddlewareInner {
+                setup: None,
+                handler: Box::new(move |ctx, input, meta| {
+                    let f = func(
+                        ctx,
+                        input,
+                        Next {
+                            meta,
+                            phantom: PhantomData,
+                        },
+                    );
+
+                    Box::pin(async move {
+                        let f = f.await;
+
+                        todo!();
+                    })
+                }),
+            },
             phantom: PhantomData,
         }
     }
 
-    pub fn setup(self, func: impl FnOnce(&mut State, ProcedureMeta) -> ()) -> Self {
-        todo!();
+    pub fn setup(mut self, func: impl FnOnce(&mut State, ProcedureMeta) + 'static) -> Self {
+        self.inner.setup = Some(Box::new(func));
+        self
     }
 }

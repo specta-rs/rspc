@@ -1,6 +1,6 @@
 //! TODO: Remove this file
 
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, fmt, marker::PhantomData};
 
 use futures::{stream::once, StreamExt};
 use rspc::{middleware::*, procedure::*, Infallible};
@@ -272,13 +272,28 @@ use rspc::{middleware::*, procedure::*, Infallible};
 //     })
 // }
 
-fn logging<TError, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TError, TThisCtx, TThisInput, TThisResult> {
+fn logging<TError, TThisCtx, TThisInput, TThisResult>(// TODO: i32
+) -> Middleware<TError, TThisCtx, TThisInput, i32, TThisCtx, TThisInput, TThisResult>
+where
+    TThisCtx: Send + 'static,
+    TThisInput: fmt::Debug + Send + 'static,
+    TThisResult: fmt::Debug + Send + 'static,
+{
     Middleware::new(|ctx, input, next| async move {
-        let start = std::time::Instant::now();
-        let _result = next.exec(ctx, input).await;
-        println!("{} {} in {:?}", "QUERY", "todo.todo", start.elapsed()); // TODO: Make `next.meta()` work
-        _result
+        println!("TODO: Inside Future {input:?}"); // TODO: Remove
+
+        return 42;
+
+        // let input_str = format!("{input:?}");
+        // let start = std::time::Instant::now();
+        // let result = next.exec(ctx, input).await;
+        // println!(
+        //     "{} {} took {:?} with input {input_str:?} and returned {result:?}",
+        //     "QUERY",     // TODO: Make `next.meta()` work
+        //     "todo.todo", // TODO: Make `next.meta()` work
+        //     start.elapsed()
+        // );
+        // result
     })
 }
 
@@ -293,7 +308,7 @@ fn logging<TError, TThisCtx, TThisInput, TThisResult>(
 async fn main() {
     let procedure = <Procedure>::builder()
         .with(logging())
-        .query(|_ctx, _input: bool| async move { 42i32 });
+        .query(|_ctx, _input: ()| async move { 42i32 });
 
     let result = procedure
         .exec((), serde_json::Value::Null)
