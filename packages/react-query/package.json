@@ -1,5 +1,5 @@
 {
-	"name": "@rspc/query-core",
+	"name": "@rspc/react-query",
 	"version": "0.2.1",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
@@ -16,36 +16,35 @@
 		}
 	},
 	"types": "dist/index.d.ts",
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"dev": "tsup --watch",
 		"build": "tsup",
 		"prepare": "tsup"
 	},
-	"devDependencies": {
-		"@tanstack/query-core": "^5.50.1",
-		"tsup": "^8.1.0",
-		"typescript": "^5.5.3"
-	},
-	"peerDependencies": {
-		"@rspc/client": "workspace:*",
-		"@tanstack/query-core": "^5.0.0"
-	},
 	"tsup": {
-		"entry": [
-			"src/index.ts"
-		],
-		"format": [
-			"esm",
-			"cjs"
-		],
+		"entry": ["src/index.tsx"],
+		"format": ["esm", "cjs"],
 		"dts": {
 			"resolve": true
 		},
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true
+	},
+	"dependencies": {
+		"@rspc/client": "workspace:*",
+		"@rspc/query-core": "workspace:*"
+	},
+	"devDependencies": {
+		"@tanstack/react-query": "^5.50.1",
+		"@types/react": "^18.3.3",
+		"react": "^18.3.1",
+		"tsup": "^8.1.0",
+		"typescript": "^5.5.3"
+	},
+	"peerDependencies": {
+		"@tanstack/react-query": "^5.0.0",
+		"react": "^18.0.0"
 	}
 }
