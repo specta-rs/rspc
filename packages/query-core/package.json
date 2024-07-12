@@ -24,14 +24,15 @@
 		"build": "tsup",
 		"prepare": "tsup"
 	},
+	"dependencies": {
+		"@tanstack/query-core": "^5.0.0"
+	},
 	"devDependencies": {
-		"@tanstack/query-core": "^5.51.1",
 		"tsup": "^8.1.0",
 		"typescript": "^5.5.3"
 	},
 	"peerDependencies": {
-		"@rspc/client": "workspace:*",
-		"@tanstack/query-core": "^5.0.0"
+		"@rspc/client": "workspace:*"
 	},
 	"tsup": {
 		"entry": [

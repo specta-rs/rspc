@@ -1,15 +1,20 @@
 {
 	"compilerOptions": {
-		"baseUrl": "./packages",
+		"moduleResolution": "node",
+		"lib": ["ESNext", "DOM"],
 		"strict": true,
 		"target": "ESNext",
-		"noEmit": true,
 		"skipLibCheck": true,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"declarationMap": true,
 		"paths": {
 			"@rspc/client": ["../client/src"],
-			"@rspc/react-query": ["../react/src"],
-			"@rspc/tauri": ["../tauri/src"],
-			"@rspc/query-core": ["../query-core/src"]
+			"@rspc/query-core": ["../query-core/src"],
+			"@rspc/react-query": ["../react-query/src"],
+			"@rspc/solid-query": ["../react-query/src"],
+			"@rspc/svelte-query": ["../react-query/src"],
+			"@rspc/tauri": ["../tauri/src"]
 		}
 	}
 }

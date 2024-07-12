@@ -152,10 +152,10 @@ importers:
       '@rspc/client':
         specifier: workspace:*
         version: link:../client
-    devDependencies:
       '@tanstack/query-core':
-        specifier: ^5.51.1
+        specifier: ^5.0.0
         version: 5.51.1
+    devDependencies:
       tsup:
         specifier: ^8.1.0
         version: 8.1.0(postcss@8.4.39)(typescript@5.5.3)
