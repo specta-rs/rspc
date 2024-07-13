@@ -1,9 +1,11 @@
 {
-  "extends": "../../packages/tsconfig.json",
-  "compilerOptions": {
-    "esModuleInterop": true,
-    "jsx": "preserve",
-    "lib": ["ES2017", "DOM"]
-  },
-  "include": ["src"]
+	"extends": "../../packages/tsconfig.json",
+	"compilerOptions": {
+		"esModuleInterop": true,
+		"noEmit": true,
+		"emitDeclarationOnly": false,
+		"jsx": "preserve",
+		"lib": ["ES2017", "DOM"]
+	},
+	"include": ["src"]
 }

@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"esModuleInterop": true,
+		"moduleResolution": "Bundler",
+		"lib": ["esnext", "dom"],
+		"strict": true,
+		"target": "ESNext",
+		"skipLibCheck": true,
+		"emitDeclarationOnly": true,
+		"declarationMap": true
+	}
+}

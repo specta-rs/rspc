@@ -1,24 +1,24 @@
 import {
-  inferProcedures,
-  inferMutationInput,
-  inferMutationResult,
-  inferQueryInput,
-  inferQueryResult,
-  inferSubscriptionInput,
-  inferSubscriptionResult,
-  NoOpTransport,
-  createClient,
-  inferInfiniteQueries,
-  inferInfiniteQueryResult,
-  inferInfiniteQueryInput,
+	inferProcedures,
+	inferMutationInput,
+	inferMutationResult,
+	inferQueryInput,
+	inferQueryResult,
+	inferSubscriptionInput,
+	inferSubscriptionResult,
+	NoOpTransport,
+	createClient,
+	inferInfiniteQueries,
+	inferInfiniteQueryResult,
+	inferInfiniteQueryInput,
 } from "@rspc/client";
-import { createReactQueryHooks } from "@rspc/react";
+import { createReactQueryHooks } from "@rspc/react-query";
 import { MyPaginatedData, Procedures } from "./bindings";
 
 export const rspc = createReactQueryHooks<Procedures>();
 
 const client = createClient<Procedures>({
-  transport: new NoOpTransport(),
+	transport: new NoOpTransport(),
 });
 
 function assert<T>(t: T) {}
@@ -64,9 +64,9 @@ assert<D4>(undefined as unknown as boolean);
 // inferInfiniteQuery
 type A5 = inferInfiniteQueries<Procedures>["key"];
 assert<A5>(
-  undefined as unknown as
-    | "paginatedQueryOnlyCursor"
-    | "paginatedQueryCursorAndArg"
+	undefined as unknown as
+		| "paginatedQueryOnlyCursor"
+		| "paginatedQueryCursorAndArg",
 );
 type B5 = inferInfiniteQueryResult<Procedures, "paginatedQueryOnlyCursor">;
 assert<B5>(undefined as unknown as MyPaginatedData);

@@ -1,9 +1,7 @@
 {
 	"extends": "../tsconfig.json",
 	"compilerOptions": {
-		"esModuleInterop": true,
-		"moduleResolution": "node",
-		"lib": ["esnext", "dom"]
+		"outDir": "dist/types"
 	},
 	"include": ["src/**/*"],
 	"exclude": ["dist/**/*"]

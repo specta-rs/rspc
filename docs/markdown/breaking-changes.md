@@ -108,15 +108,15 @@ rspc.useSubscription(['my.subscription'], {
 
 ### Minor changes/new features
 
- - `ws`, `rpc.*` and `rspc.*` are now reserved names for procedures
- - `@rspc/solid` has been upgraded to the new `@tanstack/solid-query`.
- - `router.execute` now returns a `serde_json::Value` and does not support subscriptions. Use `router.execute_subscription` to execute a subscription.
- - The Axum body type is now `Vec<u8>` not `hyper::Body`. This may cause issues if your extractors aren't generic enough.
- - Support for up to 5 Axum extractors. This limit will increase to 16 in a future release.
- 
+- `ws`, `rpc.*` and `rspc.*` are now reserved names for procedures
+- `@rspc/solid` has been upgraded to the new `@tanstack/solid-query`.
+- `router.execute` now returns a `serde_json::Value` and does not support subscriptions. Use `router.execute_subscription` to execute a subscription.
+- The Axum body type is now `Vec<u8>` not `hyper::Body`. This may cause issues if your extractors aren't generic enough.
+- Support for up to 5 Axum extractors. This limit will increase to 16 in a future release.
+
 ### Warning on unstable API's
 
- - Support for Axum extractors will likely change or be removed in the future when support for other HTTP servers is added. It exists in this release for backwards compatibility.
+- Support for Axum extractors will likely change or be removed in the future when support for other HTTP servers is added. It exists in this release for backwards compatibility.
 
 # 0.0.5 to 0.0.6 - @rspc/client
 
@@ -132,15 +132,15 @@ npm install @rspc/tauri # If your using the Tauri transport
 Then change your imports as follows. From:
 
 ```ts
-import { createReactQueryHooks } from '@rspc/client';
-import { TauriTransport } from '@rspc/client';
+import { createReactQueryHooks } from "@rspc/client";
+import { TauriTransport } from "@rspc/client";
 ```
 
 To:
 
 ```ts
-import { createReactQueryHooks } from '@rspc/react';
-import { TauriTransport } from '@rspc/tauri';
+import { createReactQueryHooks } from "@rspc/react-query";
+import { TauriTransport } from "@rspc/tauri";
 ```
 
 There is no Rust release for these changes. I am going to look into following SemVer in a future release, this is just a quick patch as multiple people have reported this being an issue with [Next.js](https://nextjs.org) SSR.
