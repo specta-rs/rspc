@@ -12,15 +12,11 @@ const fetchClient = createClient<Procedures>({
 	transport: new FetchTransport("http://localhost:4000/rspc"),
 });
 
-const rspc = createSolidQueryHooks<Procedures>();
+export const rspc = createSolidQueryHooks<Procedures>();
 
 function Example() {
-	const echo = rspc.createQuery(() => ({
-		queryKey: ["echo", "somevalue"],
-	}));
-	const sendMsg = rspc.createMutation(() => ({
-		mutationKey: ["sendMsg"],
-	}));
+	const echo = rspc.createQuery(() => ["echo", "somevalue"]);
+	const sendMsg = rspc.createMutation(() => "sendMsg");
 
 	sendMsg.mutate("Sending");
 
