@@ -1,6 +1,5 @@
-use std::{error, fmt, future::Future, marker::PhantomData, sync::Arc};
+use std::{error, fmt, future::Future, marker::PhantomData};
 
-use futures::Stream;
 use specta::{DataType, TypeDefs};
 
 use crate::{middleware::Middleware, Infallible};
@@ -40,18 +39,20 @@ where
 }
 
 // TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
-impl<TCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TCtx, TCtx, TInput, TResult>
+impl<TCtx, TNextCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult>
 where
     TErr: error::Error + 'static,
     TCtx: 'static,
+    TNextCtx: 'static,
     TInput: 'static,
     TResult: 'static,
 {
-    pub fn with<TNextCtx, I, R>(
+    pub fn with<C, I, R>(
         self,
-        mw: Middleware<TErr, TCtx, TInput, TResult, TNextCtx, I, R>,
-    ) -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>
+        mw: Middleware<TErr, TNextCtx, TInput, TResult, C, I, R>,
+    ) -> ProcedureBuilder<TErr, TCtx, C, I, R>
     where
+        C: 'static,
         I: 'static,
         R: 'static,
     {
@@ -63,8 +64,6 @@ where
                     }
                     drop(mw.setup);
 
-                    // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
-                    let handler = Arc::new(handler);
                     (self.mw.build)((mw.inner)(handler))
                 }),
             },
@@ -75,7 +74,7 @@ where
 
     pub fn query<F, M>(
         self,
-        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+        handler: impl Fn(TNextCtx, TInput) -> F + Send + Sync + 'static,
     ) -> Procedure<TCtx, TErr>
     where
         F: Future<Output = TResult> + Send + 'static,
@@ -92,7 +91,7 @@ where
 
     pub fn mutation<F, M>(
         self,
-        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+        handler: impl Fn(TNextCtx, TInput) -> F + Send + Sync + 'static,
     ) -> Procedure<TCtx, TErr>
     where
         F: Future<Output = TResult> + Send + 'static,
@@ -107,32 +106,32 @@ where
         }
     }
 
-    pub fn subscription<F, S, M>(
-        self,
-        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TCtx, TErr>
-    where
-        F: Future<Output = S> + Send + 'static,
-        S: Stream<Item = TResult> + Send + 'static,
-        TInput: ResolverInput + 'static,
-        TResult: ResolverOutput<M, TErr>,
-    {
-        Procedure {
-            input: self.input.unwrap_or(TInput::data_type),
-            ty: ProcedureType::Subscription,
-            result: TResult::data_type,
-            // handler: Box::new(move |ctx, input| {
-            //     Ok(TResult::into_procedure_stream(
-            //         handler(ctx, TInput::from_value(ProcedureExecInput::new(input))?)
-            //             .into_stream()
-            //             .flatten(),
-            //     ))
-            // }),
-            // handler: (self.mw.build)(MiddlewareInner {
-            //     setup: None,
-            //     handler: Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
-            // }),
-            handler: todo!(),
-        }
-    }
+    // pub fn subscription<F, S, M>(
+    //     self,
+    //     handler: impl Fn(TNextCtx, TInput) -> F + Send + Sync + 'static,
+    // ) -> Procedure<TCtx, TErr>
+    // where
+    //     F: Future<Output = S> + Send + 'static,
+    //     S: Stream<Item = TResult> + Send + 'static,
+    //     TInput: ResolverInput + 'static,
+    //     TResult: ResolverOutput<M, TErr>,
+    // {
+    //     Procedure {
+    //         input: self.input.unwrap_or(TInput::data_type),
+    //         ty: ProcedureType::Subscription,
+    //         result: TResult::data_type,
+    //         // handler: Box::new(move |ctx, input| {
+    //         //     Ok(TResult::into_procedure_stream(
+    //         //         handler(ctx, TInput::from_value(ProcedureExecInput::new(input))?)
+    //         //             .into_stream()
+    //         //             .flatten(),
+    //         //     ))
+    //         // }),
+    //         // handler: (self.mw.build)(MiddlewareInner {
+    //         //     setup: None,
+    //         //     handler: Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
+    //         // }),
+    //         handler: todo!(),
+    //     }
+    // }
 }

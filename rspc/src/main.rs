@@ -4,6 +4,8 @@ use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
 use futures::{stream::once, StreamExt};
 use rspc::{middleware::*, procedure::*, Infallible};
+use serde::Deserialize;
+use specta::Type;
 
 // fn library_args<TCtx, T, NextR>(
 // ) -> impl Fn(TCtx, LibraryArgs<T>, Next<NextR, T, TCtx>) -> Future<Output = NextR> {
@@ -279,8 +281,50 @@ use rspc::{middleware::*, procedure::*, Infallible};
 // TODO: Can we make `procedure.query` work with some trait stuff? Probs not but worth a try.
 // let todo = procedure().query(|_ctx, _input: bool| async move { 42i32 });
 
+pub struct Node {}
+pub struct Library {}
+
+fn todo<TError, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TError, ((), TThisCtx), TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
+where
+    TError: error::Error + 'static,
+    TThisCtx: Send + 'static,
+    TThisInput: Send + 'static,
+    TThisResult: Send + 'static,
+{
+    Middleware::new(|ctx: (_, _), input, next| async move { next.exec(ctx.1, input).await })
+}
+#[derive(Deserialize, Type)]
+pub struct LibraryArgs<T> {
+    library: String,
+    args: T,
+}
+
+fn library_args<TError, TThisInput, TThisResult>() -> Middleware<
+    TError,
+    Node,
+    LibraryArgs<TThisInput>,
+    TThisResult,
+    (Node, Library),
+    TThisInput,
+    TThisResult,
+>
+where
+    TError: error::Error + 'static,
+    TThisInput: fmt::Debug + Send + 'static,
+    TThisResult: fmt::Debug + Send + 'static,
+{
+    Middleware::new(|ctx, input, next| async move {
+        let LibraryArgs { library, args } = input; // TODO
+
+        // TODO: Error handling if library can not be found
+
+        next.exec((ctx, Library {}), args).await
+    })
+}
+
 fn logging<TError, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TError, TThisCtx, TThisInput, u64, TThisCtx, TThisInput, TThisResult>
+) -> Middleware<TError, TThisCtx, TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
     TError: error::Error + 'static,
     TThisCtx: Send + 'static,
@@ -298,13 +342,27 @@ where
             start.elapsed()
         );
 
-        // result
-        return 42;
+        result
     })
 }
 
 #[tokio::main]
 async fn main() {
+    let procedure = Procedure::<Node>::builder()
+        .with(library_args())
+        .query(|(node, library), _input: u64| async move { true });
+    procedure.exec(Node {}, serde_json::Value::Null).unwrap();
+
+    // TODO: This is why we need a 3rd `TCtx`
+    // TODO: `TCtxOfFirstLayer`, `TContextOfLastLayer`, `TContextOfNextLayer`
+    let procedure = Procedure::<((), Node)>::builder()
+        .with(todo())
+        .with(library_args())
+        .query(|(node, library), _input: u64| async move { true });
+    procedure
+        .exec(((), Node {}), serde_json::Value::Null)
+        .unwrap();
+
     let procedure = <Procedure>::builder()
         .with(logging())
         .query(|_ctx, _input: u64| async move { true });
@@ -499,10 +557,10 @@ async fn main() {
     //     .query(|_, _: ()| 42i32);
 }
 
-pub struct LibraryArgs<T> {
-    library: String,
-    data: T,
-}
+// pub struct LibraryArgs<T> {
+//     library: String,
+//     data: T,
+// }
 // TODO: middleware helpers to make this easier
 // fn library_args<TCtx, T, NextR>(
 // ) -> impl Fn(TCtx, LibraryArgs<T>, Next<NextR, T, TCtx>) -> Future<Output = NextR> {
