@@ -12,7 +12,7 @@ use tokio::io::AsyncWrite;
 // TODO: Clone, Debug, etc
 pub struct File<T = Pin<Box<dyn AsyncWrite>>>(pub T);
 
-impl<T: AsyncWrite + 'static, TErr: std::error::Error> ResolverOutput<Self, TErr> for File<T> {
+impl<T: AsyncWrite + 'static, TErr> ResolverOutput<Self, TErr> for File<T> {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         DataType::Any // TODO
     }

@@ -68,7 +68,7 @@ pub(crate) type MiddlewareHandler<TNextCtx, TNextInput, TNextResult> = Box<
 ///
 // TODO: Explain why they are required -> inference not supported across boundaries.
 pub struct Middleware<
-    TError: error::Error,
+    TError,
     TThisCtx,
     TThisInput,
     TThisResult,
@@ -91,7 +91,6 @@ pub struct Middleware<
 impl<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
     Middleware<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
 where
-    TError: error::Error,
     TNextCtx: 'static,
     TNextInput: 'static,
     TNextResult: 'static,

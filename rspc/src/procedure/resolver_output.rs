@@ -30,7 +30,7 @@ use super::{ProcedureOutput, ProcedureStream};
 ///     <Procedure>::builder().query(|_, _: ()| async move { MyCoolThing("Hello, World!".to_string()) });
 /// }
 /// ```
-pub trait ResolverOutput<M, TErr: error::Error>: Sized {
+pub trait ResolverOutput<M, TErr>: Sized {
     /// Convert the procedure and any async part of the value into a [`ProcedureStream`].
     ///
     /// This primarily exists so the [`rspc::Stream`](crate::Stream) implementation can merge it's stream into the procedure stream.
@@ -49,7 +49,6 @@ pub trait ResolverOutput<M, TErr: error::Error>: Sized {
 impl<T, TErr> ResolverOutput<Self, TErr> for T
 where
     T: Serialize + Type + Send + 'static,
-    TErr: error::Error,
 {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         T::definition(DefOpts {
@@ -68,7 +67,6 @@ pub struct ResultMarker<M>(Infallible, PhantomData<M>);
 impl<T, M, TErr> ResolverOutput<ResultMarker<M>, TErr> for Result<T, TErr>
 where
     T: ResolverOutput<M, TErr>,
-    TErr: error::Error,
 {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         // TODO: Should we wrap into a `Result`
@@ -95,7 +93,6 @@ impl<S, M, TErr> ResolverOutput<StreamMarker<M>, TErr> for crate::Stream<S>
 where
     S: Stream + Send + 'static,
     S::Item: ResolverOutput<M, TErr>,
-    TErr: error::Error,
 {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         S::Item::data_type(type_map)

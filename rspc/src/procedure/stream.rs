@@ -9,15 +9,15 @@ use futures::Stream;
 
 use super::output::ProcedureOutput;
 
-enum Inner<TErr: error::Error> {
+enum Inner<TErr> {
     Value(Result<ProcedureOutput, TErr>),
     Future(Pin<Box<dyn Future<Output = Result<ProcedureOutput, TErr>> + Send>>),
     Stream(Pin<Box<dyn Stream<Item = Result<ProcedureOutput, TErr>> + Send>>),
 }
 
-pub struct ProcedureStream<TErr: error::Error>(Option<Inner<TErr>>);
+pub struct ProcedureStream<TErr>(Option<Inner<TErr>>);
 
-impl<TErr: error::Error> ProcedureStream<TErr> {
+impl<TErr> ProcedureStream<TErr> {
     pub fn from_value(value: Result<ProcedureOutput, TErr>) -> Self {
         Self(Some(Inner::Value(value)))
     }
@@ -37,7 +37,7 @@ impl<TErr: error::Error> ProcedureStream<TErr> {
     }
 }
 
-impl<TErr: error::Error + Unpin> Stream for ProcedureStream<TErr> {
+impl<TErr: Unpin> Stream for ProcedureStream<TErr> {
     type Item = Result<ProcedureOutput, TErr>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

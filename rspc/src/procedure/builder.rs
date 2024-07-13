@@ -7,13 +7,13 @@ use crate::{middleware::Middleware, Infallible};
 use super::{mw::Mw, Procedure, ProcedureMeta, ProcedureType, ResolverInput, ResolverOutput};
 
 // TODO: Document the generics like `Middleware`
-pub struct ProcedureBuilder<TErr: error::Error, TCtx, TNextCtx, TInput, TResult> {
+pub struct ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult> {
     pub(super) mw: Mw<TErr, TCtx, TNextCtx, TInput, TResult>,
     pub(super) input: Option<fn(&mut TypeDefs) -> DataType>,
     pub(super) phantom: PhantomData<(TErr, TCtx)>,
 }
 
-impl<TCtx, TErr: error::Error, TNextCtx, TInput, TResult> fmt::Debug
+impl<TCtx, TErr, TNextCtx, TInput, TResult> fmt::Debug
     for ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -41,7 +41,7 @@ where
 // TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
 impl<TRootCtx, TCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TRootCtx, TCtx, TInput, TResult>
 where
-    TErr: error::Error + 'static,
+    TErr: 'static,
     TRootCtx: 'static,
     TCtx: 'static,
     TInput: 'static,
@@ -62,7 +62,6 @@ where
                     if let Some(setup) = mw.setup {
                         setup(todo!(), ProcedureMeta {});
                     }
-                    drop(mw.setup);
 
                     (self.mw.build)((mw.inner)(handler))
                 }),

@@ -26,7 +26,6 @@ pub(super) type InvokeFn<TCtx, TErr> = Box<
 pub struct Procedure<TCtx = (), TErr = crate::Infallible>
 where
     TCtx: 'static,
-    TErr: error::Error,
 {
     pub(super) ty: ProcedureType,
     pub(super) input: fn(&mut TypeDefs) -> DataType,
@@ -43,7 +42,6 @@ impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
 impl<TCtx, TErr> Procedure<TCtx, TErr>
 where
     TCtx: 'static,
-    TErr: error::Error,
 {
     /// Construct a new procedure using [`ProcedureBuilder`].
     pub fn builder<I, R, M>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>

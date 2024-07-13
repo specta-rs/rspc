@@ -5,7 +5,7 @@ use super::procedure::InvokeFn;
 // TODO: `pub(crate)` or `pub(super)`
 pub(crate) struct Mw<
     // Must be same through whole chain
-    TError: std::error::Error,
+    TError,
     TCtx,
     // From the current layer we are storing
     TNextCtx,

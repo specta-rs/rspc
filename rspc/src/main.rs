@@ -287,7 +287,7 @@ pub struct Library {}
 fn todo<TError, TThisCtx, TThisInput, TThisResult>(
 ) -> Middleware<TError, ((), TThisCtx), TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
-    TError: error::Error + 'static,
+    TError: 'static,
     TThisCtx: Send + 'static,
     TThisInput: Send + 'static,
     TThisResult: Send + 'static,
@@ -310,7 +310,7 @@ fn library_args<TError, TThisInput, TThisResult>() -> Middleware<
     TThisResult,
 >
 where
-    TError: error::Error + 'static,
+    TError: 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
 {
@@ -324,7 +324,7 @@ where
 fn logging<TError, TThisCtx, TThisInput, TThisResult>(
 ) -> Middleware<TError, TThisCtx, TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
-    TError: error::Error + 'static,
+    TError: 'static,
     TThisCtx: Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
