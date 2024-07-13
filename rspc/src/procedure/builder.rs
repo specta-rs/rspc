@@ -39,20 +39,20 @@ where
 }
 
 // TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
-impl<TCtx, TNextCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult>
+impl<TRootCtx, TCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TRootCtx, TCtx, TInput, TResult>
 where
     TErr: error::Error + 'static,
+    TRootCtx: 'static,
     TCtx: 'static,
-    TNextCtx: 'static,
     TInput: 'static,
     TResult: 'static,
 {
-    pub fn with<C, I, R>(
+    pub fn with<TNextCtx, I, R>(
         self,
-        mw: Middleware<TErr, TNextCtx, TInput, TResult, C, I, R>,
-    ) -> ProcedureBuilder<TErr, TCtx, C, I, R>
+        mw: Middleware<TErr, TCtx, TInput, TResult, TNextCtx, I, R>,
+    ) -> ProcedureBuilder<TErr, TRootCtx, TNextCtx, I, R>
     where
-        C: 'static,
+        TNextCtx: 'static,
         I: 'static,
         R: 'static,
     {
@@ -74,8 +74,8 @@ where
 
     pub fn query<F, M>(
         self,
-        handler: impl Fn(TNextCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TCtx, TErr>
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+    ) -> Procedure<TRootCtx, TErr>
     where
         F: Future<Output = TResult> + Send + 'static,
         TInput: ResolverInput,
@@ -91,8 +91,8 @@ where
 
     pub fn mutation<F, M>(
         self,
-        handler: impl Fn(TNextCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TCtx, TErr>
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+    ) -> Procedure<TRootCtx, TErr>
     where
         F: Future<Output = TResult> + Send + 'static,
         TInput: ResolverInput + 'static,

@@ -292,9 +292,9 @@ where
     TThisInput: Send + 'static,
     TThisResult: Send + 'static,
 {
-    Middleware::new(|ctx: (_, _), input, next| async move { next.exec(ctx.1, input).await })
+    Middleware::new(|(_, ctx), input, next| async move { next.exec(ctx, input).await })
 }
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, Debug)]
 pub struct LibraryArgs<T> {
     library: String,
     args: T,
@@ -314,9 +314,7 @@ where
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
 {
-    Middleware::new(|ctx, input, next| async move {
-        let LibraryArgs { library, args } = input; // TODO
-
+    Middleware::new(|ctx, LibraryArgs { library, args }, next| async move {
         // TODO: Error handling if library can not be found
 
         next.exec((ctx, Library {}), args).await
@@ -351,24 +349,24 @@ async fn main() {
     let procedure = Procedure::<Node>::builder()
         .with(library_args())
         .query(|(node, library), _input: u64| async move { true });
-    procedure.exec(Node {}, serde_json::Value::Null).unwrap();
+    // procedure.exec(Node {}, serde_json::Value::Null).unwrap();
 
     // TODO: This is why we need a 3rd `TCtx`
     // TODO: `TCtxOfFirstLayer`, `TContextOfLastLayer`, `TContextOfNextLayer`
     let procedure = Procedure::<((), Node)>::builder()
+        .with(logging())
         .with(todo())
         .with(library_args())
         .query(|(node, library), _input: u64| async move { true });
+
     procedure
-        .exec(((), Node {}), serde_json::Value::Null)
-        .unwrap();
-
-    let procedure = <Procedure>::builder()
-        .with(logging())
-        .query(|_ctx, _input: u64| async move { true });
-
-    let result = procedure
-        .exec((), serde_json::Value::Number(42u32.into()))
+        .exec(
+            ((), Node {}),
+            serde_json::json!({
+            "library": "test",
+            "args": 42
+            }),
+        )
         .unwrap()
         .next()
         .await
@@ -376,7 +374,21 @@ async fn main() {
         .unwrap()
         .serialize(serde_json::value::Serializer)
         .unwrap();
-    println!("Result: {:?}", result);
+
+    let procedure = <Procedure>::builder()
+        .with(logging())
+        .query(|_ctx, _input: u64| async move { true });
+
+    // let result = procedure
+    //     .exec((), serde_json::Value::Number(42u32.into()))
+    //     .unwrap()
+    //     .next()
+    //     .await
+    //     .unwrap()
+    //     .unwrap()
+    //     .serialize(serde_json::value::Serializer)
+    //     .unwrap();
+    // println!("Result: {:?}", result);
 
     return;
 
