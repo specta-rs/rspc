@@ -1,6 +1,6 @@
 {
 	"name": "@rspc/react-query",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",
