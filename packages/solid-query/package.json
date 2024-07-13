@@ -24,8 +24,8 @@
 	},
 	"scripts": {
 		"dev": "rollup -c -w",
-		"build": "rollup -c",
-		"prepare": "rollup -c"
+		"build": "rollup -c && tsc",
+		"prepare": "rollup -c && tsc"
 	},
 	"dependencies": {
 		"@rspc/client": "workspace:*",

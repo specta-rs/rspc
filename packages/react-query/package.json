@@ -11,18 +11,18 @@
 		"./package.json": "./package.json",
 		".": {
 			"import": "./dist/index.mjs",
-			"types": "./dist/index.d.ts",
+			"types": "./dist/types/index.d.ts",
 			"default": "./dist/index.js"
 		}
 	},
-	"types": "dist/index.d.ts",
+	"types": "dist/types/index.d.ts",
 	"files": [
 		"dist"
 	],
 	"scripts": {
 		"dev": "tsup --watch",
-		"build": "tsup",
-		"prepare": "tsup"
+		"build": "tsup && tsc",
+		"prepare": "tsup && tsc"
 	},
 	"tsup": {
 		"entry": [
@@ -32,9 +32,6 @@
 			"esm",
 			"cjs"
 		],
-		"dts": {
-			"resolve": true
-		},
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true

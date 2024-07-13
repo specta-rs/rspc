@@ -6,13 +6,13 @@
 	"author": "Oscar Beaumont",
 	"license": "MIT",
 	"source": "src/index.tsx",
-	"types": "dist/index.d.ts",
+	"types": "dist/types/index.d.ts",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
 	"svelte": "dist/index.js",
 	"exports": {
 		".": {
-			"types": "dist/index.d.ts",
+			"types": "dist/types/index.d.ts",
 			"import": "dist/index.js",
 			"svelte": "dist/index.js",
 			"default": "dist/index.js"
@@ -27,6 +27,7 @@
 		"test": "vitest"
 	},
 	"dependencies": {
+		"@rspc/client": "workspace:*",
 		"@rspc/query-core": "workspace:*"
 	},
 	"devDependencies": {
@@ -38,8 +39,7 @@
 		"vitest": "^0.34.6"
 	},
 	"peerDependencies": {
-		"@rspc/client": "workspace:*",
-		"@tanstack/svelte-query": "^4.6.0",
-		"svelte": ">=3 <5"
+		"svelte": ">=3 <5",
+		"@tanstack/svelte-query": "^5.0.0"
 	}
 }

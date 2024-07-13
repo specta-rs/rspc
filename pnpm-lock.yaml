@@ -215,6 +215,9 @@ importers:
 
   packages/svelte-query:
     dependencies:
+      '@rspc/client':
+        specifier: workspace:*
+        version: link:../client
       '@rspc/query-core':
         specifier: workspace:*
         version: link:../query-core
@@ -222,9 +225,6 @@ importers:
         specifier: '>=3 <5'
         version: 4.2.18
     devDependencies:
-      '@rspc/client':
-        specifier: workspace:*
-        version: link:../client
       '@sveltejs/package':
         specifier: ^2.2.2
         version: 2.3.2(svelte@4.2.18)(typescript@5.5.3)
