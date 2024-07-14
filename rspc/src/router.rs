@@ -1,39 +1,26 @@
-use std::{borrow::Cow, collections::HashMap, error, fmt};
+use std::{borrow::Cow, collections::HashMap, fmt};
 
 use crate::{procedure::Procedure, State};
 
-pub struct Router<TCtx = (), TErr = crate::Infallible>(
-    HashMap<Cow<'static, str>, Procedure<TCtx, TErr>>,
-)
-where
-    TCtx: 'static,
-    TErr: error::Error;
+pub struct Router<TCtx = ()>(HashMap<Cow<'static, str>, Procedure<TCtx>>);
 
-impl<TCtx, TErr: error::Error> fmt::Debug for Router<TCtx, TErr> {
+impl<TCtx> fmt::Debug for Router<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Router").field(&self.0).finish()
     }
 }
 
-impl<TCtx, TErr> Default for Router<TCtx, TErr>
-where
-    TCtx: 'static,
-    TErr: error::Error,
-{
+impl<TCtx> Default for Router<TCtx> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<TCtx, TErr> Router<TCtx, TErr>
-where
-    TCtx: 'static,
-    TErr: error::Error,
-{
+impl<TCtx> Router<TCtx> {
     pub fn procedure(
         mut self,
         name: impl Into<Cow<'static, str>>,
-        procedure: Procedure<TCtx, TErr>,
+        procedure: Procedure<TCtx>,
     ) -> Self {
         let name = name.into();
 
@@ -52,23 +39,19 @@ where
         todo!();
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &Procedure<TCtx, TErr>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &Procedure<TCtx>)> {
         self.0.iter()
     }
 
     // TODO: Maybe remove this?
-    pub fn get<'a>(&self, k: &str) -> Option<&Procedure<TCtx, TErr>> {
+    pub fn get<'a>(&self, k: &str) -> Option<&Procedure<TCtx>> {
         self.0.get(k)
     }
 }
 
-impl<TCtx, TErr: error::Error> FromIterator<(Cow<'static, str>, Procedure<TCtx, TErr>)>
-    for Router<TCtx, TErr>
-{
-    fn from_iter<I: IntoIterator<Item = (Cow<'static, str>, Procedure<TCtx, TErr>)>>(
-        iter: I,
-    ) -> Self {
-        let mut router = Router::<TCtx, TErr>::default();
+impl<TCtx> FromIterator<(Cow<'static, str>, Procedure<TCtx>)> for Router<TCtx> {
+    fn from_iter<I: IntoIterator<Item = (Cow<'static, str>, Procedure<TCtx>)>>(iter: I) -> Self {
+        let mut router = Self::default();
         for (path, procedure) in iter {
             router.0.insert(path, procedure);
         }
@@ -76,10 +59,10 @@ impl<TCtx, TErr: error::Error> FromIterator<(Cow<'static, str>, Procedure<TCtx, 
     }
 }
 
-impl<TCtx, TErr: error::Error> IntoIterator for Router<TCtx, TErr> {
-    type Item = (Cow<'static, str>, Procedure<TCtx, TErr>);
+impl<TCtx> IntoIterator for Router<TCtx> {
+    type Item = (Cow<'static, str>, Procedure<TCtx>);
     // TODO: This leaks the `HashMap` implementation detail into the public API. It would be nice if Rust let us `type IntoIter = impl Iterator<Item = ...>;`.
-    type IntoIter = std::collections::hash_map::IntoIter<Cow<'static, str>, Procedure<TCtx, TErr>>;
+    type IntoIter = std::collections::hash_map::IntoIter<Cow<'static, str>, Procedure<TCtx>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()

@@ -1,3 +1,5 @@
+use std::error;
+
 use futures::{stream::once, Stream, StreamExt};
 use serde::Serialize;
 use specta::{DataType, Type, TypeDefs};
@@ -33,13 +35,16 @@ use super::{ProcedureOutput, ProcedureStream};
 //     message = "Your procedure must return a type that implements `serde::Serialize + specta::Type + 'static`",
 //     note = "ResolverOutput requires a `T where T: serde::Serialize + specta::Type + 'static` to be returned from your procedure"
 // )]
-pub trait ResolverOutput<TErr>: Sized + 'static {
+pub trait ResolverOutput<TError>: Sized + Send + 'static {
     /// Convert the procedure and any async part of the value into a [`ProcedureStream`].
     ///
     /// This primarily exists so the [`rspc::Stream`](crate::Stream) implementation can merge it's stream into the procedure stream.
     fn into_procedure_stream(
-        procedure: impl Stream<Item = Result<Self, TErr>> + Send + 'static,
-    ) -> ProcedureStream<TErr> {
+        procedure: impl Stream<Item = Result<Self, TError>> + Send + 'static,
+    ) -> ProcedureStream
+    where
+        TError: error::Error + Send + 'static,
+    {
         ProcedureStream::from_stream(procedure.map(|v| v?.into_procedure_result()))
     }
 
@@ -47,16 +52,20 @@ pub trait ResolverOutput<TErr>: Sized + 'static {
     fn data_type(type_map: &mut TypeDefs) -> DataType;
 
     /// Convert the value from the user into a [`ProcedureOutput`].
-    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr>;
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TError>;
 }
 
-impl<TErr, T: Serialize + Type + 'static> ResolverOutput<TErr> for T {
+impl<T, TError> ResolverOutput<TError> for T
+where
+    T: Serialize + Type + Send + 'static,
+    TError: error::Error + Send + 'static,
+{
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         // T::data_type(type_map)
         todo!();
     }
 
-    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
+    fn into_procedure_result(self) -> Result<ProcedureOutput, TError> {
         Ok(ProcedureOutput::with_serde(self))
     }
 }
@@ -74,7 +83,10 @@ where
 
     fn into_procedure_stream(
         procedure: impl Stream<Item = Result<Self, TErr>> + Send + 'static,
-    ) -> ProcedureStream<TErr> {
+    ) -> ProcedureStream
+    where
+        TErr: error::Error + Send + 'static,
+    {
         ProcedureStream::from_stream(
             procedure
                 .map(|v| match v {

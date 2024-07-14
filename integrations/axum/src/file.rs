@@ -10,9 +10,9 @@ use rspc::{
 use tokio::io::AsyncWrite;
 
 // TODO: Clone, Debug, etc
-pub struct File<T = Pin<Box<dyn AsyncWrite>>>(pub T);
+pub struct File<T = Pin<Box<dyn AsyncWrite + Send>>>(pub T);
 
-impl<T: AsyncWrite + 'static, TErr> ResolverOutput<Self, TErr> for File<T> {
+impl<T: AsyncWrite + Send + 'static, TErr> ResolverOutput<TErr> for File<T> {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         DataType::Any // TODO
     }
@@ -23,7 +23,7 @@ impl<T: AsyncWrite + 'static, TErr> ResolverOutput<Self, TErr> for File<T> {
     }
 }
 
-impl<'de, F: AsyncWrite + 'static> ProcedureInput<'de> for File<F> {
+impl<'de, F: AsyncWrite + Send + 'static> ProcedureInput<'de> for File<F> {
     type Value = File;
 
     fn into_value(self) -> Self::Value {

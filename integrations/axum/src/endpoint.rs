@@ -5,6 +5,6 @@ use rspc::{
     Router,
 };
 
-pub fn endpoint<TCtx, TErr: error::Error + Serialize + Type>(router: Router<TCtx, TErr>) {
+pub fn endpoint<TCtx>(router: Router<TCtx>) {
     todo!();
 }

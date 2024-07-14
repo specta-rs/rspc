@@ -1,6 +1,6 @@
 //! TODO: Remove this file
 
-use std::{borrow::Cow, error, fmt, marker::PhantomData};
+use std::{error, fmt, marker::PhantomData};
 
 use futures::{stream::once, StreamExt};
 use rspc::{middleware::*, procedure::*, Infallible};
@@ -284,10 +284,10 @@ use specta::Type;
 pub struct Node {}
 pub struct Library {}
 
-fn todo<TErr, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TErr, ((), TThisCtx), TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
+fn todo<TError, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TError, ((), TThisCtx), TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
-    TErr: 'static,
+    TError: error::Error + Send + 'static,
     TThisCtx: Send + 'static,
     TThisInput: Send + 'static,
     TThisResult: Send + 'static,
@@ -300,8 +300,8 @@ pub struct LibraryArgs<T> {
     args: T,
 }
 
-fn library_args<TErr, TThisInput, TThisResult>() -> Middleware<
-    TErr,
+fn library_args<TError, TThisInput, TThisResult>() -> Middleware<
+    TError,
     Node,
     LibraryArgs<TThisInput>,
     TThisResult,
@@ -310,7 +310,7 @@ fn library_args<TErr, TThisInput, TThisResult>() -> Middleware<
     TThisResult,
 >
 where
-    TErr: 'static,
+    TError: error::Error + Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
 {
@@ -321,11 +321,11 @@ where
     })
 }
 
-fn logging<TErr, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TErr, TThisCtx, TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
+fn logging<TError, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TError, TThisCtx, TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
+    TError: error::Error + Send + 'static,
     TThisCtx: Send + 'static,
-    TErr: fmt::Debug + Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
 {
@@ -344,8 +344,8 @@ where
     })
 }
 
-fn error_handling<TErr, TThisCtx, TThisInput, TThisResult>() -> Middleware<
-    TErr,
+fn error_handling<TThisCtx, TThisInput, TThisResult>() -> Middleware<
+    Infallible,
     TThisCtx,
     TThisInput,
     Result<TThisResult, Box<dyn error::Error + Send + 'static>>,
@@ -354,7 +354,6 @@ fn error_handling<TErr, TThisCtx, TThisInput, TThisResult>() -> Middleware<
     TThisResult,
 >
 where
-    TErr: 'static,
     TThisCtx: Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
@@ -364,6 +363,42 @@ where
         // Ok(result)
         todo!();
     })
+}
+
+#[derive(Serialize, Type, Debug)]
+pub struct BaseError {
+    some_value: &'static str,
+}
+
+impl fmt::Display for BaseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for BaseError {}
+
+#[derive(Serialize, Type, Debug)]
+pub struct OneError(&'static str);
+
+impl fmt::Display for OneError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for OneError {}
+
+impl From<BaseError> for OneError {
+    fn from(this: BaseError) -> Self {
+        Self(this.some_value)
+    }
+}
+
+impl From<rspc::Infallible> for BaseError {
+    fn from(_: rspc::Infallible) -> Self {
+        unreachable!()
+    }
 }
 
 #[derive(Type, Debug)]
@@ -386,67 +421,130 @@ impl Serialize for Infallible2 {
 
 impl std::error::Error for Infallible2 {}
 
-impl From<Infallible2> for Infallible {
-    fn from(_: Infallible2) -> Self {
+impl From<Infallible> for Infallible2 {
+    fn from(_: Infallible) -> Self {
         unreachable!()
+    }
+}
+
+type Context = ();
+pub struct BaseProcedure<TErr = BaseError>(PhantomData<TErr>);
+
+impl<TErr> BaseProcedure<TErr> {
+    pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Context, Context, TInput, TResult>
+    where
+        TErr: error::Error + Send + 'static,
+        TInput: fmt::Debug + ResolverInput,
+        TResult: fmt::Debug + ResolverOutput<TErr>,
+    {
+        <Procedure>::builder().with(logging())
     }
 }
 
 #[tokio::main]
 async fn main() {
-    // let procedure = Procedure::<_, Infallible>::builder()
-    //     // .with(logging())
-    //     // .with(error_handling())
-    //     .error::<Infallible2>()
-    //     .query(|ctx, _input: u64| async move { Ok::<_, Infallible2>("todo") });
+    let procedure = <BaseProcedure>::builder().query(|ctx, input: i32| async move { Ok(()) });
 
+    let procedure = <BaseProcedure>::builder()
+        .query(|ctx, input: i32| async move { Err::<(), _>(BaseError { some_value: "todo" }) });
+
+    println!(
+        "{:?}",
+        procedure
+            .exec((), serde_json::Value::Number(32.into()))
+            .unwrap()
+            .next()
+            .await
+            .unwrap()
+            .unwrap()
+            .serialize(serde_json::value::Serializer)
+    );
+
+    // let procedure = Procedure::<Node>::builder::<_, _, Infallible>() // TODO: Having to hardcode `Infallible` sucks.
+    //     // .error::<Infallible>()
+    //     // .with(library_args())
+    //     .query(|(node, library), _input: i32| async move { Ok(true) });
     // println!(
     //     "{:?}",
     //     procedure
-    //         .exec((), serde_json::Value::Number(32.into()))
+    //         .exec(
+    //             Node {},
+    //             serde_json::json!({
+    //             "library": "test",
+    //             "args": 42
+    //             }),
+    //         )
     //         .unwrap()
     //         .next()
     //         .await
     //         .unwrap()
     //         .unwrap()
     //         .serialize(serde_json::value::Serializer)
+    //         .unwrap()
     // );
 
-    let procedure = Procedure::<Node>::builder()
-        .with(library_args())
-        .query(|(node, library), _input: u64| async move { Ok(true) });
-    // procedure.exec(Node {}, serde_json::Value::Null).unwrap();
+    // // TODO: This is why we need a 3rd `TCtx`
+    // // TODO: `TCtxOfFirstLayer`, `TContextOfLastLayer`, `TContextOfNextLayer`
+    // let procedure = Procedure::<((), Node)>::builder()
+    //     .with(logging())
+    //     .with(todo())
+    //     .with(library_args())
+    //     .query(|(node, library), _input: u64| async move { Ok(true) });
 
-    // TODO: This is why we need a 3rd `TCtx`
-    // TODO: `TCtxOfFirstLayer`, `TContextOfLastLayer`, `TContextOfNextLayer`
-    let procedure = Procedure::<((), Node)>::builder()
-        .with(logging())
-        .with(todo())
-        .with(library_args())
-        .query(|(node, library), _input: u64| async move { Ok(true) });
+    // procedure
+    //     .exec(
+    //         ((), Node {}),
+    //         serde_json::json!({
+    //         "library": "test",
+    //         "args": 42
+    //         }),
+    //     )
+    //     .unwrap()
+    //     .next()
+    //     .await
+    //     .unwrap()
+    //     .unwrap()
+    //     .serialize(serde_json::value::Serializer)
+    //     .unwrap();
 
-    procedure
-        .exec(
-            ((), Node {}),
-            serde_json::json!({
-            "library": "test",
-            "args": 42
-            }),
-        )
-        .unwrap()
-        .next()
-        .await
-        .unwrap()
-        .unwrap()
-        .serialize(serde_json::value::Serializer)
-        .unwrap();
+    // let procedure = <Procedure>::builder()
+    //     .with(logging())
+    //     .query(|_ctx, _input: u64| async move { Ok(true) });
 
-    let procedure = <Procedure>::builder()
-        .with(logging())
-        .query(|_ctx, _input: u64| async move { Ok(true) });
+    // // let result = procedure
+    // //     .exec((), serde_json::Value::Number(42u32.into()))
+    // //     .unwrap()
+    // //     .next()
+    // //     .await
+    // //     .unwrap()
+    // //     .unwrap()
+    // //     .serialize(serde_json::value::Serializer)
+    // //     .unwrap();
+    // // println!("Result: {:?}", result);
+
+    // return;
+
+    // // let procedure = <Procedure>::builder::<_, u128, _>() // TODO: Remove hardcoded `R`
+    // //     .with::<(), u64, bool>(logging()) // TODO: Remove hardcoded generics
+    // //     .query(|_ctx, _input: u64| async move { true });
+
+    // // let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
+
+    // // let procedure = <Procedure>::builder()
+    // //     .with(logging())
+    // //     .query(|_ctx, _input: ()| async move { 42i32 });
+
+    // let procedure = <Procedure>::builder()
+    //     // .with(|ctx, input, next| async move {
+    //     //     let _result = next.exec(ctx, input).await;
+    //     //     _result
+    //     // })
+    //     .query(|_ctx, _input: ()| async move { Ok(42i32) });
+
+    // // let router = Router::builder().procedure(procedure);
 
     // let result = procedure
-    //     .exec((), serde_json::Value::Number(42u32.into()))
+    //     .exec((), serde_json::Value::Null)
     //     .unwrap()
     //     .next()
     //     .await
@@ -456,57 +554,8 @@ async fn main() {
     //     .unwrap();
     // println!("Result: {:?}", result);
 
-    return;
-
-    // let procedure = <Procedure>::builder::<_, u128, _>() // TODO: Remove hardcoded `R`
-    //     .with::<(), u64, bool>(logging()) // TODO: Remove hardcoded generics
-    //     .query(|_ctx, _input: u64| async move { true });
-
-    // let procedure = <Procedure>::builder().query(|_ctx, _input: ()| async move { 42i32 });
-
-    // let procedure = <Procedure>::builder()
-    //     .with(logging())
-    //     .query(|_ctx, _input: ()| async move { 42i32 });
-
-    let procedure = <Procedure>::builder()
-        // .with(|ctx, input, next| async move {
-        //     let _result = next.exec(ctx, input).await;
-        //     _result
-        // })
-        .query(|_ctx, _input: ()| async move { Ok(42i32) });
-
-    // let router = Router::builder().procedure(procedure);
-
-    let result = procedure
-        .exec((), serde_json::Value::Null)
-        .unwrap()
-        .next()
-        .await
-        .unwrap()
-        .unwrap()
-        .serialize(serde_json::value::Serializer)
-        .unwrap();
-    println!("Result: {:?}", result);
-
-    let result = procedure
-        .exec((), serde_value::Value::Unit)
-        .unwrap()
-        .next()
-        .await
-        .unwrap()
-        .unwrap()
-        .serialize(serde_json::value::Serializer)
-        .unwrap();
-    println!("Result: {:?}", result);
-
-    // let procedure =
-    //     <Procedure>::builder().query(|_ctx, _input: rspc::procedure::File| async move { 42i32 });
-
     // let result = procedure
-    //     .exec(
-    //         (),
-    //         rspc::procedure::File(tokio::fs::File::create("test.txt").await.unwrap()),
-    //     )
+    //     .exec((), serde_value::Value::Unit)
     //     .unwrap()
     //     .next()
     //     .await
@@ -514,29 +563,27 @@ async fn main() {
     //     .unwrap()
     //     .serialize(serde_json::value::Serializer)
     //     .unwrap();
-    // println!("File Result: {:?}", result);
+    // println!("Result: {:?}", result);
 
-    let procedure = <Procedure>::builder()
-        .query(|_ctx, _input: ()| async move { Ok(rspc::Stream(once(async move { Ok(42i32) }))) });
+    // // let procedure =
+    // //     <Procedure>::builder().query(|_ctx, _input: rspc::procedure::File| async move { 42i32 });
 
-    let result = procedure
-        .exec((), serde_json::Value::Null)
-        .unwrap()
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .map(|result| {
-            result
-                .unwrap()
-                .serialize(serde_json::value::Serializer)
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
-
-    println!("Stream Result: {:?}", result);
+    // // let result = procedure
+    // //     .exec(
+    // //         (),
+    // //         rspc::procedure::File(tokio::fs::File::create("test.txt").await.unwrap()),
+    // //     )
+    // //     .unwrap()
+    // //     .next()
+    // //     .await
+    // //     .unwrap()
+    // //     .unwrap()
+    // //     .serialize(serde_json::value::Serializer)
+    // //     .unwrap();
+    // // println!("File Result: {:?}", result);
 
     // let procedure = <Procedure>::builder()
-    //     .subscription(|_ctx, _input: ()| async move { once(async move { 42i32 }) });
+    //     .query(|_ctx, _input: ()| async move { Ok(rspc::Stream(once(async move { Ok(42i32) }))) });
 
     // let result = procedure
     //     .exec((), serde_json::Value::Null)
@@ -552,87 +599,106 @@ async fn main() {
     //     })
     //     .collect::<Vec<_>>();
 
-    // println!("Subscription Result: {:?}", result);
+    // println!("Stream Result: {:?}", result);
 
-    // TODO: BREAK
+    // // let procedure = <Procedure>::builder()
+    // //     .subscription(|_ctx, _input: ()| async move { once(async move { 42i32 }) });
 
-    // <Procedure>::builder()
-    //     // .with(
-    //     //     MiddlewareBuilder::builder().with(|ctx, _: (), next| async move {
-    //     //         let _result = next.exec(ctx, ()).await;
-    //     //     }),
-    //     // )
-    //     .query(|_ctx, _: ()| async move { 42i32 });
+    // // let result = procedure
+    // //     .exec((), serde_json::Value::Null)
+    // //     .unwrap()
+    // //     .collect::<Vec<_>>()
+    // //     .await
+    // //     .into_iter()
+    // //     .map(|result| {
+    // //         result
+    // //             .unwrap()
+    // //             .serialize(serde_json::value::Serializer)
+    // //             .unwrap()
+    // //     })
+    // //     .collect::<Vec<_>>();
 
-    // Everything here:
-    // - Runs top to bottom (using `next.exec` to continue to chain)
-    // - The resolver *must* be defined last
-    // These semantics match the current rspc middleware system from v1 alphas.
+    // // println!("Subscription Result: {:?}", result);
 
-    // Just a procedure
-    // <Procedure>::builder().query(|_ctx, _: ()| async move { 42i32 });
-    // Procedure::<i32>::builder().query(|_ctx, _: ()| async move { 42i32 });
-    // Procedure::builder().query(|ctx: (), _: ()| async move { 42i32 });
+    // // TODO: BREAK
 
-    // Single middleware
-    // <Procedure>::builder()
-    //     .with(mw(|ctx, _: (), next| async move {
-    //         let _result = next.exec(ctx, ()).await;
-    //     }))
-    //     .query(|_ctx, _: ()| async move { 42i32 });
-
-    // <Procedure>::builder()
-    //     // .with(
-    //     //     MiddlewareBuilder::builder()
-    //     //         .state(())
-    //     //         .start(|| println!("Setting up!"))
-    //     //         .with(|ctx, _: (), next| async move {
-    //     //             let _result = next.exec(ctx, ()).await;
-    //     //         }),
-    //     // )
-    //     .query(|_ctx, _: ()| async move { 42i32 });
-
-    // // Confirm result type behavior if we have multiple middleware
-    // <Procedure>::builder() // (bool, (&str, i32))
-    //     .with(|ctx, _: (), next| async move {
-    //         let result = next.exec(ctx, ()).await; // (&str, i32)
-    //         (true, result)
-    //     })
-    //     .with(|ctx, _: (), next| async move {
-    //         let result = next.exec(ctx, ()); // i32
-    //         ("", result)
-    //     })
-    //     .query(|_ctx, _: ()| async move { 42i32 });
-
-    // // Confirm input type behavior if we have multiple middleware
     // // <Procedure>::builder()
-    // //     .with(library_args())
-    // //     .with(|ctx, input: (bool, (i32, ())), next| next.exec(ctx, input.1))
-    // //     .with(|ctx, input, next| next.exec(ctx, input.1))
-    // //     .query(|_ctx, _| async move { 42i32 });
+    // //     // .with(
+    // //     //     MiddlewareBuilder::builder().with(|ctx, _: (), next| async move {
+    // //     //         let _result = next.exec(ctx, ()).await;
+    // //     //     }),
+    // //     // )
+    // //     .query(|_ctx, _: ()| async move { 42i32 });
 
-    // // Confirm context type behavior
-    // <Procedure>::builder()
-    //     .with(|ctx, input, next| next.exec((true, ctx), input))
-    //     .with(|ctx, input, next| next.exec(("", ctx), input))
-    //     .query(|_ctx, _: ()| async move { 42i32 });
+    // // Everything here:
+    // // - Runs top to bottom (using `next.exec` to continue to chain)
+    // // - The resolver *must* be defined last
+    // // These semantics match the current rspc middleware system from v1 alphas.
 
-    // // What if we don't call `next`
-    // // - This can be a problem with unconstraining the generic so it needs docs for developer but it's not a make or break thing.
-    // <Procedure>::builder()
-    //     .with(|_, _: (), next| async move { "No cringe past this point" })
-    //     .query(|_: (), _: ()| async move { 42i32 });
+    // // Just a procedure
+    // // <Procedure>::builder().query(|_ctx, _: ()| async move { 42i32 });
+    // // Procedure::<i32>::builder().query(|_ctx, _: ()| async move { 42i32 });
+    // // Procedure::builder().query(|ctx: (), _: ()| async move { 42i32 });
 
-    // <Procedure>::builder()
-    //     .with(|_, _: (), next| {
-    //         if true {
-    //             "skip"
-    //         } else {
-    //             let _result = next.exec(93, ());
-    //             "ok"
-    //         }
-    //     })
-    //     .query(|_, _: ()| 42i32);
+    // // Single middleware
+    // // <Procedure>::builder()
+    // //     .with(mw(|ctx, _: (), next| async move {
+    // //         let _result = next.exec(ctx, ()).await;
+    // //     }))
+    // //     .query(|_ctx, _: ()| async move { 42i32 });
+
+    // // <Procedure>::builder()
+    // //     // .with(
+    // //     //     MiddlewareBuilder::builder()
+    // //     //         .state(())
+    // //     //         .start(|| println!("Setting up!"))
+    // //     //         .with(|ctx, _: (), next| async move {
+    // //     //             let _result = next.exec(ctx, ()).await;
+    // //     //         }),
+    // //     // )
+    // //     .query(|_ctx, _: ()| async move { 42i32 });
+
+    // // // Confirm result type behavior if we have multiple middleware
+    // // <Procedure>::builder() // (bool, (&str, i32))
+    // //     .with(|ctx, _: (), next| async move {
+    // //         let result = next.exec(ctx, ()).await; // (&str, i32)
+    // //         (true, result)
+    // //     })
+    // //     .with(|ctx, _: (), next| async move {
+    // //         let result = next.exec(ctx, ()); // i32
+    // //         ("", result)
+    // //     })
+    // //     .query(|_ctx, _: ()| async move { 42i32 });
+
+    // // // Confirm input type behavior if we have multiple middleware
+    // // // <Procedure>::builder()
+    // // //     .with(library_args())
+    // // //     .with(|ctx, input: (bool, (i32, ())), next| next.exec(ctx, input.1))
+    // // //     .with(|ctx, input, next| next.exec(ctx, input.1))
+    // // //     .query(|_ctx, _| async move { 42i32 });
+
+    // // // Confirm context type behavior
+    // // <Procedure>::builder()
+    // //     .with(|ctx, input, next| next.exec((true, ctx), input))
+    // //     .with(|ctx, input, next| next.exec(("", ctx), input))
+    // //     .query(|_ctx, _: ()| async move { 42i32 });
+
+    // // // What if we don't call `next`
+    // // // - This can be a problem with unconstraining the generic so it needs docs for developer but it's not a make or break thing.
+    // // <Procedure>::builder()
+    // //     .with(|_, _: (), next| async move { "No cringe past this point" })
+    // //     .query(|_: (), _: ()| async move { 42i32 });
+
+    // // <Procedure>::builder()
+    // //     .with(|_, _: (), next| {
+    // //         if true {
+    // //             "skip"
+    // //         } else {
+    // //             let _result = next.exec(93, ());
+    // //             "ok"
+    // //         }
+    // //     })
+    // //     .query(|_, _: ()| 42i32);
 }
 
 // pub struct LibraryArgs<T> {
@@ -648,29 +714,4 @@ async fn main() {
 // fn library_args<TCtx, NextI, NextR>() -> impl Middleware<TCtx, LibraryArgs<NextI>, NextI, NextR> {
 //     // TODO: Avoid the hardcoded type on `next`
 //     mw(|ctx, input, next: Next<NextR, NextI, TCtx>| async move { next.exec(ctx, input.data).await })
-// }
-
-// fn mw<TCtx, I, NextI, NextR>(
-//     mw: impl Middleware<TCtx, I, NextI, NextR>,
-// ) -> impl Middleware<TCtx, I, NextI, NextR> {
-//     mw
-// }
-
-// pub trait Middleware<TCtx, I, NextI, NextR> {
-//     // type Result;
-//     // TODO: Associated types for all the stuff
-
-//     fn call(&self) -> impl Future;
-// }
-
-// impl<TCtx, I, NextI, NextR, F, Fu> Middleware<TCtx, I, NextI, NextR> for F
-// where
-//     F: Fn(TCtx, I, Next<NextR, NextI, TCtx>) -> Fu,
-//     Fu: Future,
-// {
-//     fn call(&self) -> impl Future {
-//         async move {
-//             todo!();
-//         }
-//     }
 // }

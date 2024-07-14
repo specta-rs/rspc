@@ -36,14 +36,14 @@ use super::{InternalError, ProcedureExecInput};
 ///     <Procedure>::builder().query(|_, _: MyCoolThing| async move { () });
 /// }
 /// ```
-pub trait ResolverInput: Sized + Any + 'static {
+pub trait ResolverInput: Sized + Any + Send + 'static {
     fn data_type(type_map: &mut TypeDefs) -> DataType;
 
     /// Convert the [`ProcedureInput`] into the type the user specified for the procedure.
     fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, InternalError>;
 }
 
-impl<T: DeserializeOwned + Type + 'static> ResolverInput for T {
+impl<T: DeserializeOwned + Type + Send + 'static> ResolverInput for T {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
         T::definition(DefOpts {
             parent_inline: false,

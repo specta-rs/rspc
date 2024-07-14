@@ -1,47 +1,36 @@
-use std::{error, fmt, future::Future, marker::PhantomData};
+use std::{error, fmt, future::Future};
 
-use specta::{DataType, TypeDefs};
+use crate::{
+    middleware::{Middleware, MiddlewareHandler},
+    State,
+};
 
-use crate::middleware::Middleware;
-
-use super::{mw::Mw, Procedure, ProcedureKind, ProcedureMeta};
+use super::{Procedure, ProcedureKind, ProcedureMeta};
 
 // TODO: Document the generics like `Middleware`
-pub struct ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult> {
-    pub(super) mw: Mw<TErr, TCtx, TNextCtx, TInput, TResult>,
-    pub(super) input: Option<fn(&mut TypeDefs) -> DataType>,
-    pub(super) phantom: PhantomData<(TErr, TCtx)>,
+pub struct ProcedureBuilder<TError, TCtx, TNextCtx, TInput, TResult> {
+    pub(super) build: Box<
+        dyn FnOnce(
+            ProcedureMeta,
+            &mut State,
+            MiddlewareHandler<TError, TNextCtx, TInput, TResult>,
+        ) -> Procedure<TCtx>,
+    >,
 }
 
-impl<TCtx, TErr, TNextCtx, TInput, TResult> fmt::Debug
-    for ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult>
+impl<TCtx, TError, TNextCtx, TInput, TResult> fmt::Debug
+    for ProcedureBuilder<TError, TCtx, TNextCtx, TInput, TResult>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Procedure").finish()
     }
 }
 
-// We enforce this can only be called once.
-// This is because switching it would require us to track the initial type or erased it. // TODO: Clarify this
-impl<TErr, TCtx, TNewCtx, TInput, TResult> ProcedureBuilder<TErr, TCtx, TNewCtx, TInput, TResult>
-where
-    TCtx: 'static,
-{
-    pub fn error<TNewErr: error::Error + Into<TErr> + 'static>(
-        self,
-    ) -> ProcedureBuilder<TErr, TCtx, TNewCtx, TInput, TResult>
-// where
-    //     TResult: ResolverResult<TNewErr>,
-    {
-        // TODO
-        todo!();
-    }
-}
-
 // TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
-impl<TRootCtx, TCtx, TErr, TInput, TResult> ProcedureBuilder<TErr, TRootCtx, TCtx, TInput, TResult>
+impl<TRootCtx, TCtx, TError, TInput, TResult>
+    ProcedureBuilder<TError, TRootCtx, TCtx, TInput, TResult>
 where
-    TErr: 'static,
+    TError: error::Error + Send + 'static,
     TRootCtx: 'static,
     TCtx: 'static,
     TInput: 'static,
@@ -49,44 +38,42 @@ where
 {
     pub fn with<TNextCtx, I, R>(
         self,
-        mw: Middleware<TErr, TCtx, TInput, TResult, TNextCtx, I, R>,
-    ) -> ProcedureBuilder<TErr, TRootCtx, TNextCtx, I, R>
+        mw: Middleware<TError, TCtx, TInput, TResult, TNextCtx, I, R>,
+    ) -> ProcedureBuilder<TError, TRootCtx, TNextCtx, I, R>
     where
         TNextCtx: 'static,
         I: 'static,
         R: 'static,
     {
         ProcedureBuilder {
-            mw: Mw {
-                build: Box::new(|meta, handler| {
-                    // if let Some(setup) = mw.setup {
-                    //     setup(todo!(), ProcedureMeta {});
-                    // }
+            build: Box::new(|meta, state: &mut State, handler| {
+                if let Some(setup) = mw.setup {
+                    setup(state, meta.clone());
+                }
 
-                    (self.mw.build)(meta, (mw.inner)(handler))
-                }),
-            },
-            input: self.input,
-            phantom: PhantomData,
+                (self.build)(meta, state, (mw.inner)(handler))
+            }),
         }
     }
 
-    pub fn query<F: Future<Output = Result<TResult, TErr>> + Send + 'static>(
+    pub fn query<F: Future<Output = Result<TResult, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx, TErr> {
-        (self.mw.build)(
+    ) -> Procedure<TRootCtx> {
+        (self.build)(
             ProcedureMeta::new("todo.todo".into(), ProcedureKind::Query),
+            &mut State::default(),
             Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }
 
-    pub fn mutation<F: Future<Output = Result<TResult, TErr>> + Send + 'static>(
+    pub fn mutation<F: Future<Output = Result<TResult, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx, TErr> {
-        (self.mw.build)(
+    ) -> Procedure<TRootCtx> {
+        (self.build)(
             ProcedureMeta::new("todo.todo".into(), ProcedureKind::Mutation),
+            &mut State::default(),
             Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }

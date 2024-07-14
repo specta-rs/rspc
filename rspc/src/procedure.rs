@@ -19,7 +19,6 @@ mod error;
 mod exec_input;
 mod input;
 mod meta;
-mod mw;
 mod output;
 mod procedure;
 mod resolver_input;

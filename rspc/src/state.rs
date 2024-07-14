@@ -38,6 +38,12 @@ impl fmt::Debug for State {
     }
 }
 
+impl Default for State {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 impl State {
     pub fn get<T: Any + Send + Sync + 'static>(&self) -> Option<&T> {
         self.0.get(&TypeId::of::<T>()).map(|v| {

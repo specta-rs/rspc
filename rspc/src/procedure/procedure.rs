@@ -5,73 +5,63 @@ use specta::{DataType, TypeDefs};
 
 use super::{
     exec_input::{AnyInput, InputValueInner},
-    mw::Mw,
     stream::ProcedureStream,
     InternalError, ProcedureBuilder, ProcedureExecInput, ProcedureInput, ProcedureKind,
     ResolverInput, ResolverOutput,
 };
 
-pub(super) type InvokeFn<TCtx, TErr> =
-    Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream<TErr>, InternalError>>;
+pub(super) type InvokeFn<TCtx> =
+    Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream, InternalError>>;
 
 /// Represents a single operations on the server that can be executed.
 ///
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
-pub struct Procedure<TCtx = (), TErr = crate::Infallible> {
+pub struct Procedure<TCtx = ()> {
     pub(super) ty: ProcedureKind,
     pub(super) input: fn(&mut TypeDefs) -> DataType,
     pub(super) result: fn(&mut TypeDefs) -> DataType,
-    pub(super) handler: InvokeFn<TCtx, TErr>,
+    pub(super) handler: InvokeFn<TCtx>,
 }
 
-impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
+impl<TCtx> fmt::Debug for Procedure<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Procedure").finish()
     }
 }
 
-impl<TCtx, TErr> Procedure<TCtx, TErr>
+impl<TCtx> Procedure<TCtx>
 where
     TCtx: 'static,
-    TErr: 'static,
 {
     /// Construct a new procedure using [`ProcedureBuilder`].
-    pub fn builder<I, R>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>
+    pub fn builder<I, R, TError>() -> ProcedureBuilder<TError, TCtx, TCtx, I, R>
     where
+        TError: error::Error + Send + 'static,
         // Only the first layer (middleware or the procedure) needs to be a valid input/output type
         I: ResolverInput,
-        R: ResolverOutput<TErr>,
+        R: ResolverOutput<TError>,
     {
         ProcedureBuilder {
-            mw: Mw {
-                build: Box::new(|meta, handler| {
-                    // if let Some(setup) = setup {
-                    //     setup(todo!(), ProcedureMeta {});
-                    // }
-                    // drop(setup);
+            build: Box::new(|meta, _, handler| {
+                // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
+                let handler = Arc::new(handler);
 
-                    // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
-                    let handler = Arc::new(handler);
+                Procedure {
+                    ty: meta.kind(),
+                    input: |type_map| I::data_type(type_map),
+                    result: |type_map| R::data_type(type_map),
+                    handler: Box::new(move |ctx, input| {
+                        let fut = handler(
+                            ctx,
+                            I::from_value(ProcedureExecInput::new(input))?,
+                            meta.clone(),
+                        );
 
-                    Procedure {
-                        ty: meta.kind(),
-                        input: |type_map| I::data_type(type_map),
-                        result: |type_map| R::data_type(type_map),
-                        handler: Box::new(move |ctx, input| {
-                            let fut = handler(
-                                ctx,
-                                I::from_value(ProcedureExecInput::new(input))?,
-                                meta.clone(),
-                            );
-
-                            Ok(R::into_procedure_stream(fut.into_stream()))
-                        }),
-                    }
-                }),
-            },
-            input: None,
-            phantom: PhantomData,
+                        Ok(R::into_procedure_stream(fut.into_stream()))
+                    }),
+                }
+            }),
         }
     }
 
@@ -118,7 +108,7 @@ where
         &self,
         ctx: TCtx,
         input: T,
-    ) -> Result<ProcedureStream<TErr>, InternalError> {
+    ) -> Result<ProcedureStream, InternalError> {
         match input.into_deserializer() {
             Ok(deserializer) => {
                 let mut input = <dyn erased_serde::Deserializer>::erase(deserializer);

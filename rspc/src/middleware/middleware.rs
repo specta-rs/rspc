@@ -77,7 +77,6 @@ pub struct Middleware<
     TNextResult = TThisResult,
 > {
     pub(crate) setup: Option<Box<dyn FnOnce(&mut State, ProcedureMeta) + 'static>>,
-    // TODO: Move the builder `Fn` down onto `handler` without breaking everything!
     pub(crate) inner: Box<
         dyn FnOnce(
             MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult>,
