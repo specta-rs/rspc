@@ -1,8 +1,6 @@
-use std::{convert::Infallible, error, marker::PhantomData};
-
-use futures::{Stream, StreamExt};
+use futures::{stream::once, Stream, StreamExt};
 use serde::Serialize;
-use specta::{DataType, DefOpts, Type, TypeDefs};
+use specta::{DataType, Type, TypeDefs};
 
 use super::{ProcedureOutput, ProcedureStream};
 
@@ -30,32 +28,32 @@ use super::{ProcedureOutput, ProcedureStream};
 ///     <Procedure>::builder().query(|_, _: ()| async move { MyCoolThing("Hello, World!".to_string()) });
 /// }
 /// ```
-pub trait ResolverOutput<M, TErr>: Sized {
+// TODO: Do some testing and set this + add documentation link into it.
+// #[diagnostic::on_unimplemented(
+//     message = "Your procedure must return a type that implements `serde::Serialize + specta::Type + 'static`",
+//     note = "ResolverOutput requires a `T where T: serde::Serialize + specta::Type + 'static` to be returned from your procedure"
+// )]
+pub trait ResolverOutput<TErr>: Sized + 'static {
     /// Convert the procedure and any async part of the value into a [`ProcedureStream`].
     ///
     /// This primarily exists so the [`rspc::Stream`](crate::Stream) implementation can merge it's stream into the procedure stream.
     fn into_procedure_stream(
-        procedure: impl Stream<Item = Self> + Send + 'static,
+        procedure: impl Stream<Item = Result<Self, TErr>> + Send + 'static,
     ) -> ProcedureStream<TErr> {
-        ProcedureStream::from_stream(procedure.map(|v| v.into_procedure_result()))
+        ProcedureStream::from_stream(procedure.map(|v| v?.into_procedure_result()))
     }
 
+    // TODO: Be an associated type instead so we can constrain later for better errors????
     fn data_type(type_map: &mut TypeDefs) -> DataType;
 
     /// Convert the value from the user into a [`ProcedureOutput`].
     fn into_procedure_result(self) -> Result<ProcedureOutput, TErr>;
 }
 
-impl<T, TErr> ResolverOutput<Self, TErr> for T
-where
-    T: Serialize + Type + Send + 'static,
-{
+impl<TErr, T: Serialize + Type + 'static> ResolverOutput<TErr> for T {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
-        T::definition(DefOpts {
-            parent_inline: false,
-            type_map,
-        })
-        .unwrap() // Specta v2 doesn't panic
+        // T::data_type(type_map)
+        todo!();
     }
 
     fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
@@ -63,49 +61,30 @@ where
     }
 }
 
-pub struct ResultMarker<M>(Infallible, PhantomData<M>);
-impl<T, M, TErr> ResolverOutput<ResultMarker<M>, TErr> for Result<T, TErr>
+impl<TErr, S, T> ResolverOutput<TErr> for crate::Stream<S>
 where
-    T: ResolverOutput<M, TErr>,
+    TErr: Send,
+    S: Stream<Item = Result<T, TErr>> + Send + 'static,
+    T: ResolverOutput<TErr>,
 {
     fn data_type(type_map: &mut TypeDefs) -> DataType {
-        // TODO: Should we wrap into a `Result`
-
-        // export type Result<TOk, TErr> =
-        // | { status: "ok"; data: TOk }
-        // | { status: "error"; error: TErr };
-
-        // DataType::Enum(specta::EnumType::Untagged {
-        //     variants: vec![EnumVariant::Unnamed((T::data_type(type_map)))],
-        //     generics: vec![],
-        // })
-
+        // S::Item::data_type(type_map)
         todo!();
     }
 
-    fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
-        self?.into_procedure_result()
-    }
-}
-
-pub struct StreamMarker<M>(Infallible, PhantomData<M>);
-impl<S, M, TErr> ResolverOutput<StreamMarker<M>, TErr> for crate::Stream<S>
-where
-    S: Stream + Send + 'static,
-    S::Item: ResolverOutput<M, TErr>,
-{
-    fn data_type(type_map: &mut TypeDefs) -> DataType {
-        S::Item::data_type(type_map)
-    }
-
     fn into_procedure_stream(
-        procedure: impl Stream<Item = Self> + Send + 'static,
+        procedure: impl Stream<Item = Result<Self, TErr>> + Send + 'static,
     ) -> ProcedureStream<TErr> {
         ProcedureStream::from_stream(
             procedure
-                .map(|v| v.0)
-                .flatten()
-                .map(|v| v.into_procedure_result()),
+                .map(|v| match v {
+                    Ok(s) => {
+                        s.0.map(|v| v.and_then(|v| v.into_procedure_result()))
+                            .right_stream()
+                    }
+                    Err(err) => once(async move { Err(err) }).left_stream(),
+                })
+                .flatten(),
         )
     }
 

@@ -33,13 +33,15 @@ where
     pub fn procedure(
         mut self,
         name: impl Into<Cow<'static, str>>,
-        procedure: Procedure<TCtx>,
+        procedure: Procedure<TCtx, TErr>,
     ) -> Self {
         let name = name.into();
 
-        // TODO: Delayed: -> Running the procedure's `init` function with the plugin store.
+        // TODO: Delayed: -> Running the procedure's `init` function with the plugin store (once all merged together).
 
-        todo!();
+        self.0.insert(name, procedure);
+
+        self
     }
 
     pub fn state(&self) -> State {
@@ -52,6 +54,11 @@ where
 
     pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &Procedure<TCtx, TErr>)> {
         self.0.iter()
+    }
+
+    // TODO: Maybe remove this?
+    pub fn get<'a>(&self, k: &str) -> Option<&Procedure<TCtx, TErr>> {
+        self.0.get(k)
     }
 }
 

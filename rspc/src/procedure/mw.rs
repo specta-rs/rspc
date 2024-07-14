@@ -1,8 +1,10 @@
 use crate::middleware::MiddlewareHandler;
 
-use super::procedure::InvokeFn;
+use super::{Procedure, ProcedureMeta};
 
 // TODO: `pub(crate)` or `pub(super)`
+// TODO: Rename this cause it's not really middleware related
+// TODO: Maybe this should just be a type alias
 pub(crate) struct Mw<
     // Must be same through whole chain
     TError,
@@ -13,6 +15,9 @@ pub(crate) struct Mw<
     TNextResult,
 > {
     pub build: Box<
-        dyn FnOnce(MiddlewareHandler<TNextCtx, TNextInput, TNextResult>) -> InvokeFn<TCtx, TError>,
+        dyn FnOnce(
+            ProcedureMeta,
+            MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult>,
+        ) -> Procedure<TCtx, TError>,
     >,
 }

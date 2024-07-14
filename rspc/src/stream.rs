@@ -18,4 +18,11 @@
 /// <Procedure>::builder().query(|_, _: ()| async move { rspc::Stream(once(async move { 42 })) });
 /// ```
 ///
-pub struct Stream<T>(pub T);
+pub struct Stream<T>(pub T)
+where
+    T: futures::Stream,
+    T::Item: AnyResult;
+
+// TODO: Diagnostic if we keep this
+pub trait AnyResult {}
+impl<T, E> AnyResult for Result<T, E> {}

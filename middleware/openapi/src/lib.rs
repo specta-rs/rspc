@@ -13,7 +13,13 @@ pub struct OpenAPIState(HashMap<Cow<'static, str>, ()>);
 pub fn openapi<TError, TThisCtx, TThisInput, TThisResult>(
     // method: Method,
     path: impl Into<Cow<'static, str>>,
-) -> Middleware<TError, TThisCtx, TThisInput, TThisResult> {
+) -> Middleware<TError, TThisCtx, TThisInput, TThisResult>
+where
+    TError: 'static,
+    TThisCtx: Send + 'static,
+    TThisInput: Send + 'static,
+    TThisResult: Send + 'static,
+{
     let path = path.into();
     Middleware::new(|ctx, input, next| async move {
         let _result = next.exec(ctx, input).await;

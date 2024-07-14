@@ -30,11 +30,9 @@ pub use builder::ProcedureBuilder;
 pub use error::InternalError;
 pub use exec_input::ProcedureExecInput;
 pub use input::ProcedureInput;
-pub use meta::ProcedureMeta;
+pub use meta::{ProcedureKind, ProcedureMeta};
 pub use output::{ProcedureOutput, ProcedureOutputSerializeError};
-pub use procedure::{Procedure, ProcedureType, ProcedureTypeDefinition};
+pub use procedure::{Procedure, ProcedureTypeDefinition};
 pub use resolver_input::ResolverInput;
 pub use resolver_output::ResolverOutput;
 pub use stream::ProcedureStream;
-
-pub(crate) use mw::Mw;

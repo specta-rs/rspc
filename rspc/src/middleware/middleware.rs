@@ -19,7 +19,7 @@
 //!
 //! TODO: Why we can't use `const`'s for declaring middleware -> Boxing
 
-use std::{error, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{pin::Pin, sync::Arc};
 
 use futures::Future;
 
@@ -27,12 +27,12 @@ use crate::{procedure::ProcedureMeta, State};
 
 use super::Next;
 
-pub(crate) type MiddlewareHandler<TNextCtx, TNextInput, TNextResult> = Box<
+pub(crate) type MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult> = Box<
     dyn Fn(
             TNextCtx,
             TNextInput,
             ProcedureMeta,
-        ) -> Pin<Box<dyn Future<Output = TNextResult> + Send + 'static>>
+        ) -> Pin<Box<dyn Future<Output = Result<TNextResult, TError>> + Send + 'static>>
         + Send
         + Sync
         + 'static,
@@ -80,10 +80,9 @@ pub struct Middleware<
     // TODO: Move the builder `Fn` down onto `handler` without breaking everything!
     pub(crate) inner: Box<
         dyn FnOnce(
-            MiddlewareHandler<TNextCtx, TNextInput, TNextResult>,
-        ) -> MiddlewareHandler<TThisCtx, TThisInput, TThisResult>,
+            MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult>,
+        ) -> MiddlewareHandler<TError, TThisCtx, TThisInput, TThisResult>,
     >,
-    phantom: PhantomData<TError>,
 }
 
 // TODO: Debug impl
@@ -91,13 +90,13 @@ pub struct Middleware<
 impl<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
     Middleware<TError, TThisCtx, TThisInput, TThisResult, TNextCtx, TNextInput, TNextResult>
 where
+    TError: 'static,
     TNextCtx: 'static,
     TNextInput: 'static,
     TNextResult: 'static,
 {
-    // TODO: Allow returning results with `TErr`
-    pub fn new<F: Future<Output = TThisResult> + Send + 'static>(
-        func: impl Fn(TThisCtx, TThisInput, Next<TNextCtx, TNextInput, TNextResult>) -> F
+    pub fn new<F: Future<Output = Result<TThisResult, TError>> + Send + 'static>(
+        func: impl Fn(TThisCtx, TThisInput, Next<TError, TNextCtx, TNextInput, TNextResult>) -> F
             + Send
             + Sync
             + 'static,
@@ -121,7 +120,6 @@ where
                     Box::pin(f)
                 })
             }),
-            phantom: PhantomData,
         }
     }
 

@@ -2,9 +2,9 @@ use std::{error, fmt, future::Future, marker::PhantomData};
 
 use specta::{DataType, TypeDefs};
 
-use crate::{middleware::Middleware, Infallible};
+use crate::middleware::Middleware;
 
-use super::{mw::Mw, Procedure, ProcedureMeta, ProcedureType, ResolverInput, ResolverOutput};
+use super::{mw::Mw, Procedure, ProcedureKind, ProcedureMeta};
 
 // TODO: Document the generics like `Middleware`
 pub struct ProcedureBuilder<TErr, TCtx, TNextCtx, TInput, TResult> {
@@ -23,18 +23,18 @@ impl<TCtx, TErr, TNextCtx, TInput, TResult> fmt::Debug
 
 // We enforce this can only be called once.
 // This is because switching it would require us to track the initial type or erased it. // TODO: Clarify this
-impl<TCtx, TNewCtx, TInput, TResult> ProcedureBuilder<Infallible, TCtx, TNewCtx, TInput, TResult>
+impl<TErr, TCtx, TNewCtx, TInput, TResult> ProcedureBuilder<TErr, TCtx, TNewCtx, TInput, TResult>
 where
     TCtx: 'static,
 {
-    pub fn error<TNewErr: error::Error>(
+    pub fn error<TNewErr: error::Error + Into<TErr> + 'static>(
         self,
-    ) -> ProcedureBuilder<TNewErr, TCtx, TNewCtx, TInput, TResult> {
-        ProcedureBuilder {
-            mw: todo!(), // TODO: self.mw,
-            input: self.input,
-            phantom: PhantomData,
-        }
+    ) -> ProcedureBuilder<TErr, TCtx, TNewCtx, TInput, TResult>
+// where
+    //     TResult: ResolverResult<TNewErr>,
+    {
+        // TODO
+        todo!();
     }
 }
 
@@ -58,12 +58,12 @@ where
     {
         ProcedureBuilder {
             mw: Mw {
-                build: Box::new(|handler| {
-                    if let Some(setup) = mw.setup {
-                        setup(todo!(), ProcedureMeta {});
-                    }
+                build: Box::new(|meta, handler| {
+                    // if let Some(setup) = mw.setup {
+                    //     setup(todo!(), ProcedureMeta {});
+                    // }
 
-                    (self.mw.build)((mw.inner)(handler))
+                    (self.mw.build)(meta, (mw.inner)(handler))
                 }),
             },
             input: self.input,
@@ -71,38 +71,24 @@ where
         }
     }
 
-    pub fn query<F, M>(
+    pub fn query<F: Future<Output = Result<TResult, TErr>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx, TErr>
-    where
-        F: Future<Output = TResult> + Send + 'static,
-        TInput: ResolverInput,
-        TResult: ResolverOutput<M, TErr> + 'static,
-    {
-        Procedure {
-            input: self.input.unwrap_or(TInput::data_type),
-            ty: ProcedureType::Query,
-            result: TResult::data_type,
-            handler: (self.mw.build)(Box::new(move |ctx, input, _| Box::pin(handler(ctx, input)))),
-        }
+    ) -> Procedure<TRootCtx, TErr> {
+        (self.mw.build)(
+            ProcedureMeta::new("todo.todo".into(), ProcedureKind::Query),
+            Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
+        )
     }
 
-    pub fn mutation<F, M>(
+    pub fn mutation<F: Future<Output = Result<TResult, TErr>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx, TErr>
-    where
-        F: Future<Output = TResult> + Send + 'static,
-        TInput: ResolverInput + 'static,
-        TResult: ResolverOutput<M, TErr>,
-    {
-        Procedure {
-            input: self.input.unwrap_or(TInput::data_type),
-            ty: ProcedureType::Mutation,
-            result: TResult::data_type,
-            handler: (self.mw.build)(Box::new(move |ctx, input, _| Box::pin(handler(ctx, input)))),
-        }
+    ) -> Procedure<TRootCtx, TErr> {
+        (self.mw.build)(
+            ProcedureMeta::new("todo.todo".into(), ProcedureKind::Mutation),
+            Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
+        )
     }
 
     // pub fn subscription<F, S, M>(
@@ -112,7 +98,7 @@ where
     // where
     //     F: Future<Output = S> + Send + 'static,
     //     S: Stream<Item = TResult> + Send + 'static,
-    //     TInput: ResolverInput + 'static,
+    //     TInput: ResolverInput,
     //     TResult: ResolverOutput<M, TErr>,
     // {
     //     Procedure {

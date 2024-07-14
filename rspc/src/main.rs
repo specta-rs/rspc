@@ -4,7 +4,7 @@ use std::{borrow::Cow, error, fmt, marker::PhantomData};
 
 use futures::{stream::once, StreamExt};
 use rspc::{middleware::*, procedure::*, Infallible};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 
 // fn library_args<TCtx, T, NextR>(
@@ -284,10 +284,10 @@ use specta::Type;
 pub struct Node {}
 pub struct Library {}
 
-fn todo<TError, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TError, ((), TThisCtx), TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
+fn todo<TErr, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TErr, ((), TThisCtx), TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
-    TError: 'static,
+    TErr: 'static,
     TThisCtx: Send + 'static,
     TThisInput: Send + 'static,
     TThisResult: Send + 'static,
@@ -300,8 +300,8 @@ pub struct LibraryArgs<T> {
     args: T,
 }
 
-fn library_args<TError, TThisInput, TThisResult>() -> Middleware<
-    TError,
+fn library_args<TErr, TThisInput, TThisResult>() -> Middleware<
+    TErr,
     Node,
     LibraryArgs<TThisInput>,
     TThisResult,
@@ -310,7 +310,7 @@ fn library_args<TError, TThisInput, TThisResult>() -> Middleware<
     TThisResult,
 >
 where
-    TError: 'static,
+    TErr: 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
 {
@@ -321,11 +321,11 @@ where
     })
 }
 
-fn logging<TError, TThisCtx, TThisInput, TThisResult>(
-) -> Middleware<TError, TThisCtx, TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
+fn logging<TErr, TThisCtx, TThisInput, TThisResult>(
+) -> Middleware<TErr, TThisCtx, TThisInput, TThisResult, TThisCtx, TThisInput, TThisResult>
 where
-    TError: 'static,
     TThisCtx: Send + 'static,
+    TErr: fmt::Debug + Send + 'static,
     TThisInput: fmt::Debug + Send + 'static,
     TThisResult: fmt::Debug + Send + 'static,
 {
@@ -335,8 +335,8 @@ where
         let result = next.exec(ctx, input).await;
         println!(
             "{} {} took {:?} with input {input_str:?} and returned {result:?}",
-            "QUERY",     // TODO: Make `next.meta()` work
-            "todo.todo", // TODO: Make `next.meta()` work
+            next.meta().kind().to_string().to_uppercase(),
+            next.meta().name(),
             start.elapsed()
         );
 
@@ -344,11 +344,77 @@ where
     })
 }
 
+fn error_handling<TErr, TThisCtx, TThisInput, TThisResult>() -> Middleware<
+    TErr,
+    TThisCtx,
+    TThisInput,
+    Result<TThisResult, Box<dyn error::Error + Send + 'static>>,
+    TThisCtx,
+    TThisInput,
+    TThisResult,
+>
+where
+    TErr: 'static,
+    TThisCtx: Send + 'static,
+    TThisInput: fmt::Debug + Send + 'static,
+    TThisResult: fmt::Debug + Send + 'static,
+{
+    Middleware::new(|ctx, input, next| async move {
+        // let result = next.exec(ctx, input).await;
+        // Ok(result)
+        todo!();
+    })
+}
+
+#[derive(Type, Debug)]
+pub enum Infallible2 {}
+
+impl fmt::Display for Infallible2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl Serialize for Infallible2 {
+    fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        unreachable!()
+    }
+}
+
+impl std::error::Error for Infallible2 {}
+
+impl From<Infallible2> for Infallible {
+    fn from(_: Infallible2) -> Self {
+        unreachable!()
+    }
+}
+
 #[tokio::main]
 async fn main() {
+    // let procedure = Procedure::<_, Infallible>::builder()
+    //     // .with(logging())
+    //     // .with(error_handling())
+    //     .error::<Infallible2>()
+    //     .query(|ctx, _input: u64| async move { Ok::<_, Infallible2>("todo") });
+
+    // println!(
+    //     "{:?}",
+    //     procedure
+    //         .exec((), serde_json::Value::Number(32.into()))
+    //         .unwrap()
+    //         .next()
+    //         .await
+    //         .unwrap()
+    //         .unwrap()
+    //         .serialize(serde_json::value::Serializer)
+    // );
+
     let procedure = Procedure::<Node>::builder()
         .with(library_args())
-        .query(|(node, library), _input: u64| async move { true });
+        .query(|(node, library), _input: u64| async move { Ok(true) });
     // procedure.exec(Node {}, serde_json::Value::Null).unwrap();
 
     // TODO: This is why we need a 3rd `TCtx`
@@ -357,7 +423,7 @@ async fn main() {
         .with(logging())
         .with(todo())
         .with(library_args())
-        .query(|(node, library), _input: u64| async move { true });
+        .query(|(node, library), _input: u64| async move { Ok(true) });
 
     procedure
         .exec(
@@ -377,7 +443,7 @@ async fn main() {
 
     let procedure = <Procedure>::builder()
         .with(logging())
-        .query(|_ctx, _input: u64| async move { true });
+        .query(|_ctx, _input: u64| async move { Ok(true) });
 
     // let result = procedure
     //     .exec((), serde_json::Value::Number(42u32.into()))
@@ -407,7 +473,7 @@ async fn main() {
         //     let _result = next.exec(ctx, input).await;
         //     _result
         // })
-        .query(|_ctx, _input: ()| async move { 42i32 });
+        .query(|_ctx, _input: ()| async move { Ok(42i32) });
 
     // let router = Router::builder().procedure(procedure);
 
@@ -451,7 +517,7 @@ async fn main() {
     // println!("File Result: {:?}", result);
 
     let procedure = <Procedure>::builder()
-        .query(|_ctx, _input: ()| async move { rspc::Stream(once(async move { 42i32 })) });
+        .query(|_ctx, _input: ()| async move { Ok(rspc::Stream(once(async move { Ok(42i32) }))) });
 
     let result = procedure
         .exec((), serde_json::Value::Null)

@@ -7,27 +7,19 @@ use super::{
     exec_input::{AnyInput, InputValueInner},
     mw::Mw,
     stream::ProcedureStream,
-    InternalError, ProcedureBuilder, ProcedureExecInput, ProcedureInput, ProcedureMeta,
+    InternalError, ProcedureBuilder, ProcedureExecInput, ProcedureInput, ProcedureKind,
     ResolverInput, ResolverOutput,
 };
 
-pub(super) type InvokeFn<TCtx, TErr> = Box<
-    dyn Fn(
-        TCtx,
-        &mut dyn InputValueInner,
-        ProcedureMeta,
-    ) -> Result<ProcedureStream<TErr>, InternalError>,
->;
+pub(super) type InvokeFn<TCtx, TErr> =
+    Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream<TErr>, InternalError>>;
 
 /// Represents a single operations on the server that can be executed.
 ///
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
-pub struct Procedure<TCtx = (), TErr = crate::Infallible>
-where
-    TCtx: 'static,
-{
-    pub(super) ty: ProcedureType,
+pub struct Procedure<TCtx = (), TErr = crate::Infallible> {
+    pub(super) ty: ProcedureKind,
     pub(super) input: fn(&mut TypeDefs) -> DataType,
     pub(super) result: fn(&mut TypeDefs) -> DataType,
     pub(super) handler: InvokeFn<TCtx, TErr>,
@@ -42,17 +34,18 @@ impl<TCtx, TErr: error::Error> fmt::Debug for Procedure<TCtx, TErr> {
 impl<TCtx, TErr> Procedure<TCtx, TErr>
 where
     TCtx: 'static,
+    TErr: 'static,
 {
     /// Construct a new procedure using [`ProcedureBuilder`].
-    pub fn builder<I, R, M>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>
+    pub fn builder<I, R>() -> ProcedureBuilder<TErr, TCtx, TCtx, I, R>
     where
-        TCtx: 'static,
-        I: ResolverInput + 'static,
-        R: ResolverOutput<M, TErr> + 'static,
+        // Only the first layer (middleware or the procedure) needs to be a valid input/output type
+        I: ResolverInput,
+        R: ResolverOutput<TErr>,
     {
         ProcedureBuilder {
             mw: Mw {
-                build: Box::new(|handler| {
+                build: Box::new(|meta, handler| {
                     // if let Some(setup) = setup {
                     //     setup(todo!(), ProcedureMeta {});
                     // }
@@ -61,12 +54,20 @@ where
                     // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
                     let handler = Arc::new(handler);
 
-                    Box::new(move |ctx, input, meta| {
-                        let fut =
-                            handler(ctx, I::from_value(ProcedureExecInput::new(input))?, meta);
+                    Procedure {
+                        ty: meta.kind(),
+                        input: |type_map| I::data_type(type_map),
+                        result: |type_map| R::data_type(type_map),
+                        handler: Box::new(move |ctx, input| {
+                            let fut = handler(
+                                ctx,
+                                I::from_value(ProcedureExecInput::new(input))?,
+                                meta.clone(),
+                            );
 
-                        Ok(R::into_procedure_stream(fut.into_stream()))
-                    })
+                            Ok(R::into_procedure_stream(fut.into_stream()))
+                        }),
+                    }
                 }),
             },
             input: None,
@@ -89,7 +90,7 @@ where
     ) -> ProcedureTypeDefinition {
         ProcedureTypeDefinition {
             key,
-            ty: self.ty,
+            kind: self.ty,
             input: (self.input)(type_map),
             result: (self.result)(type_map),
         }
@@ -118,27 +119,19 @@ where
         ctx: TCtx,
         input: T,
     ) -> Result<ProcedureStream<TErr>, InternalError> {
-        let meta = ProcedureMeta {};
         match input.into_deserializer() {
             Ok(deserializer) => {
                 let mut input = <dyn erased_serde::Deserializer>::erase(deserializer);
-                (self.handler)(ctx, &mut input, meta)
+                (self.handler)(ctx, &mut input)
             }
-            Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value())), meta),
+            Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value()))),
         }
     }
 }
 
 pub struct ProcedureTypeDefinition {
     pub key: Cow<'static, str>,
-    pub ty: ProcedureType,
+    pub kind: ProcedureKind,
     pub input: DataType,
     pub result: DataType,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum ProcedureType {
-    Query,
-    Mutation,
-    Subscription,
 }
