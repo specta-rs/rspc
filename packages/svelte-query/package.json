@@ -6,11 +6,11 @@
 	"author": "Oscar Beaumont",
 	"license": "MIT",
 	"type": "module",
-	"source": "src/index.tsx",
-	"types": "dist/index.d.ts",
-	"main": "dist/index.js",
-	"module": "dist/index.js",
-	"svelte": "dist/index.js",
+	"source": "./src/index.tsx",
+	"types": "./dist/index.d.ts",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"svelte": "./dist/index.js",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
