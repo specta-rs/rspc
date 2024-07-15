@@ -10,11 +10,6 @@ documentation = "https://rspc.dev"
 keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
 categories = ["web-programming", "asynchronous"]
 
-# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
-[package.metadata."docs.rs"]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-
 [features]
 default = []
 
@@ -32,3 +27,11 @@ erased-serde = "0.4"
 # TODO: Remove
 serde_json = "1.0.116"
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "fs"] }
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

@@ -10,17 +10,6 @@
     html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
     html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
 )]
-#![warn(
-    clippy::all,
-    clippy::cargo,
-    clippy::unwrap_used,
-    clippy::panic,
-    clippy::todo,
-    clippy::panic_in_result_fn,
-    missing_docs
-)]
-#![forbid(unsafe_code)]
-#![allow(clippy::module_inception)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod middleware;
