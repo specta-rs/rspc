@@ -13,9 +13,9 @@ use tracing::info;
 mod traceable;
 
 pub use traceable::{DebugMarker, StreamMarker, Traceable};
+use tracing_futures::Instrument;
 
 // TODO: Support for Prometheus metrics and structured logging
-// TODO: Assigning a span to the entire request (function and future)
 
 /// TODO
 pub fn tracing<TError, TCtx, TInput, TResult, M>() -> Middleware<TError, TCtx, TInput, TResult>
@@ -25,19 +25,29 @@ where
     TInput: fmt::Debug + Send + 'static,
     TResult: Traceable<M> + Send + 'static,
 {
-    Middleware::new(|ctx, input, next| async move {
-        let input_str = format!("{input:?}");
-        let start = std::time::Instant::now();
-        let result = next.exec(ctx, input).await;
-        info!(
-            "{} {} took {:?} with input {input_str:?} and returned {:?}",
+    Middleware::new(|ctx, input, next| {
+        let span = tracing::info_span!(
+            "",
+            "{} {}",
             next.meta().kind().to_string().to_uppercase(), // TODO: Maybe adding color?
-            next.meta().name(),
-            start.elapsed(),
-            DebugWrapper(&result, PhantomData::<M>)
+            next.meta().name()
         );
 
-        result
+        async move {
+            let input_str = format!("{input:?}");
+            let start = std::time::Instant::now();
+            let result = next.exec(ctx, input).await;
+            info!(
+                "{} {} took {:?} with input {input_str:?} and returned {:?}",
+                next.meta().kind().to_string().to_uppercase(), // TODO: Maybe adding color?
+                next.meta().name(),
+                start.elapsed(),
+                DebugWrapper(&result, PhantomData::<M>)
+            );
+
+            result
+        }
+        .instrument(span)
     })
 }
 

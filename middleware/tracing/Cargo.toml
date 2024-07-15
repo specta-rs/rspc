@@ -8,6 +8,7 @@ publish = false # TODO: Crate metadata & publish
 rspc = { path = "../../rspc" }
 tracing = "0.1"
 futures = "0.3"
+tracing-futures = "0.2.5"
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]
