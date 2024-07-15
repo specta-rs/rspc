@@ -6,4 +6,5 @@ publish = false # TODO: Crate metadata & publish
 
 [dependencies]
 rspc = { path = "../../rspc" }
-tracing = "0.1.40"
+tracing = "0.1"
+futures = "0.3"

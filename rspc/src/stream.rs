@@ -18,11 +18,18 @@
 /// <Procedure>::builder().query(|_, _: ()| async move { rspc::Stream(once(async move { 42 })) });
 /// ```
 ///
-pub struct Stream<T>(pub T)
-where
-    T: futures::Stream,
-    T::Item: AnyResult;
+pub struct Stream<S: futures::Stream>(pub S);
 
-// TODO: Diagnostic if we keep this
-pub trait AnyResult {}
-impl<T, E> AnyResult for Result<T, E> {}
+// WARNING: We can not add an implementation for `Debug` without breaking `rspc_tracing`
+
+impl<S: futures::Stream + Default> Default for Stream<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<S: futures::Stream + Clone> Clone for Stream<S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}

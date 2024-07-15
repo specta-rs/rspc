@@ -9,3 +9,8 @@ axum = "0.7.5"
 rspc = { version = "0.3.0", path = "../../rspc" }
 rspc-axum = { version = "0.2.0", path = "../../integrations/axum", features = ["ws"] }
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread"] }
+thiserror = "1.0.62"
+async-stream = "0.3.5"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+rspc-tracing = { version = "0.0.0", path = "../../middleware/tracing" } # TODO: Remove?

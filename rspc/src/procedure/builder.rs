@@ -1,5 +1,7 @@
 use std::{error, fmt, future::Future};
 
+use futures::FutureExt;
+
 use crate::{
     middleware::{Middleware, MiddlewareHandler},
     State,
@@ -26,7 +28,6 @@ impl<TCtx, TError, TNextCtx, TInput, TResult> fmt::Debug
     }
 }
 
-// TODO: The double usage of `TCtx` in multiple parts of this impl block is plain wrong and will break context switching
 impl<TRootCtx, TCtx, TError, TInput, TResult>
     ProcedureBuilder<TError, TRootCtx, TCtx, TInput, TResult>
 where
@@ -77,33 +78,27 @@ where
             Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }
+}
 
-    // pub fn subscription<F, S, M>(
-    //     self,
-    //     handler: impl Fn(TNextCtx, TInput) -> F + Send + Sync + 'static,
-    // ) -> Procedure<TCtx, TErr>
-    // where
-    //     F: Future<Output = S> + Send + 'static,
-    //     S: Stream<Item = TResult> + Send + 'static,
-    //     TInput: ResolverInput,
-    //     TResult: ResolverOutput<M, TErr>,
-    // {
-    //     Procedure {
-    //         input: self.input.unwrap_or(TInput::data_type),
-    //         ty: ProcedureType::Subscription,
-    //         result: TResult::data_type,
-    //         // handler: Box::new(move |ctx, input| {
-    //         //     Ok(TResult::into_procedure_stream(
-    //         //         handler(ctx, TInput::from_value(ProcedureExecInput::new(input))?)
-    //         //             .into_stream()
-    //         //             .flatten(),
-    //         //     ))
-    //         // }),
-    //         // handler: (self.mw.build)(MiddlewareInner {
-    //         //     setup: None,
-    //         //     handler: Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
-    //         // }),
-    //         handler: todo!(),
-    //     }
-    // }
+impl<TRootCtx, TCtx, TError, TInput, S, T>
+    ProcedureBuilder<TError, TRootCtx, TCtx, TInput, crate::Stream<S>>
+where
+    TError: error::Error + Send + 'static,
+    TRootCtx: 'static,
+    TCtx: 'static,
+    TInput: 'static,
+    S: futures::Stream<Item = Result<T, TError>> + Send + 'static,
+{
+    pub fn subscription<F: Future<Output = Result<S, TError>> + Send + 'static>(
+        self,
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+    ) -> Procedure<TRootCtx> {
+        (self.build)(
+            ProcedureMeta::new("todo.todo".into(), ProcedureKind::Mutation),
+            &mut State::default(),
+            Box::new(move |ctx, input, _| {
+                Box::pin(handler(ctx, input).map(|s| s.map(|s| crate::Stream(s))))
+            }),
+        )
+    }
 }

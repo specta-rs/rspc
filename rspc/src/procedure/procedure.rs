@@ -1,4 +1,4 @@
-use std::{borrow::Cow, error, fmt, marker::PhantomData, sync::Arc};
+use std::{borrow::Cow, error, fmt, sync::Arc};
 
 use futures::FutureExt;
 use specta::{DataType, TypeDefs};

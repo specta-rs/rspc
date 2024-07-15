@@ -2,8 +2,11 @@
 
 use std::{error, fmt, marker::PhantomData};
 
-use futures::{stream::once, StreamExt};
-use rspc::{middleware::*, procedure::*, Infallible};
+use futures::{
+    stream::{once, IntoStream},
+    Stream, StreamExt,
+};
+use rspc::{middleware::*, procedure::*, Infallible, Router};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -427,60 +430,52 @@ impl From<Infallible> for Infallible2 {
     }
 }
 
-type Context = ();
 pub struct BaseProcedure<TErr = BaseError>(PhantomData<TErr>);
 
 impl<TErr> BaseProcedure<TErr> {
-    pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Context, Context, TInput, TResult>
+    pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Node, Node, TInput, TResult>
     where
         TErr: error::Error + Send + 'static,
         TInput: fmt::Debug + ResolverInput,
         TResult: fmt::Debug + ResolverOutput<TErr>,
     {
-        <Procedure>::builder().with(logging())
+        Procedure::builder().with(logging())
     }
 }
 
 #[tokio::main]
 async fn main() {
-    let procedure = <BaseProcedure>::builder().query(|ctx, input: i32| async move { Ok(()) });
+    let router = Router::builder()
+        .procedure("a", {
+            <BaseProcedure>::builder().query(|ctx, input: i32| async move { Ok(()) })
+        })
+        .procedure("err", {
+            <BaseProcedure>::builder().query(|ctx, input: i32| async move {
+                Err::<(), _>(BaseError { some_value: "todo" })
+            })
+        })
+        .procedure("b", {
+            <BaseProcedure>::builder()
+                .with(library_args())
+                .query(|(node, library), input: i32| async move { Ok(()) })
+        });
+    // .procedure("subscription", {
+    //     <BaseProcedure>::builder().subscription(|ctx, input: i32| async move { Ok(()) })
+    // });
 
-    let procedure = <BaseProcedure>::builder()
-        .query(|ctx, input: i32| async move { Err::<(), _>(BaseError { some_value: "todo" }) });
+    // TODO: Should we allow cloning procedure builders so we can have a "local" template like this?
+    // let authed = <Procedure>::builder().with(logging());
 
-    println!(
-        "{:?}",
-        procedure
-            .exec((), serde_json::Value::Number(32.into()))
-            .unwrap()
-            .next()
-            .await
-            .unwrap()
-            .unwrap()
-            .serialize(serde_json::value::Serializer)
-    );
-
-    // let procedure = Procedure::<Node>::builder::<_, _, Infallible>() // TODO: Having to hardcode `Infallible` sucks.
-    //     // .error::<Infallible>()
-    //     // .with(library_args())
-    //     .query(|(node, library), _input: i32| async move { Ok(true) });
     // println!(
     //     "{:?}",
     //     procedure
-    //         .exec(
-    //             Node {},
-    //             serde_json::json!({
-    //             "library": "test",
-    //             "args": 42
-    //             }),
-    //         )
+    //         .exec((), serde_json::Value::Number(32.into()))
     //         .unwrap()
     //         .next()
     //         .await
     //         .unwrap()
     //         .unwrap()
     //         .serialize(serde_json::value::Serializer)
-    //         .unwrap()
     // );
 
     // // TODO: This is why we need a 3rd `TCtx`
@@ -700,18 +695,3 @@ async fn main() {
     // //     })
     // //     .query(|_, _: ()| 42i32);
 }
-
-// pub struct LibraryArgs<T> {
-//     library: String,
-//     data: T,
-// }
-// TODO: middleware helpers to make this easier
-// fn library_args<TCtx, T, NextR>(
-// ) -> impl Fn(TCtx, LibraryArgs<T>, Next<NextR, T, TCtx>) -> Future<Output = NextR> {
-//     |ctx, input, next| async move { next.exec(ctx, input.data).await }
-// }
-
-// fn library_args<TCtx, NextI, NextR>() -> impl Middleware<TCtx, LibraryArgs<NextI>, NextI, NextR> {
-//     // TODO: Avoid the hardcoded type on `next`
-//     mw(|ctx, input, next: Next<NextR, NextI, TCtx>| async move { next.exec(ctx, input.data).await })
-// }
