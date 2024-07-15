@@ -15,7 +15,7 @@ default = []
 
 [dependencies]
 # Public
-serde = { version = "1", features = ["derive"] } # TODO: We should not require `derive` in the core!!!!! -> This if for `main.rs` rn
+serde = "1"
 futures = "0.3"
 specta = { version = "=2.0.0-rc.15", features = ["derive"] } # TODO: Drop requirement on `derive`
 specta-util = "0.0.2"
@@ -23,10 +23,6 @@ specta-util = "0.0.2"
 # Private
 serde-value = "0.7"
 erased-serde = "0.4"
-
-# TODO: Remove
-serde_json = "1.0.116"
-tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "fs"] }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]
