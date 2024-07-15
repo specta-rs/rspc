@@ -8,7 +8,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-*  --filter=!rspc-vscode exec pnpm dev",
-		"build": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/example --filter=!@rspc/examples-* --filter=!rspc-vscode exec pnpm build",
+		"build": "pnpm turbo run build --filter='./packages/*'",
 		"typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
 		"docs": "pnpm --filter @rspc/docs -- ",
 		"client": "pnpm --filter @rspc/client -- ",
@@ -27,5 +27,6 @@
 	},
 	"devDependencies": {
 		"biome": "^0.3.3"
-	}
+	},
+	"packageManager": "pnpm@9.5.0"
 }

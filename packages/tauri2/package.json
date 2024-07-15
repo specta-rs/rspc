@@ -1,5 +1,5 @@
 {
-	"name": "@rspc/tauri",
+	"name": "@rspc/tauri2",
 	"version": "0.2.0",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
