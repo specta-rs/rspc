@@ -1,6 +1,6 @@
 {
 	"name": "@rspc/svelte-query",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "A blazingly fast and easy to use tRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",
