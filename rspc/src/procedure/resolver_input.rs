@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use serde::de::DeserializeOwned;
-use specta::{DataType, DefOpts, Type, TypeDefs};
+use specta::{DataType, Generics, Type, TypeMap};
 
 use super::{InternalError, ProcedureExecInput};
 
@@ -37,19 +37,15 @@ use super::{InternalError, ProcedureExecInput};
 /// }
 /// ```
 pub trait ResolverInput: Sized + Any + Send + 'static {
-    fn data_type(type_map: &mut TypeDefs) -> DataType;
+    fn data_type(type_map: &mut TypeMap) -> DataType;
 
     /// Convert the [`ProcedureInput`] into the type the user specified for the procedure.
     fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, InternalError>;
 }
 
 impl<T: DeserializeOwned + Type + Send + 'static> ResolverInput for T {
-    fn data_type(type_map: &mut TypeDefs) -> DataType {
-        T::definition(DefOpts {
-            parent_inline: false,
-            type_map,
-        })
-        .unwrap() // Specta v2 doesn't panic
+    fn data_type(type_map: &mut TypeMap) -> DataType {
+        T::inline(type_map, Generics::Definition)
     }
 
     fn from_value(value: ProcedureExecInput<Self>) -> Result<Self, InternalError> {

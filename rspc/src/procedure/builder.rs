@@ -7,16 +7,16 @@ use crate::{
     State,
 };
 
-use super::{Procedure, ProcedureKind, ProcedureMeta};
+use super::{ProcedureKind, ProcedureMeta, UnbuiltProcedure};
 
 // TODO: Document the generics like `Middleware`
 pub struct ProcedureBuilder<TError, TCtx, TNextCtx, TInput, TResult> {
     pub(super) build: Box<
         dyn FnOnce(
-            ProcedureMeta,
-            &mut State,
+            ProcedureKind,
+            Vec<Box<dyn FnOnce(&mut State, ProcedureMeta) + 'static>>,
             MiddlewareHandler<TError, TNextCtx, TInput, TResult>,
-        ) -> Procedure<TCtx>,
+        ) -> UnbuiltProcedure<TCtx>,
     >,
 }
 
@@ -47,12 +47,21 @@ where
         R: 'static,
     {
         ProcedureBuilder {
-            build: Box::new(|meta, state: &mut State, handler| {
+            build: Box::new(|ty, mut setups, handler| {
                 if let Some(setup) = mw.setup {
-                    setup(state, meta.clone());
+                    setups.push(setup);
                 }
 
-                (self.build)(meta, state, (mw.inner)(handler))
+                (self.build)(ty, setups, (mw.inner)(handler))
+            }),
+        }
+    }
+
+    pub fn setup(self, func: impl FnOnce(&mut State, ProcedureMeta) + 'static) -> Self {
+        Self {
+            build: Box::new(|ty, mut setups, handler| {
+                setups.push(Box::new(func));
+                (self.build)(ty, setups, handler)
             }),
         }
     }
@@ -60,10 +69,10 @@ where
     pub fn query<F: Future<Output = Result<TResult, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx> {
+    ) -> UnbuiltProcedure<TRootCtx> {
         (self.build)(
-            ProcedureMeta::new("todo.todo".into(), ProcedureKind::Query),
-            &mut State::default(),
+            ProcedureKind::Query,
+            Vec::new(),
             Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }
@@ -71,10 +80,10 @@ where
     pub fn mutation<F: Future<Output = Result<TResult, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx> {
+    ) -> UnbuiltProcedure<TRootCtx> {
         (self.build)(
-            ProcedureMeta::new("todo.todo".into(), ProcedureKind::Mutation),
-            &mut State::default(),
+            ProcedureKind::Mutation,
+            Vec::new(),
             Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }
@@ -92,10 +101,10 @@ where
     pub fn subscription<F: Future<Output = Result<S, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure<TRootCtx> {
+    ) -> UnbuiltProcedure<TRootCtx> {
         (self.build)(
-            ProcedureMeta::new("todo.todo".into(), ProcedureKind::Mutation),
-            &mut State::default(),
+            ProcedureKind::Subscription,
+            Vec::new(),
             Box::new(move |ctx, input, _| {
                 Box::pin(handler(ctx, input).map(|s| s.map(|s| crate::Stream(s))))
             }),

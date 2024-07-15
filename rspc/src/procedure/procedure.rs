@@ -1,13 +1,15 @@
 use std::{borrow::Cow, error, fmt, sync::Arc};
 
 use futures::FutureExt;
-use specta::{DataType, TypeDefs};
+use specta::{DataType, TypeMap};
+
+use crate::State;
 
 use super::{
     exec_input::{AnyInput, InputValueInner},
     stream::ProcedureStream,
     InternalError, ProcedureBuilder, ProcedureExecInput, ProcedureInput, ProcedureKind,
-    ResolverInput, ResolverOutput,
+    ProcedureMeta, ResolverInput, ResolverOutput,
 };
 
 pub(super) type InvokeFn<TCtx> =
@@ -18,15 +20,18 @@ pub(super) type InvokeFn<TCtx> =
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
 pub struct Procedure<TCtx = ()> {
-    pub(super) ty: ProcedureKind,
-    pub(super) input: fn(&mut TypeDefs) -> DataType,
-    pub(super) result: fn(&mut TypeDefs) -> DataType,
-    pub(super) handler: InvokeFn<TCtx>,
+    kind: ProcedureKind,
+    ty: ProcedureTypeDefinition,
+    handler: InvokeFn<TCtx>,
 }
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Procedure").finish()
+        f.debug_struct("Procedure")
+            .field("kind", &self.kind)
+            .field("ty", &self.ty)
+            .field("handler", &"...")
+            .finish()
     }
 }
 
@@ -43,24 +48,35 @@ where
         R: ResolverOutput<TError>,
     {
         ProcedureBuilder {
-            build: Box::new(|meta, _, handler| {
+            build: Box::new(|kind, setups, handler| {
                 // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
                 let handler = Arc::new(handler);
 
-                Procedure {
-                    ty: meta.kind(),
-                    input: |type_map| I::data_type(type_map),
-                    result: |type_map| R::data_type(type_map),
-                    handler: Box::new(move |ctx, input| {
-                        let fut = handler(
-                            ctx,
-                            I::from_value(ProcedureExecInput::new(input))?,
-                            meta.clone(),
-                        );
+                UnbuiltProcedure::new(move |key, state, type_map| {
+                    let meta = ProcedureMeta::new(key.clone(), kind);
+                    for setup in setups {
+                        setup(state, meta.clone());
+                    }
 
-                        Ok(R::into_procedure_stream(fut.into_stream()))
-                    }),
-                }
+                    Procedure {
+                        kind,
+                        ty: ProcedureTypeDefinition {
+                            key,
+                            kind,
+                            input: I::data_type(type_map),
+                            result: R::data_type(type_map),
+                        },
+                        handler: Box::new(move |ctx, input| {
+                            let fut = handler(
+                                ctx,
+                                I::from_value(ProcedureExecInput::new(input))?,
+                                meta.clone(),
+                            );
+
+                            Ok(R::into_procedure_stream(fut.into_stream()))
+                        }),
+                    }
+                })
             }),
         }
     }
@@ -70,20 +86,12 @@ where
     /// TODO - Use this with `rspc::typescript`
     ///
     /// # Usage
+    ///
     /// ```rust
     /// todo!(); # TODO: Example
     /// ```
-    pub fn types(
-        &self,
-        key: Cow<'static, str>,
-        type_map: &mut TypeDefs,
-    ) -> ProcedureTypeDefinition {
-        ProcedureTypeDefinition {
-            key,
-            kind: self.ty,
-            input: (self.input)(type_map),
-            result: (self.result)(type_map),
-        }
+    pub fn types(&self) -> &ProcedureTypeDefinition {
+        &self.ty
     }
 
     /// Execute a procedure with the given context and input.
@@ -91,6 +99,7 @@ where
     /// This will return a [`ProcedureStream`] which can be used to stream the result of the procedure.
     ///
     /// # Usage
+    ///
     /// ```rust
     /// use serde_json::Value;
     ///
@@ -119,9 +128,40 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProcedureTypeDefinition {
     pub key: Cow<'static, str>,
     pub kind: ProcedureKind,
     pub input: DataType,
     pub result: DataType,
+}
+
+pub struct UnbuiltProcedure<TCtx>(
+    Box<dyn FnOnce(Cow<'static, str>, &mut State, &mut TypeMap) -> Procedure<TCtx>>,
+);
+
+impl<TCtx> fmt::Debug for UnbuiltProcedure<TCtx> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("UnbuiltProcedure").finish()
+    }
+}
+
+impl<TCtx> UnbuiltProcedure<TCtx> {
+    pub(crate) fn new(
+        build_fn: impl FnOnce(Cow<'static, str>, &mut State, &mut TypeMap) -> Procedure<TCtx> + 'static,
+    ) -> Self {
+        Self(Box::new(build_fn))
+    }
+
+    /// Build the procedure invoking all the setup functions.
+    ///
+    /// Generally you will not need to call this directly as you can give a [ProcedureFactory] to the [RouterBuilder::procedure] and let it take care of the rest.
+    pub fn build(
+        self,
+        key: Cow<'static, str>,
+        state: &mut State,
+        type_map: &mut TypeMap,
+    ) -> Procedure<TCtx> {
+        (self.0)(key, state, type_map)
+    }
 }

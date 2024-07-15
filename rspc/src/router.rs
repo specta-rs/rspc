@@ -1,70 +1,163 @@
-use std::{borrow::Cow, collections::HashMap, fmt};
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    fmt,
+    path::{Path, PathBuf},
+};
 
-use crate::{procedure::Procedure, State};
+use specta::{Language, TypeMap};
+use specta_util::TypeCollection;
 
-pub struct Router<TCtx = ()>(HashMap<Cow<'static, str>, Procedure<TCtx>>);
+use crate::{
+    procedure::{Procedure, UnbuiltProcedure},
+    State,
+};
 
-impl<TCtx> fmt::Debug for Router<TCtx> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Router").field(&self.0).finish()
-    }
+pub struct Router<TCtx = ()> {
+    setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
+    types: TypeCollection,
+    procedures: BTreeMap<Cow<'static, str>, UnbuiltProcedure<TCtx>>,
+    exports: Vec<Box<dyn FnOnce(TypeMap) -> Result<(), Box<dyn std::error::Error>>>>,
 }
 
 impl<TCtx> Default for Router<TCtx> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            setup: Default::default(),
+            types: Default::default(),
+            procedures: Default::default(),
+            exports: Default::default(),
+        }
+    }
+}
+
+impl<TCtx> fmt::Debug for Router<TCtx> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Router").field(&self.procedures).finish()
     }
 }
 
 impl<TCtx> Router<TCtx> {
+    pub fn new() -> Router<TCtx> {
+        Self::default()
+    }
+
     pub fn procedure(
         mut self,
-        name: impl Into<Cow<'static, str>>,
-        procedure: Procedure<TCtx>,
+        key: impl Into<Cow<'static, str>>,
+        procedure: UnbuiltProcedure<TCtx>,
     ) -> Self {
-        let name = name.into();
+        let name = key.into();
+        self.procedures.insert(name, procedure);
+        self
+    }
 
-        // TODO: Delayed: -> Running the procedure's `init` function with the plugin store (once all merged together).
+    pub fn merge(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
+        self.setup.append(&mut other.setup);
 
-        self.0.insert(name, procedure);
+        let prefix = prefix.into();
+        let prefix = if prefix.is_empty() {
+            Cow::Borrowed("")
+        } else {
+            format!("{prefix}.").into()
+        };
+
+        self.procedures.extend(
+            other
+                .procedures
+                .into_iter()
+                .map(|(k, v)| (format!("{prefix}{k}").into(), v)),
+        );
 
         self
     }
 
-    pub fn state(&self) -> State {
-        todo!();
+    // TODO: Document the order this is run in for `build`
+    pub fn setup(mut self, func: impl FnOnce(&mut State) + 'static) -> Self {
+        self.setup.push(Box::new(func));
+        self
     }
 
-    pub fn merge(self, other: Self) -> Self {
-        todo!();
+    pub fn ext(mut self, types: TypeCollection) -> Self {
+        self.types = types;
+        self
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&Cow<'static, str>, &Procedure<TCtx>)> {
-        self.0.iter()
+    // TODO: Docs - that this is delayed until `Router::build` which means `Language::Error` type has to be erased.
+    pub fn export_to(
+        mut self,
+        language: impl Language + 'static,
+        path: impl Into<PathBuf>,
+    ) -> Self {
+        let path = path.into();
+        self.exports.push(Box::new(move |types| {
+            language
+                .export(types)
+                .and_then(|result| std::fs::write(path, result).map_err(Into::into))
+                .map_err(Into::into)
+        }));
+        self
     }
 
-    // TODO: Maybe remove this?
-    pub fn get<'a>(&self, k: &str) -> Option<&Procedure<TCtx>> {
-        self.0.get(k)
+    pub fn build(self) -> Result<BuiltRouter<TCtx>, ()> {
+        self.build_with_state(State::default())
     }
-}
 
-impl<TCtx> FromIterator<(Cow<'static, str>, Procedure<TCtx>)> for Router<TCtx> {
-    fn from_iter<I: IntoIterator<Item = (Cow<'static, str>, Procedure<TCtx>)>>(iter: I) -> Self {
-        let mut router = Self::default();
-        for (path, procedure) in iter {
-            router.0.insert(path, procedure);
+    pub fn build_with_state(self, mut state: State) -> Result<BuiltRouter<TCtx>, ()> {
+        // TODO: Return errors on duplicate procedure names or restricted names
+
+        for setup in self.setup {
+            setup(&mut state);
         }
-        router
+
+        let mut types = TypeMap::default();
+        self.types.collect(&mut types);
+        let procedures = self
+            .procedures
+            .into_iter()
+            .map(|(key, procedure)| (key.clone(), procedure.build(key, &mut state, &mut types)))
+            .collect();
+
+        // TODO: Customise the files header. It should says rspc not Specta!
+
+        // TODO: Generate the massive `Procedures` types
+
+        for export in self.exports {
+            export(types.clone()).unwrap(); // TODO: Error
+        }
+
+        Ok(BuiltRouter {
+            state,
+            types,
+            procedures,
+        })
     }
 }
 
-impl<TCtx> IntoIterator for Router<TCtx> {
-    type Item = (Cow<'static, str>, Procedure<TCtx>);
-    // TODO: This leaks the `HashMap` implementation detail into the public API. It would be nice if Rust let us `type IntoIter = impl Iterator<Item = ...>;`.
-    type IntoIter = std::collections::hash_map::IntoIter<Cow<'static, str>, Procedure<TCtx>>;
+pub struct BuiltRouter<TCtx> {
+    pub state: State,
+    pub types: TypeMap,
+    pub procedures: BTreeMap<Cow<'static, str>, Procedure<TCtx>>,
+}
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+impl<TCtx> fmt::Debug for BuiltRouter<TCtx> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BuiltRouter")
+            // TODO
+            .finish()
+    }
+}
+
+impl<TCtx> BuiltRouter<TCtx> {
+    pub fn export<L: Language>(&self, language: L) -> Result<String, L::Error> {
+        language.export(self.types.clone())
+    }
+
+    pub fn export_to<L: Language>(
+        &self,
+        language: L,
+        path: impl AsRef<Path>,
+    ) -> Result<(), L::Error> {
+        std::fs::write(path, self.export(language)?).map_err(Into::into)
     }
 }

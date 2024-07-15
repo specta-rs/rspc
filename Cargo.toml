@@ -2,3 +2,8 @@
 resolver = "2"
 
 members = ["./rspc", "./integrations/*", "middleware/*", "./examples/*"]
+
+# TODO: Remove this
+[patch.crates-io]
+specta = { git = "https://github.com/oscartbeaumont/specta", rev = "9c41ff0e95a357fd00893f5e2f9d642eac3438ef" }
+specta-typescript = { git = "https://github.com/oscartbeaumont/specta", rev = "9c41ff0e95a357fd00893f5e2f9d642eac3438ef" }

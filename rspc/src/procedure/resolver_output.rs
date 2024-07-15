@@ -2,7 +2,7 @@ use std::error;
 
 use futures::{stream::once, Stream, StreamExt};
 use serde::Serialize;
-use specta::{DataType, Type, TypeDefs};
+use specta::{DataType, Generics, Type, TypeMap};
 
 use super::{ProcedureOutput, ProcedureStream};
 
@@ -49,7 +49,7 @@ pub trait ResolverOutput<TError>: Sized + Send + 'static {
     }
 
     // TODO: Be an associated type instead so we can constrain later for better errors????
-    fn data_type(type_map: &mut TypeDefs) -> DataType;
+    fn data_type(type_map: &mut TypeMap) -> DataType;
 
     /// Convert the value from the user into a [`ProcedureOutput`].
     fn into_procedure_result(self) -> Result<ProcedureOutput, TError>;
@@ -60,9 +60,8 @@ where
     T: Serialize + Type + Send + 'static,
     TError: error::Error + Send + 'static,
 {
-    fn data_type(type_map: &mut TypeDefs) -> DataType {
-        // T::data_type(type_map)
-        todo!();
+    fn data_type(type_map: &mut TypeMap) -> DataType {
+        T::inline(type_map, Generics::Definition)
     }
 
     fn into_procedure_result(self) -> Result<ProcedureOutput, TError> {
@@ -76,9 +75,8 @@ where
     S: Stream<Item = Result<T, TErr>> + Send + 'static,
     T: ResolverOutput<TErr>,
 {
-    fn data_type(type_map: &mut TypeDefs) -> DataType {
-        // S::Item::data_type(type_map)
-        todo!();
+    fn data_type(type_map: &mut TypeMap) -> DataType {
+        T::data_type(type_map) // TODO: Do we need to do anything special here so the frontend knows this is a stream?
     }
 
     fn into_procedure_stream(

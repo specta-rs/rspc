@@ -9,11 +9,17 @@ mod api;
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let router = api::mount();
+    let router = api::mount().build().unwrap();
 
-    // rspc_axum::endpoint(router); // TODO: hook this up
-
-    let app = Router::new().route("/", get(|| async { "Hello, World!" }));
+    let app = Router::new()
+        .route("/", get(|| async { "Hello, World!" }))
+        .nest(
+            "/rspc",
+            rspc_axum::Endpoint::new(router, || api::Context {
+                chat: Default::default(),
+            })
+            .build(),
+        );
 
     info!("Listening on http://[::1]:3000");
     let listener = tokio::net::TcpListener::bind((Ipv6Addr::UNSPECIFIED, 3000))

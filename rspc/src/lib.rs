@@ -1,6 +1,6 @@
 //! rspc is a framework for building typesafe web backends in Rust.
 //!
-//! Powered by [Specta](https://docs.rs/specta)'s powerful language exporting, rspc comes with integrations for [Axum](https://docs.rs/axum) and [Tauri](https://docs.rs/tauri) out of the box. This project brings the next level DX inspired by [tRPC](https://trpc.io) to your Rust stack.
+//! Powered by [Specta](https://docs.rs/specta)'s powerful language exporting, rspc comes with integrations for [Axum](https://docs.rs/axum) and [Tauri](https://docs.rs/tauri) out of the box. This project brings the next level developer experience inspired by [tRPC](https://trpc.io) to your Rust stack.
 //!
 //! ## WARNING
 //!
@@ -33,7 +33,7 @@ mod state;
 mod stream;
 
 pub use infallible::Infallible;
-pub use router::Router;
+pub use router::{BuiltRouter, Router};
 pub use state::State;
 pub use stream::Stream;
 
@@ -41,5 +41,5 @@ pub use stream::Stream;
 pub mod internal {
     // To make versioning easier we reexport it so libraries such as `rspc_axum` don't need a direct dependency on `specta`.
     pub use serde::Serialize;
-    pub use specta::{DataType, Type, TypeDefs};
+    pub use specta::{DataType, Type, TypeMap}; // TODO: Why does rspc_axum care again?
 }

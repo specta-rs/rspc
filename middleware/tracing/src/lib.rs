@@ -9,6 +9,9 @@ mod traceable;
 
 pub use traceable::{DebugMarker, StreamMarker, Traceable};
 
+// TODO: Support for Prometheus metrics and structured logging
+// TODO: Assigning a span to the entire request (function and future)
+
 /// TODO
 pub fn tracing<TError, TCtx, TInput, TResult, M>() -> Middleware<TError, TCtx, TInput, TResult>
 where

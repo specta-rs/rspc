@@ -445,7 +445,7 @@ impl<TErr> BaseProcedure<TErr> {
 
 #[tokio::main]
 async fn main() {
-    let router = Router::builder()
+    let router = Router::new()
         .procedure("a", {
             <BaseProcedure>::builder().query(|ctx, input: i32| async move { Ok(()) })
         })

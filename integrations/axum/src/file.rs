@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
 use rspc::{
-    internal::{DataType, TypeDefs},
+    internal::{DataType, TypeMap},
     procedure::{
         InternalError, ProcedureExecInput, ProcedureInput, ProcedureOutput, ResolverInput,
         ResolverOutput,
@@ -13,7 +13,7 @@ use tokio::io::AsyncWrite;
 pub struct File<T = Pin<Box<dyn AsyncWrite + Send>>>(pub T);
 
 impl<T: AsyncWrite + Send + 'static, TErr> ResolverOutput<TErr> for File<T> {
-    fn data_type(type_map: &mut TypeDefs) -> DataType {
+    fn data_type(type_map: &mut TypeMap) -> DataType {
         DataType::Any // TODO
     }
 
@@ -33,7 +33,7 @@ impl<'de, F: AsyncWrite + Send + 'static> ProcedureInput<'de> for File<F> {
 }
 
 impl ResolverInput for File {
-    fn data_type(type_map: &mut TypeDefs) -> DataType {
+    fn data_type(type_map: &mut TypeMap) -> DataType {
         DataType::Any // TODO
     }
 

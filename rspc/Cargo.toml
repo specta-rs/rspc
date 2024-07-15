@@ -22,7 +22,8 @@ default = []
 # Public
 serde = { version = "1", features = ["derive"] } # TODO: We should not require `derive` in the core!!!!! -> This if for `main.rs` rn
 futures = "0.3"
-specta = "1" # TODO: Specta v2
+specta = { version = "=2.0.0-rc.15", features = ["derive"] } # TODO: Drop requirement on `derive`
+specta-util = "0.0.2"
 
 # Private
 serde-value = "0.7"

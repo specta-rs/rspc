@@ -9,5 +9,5 @@ mod endpoint;
 mod extractors;
 mod file;
 
-pub use endpoint::endpoint;
+pub use endpoint::Endpoint;
 pub use file::File;
