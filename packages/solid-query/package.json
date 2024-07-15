@@ -15,6 +15,7 @@
 	],
 	"exports": {
 		".": {
+			"types": "./dist/types/index.d.ts",
 			"solid": "./dist/source/index.jsx",
 			"import": "./dist/esm/index.js",
 			"browser": "./dist/esm/index.js",
