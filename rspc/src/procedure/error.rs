@@ -7,7 +7,7 @@ pub enum InternalError {
     ErrInputNotDowncastable,
     /// Error when deserializing input.
     // Boxed to seal `erased_serde` from public API.
-    ErrDeserializingInput(Box<dyn std::error::Error>),
+    ErrDeserializingInput(Box<dyn std::error::Error>), // TODO: Maybe seal so this type *has* to come from `erased_serde`???
 }
 
 impl fmt::Debug for InternalError {

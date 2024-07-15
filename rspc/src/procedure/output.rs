@@ -33,11 +33,11 @@ impl<T: Serialize + Any + 'static> Inner for T {
 pub struct ProcedureOutput {
     type_name: &'static str,
     type_id: TypeId,
-    inner: Box<dyn Inner>,
+    inner: Box<dyn Inner + Send>,
 }
 
 impl ProcedureOutput {
-    pub fn new<T: Any + 'static>(value: T) -> Self {
+    pub fn new<T: Any + Send + 'static>(value: T) -> Self {
         Self {
             type_name: type_name::<T>(),
             type_id: TypeId::of::<T>(),
@@ -45,7 +45,7 @@ impl ProcedureOutput {
         }
     }
 
-    pub fn with_serde<T: Serialize + Any + 'static>(value: T) -> Self {
+    pub fn with_serde<T: Serialize + Any + Send + 'static>(value: T) -> Self {
         Self {
             type_name: type_name::<T>(),
             type_id: TypeId::of::<T>(),

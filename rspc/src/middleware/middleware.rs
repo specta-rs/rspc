@@ -54,6 +54,17 @@ pub(crate) type MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult> = B
 /// - `TNextInput` - // TODO
 /// - `TNextResult` - // TODO
 ///
+/// TODO: [
+//  Context of previous layer (`ctx`),
+//  Error type,
+//  The input to the middleware (`input`),
+//  The result of the middleware (return type of future),
+//  - This following will default to the input types if not explicitly provided // TODO: Will this be confusing or good?
+//  The context returned by the middleware (`next.exec({dis_bit}, ...)`),
+//  The input to the next layer (`next.exec(..., {dis_bit})`),
+//  The result of the next layer (`let _result: {dis_bit} = next.exec(...)`),
+// ]
+///
 /// ```rust
 /// TODO: Example to show where the generics line up.
 /// ```

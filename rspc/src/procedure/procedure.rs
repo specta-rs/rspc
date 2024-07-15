@@ -12,8 +12,9 @@ use super::{
     ProcedureMeta, ResolverInput, ResolverOutput,
 };
 
-pub(super) type InvokeFn<TCtx> =
-    Box<dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream, InternalError>>;
+pub(super) type InvokeFn<TCtx> = Arc<
+    dyn Fn(TCtx, &mut dyn InputValueInner) -> Result<ProcedureStream, InternalError> + Send + Sync,
+>;
 
 /// Represents a single operations on the server that can be executed.
 ///
@@ -23,6 +24,16 @@ pub struct Procedure<TCtx = ()> {
     kind: ProcedureKind,
     ty: ProcedureTypeDefinition,
     handler: InvokeFn<TCtx>,
+}
+
+impl<TCtx> Clone for Procedure<TCtx> {
+    fn clone(&self) -> Self {
+        Self {
+            kind: self.kind,
+            ty: self.ty.clone(),
+            handler: self.handler.clone(),
+        }
+    }
 }
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {
@@ -66,7 +77,7 @@ where
                             input: I::data_type(type_map),
                             result: R::data_type(type_map),
                         },
-                        handler: Box::new(move |ctx, input| {
+                        handler: Arc::new(move |ctx, input| {
                             let fut = handler(
                                 ctx,
                                 I::from_value(ProcedureExecInput::new(input))?,
@@ -79,6 +90,12 @@ where
                 })
             }),
         }
+    }
+}
+
+impl<TCtx> Procedure<TCtx> {
+    pub fn kind(&self) -> ProcedureKind {
+        self.kind
     }
 
     /// Export the [Specta](https://docs.rs/specta) types for this procedure.

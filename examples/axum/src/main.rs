@@ -18,6 +18,9 @@ async fn main() {
             rspc_axum::Endpoint::new(router, || api::Context {
                 chat: Default::default(),
             })
+            .with_endpoints()
+            .with_websocket()
+            .with_batching()
             .build(),
         );
 

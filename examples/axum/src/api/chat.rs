@@ -35,7 +35,7 @@ pub struct Message {
 pub fn mount() -> Router {
     Router::new()
         .procedure("setName", {
-            <BaseProcedure>::builder().query(|ctx, name: String| async move {
+            <BaseProcedure>::builder().mutation(|ctx, name: String| async move {
                 *ctx.chat
                     .author
                     .lock()
