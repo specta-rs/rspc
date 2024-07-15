@@ -26,7 +26,8 @@
 		"node": ">=16.0.0"
 	},
 	"devDependencies": {
-		"biome": "^0.3.3"
+		"biome": "^0.3.3",
+		"turbo": "^2.0.6"
 	},
 	"packageManager": "pnpm@9.5.0"
 }
