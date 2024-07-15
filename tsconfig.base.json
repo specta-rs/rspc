@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"composite": true,
+		"moduleResolution": "node",
+		"lib": ["ESNext", "DOM"],
+		"strict": true,
+		"target": "ESNext",
+		"skipLibCheck": true,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"declarationMap": true
+	}
+}
