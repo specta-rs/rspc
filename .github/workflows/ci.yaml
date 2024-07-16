@@ -76,4 +76,5 @@ jobs:
       - name: Run Clippy
         uses: actions-rs-plus/clippy-check@v2
         with:
-          args: --workspace --all-features --locked
+          # no --locked as this is a library and we want to use latest dependencies in CI
+          args: --workspace --all-features
