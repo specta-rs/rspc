@@ -57,7 +57,7 @@ export function createHooks<P extends rspc.Procedures>() {
 	function createSubscription(
 		path: string[],
 		...[input, opts]: [
-			solid.Accessor<unknown>,
+			solid.Accessor<unknown | tanstack.SkipToken>,
 			opts:
 				| solid.Accessor<queryCore.SubscriptionOptions<unknown, unknown>>
 				| undefined,

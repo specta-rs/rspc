@@ -92,7 +92,7 @@ export type ProcedureProxyMethods<
 		: P["variant"] extends "subscription"
 			? {
 					createSubscription(
-						input: solid.Accessor<P["input"]>,
+						input: solid.Accessor<P["input"] | tanstack.SkipToken>,
 						opts?: solid.Accessor<
 							Partial<
 								rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>

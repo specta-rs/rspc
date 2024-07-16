@@ -84,7 +84,7 @@ export type ProcedureProxyMethods<
 		: P["variant"] extends "subscription"
 			? {
 					createSubscription(
-						input: tanstack.StoreOrVal<P["input"]>,
+						input: tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>,
 						opts?: tanstack.StoreOrVal<
 							Partial<
 								rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>

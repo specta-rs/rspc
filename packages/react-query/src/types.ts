@@ -80,7 +80,7 @@ export type ProcedureProxyMethods<
 		: P["variant"] extends "subscription"
 			? {
 					useSubscription(
-						input: P["input"],
+						input: P["input"] | tanstack.SkipToken,
 						opts?: Partial<
 							rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>
 						>,

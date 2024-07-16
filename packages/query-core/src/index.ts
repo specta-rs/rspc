@@ -60,10 +60,10 @@ export function createQueryHooksHelpers<P extends rspc.Procedures>() {
 	function handleSubscription(
 		client: rspc.Client<P>,
 		path: string[],
-		input: unknown,
+		input: unknown | tanstack.SkipToken,
 		opts?: () => SubscriptionOptions<unknown, unknown> | undefined,
 	): undefined | (() => void) {
-		if (!(opts?.()?.enabled ?? true)) return;
+		if (!(opts?.()?.enabled ?? true) || input === tanstack.skipToken) return;
 
 		let isStopped = false;
 

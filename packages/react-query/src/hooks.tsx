@@ -47,7 +47,7 @@ export function createHooks<P extends rspc.Procedures>() {
 	function useSubscription(
 		path: string[],
 		...[input, opts]: [
-			unknown,
+			unknown | tanstack.SkipToken,
 			queryCore.SubscriptionOptions<unknown, unknown> | undefined,
 		]
 	) {
