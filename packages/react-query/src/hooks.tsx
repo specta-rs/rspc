@@ -1,4 +1,5 @@
-import * as rspc from "@rspc/client";
+import type * as rspc from "@rspc/client";
+import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/react-query";
 import * as react from "react";
 
@@ -6,6 +7,8 @@ import type { Context, ProviderProps, ReactQueryProxyBuiltins } from "./types";
 
 export function createHooks<P extends rspc.Procedures>() {
 	const context = react.createContext<Context<P> | undefined>(undefined);
+
+	const helpers = queryCore.createQueryHooksHelpers<P>();
 
 	function useContext() {
 		const ctx = react.useContext(context);
@@ -16,108 +19,47 @@ export function createHooks<P extends rspc.Procedures>() {
 		return ctx;
 	}
 
+	function useClient() {
+		return useContext().client;
+	}
+
 	function useQuery(
 		path: string[],
 		...[input, opts]: [
 			unknown,
-			(
-				| Omit<
-						tanstack.UseQueryOptions<unknown, unknown, unknown, any>,
-						"queryKey" | "queryFn"
-				  >
-				| undefined
-			),
+			queryCore.WrapQueryOptions<tanstack.UseQueryOptions> | undefined,
 		]
 	) {
-		const ctx = useContext();
-		const client = ctx.client;
-
-		const pathString = path.join(".");
-
-		return tanstack.useQuery({
-			...opts,
-			queryKey: rspc.getQueryKey(pathString, input),
-			queryFn: () =>
-				rspc
-					.traverseClient<
-						Omit<rspc.Procedure, "variant"> & { variant: "query" }
-					>(client, path)
-					.query(input),
-		});
+		const client = useClient();
+		return tanstack.useQuery(helpers.queryHookArgs(client, path, input, opts));
 	}
 
 	function useMutation(
 		path: string[],
-		...[opts]: [
-			tanstack.UseMutationOptions<unknown, unknown, unknown, unknown>,
-			undefined,
-		]
+		...[opts]: [tanstack.UseMutationOptions | undefined]
 	) {
-		const ctx = useContext();
-		const client = ctx.client;
-
-		return tanstack.useMutation({
-			...opts,
-			mutationKey: [path],
-			mutationFn: (input) =>
-				rspc
-					.traverseClient<
-						Omit<rspc.Procedure, "variant"> & { variant: "mutation" }
-					>(client, path)
-					.mutate(input),
-		});
+		const client = useClient();
+		return tanstack.useMutation(helpers.mutationHookArgs(client, path, opts));
 	}
 
 	function useSubscription(
 		path: string[],
-		...[input, opts]: [
-			unknown,
-			Partial<rspc.SubscriptionObserver<unknown, unknown>>,
-		]
+		...[input, opts]: [unknown, queryCore.SubscriptionOptions<unknown, unknown>]
 	) {
-		const enabled = /*opts?.enabled ??*/ true;
-
-		const ctx = useContext();
-		const client = ctx.client;
-
-		const queryKey = tanstack.hashKey([...path, input]);
-
+		// trpc does this
 		const optsRef = react.useRef<typeof opts>(opts);
 		optsRef.current = opts;
 
+		const client = useClient();
+		const queryKey = tanstack.hashKey([...path, input]);
+		const enabled = optsRef.current.enabled ?? true;
+
 		// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
-		react.useEffect(() => {
-			if (!enabled) return;
-
-			let isStopped = false;
-
-			const { unsubscribe } = rspc
-				.traverseClient<
-					Omit<rspc.Procedure, "variant"> & { variant: "subscription" }
-				>(client, path)
-				.subscribe(input, {
-					onStarted: () => {
-						if (!isStopped) optsRef.current.onStarted?.();
-					},
-					onData: (data) => {
-						if (!isStopped) optsRef.current.onData?.(data);
-					},
-					onError: (err) => {
-						if (!isStopped) optsRef.current.onError?.(err);
-					},
-					onStopped: () => {
-						if (!isStopped) optsRef.current.onStopped?.();
-					},
-					onComplete: () => {
-						if (!isStopped) optsRef.current.onComplete?.();
-					},
-				});
-
-			return () => {
-				isStopped = true;
-				unsubscribe?.();
-			};
-		}, [queryKey, enabled]);
+		react.useEffect(
+			() =>
+				helpers.handleSubscription(client, path, input, () => optsRef.current),
+			[queryKey, enabled],
+		);
 	}
 
 	function Provider(props: ProviderProps<P>) {

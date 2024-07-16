@@ -24,9 +24,6 @@ importers:
       tsup:
         specifier: ^8.1.0
         version: 8.1.0(postcss@8.4.39)(typescript@5.5.3)
-      typescript:
-        specifier: ^5.5.3
-        version: 5.5.3
 
   packages/query-core:
     dependencies:
@@ -40,9 +37,6 @@ importers:
       tsup:
         specifier: ^8.1.0
         version: 8.1.0(postcss@8.4.39)(typescript@5.5.3)
-      typescript:
-        specifier: ^5.5.3
-        version: 5.5.3
 
   packages/react-query:
     dependencies:
@@ -71,9 +65,6 @@ importers:
       tsup:
         specifier: ^8.1.0
         version: 8.1.0(postcss@8.4.39)(typescript@5.5.3)
-      typescript:
-        specifier: ^5.5.3
-        version: 5.5.3
       vitest:
         specifier: ^2.0.3
         version: 2.0.3(@types/node@20.14.9)(jsdom@24.1.0)(lightningcss@1.25.1)(terser@5.31.1)

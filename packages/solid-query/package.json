@@ -12,9 +12,7 @@
 		"main": "dist/cjs/index.js",
 		"module": "dist/esm/index.js",
 		"types": "dist/types/index.d.ts",
-		"files": [
-			"dist"
-		],
+		"files": ["dist"],
 		"exports": {
 			".": {
 				"types": "./dist/types/index.d.ts",
@@ -26,9 +24,7 @@
 			}
 		}
 	},
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"dev": "tsup --watch",
 		"build": "tsup && tsc"
@@ -53,13 +49,8 @@
 		"solid-js": "^1.8.0"
 	},
 	"tsup": {
-		"entry": [
-			"src/index.tsx"
-		],
-		"format": [
-			"esm",
-			"cjs"
-		],
+		"entry": ["src/index.tsx"],
+		"format": ["esm", "cjs"],
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true

@@ -1,4 +1,5 @@
 import * as rspc from "@rspc/client";
+import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/solid-query";
 import * as solid from "solid-js";
 
@@ -6,6 +7,8 @@ import type { Context, ProviderProps, SolidQueryProxyBuiltins } from "./types";
 
 export function createHooks<P extends rspc.Procedures>() {
 	const context = solid.createContext<Context<P>>();
+
+	const helpers = queryCore.createQueryHooksHelpers<P>();
 
 	function useContext() {
 		const ctx = solid.useContext(context);
@@ -16,57 +19,39 @@ export function createHooks<P extends rspc.Procedures>() {
 		return ctx;
 	}
 
+	function useClient() {
+		return useContext().client;
+	}
+
 	function createQuery(
 		path: string[],
 		...[input, opts]: [
 			solid.Accessor<unknown>,
 			(
-				| solid.Accessor<
-						tanstack.CreateQueryOptions<unknown, unknown, unknown, any>
-				  >
+				| solid.Accessor<queryCore.WrapQueryOptions<tanstack.SolidQueryOptions>>
 				| undefined
 			),
 		]
 	) {
-		const ctx = useContext();
-		const client = ctx.client;
-
-		const pathString = path.join(".");
-
-		return tanstack.createQuery(() => ({
-			...opts?.(),
-			queryKey: rspc.getQueryKey(pathString, input()),
-			queryFn: () =>
-				rspc
-					.traverseClient<
-						Omit<rspc.Procedure, "variant"> & { variant: "query" }
-					>(client, path)
-					.query(input()),
-		}));
+		const client = useClient();
+		return tanstack.createQuery(
+			() => helpers.queryHookArgs(client, path, input(), opts?.()) as any,
+		);
 	}
 
 	function createMutation(
 		path: string[],
 		...[opts]: [
 			| solid.Accessor<
-					tanstack.SolidMutationOptions<unknown, unknown, unknown, unknown>
+					queryCore.WrapMutationOptions<tanstack.SolidMutationOptions>
 			  >
 			| undefined,
 		]
 	) {
-		const ctx = useContext();
-		const client = ctx.client;
-
-		return tanstack.createMutation(() => ({
-			...opts?.(),
-			mutationKey: [path],
-			mutationFn: (input) =>
-				rspc
-					.traverseClient<
-						Omit<rspc.Procedure, "variant"> & { variant: "mutation" }
-					>(client, path)
-					.mutate(input),
-		}));
+		const client = useClient();
+		return tanstack.createMutation(() =>
+			helpers.mutationHookArgs(client, path, opts?.()),
+		);
 	}
 
 	function createSubscription(
@@ -74,13 +59,12 @@ export function createHooks<P extends rspc.Procedures>() {
 		...[input, opts]: [
 			solid.Accessor<unknown>,
 			opts:
-				| solid.Accessor<Partial<rspc.SubscriptionObserver<unknown, unknown>>>
+				| solid.Accessor<queryCore.SubscriptionOptions<unknown, unknown>>
 				| undefined,
 		]
 	) {
-		const enabled = () => /* opts?.().enabled ?? */ true;
-		const ctx = useContext();
-		const client = ctx.client;
+		const enabled = () => opts?.().enabled ?? true;
+		const client = useClient();
 
 		solid.createEffect(
 			solid.on(
