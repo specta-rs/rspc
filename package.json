@@ -1,6 +1,7 @@
 {
 	"private": true,
 	"scripts": {
+		"build": "pnpm --filter './packages/*' build",
 		"fix": "biome lint --write . && biome format --write . && biome check . --write"
 	},
 	"devDependencies": {
