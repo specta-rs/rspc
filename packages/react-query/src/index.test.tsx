@@ -62,3 +62,23 @@ test("proxy", () => {
 		</rspc.Provider>,
 	);
 });
+
+test("utils", () => {
+	const queryClient = new QueryClient();
+
+	function Component() {
+		rspc.useUtils().nested.procedures.one.fetch("test");
+
+		return null;
+	}
+
+	const client = createClient<NestedProcedures>();
+
+	render(
+		<rspc.Provider client={client} queryClient={queryClient}>
+			<QueryClientProvider client={queryClient}>
+				<Component />
+			</QueryClientProvider>
+		</rspc.Provider>,
+	);
+});

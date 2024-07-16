@@ -19,9 +19,7 @@
 			"./package.json": "./package.json"
 		}
 	},
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"dev": "tsup --watch",
 		"build": "tsup && tsc"
@@ -30,13 +28,8 @@
 		"tsup": "^8.1.0"
 	},
 	"tsup": {
-		"entry": [
-			"src/index.ts"
-		],
-		"format": [
-			"esm",
-			"cjs"
-		],
+		"entry": ["src/index.ts"],
+		"format": ["esm", "cjs"],
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true

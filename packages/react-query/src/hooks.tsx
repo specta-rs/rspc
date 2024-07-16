@@ -3,10 +3,12 @@ import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/react-query";
 import * as react from "react";
 
-import type { Context, ProviderProps, ReactQueryProxyBuiltins } from "./types";
+import type { ProviderProps, ReactQueryProxyBuiltins } from "./types";
 
 export function createHooks<P extends rspc.Procedures>() {
-	const context = react.createContext<Context<P> | undefined>(undefined);
+	const context = react.createContext<queryCore.Context<P> | undefined>(
+		undefined,
+	);
 
 	const helpers = queryCore.createQueryHooksHelpers<P>();
 
@@ -74,6 +76,7 @@ export function createHooks<P extends rspc.Procedures>() {
 
 	const hooks = {
 		Provider,
+		useUtils: () => queryCore.createQueryUtilsProxy(useContext()),
 	} satisfies ReactQueryProxyBuiltins<P>;
 
 	return Object.assign(hooks, { useQuery, useMutation, useSubscription });

@@ -117,6 +117,7 @@ export function createHooks<P extends rspc.Procedures>() {
 
 	const hooks = {
 		Provider,
+		useUtils: () => queryCore.createQueryUtilsProxy(useContext()),
 	} satisfies SolidQueryProxyBuiltins<P>;
 
 	return Object.assign(hooks, {

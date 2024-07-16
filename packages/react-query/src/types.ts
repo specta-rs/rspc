@@ -3,11 +3,6 @@ import type * as queryCore from "@rspc/query-core";
 import type * as tanstack from "@tanstack/react-query";
 import type * as react from "react";
 
-export interface Context<P extends rspc.Procedures> {
-	client: rspc.Client<P>;
-	queryClient: tanstack.QueryClient;
-}
-
 export interface ProviderProps<P extends rspc.Procedures>
 	extends react.PropsWithChildren {
 	client: rspc.Client<P>;
@@ -16,6 +11,7 @@ export interface ProviderProps<P extends rspc.Procedures>
 
 export type ReactQueryProxyBuiltins<P extends rspc.Procedures> = {
 	Provider: react.FunctionComponent<ProviderProps<P>>;
+	useUtils(): queryCore.UtilsProceduresProxy<P>;
 };
 
 export type ReactQueryProceduresProxy<

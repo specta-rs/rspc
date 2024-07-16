@@ -16,6 +16,7 @@ export interface ProviderProps<P extends rspc.Procedures>
 
 export type SolidQueryProxyBuiltins<P extends rspc.Procedures> = {
 	Provider: solid.Component<ProviderProps<P>>;
+	useUtils(): queryCore.UtilsProceduresProxy<P>;
 };
 
 export type SolidQueryProceduresProxy<

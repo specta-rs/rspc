@@ -11,6 +11,11 @@ export type Procedure = {
 	error: unknown;
 };
 
+export type ProcedureWithVariant<V extends ProcedureVariant> = Omit<
+	Procedure,
+	"variant"
+> & { variant: V };
+
 export type Procedures = {
 	[K in string]: Procedure | Procedures;
 };
