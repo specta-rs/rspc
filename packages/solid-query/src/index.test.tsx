@@ -36,7 +36,7 @@ const queryClient = new QueryClient();
 
 test("hooks", () => {
 	function Component() {
-		const query = rspc.nested.procedures.one.createQuery(() => "test");
+		rspc.nested.procedures.one.createQuery(() => "test");
 
 		const mutation = rspc.nested.procedures.two.createMutation();
 		mutation.mutate("bruh");

@@ -5,6 +5,9 @@ import type { SvelteQueryProceduresProxy, SvelteQueryProxy } from "./types";
 
 export * from "@rspc/query-core";
 
+import RspcProvider from "./RspcProvider.svelte";
+export { RspcProvider };
+
 export function createSvelteQueryProxy<
 	P extends rspc.Procedures,
 >(): SvelteQueryProxy<P> {

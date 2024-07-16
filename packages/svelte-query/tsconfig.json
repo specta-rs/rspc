@@ -3,7 +3,7 @@
 	"compilerOptions": {
 		"outDir": "dist/types"
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "tests/**/*"],
 	"exclude": ["dist/**/*", "src/**/*.test.ts"],
 	"references": [{ "path": "../client" }, { "path": "../query-core" }]
 }
