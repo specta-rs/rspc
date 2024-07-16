@@ -1,6 +1,6 @@
 {
 	"name": "@rspc/client",
-	"version": "0.3.0",
+	"version": "0.3.0-alpha.0",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",
@@ -19,7 +19,9 @@
 			"./package.json": "./package.json"
 		}
 	},
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"dev": "tsup --watch",
 		"build": "tsup && tsc"
@@ -28,8 +30,13 @@
 		"tsup": "^8.1.0"
 	},
 	"tsup": {
-		"entry": ["src/index.ts"],
-		"format": ["esm", "cjs"],
+		"entry": [
+			"src/index.ts"
+		],
+		"format": [
+			"esm",
+			"cjs"
+		],
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true

@@ -1,6 +1,6 @@
 {
 	"name": "@rspc/svelte-query",
-	"version": "0.3.0",
+	"version": "0.3.0-alpha.0",
 	"description": "A blazingly fast and easy to use tRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",
@@ -28,7 +28,9 @@
 			"./package.json": "./package.json"
 		}
 	},
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "svelte-package --input ./src --output ./dist",
 		"test": "vitest"
