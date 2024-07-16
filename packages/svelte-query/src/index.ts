@@ -1,13 +1,13 @@
 import * as rspc from "@rspc/client";
 
 import { createHooks } from "./hooks";
-import type { SolidQueryProceduresProxy, SolidQueryProxy } from "./types";
+import type { SvelteQueryProceduresProxy, SvelteQueryProxy } from "./types";
 
 export * from "@rspc/query-core";
 
-export function createSolidQueryProxy<
+export function createSvelteQueryProxy<
 	P extends rspc.Procedures,
->(): SolidQueryProxy<P> {
+>(): SvelteQueryProxy<P> {
 	const hooks = createHooks();
 
 	return new Proxy({} as any, {
@@ -16,7 +16,7 @@ export function createSolidQueryProxy<
 
 			if (key in hooks) return hooks[key as keyof typeof hooks];
 
-			return rspc.createProceduresProxy<SolidQueryProceduresProxy<P>>(
+			return rspc.createProceduresProxy<SvelteQueryProceduresProxy<P>>(
 				({ args, path }) => {
 					const operation = path.pop();
 

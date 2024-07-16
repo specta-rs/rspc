@@ -1,20 +1,12 @@
 import type * as rspc from "@rspc/client";
 import type * as queryCore from "@rspc/query-core";
-import type * as tanstack from "@tanstack/solid-query";
-import type * as solid from "solid-js";
+import type * as tanstack from "@tanstack/svelte-query";
 
-export interface ProviderProps<P extends rspc.Procedures>
-	extends solid.ParentProps {
-	client: rspc.Client<P>;
-	queryClient: tanstack.QueryClient;
-}
-
-export type SolidQueryProxyBuiltins<P extends rspc.Procedures> = {
-	Provider: solid.Component<ProviderProps<P>>;
+export type SvelteQueryProxyBuiltins<P extends rspc.Procedures> = {
 	useUtils(): queryCore.UtilsProceduresProxy<P>;
 };
 
-export type SolidQueryProceduresProxy<
+export type SvelteQueryProceduresProxy<
 	P extends rspc.Procedures,
 	TPath extends string = "",
 > = {
@@ -22,16 +14,16 @@ export type SolidQueryProceduresProxy<
 		? P[K] extends rspc.Procedure
 			? ProcedureProxyMethods<P[K], rspc.JoinPath<TPath, K>>
 			: P[K] extends rspc.Procedures
-				? SolidQueryProceduresProxy<P[K], rspc.JoinPath<TPath, K>>
+				? SvelteQueryProceduresProxy<P[K], rspc.JoinPath<TPath, K>>
 				: never
 		: never;
 };
 
-export type SolidQueryProxy<P extends rspc.Procedures> = Omit<
-	SolidQueryProceduresProxy<P>,
-	keyof SolidQueryProxyBuiltins<P>
+export type SvelteQueryProxy<P extends rspc.Procedures> = Omit<
+	SvelteQueryProceduresProxy<P>,
+	keyof SvelteQueryProxyBuiltins<P>
 > &
-	SolidQueryProxyBuiltins<P>;
+	SvelteQueryProxyBuiltins<P>;
 
 export type ProcedureProxyMethods<
 	P extends rspc.Procedure,
@@ -39,8 +31,8 @@ export type ProcedureProxyMethods<
 > = P["variant"] extends "query"
 	? {
 			createQuery(
-				input: solid.Accessor<P["input"] | tanstack.SkipToken>,
-				opts?: solid.Accessor<
+				input: tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>,
+				opts?: tanstack.StoreOrVal<
 					queryCore.WrapQueryOptions<
 						tanstack.DefinedInitialDataOptions<
 							rspc.ProcedureResult<P>,
@@ -55,8 +47,8 @@ export type ProcedureProxyMethods<
 				unknown
 			>;
 			createQuery(
-				input: solid.Accessor<P["input"] | tanstack.SkipToken>,
-				opts?: solid.Accessor<
+				input: tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>,
+				opts?: tanstack.StoreOrVal<
 					queryCore.WrapQueryOptions<
 						tanstack.UndefinedInitialDataOptions<
 							rspc.ProcedureResult<P>,
@@ -74,7 +66,7 @@ export type ProcedureProxyMethods<
 	: P["variant"] extends "mutation"
 		? {
 				createMutation<TContext = unknown>(
-					opts?: solid.Accessor<
+					opts?: tanstack.StoreOrVal<
 						tanstack.CreateMutationOptions<
 							rspc.ProcedureResult<P>,
 							unknown,
@@ -92,8 +84,8 @@ export type ProcedureProxyMethods<
 		: P["variant"] extends "subscription"
 			? {
 					createSubscription(
-						input: solid.Accessor<P["input"]>,
-						opts?: solid.Accessor<
+						input: tanstack.StoreOrVal<P["input"]>,
+						opts?: tanstack.StoreOrVal<
 							Partial<
 								rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>
 							>

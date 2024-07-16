@@ -1,12 +1,12 @@
-import * as rspc from "@rspc/client";
+import type * as rspc from "@rspc/client";
 import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/solid-query";
 import * as solid from "solid-js";
 
-import type { Context, ProviderProps, SolidQueryProxyBuiltins } from "./types";
+import type { ProviderProps, SolidQueryProxyBuiltins } from "./types";
 
 export function createHooks<P extends rspc.Procedures>() {
-	const context = solid.createContext<Context<P>>();
+	const context = solid.createContext<queryCore.Context<P>>();
 
 	const helpers = queryCore.createQueryHooksHelpers<P>();
 
@@ -26,7 +26,7 @@ export function createHooks<P extends rspc.Procedures>() {
 	function createQuery(
 		path: string[],
 		...[input, opts]: [
-			solid.Accessor<unknown>,
+			solid.Accessor<unknown | tanstack.SkipToken>,
 			(
 				| solid.Accessor<queryCore.WrapQueryOptions<tanstack.SolidQueryOptions>>
 				| undefined
@@ -69,37 +69,15 @@ export function createHooks<P extends rspc.Procedures>() {
 		solid.createEffect(
 			solid.on(
 				() => [input(), enabled()],
-				([input, enabled]) => {
-					if (!enabled) return;
+				([input]) => {
+					const unsubscribe = helpers.handleSubscription(
+						client,
+						path,
+						input,
+						opts,
+					);
 
-					let isStopped = false;
-
-					const { unsubscribe } = rspc
-						.traverseClient<
-							Omit<rspc.Procedure, "variant"> & { variant: "subscription" }
-						>(client, path)
-						.subscribe(input, {
-							onStarted: () => {
-								if (!isStopped) opts?.().onStarted?.();
-							},
-							onData: (data) => {
-								if (!isStopped) opts?.().onData?.(data);
-							},
-							onError: (err) => {
-								if (!isStopped) opts?.().onError?.(err);
-							},
-							onStopped: () => {
-								if (!isStopped) opts?.().onStopped?.();
-							},
-							onComplete: () => {
-								if (!isStopped) opts?.().onComplete?.();
-							},
-						});
-
-					solid.onCleanup(() => {
-						isStopped = true;
-						unsubscribe?.();
-					});
+					solid.onCleanup(() => unsubscribe?.());
 				},
 			),
 		);

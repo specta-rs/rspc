@@ -28,7 +28,7 @@ export function createHooks<P extends rspc.Procedures>() {
 	function useQuery(
 		path: string[],
 		...[input, opts]: [
-			unknown,
+			unknown | tanstack.SkipToken,
 			queryCore.WrapQueryOptions<tanstack.UseQueryOptions> | undefined,
 		]
 	) {
@@ -46,7 +46,10 @@ export function createHooks<P extends rspc.Procedures>() {
 
 	function useSubscription(
 		path: string[],
-		...[input, opts]: [unknown, queryCore.SubscriptionOptions<unknown, unknown>]
+		...[input, opts]: [
+			unknown,
+			queryCore.SubscriptionOptions<unknown, unknown> | undefined,
+		]
 	) {
 		// trpc does this
 		const optsRef = react.useRef<typeof opts>(opts);
@@ -54,7 +57,7 @@ export function createHooks<P extends rspc.Procedures>() {
 
 		const client = useClient();
 		const queryKey = tanstack.hashKey([...path, input]);
-		const enabled = optsRef.current.enabled ?? true;
+		const enabled = optsRef.current?.enabled ?? true;
 
 		// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 		react.useEffect(

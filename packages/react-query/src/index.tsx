@@ -3,6 +3,8 @@ import * as rspc from "@rspc/client";
 import { createHooks } from "./hooks";
 import type { ReactQueryProceduresProxy, ReactQueryProxy } from "./types";
 
+export * from "@rspc/query-core";
+
 export function createReactQueryProxy<
 	P extends rspc.Procedures,
 >(): ReactQueryProxy<P> {

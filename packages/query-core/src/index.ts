@@ -1,5 +1,5 @@
 import * as rspc from "@rspc/client";
-import type * as tanstack from "@tanstack/query-core";
+import * as tanstack from "@tanstack/query-core";
 
 export * from "./useUtils";
 
@@ -22,18 +22,21 @@ export function createQueryHooksHelpers<P extends rspc.Procedures>() {
 	function queryHookArgs(
 		client: rspc.Client<P>,
 		path: string[],
-		input: unknown,
+		input: unknown | tanstack.SkipToken,
 		opts?: WrapQueryOptions<tanstack.QueryObserverOptions>,
 	): tanstack.QueryObserverOptions {
 		return {
 			...opts,
 			queryKey: rspc.getQueryKey(path.join("."), input),
-			queryFn: () =>
-				rspc
-					.traverseClient<
-						Omit<rspc.Procedure, "variant"> & { variant: "query" }
-					>(client, path)
-					.query(input),
+			queryFn:
+				input === tanstack.skipToken
+					? tanstack.skipToken
+					: () =>
+							rspc
+								.traverseClient<
+									Omit<rspc.Procedure, "variant"> & { variant: "query" }
+								>(client, path)
+								.query(input),
 		};
 	}
 
@@ -58,9 +61,9 @@ export function createQueryHooksHelpers<P extends rspc.Procedures>() {
 		client: rspc.Client<P>,
 		path: string[],
 		input: unknown,
-		opts: () => SubscriptionOptions<unknown, unknown> | undefined,
+		opts?: () => SubscriptionOptions<unknown, unknown> | undefined,
 	): undefined | (() => void) {
-		if (!(opts()?.enabled ?? true)) return;
+		if (!(opts?.()?.enabled ?? true)) return;
 
 		let isStopped = false;
 
