@@ -1,5 +1,5 @@
-import { describe, test } from "vitest";
-import { createClient, type Procedures } from ".";
+import { test } from "vitest";
+import { createClient } from ".";
 
 type NestedProcedures = {
 	nested: {

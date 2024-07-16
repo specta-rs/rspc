@@ -1,0 +1,10 @@
+{
+	"private": true,
+	"scripts": {
+		"fix": "biome lint --write . && biome format --write . && biome check . --write"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.8.3",
+		"typescript": "^5.5.3"
+	}
+}

@@ -1,9 +1,11 @@
 {
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
+		"jsx": "react-jsx",
 		"outDir": "dist/types",
 		"rootDir": "src"
 	},
 	"include": ["src/**/*"],
-	"exclude": ["dist/**/*", "src/**/*.test.*"]
+	"exclude": ["dist/**/*", "src/**/*.test.ts"],
+	"references": [{ "path": "../client" }, { "path": "../query-core" }]
 }

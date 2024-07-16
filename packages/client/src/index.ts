@@ -1,10 +1,10 @@
-import {
-	UntypedClient,
-	type ProcedureVariant,
-	type SubscriptionObserver,
-} from "./UntypedClient";
+import { type SubscriptionObserver, UntypedClient } from "./UntypedClient";
+import type { ProcedureResult, ProcedureVariant } from "./types";
 
-type Procedure = {
+export type { SubscriptionObserver } from "./UntypedClient";
+export * from "./types";
+
+export type Procedure = {
 	variant: ProcedureVariant;
 	input: unknown;
 	result: unknown;
@@ -15,28 +15,25 @@ export type Procedures = {
 	[K in string]: Procedure | Procedures;
 };
 
-type Result<Ok, Err> =
-	| { status: "ok"; data: Ok }
-	| { status: "err"; error: Err };
-
 type Unsubscribable = { unsubscribe: () => void };
 
 type Resolver<P extends Procedure> = (
 	input: P["input"],
-) => Promise<Result<P["result"], P["error"]>>;
+) => Promise<ProcedureResult<P>>;
 
 type SubscriptionResolver<P extends Procedure> = (
 	input: P["input"],
 	opts?: Partial<SubscriptionObserver<P["result"], P["error"]>>,
 ) => Unsubscribable;
 
-type ProcedureProxyMethods<P extends Procedure> = P["variant"] extends "query"
-	? { query: Resolver<P> }
-	: P["variant"] extends "mutation"
-		? { mutate: Resolver<P> }
-		: P["variant"] extends "subscription"
-			? { subscribe: SubscriptionResolver<P> }
-			: never;
+export type ProcedureProxyMethods<P extends Procedure> =
+	P["variant"] extends "query"
+		? { query: Resolver<P> }
+		: P["variant"] extends "mutation"
+			? { mutate: Resolver<P> }
+			: P["variant"] extends "subscription"
+				? { subscribe: SubscriptionResolver<P> }
+				: never;
 
 type ClientProceduresProxy<P extends Procedures> = {
 	[K in keyof P]: P[K] extends Procedure
@@ -46,7 +43,7 @@ type ClientProceduresProxy<P extends Procedures> = {
 			: never;
 };
 
-type Client<P extends Procedures> = ClientProceduresProxy<P>;
+export type Client<P extends Procedures> = ClientProceduresProxy<P>;
 
 const noop = () => {
 	// noop
@@ -54,7 +51,7 @@ const noop = () => {
 
 interface ProxyCallbackOptions {
 	path: string[];
-	args: unknown[];
+	args: any[];
 }
 type ProxyCallback = (opts: ProxyCallbackOptions) => unknown;
 
@@ -64,12 +61,15 @@ const clientMethodMap = {
 	subscribe: "subscription",
 } as const;
 
-function createClientProxy<T>(callback: ProxyCallback, path: string[] = []): T {
+export function createProceduresProxy<T>(
+	callback: ProxyCallback,
+	path: string[] = [],
+): T {
 	return new Proxy(noop, {
 		get(_, key) {
 			if (typeof key !== "string") return;
 
-			return createClientProxy(callback, [...path, key]);
+			return createProceduresProxy(callback, [...path, key]);
 		},
 		apply(_1, _2, args) {
 			return callback({ args, path });
@@ -80,13 +80,32 @@ function createClientProxy<T>(callback: ProxyCallback, path: string[] = []): T {
 export function createClient<P extends Procedures>(): Client<P> {
 	const client = new UntypedClient();
 
-	return createClientProxy<Client<P>>(({ args, path }) => {
+	return createProceduresProxy<Client<P>>(({ args, path }) => {
 		const procedureType =
 			clientMethodMap[path.pop() as keyof typeof clientMethodMap];
 
 		const pathString = path.join(".");
 
-		// biome-ignore lint/suspicious/noExplicitAny: type magic
-		(client[procedureType] as any)(pathString, ...args);
+		return (client[procedureType] as any)(pathString, ...args);
 	});
+}
+
+export function getQueryKey(
+	path: string,
+	input: unknown,
+): [string] | [string, unknown] {
+	return input === undefined ? [path] : [path, input];
+}
+
+export function traverseClient<P extends Procedure>(
+	client: Client<any>,
+	path: string[],
+): ProcedureProxyMethods<P> {
+	let ret: ClientProceduresProxy<Procedures> = client;
+
+	for (const segment of path) {
+		ret = ret[segment];
+	}
+
+	return ret as any;
 }

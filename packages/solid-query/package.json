@@ -1,0 +1,58 @@
+{
+	"name": "@rspc/solid-query",
+	"version": "0.3.0",
+	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
+	"keywords": [],
+	"author": "Oscar Beaumont",
+	"license": "MIT",
+	"type": "module",
+	"exports": "./src/index.tsx",
+	"publishConfig": {
+		"source": "src/index.tsx",
+		"main": "dist/cjs/index.js",
+		"module": "dist/esm/index.js",
+		"types": "dist/types/index.d.ts",
+		"files": ["dist"],
+		"exports": {
+			".": {
+				"types": "./dist/types/index.d.ts",
+				"solid": "./dist/source/index.jsx",
+				"import": "./dist/esm/index.js",
+				"browser": "./dist/esm/index.js",
+				"require": "./dist/cjs/index.js",
+				"node": "./dist/cjs/index.js"
+			}
+		}
+	},
+	"files": ["dist"],
+	"scripts": {
+		"dev": "tsup --watch",
+		"build": "tsup && tsc"
+	},
+	"dependencies": {
+		"@rspc/query-core": "workspace:*"
+	},
+	"devDependencies": {
+		"@rspc/client": "workspace:*",
+		"@solidjs/testing-library": "^0.8.8",
+		"@tanstack/solid-query": "^5.51.2",
+		"jsdom": "^24.1.0",
+		"solid-js": "^1.8.18",
+		"tsup": "^8.1.0",
+		"typescript": "^5.5.3",
+		"vite-plugin-solid": "^2.10.2",
+		"vitest": "^2.0.3"
+	},
+	"peerDependencies": {
+		"@rspc/client": "workspace:*",
+		"@tanstack/solid-query": "^5.0.0",
+		"solid-js": "^1.8.0"
+	},
+	"tsup": {
+		"entry": ["src/index.ts"],
+		"format": ["esm", "cjs"],
+		"splitting": true,
+		"clean": true,
+		"sourcemap": true
+	}
+}

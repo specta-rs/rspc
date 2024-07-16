@@ -1,5 +1,5 @@
 {
-	"name": "@rspc/client",
+	"name": "@rspc/query-core",
 	"version": "0.3.0",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
@@ -9,24 +9,31 @@
 	"exports": "./src/index.ts",
 	"publishConfig": {
 		"main": "dist/index.cjs",
-		"types": "dist/index.d.ts",
+		"types": "dist/types/index.d.ts",
 		"exports": {
+			"./package.json": "./package.json",
 			".": {
-				"types": "./dist/index.d.ts",
+				"types": "./dist/types/index.d.ts",
 				"import": "./dist/index.js",
 				"default": "./dist/index.cjs"
-			},
-			"./package.json": "./package.json"
+			}
 		}
 	},
 	"files": ["dist"],
 	"scripts": {
 		"dev": "tsup --watch",
-		"build": "tsup && tsc"
+		"build": "tsup && tsc",
+		"prepare": "tsup && tsc"
+	},
+	"dependencies": {
+		"@tanstack/query-core": "^5.0.0"
 	},
 	"devDependencies": {
 		"tsup": "^8.1.0",
 		"typescript": "^5.5.3"
+	},
+	"peerDependencies": {
+		"@rspc/client": "workspace:*"
 	},
 	"tsup": {
 		"entry": ["src/index.ts"],
@@ -34,8 +41,5 @@
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true
-	},
-	"dependencies": {
-		"vitest": "^2.0.3"
 	}
 }

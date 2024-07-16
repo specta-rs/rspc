@@ -1,4 +1,4 @@
-export type ProcedureVariant = "query" | "mutation" | "subscription";
+import type { ProcedureVariant } from "./types";
 
 export interface SubscriptionObserver<TValue, TError> {
 	onStarted: () => void;
@@ -25,10 +25,10 @@ export class UntypedClient {
 		return this.$request(args);
 	}
 
-	public async query(path: string, input: unknown) {
+	public query(path: string, input: unknown) {
 		return this.$requestAsPromise({ type: "query", path, input });
 	}
-	public async mutation(path: string, input: unknown) {
+	public mutation(path: string, input: unknown) {
 		return this.$requestAsPromise({ type: "mutation", path, input });
 	}
 	public subscription(
@@ -38,6 +38,7 @@ export class UntypedClient {
 	) {
 		const observable = this.$request({ type: "subscription", path, input });
 
+		return { unsubscribe: () => {} };
 		// observable.subscribe({
 		// 	next(envelope) {
 		// 		if (envelope.result.type === "started") {
