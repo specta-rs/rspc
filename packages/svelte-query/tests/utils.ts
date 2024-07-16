@@ -1,6 +1,6 @@
+import { createClient } from "@rspc/client";
 import { QueryClient } from "@tanstack/svelte-query";
 import { createSvelteQueryProxy } from "../src";
-import { createClient } from "@rspc/client";
 
 export type NestedProcedures = {
 	nested: {

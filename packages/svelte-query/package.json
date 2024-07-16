@@ -28,9 +28,7 @@
 			"./package.json": "./package.json"
 		}
 	},
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"build": "svelte-package --input ./src --output ./dist",
 		"test": "vitest"

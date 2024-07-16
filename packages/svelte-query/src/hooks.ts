@@ -1,7 +1,7 @@
 import type * as rspc from "@rspc/client";
 import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/svelte-query";
-import { derived, get, readable, type Readable } from "svelte/store";
+import { type Readable, derived, get, readable } from "svelte/store";
 
 import { getRspcClientContext } from "./context";
 import type { SvelteQueryProxyBuiltins } from "./types";

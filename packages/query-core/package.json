@@ -19,9 +19,7 @@
 			}
 		}
 	},
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"dev": "tsup --watch",
 		"build": "tsup && tsc"
@@ -36,13 +34,8 @@
 		"@rspc/client": "workspace:*"
 	},
 	"tsup": {
-		"entry": [
-			"src/index.ts"
-		],
-		"format": [
-			"esm",
-			"cjs"
-		],
+		"entry": ["src/index.ts"],
+		"format": ["esm", "cjs"],
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true
