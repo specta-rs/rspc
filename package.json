@@ -2,6 +2,7 @@
 	"private": true,
 	"scripts": {
 		"build": "pnpm --filter './packages/*' build",
+		"typecheck": "pnpm tsc -b",
 		"fix": "biome lint --write . && biome format --write . && biome check . --write"
 	},
 	"devDependencies": {
