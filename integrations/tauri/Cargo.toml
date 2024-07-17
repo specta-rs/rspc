@@ -1,12 +1,9 @@
 [package]
-name = "rspc-invalidation"
-version = "0.0.0"
+name = "rspc-tauri"
+version = "0.0.1"
 edition = "2021"
-publish = false # TODO: Crate metadata & publish
 
 [dependencies]
-async-stream = "0.3.5"
-rspc = { path = "../../rspc" }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]

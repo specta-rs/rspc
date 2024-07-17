@@ -1,5 +1,6 @@
 use std::net::Ipv6Addr;
 
+use api::invalidation;
 use axum::{routing::get, Router};
 use tokio::sync::broadcast;
 use tracing::info;
@@ -13,8 +14,10 @@ async fn main() {
     let router = api::mount().build().unwrap();
 
     let chat_tx = broadcast::channel(100).0;
+    let invalidation = invalidation::Ctx::new();
     let ctx_fn = move || api::Context {
         chat: api::chat::Ctx::new(chat_tx.clone()),
+        invalidation: invalidation.clone(),
     };
 
     let app = Router::new()

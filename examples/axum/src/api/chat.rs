@@ -80,7 +80,7 @@ pub fn mount() -> Router {
                 Ok(stream! {
                     let mut chat = ctx.chat.chat.subscribe();
                     while let Ok(msg) = chat.recv().await {
-                        yield Ok(msg); // TODO: error handling
+                        yield Ok(msg);
                     }
                 })
             })

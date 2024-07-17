@@ -1,4 +1,4 @@
-use std::{error, marker::PhantomData, path::PathBuf};
+use std::{error, marker::PhantomData, path::PathBuf, sync::Arc};
 
 use rspc::{
     procedure::{Procedure, ProcedureBuilder, ResolverInput, ResolverOutput},
@@ -9,6 +9,7 @@ use specta_util::TypeCollection;
 use thiserror::Error;
 
 pub(crate) mod chat;
+pub(crate) mod invalidation;
 pub(crate) mod store;
 
 #[derive(Debug, Error)]
@@ -17,7 +18,10 @@ pub enum Error {}
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
 pub struct Context {
+    // For this example we nest context's for each example.
+    // In the real-world you don't need to do this, we do this so the examples are more self-contained.
     pub chat: chat::Ctx,
+    pub invalidation: Arc<invalidation::Ctx>,
 }
 
 pub type Router = rspc::Router<Context>;
