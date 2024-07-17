@@ -107,7 +107,7 @@ impl<TCtx> Procedure<TCtx> {
     /// ```rust
     /// todo!(); # TODO: Example
     /// ```
-    pub fn types(&self) -> &ProcedureTypeDefinition {
+    pub fn ty(&self) -> &ProcedureTypeDefinition {
         &self.ty
     }
 
@@ -147,6 +147,7 @@ impl<TCtx> Procedure<TCtx> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProcedureTypeDefinition {
+    // TODO: Should `key` move onto `Procedure` instead?s
     pub key: Cow<'static, str>,
     pub kind: ProcedureKind,
     pub input: DataType,

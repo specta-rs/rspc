@@ -3,6 +3,7 @@ use std::{
     collections::BTreeMap,
     fmt,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use specta::{Language, TypeMap};
@@ -127,15 +128,16 @@ impl<TCtx> Router<TCtx> {
         }
 
         Ok(BuiltRouter {
-            state,
+            state: Arc::new(state),
             types,
             procedures,
         })
     }
 }
 
+#[derive(Clone)]
 pub struct BuiltRouter<TCtx> {
-    pub state: State,
+    pub state: Arc<State>,
     pub types: TypeMap,
     pub procedures: BTreeMap<Cow<'static, str>, Procedure<TCtx>>,
 }

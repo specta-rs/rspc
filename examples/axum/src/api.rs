@@ -8,13 +8,14 @@ use specta_typescript::Typescript;
 use specta_util::TypeCollection;
 use thiserror::Error;
 
-mod chat;
+pub(crate) mod chat;
+pub(crate) mod store;
 
 #[derive(Debug, Error)]
 pub enum Error {}
 
 // `Clone` is only required for usage with Websockets
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Context {
     pub chat: chat::Ctx,
 }
@@ -40,6 +41,7 @@ pub fn mount() -> Router {
             <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
         .merge("chat", chat::mount())
+        .merge("store", store::mount())
         // TODO: I dislike this API
         .ext({
             let mut types = TypeCollection::default();

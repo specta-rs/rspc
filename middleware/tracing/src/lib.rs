@@ -38,9 +38,7 @@ where
             let start = std::time::Instant::now();
             let result = next.exec(ctx, input).await;
             info!(
-                "{} {} took {:?} with input {input_str:?} and returned {:?}",
-                next.meta().kind().to_string().to_uppercase(), // TODO: Maybe adding color?
-                next.meta().name(),
+                "took {:?} with input {input_str:?} and returned {:?}",
                 start.elapsed(),
                 DebugWrapper(&result, PhantomData::<M>)
             );

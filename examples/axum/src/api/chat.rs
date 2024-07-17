@@ -15,11 +15,11 @@ pub struct Ctx {
     chat: broadcast::Sender<Message>,
 }
 
-impl Default for Ctx {
-    fn default() -> Self {
+impl Ctx {
+    pub fn new(chat: broadcast::Sender<Message>) -> Self {
         Self {
             author: Arc::new(Mutex::new("Anonymous".into())),
-            chat: broadcast::channel(100).0,
+            chat,
         }
     }
 }

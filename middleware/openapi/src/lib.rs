@@ -5,37 +5,230 @@
     html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
 )]
 
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, hash::Hash, sync::Arc};
 
-use rspc::middleware::Middleware;
+use axum::{
+    body::Bytes,
+    extract::Query,
+    http::StatusCode,
+    response::Html,
+    routing::{get, post},
+    Json,
+};
+use futures::StreamExt;
+use rspc::{
+    middleware::Middleware,
+    procedure::{Procedure, ProcedureInput},
+    BuiltRouter,
+};
+use serde_json::json;
 
-#[derive(Default)]
-pub struct OpenAPIState(HashMap<Cow<'static, str>, ()>);
+// TODO: Properly handle inputs from query params
+// TODO: Properly handle responses from query params
+// TODO: Support input's coming from URL. Eg. `/todos/{id}` like tRPC-OpenAPI
+// TODO: Support `application/x-www-form-urlencoded` bodies like tRPC-OpenAPI
+// TODO: Probs put SwaggerUI behind a feature flag
 
-// TODO: Configure other OpenAPI stuff like auth
-
-// TODO: Make convert this into a builder like: Endpoint::get("/todo").some_other_stuff().build()
-pub fn openapi<TError, TThisCtx, TThisInput, TThisResult>(
-    // method: Method,
-    path: impl Into<Cow<'static, str>>,
-) -> Middleware<TError, TThisCtx, TThisInput, TThisResult>
-where
-    TError: 'static,
-    TThisCtx: Send + 'static,
-    TThisInput: Send + 'static,
-    TThisResult: Send + 'static,
-{
-    let path = path.into();
-    Middleware::new(|ctx, input, next| async move {
-        let _result = next.exec(ctx, input).await;
-        _result
-    })
-    .setup(|state, meta| {
-        state
-            .get_mut_or_init::<OpenAPIState>(Default::default)
-            .0
-            .insert(path, ());
-    })
+pub struct OpenAPI {
+    method: &'static str,
+    path: Cow<'static, str>,
 }
 
-// TODO: Convert into API endpoint
+impl OpenAPI {
+    // TODO
+    // pub fn new(method: Method, path: impl Into<Cow<'static, str>>) {}
+
+    pub fn get(path: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            method: "GET",
+            path: path.into(),
+        }
+    }
+
+    pub fn post(path: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            method: "GET",
+            path: path.into(),
+        }
+    }
+
+    pub fn put(path: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            method: "GET",
+            path: path.into(),
+        }
+    }
+
+    pub fn patch(path: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            method: "GET",
+            path: path.into(),
+        }
+    }
+
+    pub fn delete(path: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            method: "GET",
+            path: path.into(),
+        }
+    }
+
+    // TODO: Configure other OpenAPI stuff like auth???
+
+    pub fn build<TError, TThisCtx, TThisInput, TThisResult>(
+        self,
+    ) -> Middleware<TError, TThisCtx, TThisInput, TThisResult>
+    where
+        TError: 'static,
+        TThisCtx: Send + 'static,
+        TThisInput: Send + 'static,
+        TThisResult: Send + 'static,
+    {
+        // TODO: Can we have a middleware with only a `setup` function to avoid the extra future boxing???
+        Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await }).setup(
+            move |state, meta| {
+                state
+                    .get_mut_or_init::<OpenAPIState>(Default::default)
+                    .0
+                    .insert((self.method, self.path), meta.name().to_string());
+            },
+        )
+    }
+}
+
+// The state that is stored into rspc.
+// A map of (method, path) to procedure name.
+#[derive(Default)]
+struct OpenAPIState(HashMap<(&'static str, Cow<'static, str>), String>);
+
+// TODO: Axum should be behind feature flag
+// TODO: Can we decouple webserver from OpenAPI while keeping something maintainable????
+pub fn mount<TCtx, S>(
+    router: BuiltRouter<TCtx>,
+    ctx_fn: impl Fn() -> TCtx + Clone + Send + Sync + 'static,
+) -> axum::Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    TCtx: Send + 'static,
+{
+    let mut r = axum::Router::new();
+
+    let mut paths: HashMap<_, HashMap<_, _>> = HashMap::new();
+    if let Some(endpoints) = router.state.get::<OpenAPIState>() {
+        for ((method, path), procedure_name) in endpoints.0.iter() {
+            let procedure = router
+                .procedures
+                .get(&Cow::Owned(procedure_name.clone()))
+                .expect("unreachable: a procedure was registered that doesn't exist")
+                .clone();
+            let ctx_fn = ctx_fn.clone();
+
+            paths
+                .entry(path.clone())
+                .or_default()
+                .insert(method.to_lowercase(), procedure.clone());
+
+            r = r.route(
+                path,
+                match *method {
+                    "GET" => {
+                        // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
+                        get(move |query: Query<HashMap<String, String>>| async move {
+                            let ctx = (ctx_fn)();
+
+                            handle_procedure(
+                                ctx,
+                                &mut serde_json::Deserializer::from_str(
+                                    query.get("input").map(|v| &**v).unwrap_or("null"),
+                                ),
+                                procedure,
+                            )
+                            .await
+                        })
+                    }
+                    "POST" => {
+                        // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
+                        post(move |body: Bytes| async move {
+                            let ctx = (ctx_fn)();
+
+                            handle_procedure(
+                                ctx,
+                                &mut serde_json::Deserializer::from_slice(&body),
+                                procedure,
+                            )
+                            .await
+                        })
+                    }
+                    // "PUT" => axum::routing::put,
+                    // "PATCH" => axum::routing::patch,
+                    // "DELETE" => axum::routing::delete,
+                    _ => panic!("Unsupported method"),
+                },
+            );
+        }
+    }
+
+    let schema = Arc::new(json!({
+      "openapi": "3.0.3",
+      "info": {
+        "title": "rspc OpenAPI",
+        "description": "This is a demo of rspc OpenAPI",
+        "version": "0.0.0"
+      },
+      "paths": paths.into_iter()
+        .map(|(path, procedures)| {
+            let mut methods = HashMap::new();
+            for (method, procedure) in procedures {
+                methods.insert(method.to_string(), json!({
+                    "operationId": procedure.ty().key.to_string(),
+                    "responses": {
+                        "200": {
+                            "description": "Successful operation"
+                        }
+                    }
+                }));
+            }
+
+            (path, methods)
+        })
+        .collect::<HashMap<_, _>>()
+    })); // TODO: Maybe convert to string now cause it will be more efficient to clone
+
+    r.route(
+        // TODO: Allow the user to configure this URL & turn it off
+        "/api/docs",
+        get(|| async { Html(include_str!("swagger.html")) }),
+    )
+    .route(
+        // TODO: Allow the user to configure this URL & turn it off
+        "/api/openapi.json",
+        get(move || async move { Json((*schema).clone()) }),
+    )
+}
+
+// Used for `GET` and `POST` endpoints
+async fn handle_procedure<'de, TCtx>(
+    ctx: TCtx,
+    input: impl ProcedureInput<'de>,
+    procedure: Procedure<TCtx>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<String>)> {
+    let mut stream = procedure.exec(ctx, input).map_err(|err| {
+        // TODO: Error code by matching off `InternalError`
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
+    })?;
+
+    // TODO: Support for streaming
+    while let Some(value) = stream.next().await {
+        // TODO: We should probs deserialize into buffer instead of value???
+        return match value.map(|v| v.serialize(serde_json::value::Serializer)) {
+            Ok(Ok(value)) => Ok(Json(value)),
+            Ok(Err(err)) => {
+                // TODO: Error code by matching off `InternalError`
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())))
+            }
+            Err(err) => panic!("{err:?}"), // TODO: Error handling -> How to serialize `TError`??? -> Should this be done in procedure?
+        };
+    }
+
+    Ok(Json(serde_json::Value::Null))
+}
