@@ -24,7 +24,7 @@ async fn main() {
         .route("/", get(|| async { "Hello, World!" }))
         .nest(
             "/rspc",
-            rspc_axum::Endpoint::new(router.clone(), ctx_fn.clone()),
+            rspc_axum::Endpoint::new(router.clone(), ctx_fn.clone()).build(),
         )
         .nest("/", rspc_openapi::mount(router, ctx_fn));
 

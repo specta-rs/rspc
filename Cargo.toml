@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 
-members = ["./rspc", "./integrations/*", "middleware/*", "./examples/*"]
+members = ["./rspc", "./integrations/*", "middleware/*", "./examples/axum"]
 
 [workspace.lints.rust]
 unsafe_code = { level = "forbid", priority = -1 }
-missing_docs = { level = "warn", priority = -1 } # TODO: Enable this
+missing_docs = { level = "warn", priority = -1 }  # TODO: Enable this
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }

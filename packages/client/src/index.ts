@@ -1,20 +1,20 @@
 import { type SubscriptionObserver, UntypedClient } from "./UntypedClient";
-import type { ProcedureResult, ProcedureVariant } from "./types";
+import type { ProcedureResult, ProcedureKind as ProcedureKind } from "./types";
 
 export type { SubscriptionObserver } from "./UntypedClient";
 export * from "./types";
 
 export type Procedure = {
-	variant: ProcedureVariant;
+	kind: ProcedureKind;
 	input: unknown;
 	result: unknown;
 	error: unknown;
 };
 
-export type ProcedureWithVariant<V extends ProcedureVariant> = Omit<
+export type ProcedureWithKind<V extends ProcedureKind> = Omit<
 	Procedure,
-	"variant"
-> & { variant: V };
+	"kind"
+> & { kind: V };
 
 export type Procedures = {
 	[K in string]: Procedure | Procedures;
@@ -22,21 +22,26 @@ export type Procedures = {
 
 type Unsubscribable = { unsubscribe: () => void };
 
+export type VoidIfInputNull<
+	P extends Procedure,
+	Else = P["input"],
+> = P["input"] extends null ? void : Else;
+
 type Resolver<P extends Procedure> = (
-	input: P["input"],
+	input: VoidIfInputNull<P>,
 ) => Promise<ProcedureResult<P>>;
 
 type SubscriptionResolver<P extends Procedure> = (
-	input: P["input"],
+	input: VoidIfInputNull<P>,
 	opts?: Partial<SubscriptionObserver<P["result"], P["error"]>>,
 ) => Unsubscribable;
 
 export type ProcedureProxyMethods<P extends Procedure> =
-	P["variant"] extends "query"
+	P["kind"] extends "query"
 		? { query: Resolver<P> }
-		: P["variant"] extends "mutation"
+		: P["kind"] extends "mutation"
 			? { mutate: Resolver<P> }
-			: P["variant"] extends "subscription"
+			: P["kind"] extends "subscription"
 				? { subscribe: SubscriptionResolver<P> }
 				: never;
 

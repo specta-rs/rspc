@@ -33,9 +33,7 @@ export function createQueryHooksHelpers<P extends rspc.Procedures>() {
 					? tanstack.skipToken
 					: () =>
 							rspc
-								.traverseClient<
-									Omit<rspc.Procedure, "variant"> & { variant: "query" }
-								>(client, path)
+								.traverseClient<rspc.ProcedureWithKind<"query">>(client, path)
 								.query(input),
 		};
 	}
@@ -50,9 +48,7 @@ export function createQueryHooksHelpers<P extends rspc.Procedures>() {
 			mutationKey: [path.join(".")],
 			mutationFn: (input) =>
 				rspc
-					.traverseClient<
-						Omit<rspc.Procedure, "variant"> & { variant: "mutation" }
-					>(client, path)
+					.traverseClient<rspc.ProcedureWithKind<"mutation">>(client, path)
 					.mutate(input),
 		};
 	}
@@ -68,9 +64,7 @@ export function createQueryHooksHelpers<P extends rspc.Procedures>() {
 		let isStopped = false;
 
 		const { unsubscribe } = rspc
-			.traverseClient<
-				Omit<rspc.Procedure, "variant"> & { variant: "subscription" }
-			>(client, path)
+			.traverseClient<rspc.ProcedureWithKind<"subscription">>(client, path)
 			.subscribe(input, {
 				onStarted: () => !isStopped && opts?.()?.onStarted?.(),
 				onData: (data) => !isStopped && opts?.()?.onData?.(data),

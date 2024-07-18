@@ -28,10 +28,13 @@ export type SvelteQueryProxy<P extends rspc.Procedures> = Omit<
 export type ProcedureProxyMethods<
 	P extends rspc.Procedure,
 	TPath extends string,
-> = P["variant"] extends "query"
+> = P["kind"] extends "query"
 	? {
 			createQuery(
-				input: tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>,
+				input: rspc.VoidIfInputNull<
+					P,
+					tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>
+				>,
 				opts?: tanstack.StoreOrVal<
 					queryCore.WrapQueryOptions<
 						tanstack.DefinedInitialDataOptions<
@@ -47,7 +50,10 @@ export type ProcedureProxyMethods<
 				unknown
 			>;
 			createQuery(
-				input: tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>,
+				input: rspc.VoidIfInputNull<
+					P,
+					tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>
+				>,
 				opts?: tanstack.StoreOrVal<
 					queryCore.WrapQueryOptions<
 						tanstack.UndefinedInitialDataOptions<
@@ -63,7 +69,7 @@ export type ProcedureProxyMethods<
 				unknown
 			>;
 		}
-	: P["variant"] extends "mutation"
+	: P["kind"] extends "mutation"
 		? {
 				createMutation<TContext = unknown>(
 					opts?: tanstack.StoreOrVal<
@@ -81,10 +87,13 @@ export type ProcedureProxyMethods<
 					TContext
 				>;
 			}
-		: P["variant"] extends "subscription"
+		: P["kind"] extends "subscription"
 			? {
 					createSubscription(
-						input: tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>,
+						input: rspc.VoidIfInputNull<
+							P,
+							tanstack.StoreOrVal<P["input"] | tanstack.SkipToken>
+						>,
 						opts?: tanstack.StoreOrVal<
 							Partial<
 								rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>

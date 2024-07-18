@@ -1,4 +1,4 @@
-import type { ProcedureVariant } from "./types";
+import type { ProcedureKind } from "./types";
 
 export interface SubscriptionObserver<TValue, TError> {
 	onStarted: () => void;
@@ -10,7 +10,7 @@ export interface SubscriptionObserver<TValue, TError> {
 
 export class UntypedClient {
 	private $request(args: {
-		type: ProcedureVariant;
+		type: ProcedureKind;
 		input: unknown;
 		path: string;
 	}) {
@@ -18,7 +18,7 @@ export class UntypedClient {
 	}
 
 	private $requestAsPromise(args: {
-		type: ProcedureVariant;
+		type: ProcedureKind;
 		path: string;
 		input: unknown;
 	}) {

@@ -1,16 +1,16 @@
 use std::{
     borrow::Cow,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fmt,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-use specta::{Language, TypeMap};
+use specta::{DataType, Language, Type, TypeMap};
 use specta_util::TypeCollection;
 
 use crate::{
-    procedure::{Procedure, UnbuiltProcedure},
+    procedure::{Procedure, ProcedureKind, UnbuiltProcedure},
     State,
 };
 
@@ -111,25 +111,177 @@ impl<TCtx> Router<TCtx> {
             setup(&mut state);
         }
 
-        let mut types = TypeMap::default();
-        self.types.collect(&mut types);
-        let procedures = self
+        let mut type_map = TypeMap::default();
+        self.types.collect(&mut type_map);
+        let procedures: BTreeMap<Cow<'static, str>, _> = self
             .procedures
             .into_iter()
-            .map(|(key, procedure)| (key.clone(), procedure.build(key, &mut state, &mut types)))
+            .map(|(key, procedure)| (key.clone(), procedure.build(key, &mut state, &mut type_map)))
             .collect();
+
+        {
+            struct Procedure {
+                kind: String,
+                input: DataType,
+                result: DataType,
+                error: DataType,
+            }
+
+            enum ProcedureOrProcedures {
+                Procedure(Procedure),
+                Procedures(HashMap<Cow<'static, str>, ProcedureOrProcedures>),
+            }
+
+            impl Into<specta::DataType> for Procedure {
+                fn into(self) -> specta::DataType {
+                    specta::DataType::Struct(specta::internal::construct::r#struct(
+                        "".into(),
+                        None,
+                        vec![],
+                        specta::internal::construct::struct_named(
+                            vec![
+                                (
+                                    "kind".into(),
+                                    specta::internal::construct::field(
+                                        false,
+                                        false,
+                                        None,
+                                        Default::default(),
+                                        Some(specta::DataType::Literal(
+                                            specta::LiteralType::String(self.kind),
+                                        )),
+                                    ),
+                                ),
+                                (
+                                    "input".into(),
+                                    specta::internal::construct::field(
+                                        false,
+                                        false,
+                                        None,
+                                        Default::default(),
+                                        Some(self.input),
+                                    ),
+                                ),
+                                (
+                                    "result".into(),
+                                    specta::internal::construct::field(
+                                        false,
+                                        false,
+                                        None,
+                                        Default::default(),
+                                        Some(self.result),
+                                    ),
+                                ),
+                                (
+                                    "error".into(),
+                                    specta::internal::construct::field(
+                                        false,
+                                        false,
+                                        None,
+                                        Default::default(),
+                                        Some(self.error),
+                                    ),
+                                ),
+                            ],
+                            None,
+                        ),
+                    ))
+                }
+            }
+
+            impl Into<specta::DataType> for ProcedureOrProcedures {
+                fn into(self) -> specta::DataType {
+                    match self {
+                        Self::Procedure(procedure) => procedure.into(),
+                        Self::Procedures(procedures) => {
+                            specta::DataType::Struct(specta::internal::construct::r#struct(
+                                "".into(),
+                                None,
+                                vec![],
+                                specta::internal::construct::struct_named(
+                                    procedures
+                                        .into_iter()
+                                        .map(|(key, value)| {
+                                            (
+                                                key,
+                                                specta::internal::construct::field(
+                                                    false,
+                                                    false,
+                                                    None,
+                                                    Default::default(),
+                                                    Some(value.into()),
+                                                ),
+                                            )
+                                        })
+                                        .collect(),
+                                    None,
+                                ),
+                            ))
+                        }
+                    }
+                }
+            }
+
+            let mut types: HashMap<Cow<'static, str>, ProcedureOrProcedures> = Default::default();
+
+            {
+                for (key, procedure) in &procedures {
+                    let mut procedures_map = &mut types;
+
+                    let path = key.split(".").collect::<Vec<_>>();
+                    let Some((key, path)) = path.split_last() else {
+                        panic!("how is this empty");
+                    };
+
+                    for segment in path {
+                        let ProcedureOrProcedures::Procedures(nested_procedures_map) =
+                            procedures_map
+                                .entry(segment.to_string().into())
+                                .or_insert(ProcedureOrProcedures::Procedures(Default::default()))
+                        else {
+                            panic!();
+                        };
+
+                        procedures_map = nested_procedures_map;
+                    }
+
+                    procedures_map.insert(
+                        key.to_string().into(),
+                        ProcedureOrProcedures::Procedure(Procedure {
+                            kind: match procedure.kind() {
+                                ProcedureKind::Query => "query",
+                                ProcedureKind::Mutation => "mutation",
+                                ProcedureKind::Subscription => "subscription",
+                            }
+                            .to_string(),
+                            input: procedure.ty().input.clone(),
+                            result: procedure.ty().result.clone(),
+                            error: DataType::Any,
+                        }),
+                    );
+                }
+            }
+
+            #[derive(specta::Type)]
+            struct Procedures;
+
+            let mut named_type =
+                <Procedures as specta::NamedType>::definition_named_data_type(&mut type_map);
+
+            named_type.inner = ProcedureOrProcedures::Procedures(types).into();
+
+            type_map.insert(<Procedures as specta::NamedType>::sid(), named_type);
+        }
 
         // TODO: Customise the files header. It should says rspc not Specta!
 
-        // TODO: Generate the massive `Procedures` types
-
         for export in self.exports {
-            export(types.clone()).unwrap(); // TODO: Error
+            export(type_map.clone()).unwrap(); // TODO: Error
         }
 
         Ok(BuiltRouter {
             state: Arc::new(state),
-            types,
+            types: type_map,
             procedures,
         })
     }

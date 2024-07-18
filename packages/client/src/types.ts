@@ -3,10 +3,10 @@ export type JoinPath<
 	TNext extends string,
 > = TPath extends "" ? TNext : `${TPath}.${TNext}`;
 
-export type ProcedureVariant = "query" | "mutation" | "subscription";
+export type ProcedureKind = "query" | "mutation" | "subscription";
 
 export type Procedure = {
-	variant: ProcedureVariant;
+	kind: ProcedureKind;
 	input: unknown;
 	result: unknown;
 	error: unknown;

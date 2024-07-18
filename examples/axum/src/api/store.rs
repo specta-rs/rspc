@@ -7,7 +7,7 @@ pub fn mount() -> Router {
         .procedure("get", {
             <BaseProcedure>::builder()
                 .with(OpenAPI::get("/api/get").build())
-                .mutation(|ctx, _: ()| async move {
+                .query(|ctx, _: ()| async move {
                     // TODO
 
                     Ok("Hello From rspc!")

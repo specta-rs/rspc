@@ -33,20 +33,29 @@ export type SolidQueryProxy<P extends rspc.Procedures> = Omit<
 > &
 	SolidQueryProxyBuiltins<P>;
 
+export type QueryInputAccessor<P extends rspc.Procedure> = solid.Accessor<
+	P["input"] | tanstack.SkipToken
+>;
+
 export type ProcedureProxyMethods<
 	P extends rspc.Procedure,
 	TPath extends string,
-> = P["variant"] extends "query"
+> = P["kind"] extends "query"
 	? {
 			createQuery(
-				input: solid.Accessor<P["input"] | tanstack.SkipToken>,
+				input: rspc.VoidIfInputNull<
+					P,
+					solid.Accessor<P["input"] | tanstack.SkipToken>
+				>,
 				opts?: solid.Accessor<
 					queryCore.WrapQueryOptions<
-						tanstack.DefinedInitialDataOptions<
-							rspc.ProcedureResult<P>,
-							unknown,
-							rspc.ProcedureResult<P>,
-							[TPath, P["input"]]
+						ReturnType<
+							tanstack.DefinedInitialDataOptions<
+								rspc.ProcedureResult<P>,
+								unknown,
+								rspc.ProcedureResult<P>,
+								[TPath, P["input"]]
+							>
 						>
 					>
 				>,
@@ -55,14 +64,19 @@ export type ProcedureProxyMethods<
 				unknown
 			>;
 			createQuery(
-				input: solid.Accessor<P["input"] | tanstack.SkipToken>,
+				input: rspc.VoidIfInputNull<
+					P,
+					solid.Accessor<P["input"] | tanstack.SkipToken>
+				>,
 				opts?: solid.Accessor<
 					queryCore.WrapQueryOptions<
-						tanstack.UndefinedInitialDataOptions<
-							rspc.ProcedureResult<P>,
-							unknown,
-							rspc.ProcedureResult<P>,
-							[TPath, P["input"]]
+						ReturnType<
+							tanstack.UndefinedInitialDataOptions<
+								rspc.ProcedureResult<P>,
+								unknown,
+								rspc.ProcedureResult<P>,
+								[TPath, P["input"]]
+							>
 						>
 					>
 				>,
@@ -71,16 +85,14 @@ export type ProcedureProxyMethods<
 				unknown
 			>;
 		}
-	: P["variant"] extends "mutation"
+	: P["kind"] extends "mutation"
 		? {
 				createMutation<TContext = unknown>(
-					opts?: solid.Accessor<
-						tanstack.CreateMutationOptions<
-							rspc.ProcedureResult<P>,
-							unknown,
-							P["input"],
-							TContext
-						>
+					opts?: tanstack.CreateMutationOptions<
+						rspc.ProcedureResult<P>,
+						unknown,
+						P["input"],
+						TContext
 					>,
 				): tanstack.CreateMutationResult<
 					rspc.ProcedureResult<P>,
@@ -89,10 +101,13 @@ export type ProcedureProxyMethods<
 					TContext
 				>;
 			}
-		: P["variant"] extends "subscription"
+		: P["kind"] extends "subscription"
 			? {
 					createSubscription(
-						input: solid.Accessor<P["input"] | tanstack.SkipToken>,
+						input: rspc.VoidIfInputNull<
+							P,
+							solid.Accessor<P["input"] | tanstack.SkipToken>
+						>,
 						opts?: solid.Accessor<
 							Partial<
 								rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>

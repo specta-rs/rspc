@@ -36,10 +36,10 @@ export type ReactQueryProxy<P extends rspc.Procedures> = Omit<
 export type ProcedureProxyMethods<
 	P extends rspc.Procedure,
 	TPath extends string,
-> = P["variant"] extends "query"
+> = P["kind"] extends "query"
 	? {
 			useQuery(
-				input: P["input"] | tanstack.SkipToken,
+				input: rspc.VoidIfInputNull<P, P["input"] | tanstack.SkipToken>,
 				opts?: queryCore.WrapQueryOptions<
 					tanstack.DefinedInitialDataOptions<
 						rspc.ProcedureResult<P>,
@@ -50,7 +50,7 @@ export type ProcedureProxyMethods<
 				>,
 			): tanstack.DefinedUseQueryResult<rspc.ProcedureResult<P>, unknown>;
 			useQuery(
-				input: P["input"] | tanstack.SkipToken,
+				input: rspc.VoidIfInputNull<P, P["input"] | tanstack.SkipToken>,
 				opts?: queryCore.WrapQueryOptions<
 					tanstack.UndefinedInitialDataOptions<
 						rspc.ProcedureResult<P>,
@@ -61,7 +61,7 @@ export type ProcedureProxyMethods<
 				>,
 			): tanstack.UseQueryResult<rspc.ProcedureResult<P>, unknown>;
 		}
-	: P["variant"] extends "mutation"
+	: P["kind"] extends "mutation"
 		? {
 				useMutation<TContext = unknown>(
 					opts?: tanstack.UseMutationOptions<
@@ -77,10 +77,10 @@ export type ProcedureProxyMethods<
 					TContext
 				>;
 			}
-		: P["variant"] extends "subscription"
+		: P["kind"] extends "subscription"
 			? {
 					useSubscription(
-						input: P["input"] | tanstack.SkipToken,
+						input: rspc.VoidIfInputNull<P, P["input"] | tanstack.SkipToken>,
 						opts?: Partial<
 							rspc.SubscriptionObserver<rspc.ProcedureResult<P>, unknown>
 						>,

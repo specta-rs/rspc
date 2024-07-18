@@ -19,3 +19,4 @@ serde = { version = "1", features = ["derive"] }
 specta = { version = "=2.0.0-rc.15", features = ["derive"] } # TODO: Drop requirement on `derive`
 specta-util = "0.0.2" # TODO: We need this for `TypeCollection` which is cringe
 specta-typescript = "0.0.2"
+futures = "0.3.30"

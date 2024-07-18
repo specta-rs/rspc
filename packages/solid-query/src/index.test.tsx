@@ -9,19 +9,19 @@ type NestedProcedures = {
 	nested: {
 		procedures: {
 			one: {
-				variant: "query";
+				kind: "query";
 				input: string;
 				result: number;
 				error: boolean;
 			};
 			two: {
-				variant: "mutation";
+				kind: "mutation";
 				input: string;
 				result: { id: string; name: string };
 				error: { status: "NOT_FOUND" };
 			};
 			three: {
-				variant: "subscription";
+				kind: "subscription";
 				input: string;
 				result: { id: string; name: string };
 				error: { status: "NOT_FOUND" };

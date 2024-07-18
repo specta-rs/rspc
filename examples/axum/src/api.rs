@@ -1,7 +1,7 @@
 use std::{error, marker::PhantomData, path::PathBuf, sync::Arc};
 
 use rspc::{
-    procedure::{Procedure, ProcedureBuilder, ResolverInput, ResolverOutput},
+    procedure::{Procedure, ProcedureBuilder, ProcedureKind, ResolverInput, ResolverOutput},
     Infallible,
 };
 use specta_typescript::Typescript;

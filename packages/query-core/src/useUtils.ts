@@ -108,7 +108,7 @@ export type UtilsProceduresProxy<
 > = {
 	[K in keyof P]: K extends string
 		? P[K] extends rspc.Procedure
-			? P[K]["variant"] extends "query"
+			? P[K]["kind"] extends "query"
 				? QueryUtilsProxyMethods<P[K], rspc.JoinPath<TPath, K>>
 				: never
 			: P[K] extends rspc.Procedures
@@ -132,7 +132,7 @@ export function createQueryUtilsProxy<P extends rspc.Procedures>({
 					queryKey: rspc.getQueryKey(path.join("."), input),
 					queryFn: () =>
 						rspc
-							.traverseClient<rspc.ProcedureWithVariant<"query">>(client, path)
+							.traverseClient<rspc.ProcedureWithKind<"query">>(client, path)
 							.query(input),
 				});
 			},
@@ -145,7 +145,7 @@ export function createQueryUtilsProxy<P extends rspc.Procedures>({
 					queryKey: rspc.getQueryKey(path.join("."), input),
 					queryFn: () =>
 						rspc
-							.traverseClient<rspc.ProcedureWithVariant<"query">>(client, path)
+							.traverseClient<rspc.ProcedureWithKind<"query">>(client, path)
 							.query(input),
 				});
 			},
@@ -158,7 +158,7 @@ export function createQueryUtilsProxy<P extends rspc.Procedures>({
 					queryKey: rspc.getQueryKey(path.join("."), input),
 					queryFn: () =>
 						rspc
-							.traverseClient<rspc.ProcedureWithVariant<"query">>(client, path)
+							.traverseClient<rspc.ProcedureWithKind<"query">>(client, path)
 							.query(input),
 				});
 			},
