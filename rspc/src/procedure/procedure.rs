@@ -1,9 +1,9 @@
-use std::{borrow::Cow, error, fmt, sync::Arc};
+use std::{borrow::Cow, fmt, sync::Arc};
 
 use futures::FutureExt;
 use specta::{DataType, TypeMap};
 
-use crate::State;
+use crate::{Error, State};
 
 use super::{
     exec_input::{AnyInput, InputValueInner},
@@ -53,7 +53,7 @@ where
     /// Construct a new procedure using [`ProcedureBuilder`].
     pub fn builder<I, R, TError>() -> ProcedureBuilder<TError, TCtx, TCtx, I, R>
     where
-        TError: error::Error + Send + 'static,
+        TError: Error,
         // Only the first layer (middleware or the procedure) needs to be a valid input/output type
         I: ResolverInput,
         R: ResolverOutput<TError>,

@@ -1,9 +1,11 @@
-use std::{error, marker::PhantomData, path::PathBuf, sync::Arc};
+use std::{marker::PhantomData, path::PathBuf, sync::Arc};
 
 use rspc::{
-    procedure::{Procedure, ProcedureBuilder, ProcedureKind, ResolverInput, ResolverOutput},
+    procedure::{Procedure, ProcedureBuilder, ResolverInput, ResolverOutput},
     Infallible,
 };
+use serde::Serialize;
+use specta::Type;
 use specta_typescript::Typescript;
 use specta_util::TypeCollection;
 use thiserror::Error;
@@ -12,8 +14,13 @@ pub(crate) mod chat;
 pub(crate) mod invalidation;
 pub(crate) mod store;
 
-#[derive(Debug, Error)]
-pub enum Error {}
+#[derive(Debug, Error, Serialize, Type)]
+pub enum Error {
+    #[error("you made a mistake: {0}")]
+    Mistake(String),
+}
+
+impl rspc::Error for Error {}
 
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
@@ -31,7 +38,7 @@ pub struct BaseProcedure<TErr = Error>(PhantomData<TErr>);
 impl<TErr> BaseProcedure<TErr> {
     pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Context, Context, TInput, TResult>
     where
-        TErr: error::Error + Send + 'static,
+        TErr: rspc::Error,
         TInput: ResolverInput,
         TResult: ResolverOutput<TErr>,
     {
@@ -43,6 +50,19 @@ pub fn mount() -> Router {
     Router::new()
         .procedure("version", {
             <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
+        })
+        .procedure("error", {
+            #[derive(Debug, serde::Serialize, Type)]
+            #[serde(tag = "type")]
+            enum Testing {
+                A(String),
+            }
+
+            <BaseProcedure>::builder().query(|_, _: ()| async { Ok(Testing::A("go away".into())) })
+        })
+        .procedure("error2", {
+            <BaseProcedure>::builder()
+                .query(|_, _: ()| async { Err::<(), _>(Error::Mistake("skill issue".into())) })
         })
         .merge("chat", chat::mount())
         .merge("store", store::mount())

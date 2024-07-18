@@ -26,7 +26,7 @@ mod resolver_output;
 mod stream;
 
 pub use builder::ProcedureBuilder;
-pub use error::InternalError;
+pub use error::{InternalError, ResolverError};
 pub use exec_input::ProcedureExecInput;
 pub use input::ProcedureInput;
 pub use meta::{ProcedureKind, ProcedureMeta};

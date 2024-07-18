@@ -7,20 +7,14 @@ use std::{
 
 use futures::{Stream, TryFutureExt, TryStreamExt};
 
-use super::output::ProcedureOutput;
+use crate::Error;
 
-type BoxError = Box<dyn std::error::Error + Send + 'static>;
-fn box_error<T>(err: T) -> BoxError
-where
-    T: error::Error + Send + 'static,
-{
-    Box::new(err)
-}
+use super::{output::ProcedureOutput, ResolverError};
 
 enum Inner {
-    Value(Result<ProcedureOutput, BoxError>),
-    Future(Pin<Box<dyn Future<Output = Result<ProcedureOutput, BoxError>> + Send>>),
-    Stream(Pin<Box<dyn Stream<Item = Result<ProcedureOutput, BoxError>> + Send>>),
+    Value(Result<ProcedureOutput, ResolverError>),
+    Future(Pin<Box<dyn Future<Output = Result<ProcedureOutput, ResolverError>> + Send>>),
+    Stream(Pin<Box<dyn Stream<Item = Result<ProcedureOutput, ResolverError>> + Send>>),
 }
 
 pub struct ProcedureStream(Option<Inner>);
@@ -28,30 +22,34 @@ pub struct ProcedureStream(Option<Inner>);
 impl ProcedureStream {
     pub fn from_value<TError>(value: Result<ProcedureOutput, TError>) -> Self
     where
-        TError: error::Error + Send + 'static,
+        TError: Error,
     {
-        Self(Some(Inner::Value(value.map_err(box_error))))
+        Self(Some(Inner::Value(value.map_err(ResolverError::new))))
     }
 
     pub fn from_future<F, TError>(future: F) -> Self
     where
         F: Future<Output = Result<ProcedureOutput, TError>> + Send + 'static,
-        TError: error::Error + Send + 'static,
+        TError: Error,
     {
-        Self(Some(Inner::Future(Box::pin(future.map_err(box_error)))))
+        Self(Some(Inner::Future(Box::pin(
+            future.map_err(ResolverError::new),
+        ))))
     }
 
     pub fn from_stream<S, TError>(stream: S) -> Self
     where
         S: Stream<Item = Result<ProcedureOutput, TError>> + Send + 'static,
-        TError: error::Error + Send + 'static,
+        TError: Error,
     {
-        Self(Some(Inner::Stream(Box::pin(stream.map_err(box_error)))))
+        Self(Some(Inner::Stream(Box::pin(
+            stream.map_err(ResolverError::new),
+        ))))
     }
 }
 
 impl Stream for ProcedureStream {
-    type Item = Result<ProcedureOutput, BoxError>;
+    type Item = Result<ProcedureOutput, ResolverError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.0.as_mut() {

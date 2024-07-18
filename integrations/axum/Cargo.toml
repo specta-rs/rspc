@@ -13,6 +13,7 @@ categories = ["web-programming", "asynchronous"]
 [features]
 default = []
 ws = ["dep:tokio", "axum/ws"]
+file = ["dep:tokio"]
 
 [dependencies]
 rspc = { version = "0.3.0", path = "../../rspc" }

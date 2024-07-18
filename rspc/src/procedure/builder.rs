@@ -1,10 +1,10 @@
-use std::{error, fmt, future::Future};
+use std::{fmt, future::Future};
 
 use futures::FutureExt;
 
 use crate::{
     middleware::{Middleware, MiddlewareHandler},
-    State,
+    Error, State,
 };
 
 use super::{ProcedureKind, ProcedureMeta, UnbuiltProcedure};
@@ -31,7 +31,7 @@ impl<TCtx, TError, TNextCtx, TInput, TResult> fmt::Debug
 impl<TRootCtx, TCtx, TError, TInput, TResult>
     ProcedureBuilder<TError, TRootCtx, TCtx, TInput, TResult>
 where
-    TError: error::Error + Send + 'static,
+    TError: Error,
     TRootCtx: 'static,
     TCtx: 'static,
     TInput: 'static,
@@ -92,7 +92,7 @@ where
 impl<TRootCtx, TCtx, TError, TInput, S, T>
     ProcedureBuilder<TError, TRootCtx, TCtx, TInput, crate::Stream<S>>
 where
-    TError: error::Error + Send + 'static,
+    TError: Error,
     TRootCtx: 'static,
     TCtx: 'static,
     TInput: 'static,

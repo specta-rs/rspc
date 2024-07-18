@@ -13,14 +13,15 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 pub mod middleware;
-pub mod notes;
 pub mod procedure;
 
+mod error;
 mod infallible;
 mod router;
 mod state;
 mod stream;
 
+pub use error::Error;
 pub use infallible::Infallible;
 pub use router::{BuiltRouter, Router};
 pub use state::State;

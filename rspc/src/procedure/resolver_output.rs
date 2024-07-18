@@ -1,8 +1,8 @@
-use std::error;
-
 use futures::{stream::once, Stream, StreamExt};
 use serde::Serialize;
 use specta::{DataType, Generics, Type, TypeMap};
+
+use crate::Error;
 
 use super::{ProcedureOutput, ProcedureStream};
 
@@ -17,6 +17,7 @@ use super::{ProcedureOutput, ProcedureStream};
 /// For each value the [`Self::into_procedure_stream`] implementation **must** defer to [`Self::into_procedure_result`] to convert the value into a [`ProcedureOutput`]. rspc provides a default implementation that takes care of this for you so don't override it unless you have a good reason.
 ///
 /// ## Implementation for custom types
+///
 /// ```rust
 /// pub struct MyCoolThing(pub String);
 ///
@@ -43,7 +44,7 @@ pub trait ResolverOutput<TError>: Sized + Send + 'static {
         procedure: impl Stream<Item = Result<Self, TError>> + Send + 'static,
     ) -> ProcedureStream
     where
-        TError: error::Error + Send + 'static,
+        TError: Error,
     {
         ProcedureStream::from_stream(procedure.map(|v| v?.into_procedure_result()))
     }
@@ -58,7 +59,7 @@ pub trait ResolverOutput<TError>: Sized + Send + 'static {
 impl<T, TError> ResolverOutput<TError> for T
 where
     T: Serialize + Type + Send + 'static,
-    TError: error::Error + Send + 'static,
+    TError: Error,
 {
     fn data_type(type_map: &mut TypeMap) -> DataType {
         T::inline(type_map, Generics::Definition)
@@ -83,7 +84,7 @@ where
         procedure: impl Stream<Item = Result<Self, TErr>> + Send + 'static,
     ) -> ProcedureStream
     where
-        TErr: error::Error + Send + 'static,
+        TErr: Error,
     {
         ProcedureStream::from_stream(
             procedure

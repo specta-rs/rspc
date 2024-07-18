@@ -5,7 +5,7 @@
     html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
 )]
 
-use std::{borrow::Cow, collections::HashMap, hash::Hash, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use axum::{
     body::Bytes,

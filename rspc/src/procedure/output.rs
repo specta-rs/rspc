@@ -36,6 +36,15 @@ pub struct ProcedureOutput {
     inner: Box<dyn Inner + Send>,
 }
 
+impl fmt::Debug for ProcedureOutput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ProcedureOutput")
+            .field("type_name", &self.type_name)
+            .field("type_id", &self.type_id)
+            .finish()
+    }
+}
+
 impl ProcedureOutput {
     pub fn new<T: Any + Send + 'static>(value: T) -> Self {
         Self {
@@ -75,7 +84,7 @@ impl ProcedureOutput {
             .ok_or(ProcedureOutputSerializeError::ErrResultNotDeserializable(
                 self.type_name,
             ))?
-            .expect("serde_value doesn't panic");
+            .expect("serde_value doesn't panic"); // TODO: This is false
 
         value
             .serialize(ser)
