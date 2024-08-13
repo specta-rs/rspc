@@ -132,13 +132,18 @@ export function createReactQueryHooks<
 		const optsRef = react.useRef<typeof opts>(opts);
 		optsRef.current = opts;
 
+		const ctx = react.useContext(Context);
+		const helpersInner = queryCore.createQueryHookHelpers({
+			useContext: () => ctx,
+		});
+
 		// biome-ignore lint/correctness/useExhaustiveDependencies:
 		return react.useEffect(
 			() =>
-				helpers.handleSubscription(
+				helpersInner.handleSubscription(
 					keyAndInput,
 					() => optsRef.current,
-					helpers.useClient(),
+					helpersInner.useClient(),
 				),
 			[queryKey, enabled],
 		);

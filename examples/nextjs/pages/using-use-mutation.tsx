@@ -4,9 +4,7 @@ import { useMutation } from "../src/rspc";
 import styles from "../styles/Home.module.css";
 
 const UsingUseMutation: NextPage = () => {
-	const { mutate, data, isPending, error } = useMutation({
-		mutationKey: "sendMsg",
-	});
+    const { mutate, data, isPending, error } = useMutation("sendMsg");
 
 	const handleSubmit = async (
 		event: React.FormEvent<HTMLFormElement>,
