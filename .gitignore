@@ -26,3 +26,4 @@ node_modules
 
 .svelte-kit
 .turbo
+.astro

@@ -1,5 +1,6 @@
 packages:
- - docs/
- - packages/*
- - examples/astro
- - examples/nextjs
+  - docs/
+  - packages/*
+  - examples/astro
+  - examples/nextjs
+  - examples/axum
