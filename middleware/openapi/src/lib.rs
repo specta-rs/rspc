@@ -47,28 +47,28 @@ impl OpenAPI {
 
     pub fn post(path: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            method: "GET",
+            method: "POST",
             path: path.into(),
         }
     }
 
     pub fn put(path: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            method: "GET",
+            method: "PUT",
             path: path.into(),
         }
     }
 
     pub fn patch(path: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            method: "GET",
+            method: "PATCH",
             path: path.into(),
         }
     }
 
     pub fn delete(path: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            method: "GET",
+            method: "DELETE",
             path: path.into(),
         }
     }
@@ -162,9 +162,45 @@ where
                             .await
                         })
                     }
-                    // "PUT" => axum::routing::put,
-                    // "PATCH" => axum::routing::patch,
-                    // "DELETE" => axum::routing::delete,
+                    "PUT" => {
+                        // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
+                        post(move |parts: Parts, body: Bytes| async move {
+                            let ctx = (ctx_fn)(&parts);
+
+                            handle_procedure(
+                                ctx,
+                                &mut serde_json::Deserializer::from_slice(&body),
+                                procedure,
+                            )
+                            .await
+                        })
+                    }
+                    "PATCH" => {
+                        // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
+                        post(move |parts: Parts, body: Bytes| async move {
+                            let ctx = (ctx_fn)(&parts);
+
+                            handle_procedure(
+                                ctx,
+                                &mut serde_json::Deserializer::from_slice(&body),
+                                procedure,
+                            )
+                            .await
+                        })
+                    }
+                    "DELETE" => {
+                        // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
+                        post(move |parts: Parts, body: Bytes| async move {
+                            let ctx = (ctx_fn)(&parts);
+
+                            handle_procedure(
+                                ctx,
+                                &mut serde_json::Deserializer::from_slice(&body),
+                                procedure,
+                            )
+                            .await
+                        })
+                    }
                     _ => panic!("Unsupported method"),
                 },
             );
