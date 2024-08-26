@@ -12,7 +12,7 @@ use axum::{
     extract::Query,
     http::{request::Parts, StatusCode},
     response::Html,
-    routing::{get, post},
+    routing::{delete, get, patch, post, put},
     Json,
 };
 use futures::StreamExt;
@@ -164,7 +164,7 @@ where
                     }
                     "PUT" => {
                         // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                        post(move |parts: Parts, body: Bytes| async move {
+                        put(move |parts: Parts, body: Bytes| async move {
                             let ctx = (ctx_fn)(&parts);
 
                             handle_procedure(
@@ -177,7 +177,7 @@ where
                     }
                     "PATCH" => {
                         // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                        post(move |parts: Parts, body: Bytes| async move {
+                        patch(move |parts: Parts, body: Bytes| async move {
                             let ctx = (ctx_fn)(&parts);
 
                             handle_procedure(
@@ -190,7 +190,7 @@ where
                     }
                     "DELETE" => {
                         // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                        post(move |parts: Parts, body: Bytes| async move {
+                        delete(move |parts: Parts, body: Bytes| async move {
                             let ctx = (ctx_fn)(&parts);
 
                             handle_procedure(
