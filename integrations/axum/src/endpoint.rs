@@ -46,11 +46,12 @@ impl<TCtx: Send + Sync + 'static> Endpoint<TCtx> {
         // F: Future<Output = Result<TCtx, ()>> + Send + Sync + 'static,
         TCtx: Clone,
     {
-        Self::builder(router)
-            .with_endpoints()
-            .with_websocket()
-            .with_batching()
-            .build(ctx_fn)
+        let mut t = Self::builder(router).with_endpoints();
+        #[cfg(feature = "ws")]
+        {
+            t = t.with_websocket();
+        }
+        t.with_batching().build(ctx_fn)
     }
 
     /// Construct a new [`Endpoint`](Endpoint) with no features enabled.
