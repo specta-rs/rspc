@@ -214,10 +214,15 @@ async fn handle_procedure<'de, TCtx>(
     ctx: TCtx,
     input: impl ProcedureInput<'de>,
     procedure: Procedure<TCtx>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<String>)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let mut stream = procedure.exec(ctx, input).map_err(|err| {
-        // TODO: Error code by matching off `InternalError`
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string()))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                // TODO: This or not?
+                "_rspc_error": err.to_string()
+            })),
+        )
     })?;
 
     // TODO: Support for streaming
@@ -225,11 +230,26 @@ async fn handle_procedure<'de, TCtx>(
         // TODO: We should probs deserialize into buffer instead of value???
         return match value.map(|v| v.serialize(serde_json::value::Serializer)) {
             Ok(Ok(value)) => Ok(Json(value)),
-            Ok(Err(err)) => {
-                // TODO: Error code by matching off `InternalError`
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(err.to_string())))
-            }
-            Err(err) => panic!("{err:?}"), // TODO: Error handling -> How to serialize `TError`??? -> Should this be done in procedure?
+            Ok(Err(err)) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "_rspc_error": err.to_string()
+                })),
+            )),
+            Err(err) => Err((
+                StatusCode::from_u16(err.status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                Json(
+                    err.serialize(serde_json::value::Serializer)
+                        .map_err(|err| {
+                            (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(json!({
+                                    "_rspc_error": err.to_string()
+                                })),
+                            )
+                        })?,
+                ),
+            )),
         };
     }
 
