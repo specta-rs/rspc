@@ -22,3 +22,9 @@ impl Serialize for Infallible {
 }
 
 impl std::error::Error for Infallible {}
+
+impl crate::Error for Infallible {
+    fn status(&self) -> u16 {
+        unreachable!()
+    }
+}
