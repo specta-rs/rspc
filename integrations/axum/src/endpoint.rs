@@ -3,7 +3,7 @@ use std::{collections::HashMap, future::poll_fn, sync::Arc, task::Poll};
 use axum::{
     body::Bytes,
     extract::Query,
-    http::{header, HeaderMap, StatusCode},
+    http::{header, request::Parts, HeaderMap, StatusCode},
     routing::{get, post},
     Json,
 };
@@ -38,7 +38,8 @@ impl<TCtx: Send + Sync + 'static> Endpoint<TCtx> {
     pub fn new<S>(
         router: BuiltRouter<TCtx>,
         // TODO: Parse this to `Self::build` -> It will make rustfmt result way nicer
-        ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
+        // TODO: Make Axum extractors work
+        ctx_fn: impl Fn(&Parts) -> TCtx + Send + Sync + 'static,
     ) -> axum::Router<S>
     where
         S: Clone + Send + Sync + 'static,
@@ -118,9 +119,13 @@ impl<TCtx: Send + Sync + 'static> Endpoint<TCtx> {
         }
     }
 
+    // TODO: Make Axum extractors work
     // TODO: Async or `Result` return type for context function
     /// Build an [`axum::Router`](axum::Router) with the configured features.
-    pub fn build<S>(self, ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static) -> axum::Router<S>
+    pub fn build<S>(
+        self,
+        ctx_fn: impl Fn(&Parts) -> TCtx + Send + Sync + 'static,
+    ) -> axum::Router<S>
     where
         S: Clone + Send + Sync + 'static,
     {
@@ -134,36 +139,37 @@ impl<TCtx: Send + Sync + 'static> Endpoint<TCtx> {
                 r = match procedure.kind() {
                     ProcedureKind::Query => {
                         r.route(
-                                &format!("/{}", key),
-                                // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                                get(
-                                    move |query: Query<HashMap<String, String>>,
-                                          headers: HeaderMap| async move {
-                                        let ctx = (ctx_fn)();
+                            &format!("/{}", key),
+                            // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
+                            get(
+                                move |parts: Parts,
+                                      query: Query<HashMap<String, String>>,
+                                        | async move {
+                                    let ctx = (ctx_fn)(&parts);
 
-                                        handle_procedure(
-                                            ctx,
-                                            &mut serde_json::Deserializer::from_str(
-                                                query.get("input").map(|v| &**v).unwrap_or("null"),
-                                            ),
-                                            headers,
-                                            procedure,
-                                        )
-                                        .await
-                                    },
-                                ),
-                            )
+                                    handle_procedure(
+                                        ctx,
+                                        &mut serde_json::Deserializer::from_str(
+                                            query.get("input").map(|v| &**v).unwrap_or("null"),
+                                        ),
+                                        parts.headers,
+                                        procedure,
+                                    )
+                                    .await
+                                },
+                            ),
+                        )
                     }
                     ProcedureKind::Mutation => r.route(
                         &format!("/{}", key),
                         // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                        post(move |headers: HeaderMap, body: Bytes| async move {
-                            let ctx = (ctx_fn)();
+                        post(move |parts: Parts, body: Bytes| async move {
+                            let ctx = (ctx_fn)(&parts);
 
                             handle_procedure(
                                 ctx,
                                 &mut serde_json::Deserializer::from_slice(&body),
-                                headers,
+                                parts.headers,
                                 procedure,
                             )
                             .await
@@ -179,8 +185,8 @@ impl<TCtx: Send + Sync + 'static> Endpoint<TCtx> {
             use axum::extract::ws::WebSocketUpgrade;
             r = r.route(
                 "/ws",
-                get(move |ws: WebSocketUpgrade| async move {
-                    let ctx = (ctx_fn)();
+                get(move |parts: Parts, ws: WebSocketUpgrade| async move {
+                    let ctx = (ctx_fn)(&parts);
 
                     ws.on_upgrade(move |socket| async move {
                         todo!();

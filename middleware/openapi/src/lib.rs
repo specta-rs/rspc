@@ -10,7 +10,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use axum::{
     body::Bytes,
     extract::Query,
-    http::StatusCode,
+    http::{request::Parts, StatusCode},
     response::Html,
     routing::{get, post},
     Json,
@@ -105,7 +105,8 @@ struct OpenAPIState(HashMap<(&'static str, Cow<'static, str>), String>);
 // TODO: Can we decouple webserver from OpenAPI while keeping something maintainable????
 pub fn mount<TCtx, S>(
     router: BuiltRouter<TCtx>,
-    ctx_fn: impl Fn() -> TCtx + Clone + Send + Sync + 'static,
+    // TODO: Make Axum extractors work
+    ctx_fn: impl Fn(&Parts) -> TCtx + Clone + Send + Sync + 'static,
 ) -> axum::Router<S>
 where
     S: Clone + Send + Sync + 'static,
@@ -133,23 +134,25 @@ where
                 match *method {
                     "GET" => {
                         // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                        get(move |query: Query<HashMap<String, String>>| async move {
-                            let ctx = (ctx_fn)();
+                        get(
+                            move |parts: Parts, query: Query<HashMap<String, String>>| async move {
+                                let ctx = (ctx_fn)(&parts);
 
-                            handle_procedure(
-                                ctx,
-                                &mut serde_json::Deserializer::from_str(
-                                    query.get("input").map(|v| &**v).unwrap_or("null"),
-                                ),
-                                procedure,
-                            )
-                            .await
-                        })
+                                handle_procedure(
+                                    ctx,
+                                    &mut serde_json::Deserializer::from_str(
+                                        query.get("input").map(|v| &**v).unwrap_or("null"),
+                                    ),
+                                    procedure,
+                                )
+                                .await
+                            },
+                        )
                     }
                     "POST" => {
                         // TODO: By moving `procedure` into the closure we hang onto the types for the duration of the program which is probs undesirable.
-                        post(move |body: Bytes| async move {
-                            let ctx = (ctx_fn)();
+                        post(move |parts: Parts, body: Bytes| async move {
+                            let ctx = (ctx_fn)(&parts);
 
                             handle_procedure(
                                 ctx,
