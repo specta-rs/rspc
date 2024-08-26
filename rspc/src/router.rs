@@ -148,7 +148,7 @@ impl<TCtx> Router<TCtx> {
                                         None,
                                         Default::default(),
                                         Some(specta::DataType::Literal(
-                                            specta::LiteralType::String(self.kind),
+                                            specta::datatype::LiteralType::String(self.kind),
                                         )),
                                     ),
                                 ),

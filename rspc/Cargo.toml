@@ -17,8 +17,8 @@ default = []
 # Public
 serde = "1"
 futures = "0.3"
-specta = { version = "=2.0.0-rc.15", features = ["derive"] } # TODO: Drop requirement on `derive`
-specta-util = "0.0.2"
+specta = { version = "=2.0.0-rc.20", features = ["derive"] } # TODO: Drop requirement on `derive`
+specta-util = "0.0.7"
 
 # Private
 serde-value = "0.7"
