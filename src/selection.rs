@@ -1,7 +1,6 @@
 //! The selection macro.
 //!
 //! WARNING: Wherever this is called you must have the `specta` crate installed.
-#[cfg(not(feature = "specta2"))]
 #[macro_export]
 macro_rules! selection {
     ( $s:expr, { $($n:ident),+ } ) => {{
@@ -33,7 +32,6 @@ macro_rules! selection {
 }
 
 #[cfg(test)]
-#[cfg(not(feature = "specta2"))]
 mod tests {
     use specta::{ts::inline, Type};
 

@@ -1,7 +1,7 @@
 use std::{future::Future, marker::PhantomData};
 
-use crate::specta::Type;
 use serde::Serialize;
+use specta::Type;
 
 use crate::{
     internal::{LayerResult, ValueOrStream},

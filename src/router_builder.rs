@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::specta::Type;
 use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
-use specta::TypeDefs;
+use specta::Type;
+use specta::TypeMap;
 
 use crate::{
     internal::{
@@ -28,7 +28,7 @@ pub struct RouterBuilder<
     queries: ProcedureStore<TCtx>,
     mutations: ProcedureStore<TCtx>,
     subscriptions: ProcedureStore<TCtx>,
-    typ_store: TypeDefs,
+    type_map: TypeMap,
     phantom: PhantomData<TMeta>,
 }
 
@@ -56,7 +56,7 @@ where
             queries: ProcedureStore::new("query"),
             mutations: ProcedureStore::new("mutation"),
             subscriptions: ProcedureStore::new("subscription"),
-            typ_store: TypeDefs::new(),
+            type_map: TypeMap::default(),
             phantom: PhantomData,
         }
     }
@@ -93,7 +93,7 @@ where
             queries,
             mutations,
             subscriptions,
-            typ_store,
+            type_map: typ_store,
             ..
         } = self;
 
@@ -108,7 +108,7 @@ where
             queries,
             mutations,
             subscriptions,
-            typ_store,
+            type_map: typ_store,
             phantom: PhantomData,
         }
     }
@@ -137,7 +137,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            TResolver::typedef(&mut self.type_map),
         );
         self
     }
@@ -166,7 +166,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            TResolver::typedef(&mut self.type_map),
         );
         self
     }
@@ -200,7 +200,7 @@ where
                 },
                 phantom: PhantomData,
             }),
-            TResolver::typedef(&mut self.typ_store),
+            TResolver::typedef(&mut self.type_map),
         );
         self
     }
@@ -252,8 +252,8 @@ where
             );
         }
 
-        for (name, typ) in router.typ_store {
-            self.typ_store.insert(name, typ);
+        for (name, typ) in router.type_map.iter() {
+            self.type_map.insert(name, typ.clone());
         }
 
         self
@@ -292,7 +292,7 @@ where
             mut queries,
             mut mutations,
             mut subscriptions,
-            mut typ_store,
+            type_map: mut typ_store,
             ..
         } = self;
 
@@ -320,8 +320,8 @@ where
             );
         }
 
-        for (name, typ) in router.typ_store {
-            typ_store.insert(name, typ);
+        for (name, typ) in router.type_map.iter() {
+            typ_store.insert(name, typ.clone());
         }
 
         RouterBuilder {
@@ -334,7 +334,7 @@ where
             queries,
             mutations,
             subscriptions,
-            typ_store,
+            type_map: typ_store,
             phantom: PhantomData,
         }
     }
@@ -345,7 +345,7 @@ where
             queries,
             mutations,
             subscriptions,
-            typ_store,
+            type_map: typ_store,
             ..
         } = self;
 
@@ -355,7 +355,7 @@ where
             queries,
             mutations,
             subscriptions,
-            typ_store,
+            type_map: typ_store,
             phantom: PhantomData,
         };
 
