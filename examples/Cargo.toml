@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 rspc = { path = "../" }
-specta = "1.0.5"
+specta = "=2.0.0-rc.20"
 rspc-axum = { path = "../crates/axum" }
 async-stream = "0.3.6"
 axum = "0.7.9"
