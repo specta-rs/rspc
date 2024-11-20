@@ -1,6 +1,6 @@
 {
 	"name": "@rspc/tauri",
-	"version": "0.2.4",
+	"version": "0.3.0",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",

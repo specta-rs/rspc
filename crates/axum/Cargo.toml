@@ -1,7 +1,7 @@
 [package]
 name = "rspc-axum"
 description = "Axum adapter for rspc"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
@@ -20,7 +20,7 @@ default = []
 ws = ["dep:tokio", "axum/ws"]
 
 [dependencies]
-rspc = { version = "0.2.0", path = "../.." }
+rspc = { version = "0.3.0", path = "../.." }
 axum = "0.7.9"
 serde_json = "1.0.133"
 
