@@ -33,7 +33,8 @@ macro_rules! selection {
 
 #[cfg(test)]
 mod tests {
-    use specta::{ts::inline, Type};
+    use specta::Type;
+    use specta_typescript::inline;
 
     fn ts_export_ref<T: Type>(_t: &T) -> String {
         inline::<T>(&Default::default()).unwrap()

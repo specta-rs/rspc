@@ -29,37 +29,37 @@ impl error::Error for CustomRustError {}
 // This router shows how to do error handling
 pub fn mount() -> RouterBuilder {
     Router::new()
-    .query("ok", |t| {
-        t(|_, _args: ()| Ok("Hello World".into()) as Result<String, Error>)
-    })
-    .query("err", |t| {
-        t(|_, _args: ()| {
-            Err(Error::new(
-                ErrorCode::BadRequest,
-                "This is a custom error!".into(),
-            )) as Result<String, _>
+        .query("ok", |t| {
+            t(|_, _args: ()| Ok("Hello World".into()) as Result<String, Error>)
         })
-    })
-    .query("errWithCause", |t| {
-        t(|_, _args: ()| {
-            Err(Error::with_cause(
-                ErrorCode::BadRequest,
-                "This is a custom error!".into(),
-                CustomRustError::GenericError,
-            )) as Result<String, Error>
+        .query("err", |t| {
+            t(|_, _args: ()| {
+                Err(Error::new(
+                    ErrorCode::BadRequest,
+                    "This is a custom error!".into(),
+                )) as Result<String, _>
+            })
         })
-    })
-    .query("customErr", |t| {
-        t(|_, _args: ()| Ok(Err(MyCustomError::IAmBroke)?))
-    })
-    .query("customErrUsingInto", |t| {
-        t(|_, _args: ()| Err(MyCustomError::IAmBroke.into()) as Result<String, Error>)
-    })
-    .query("asyncCustomError", |t| {
-        t(
-            |_, _args: ()| async move {
-                Err(MyCustomError::IAmBroke.into()) as Result<String, _>
-            },
-        )
-    })
+        .query("errWithCause", |t| {
+            t(|_, _args: ()| {
+                Err(Error::with_cause(
+                    ErrorCode::BadRequest,
+                    "This is a custom error!".into(),
+                    CustomRustError::GenericError,
+                )) as Result<String, Error>
+            })
+        })
+        .query("customErr", |t| {
+            t(|_, _args: ()| Ok(Err(MyCustomError::IAmBroke)?))
+        })
+        .query("customErrUsingInto", |t| {
+            t(|_, _args: ()| Err(MyCustomError::IAmBroke.into()) as Result<String, Error>)
+        })
+        .query("asyncCustomError", |t| {
+            t(
+                |_, _args: ()| async move {
+                    Err(MyCustomError::IAmBroke.into()) as Result<String, _>
+                },
+            )
+        })
 }
