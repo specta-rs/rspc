@@ -1,12 +1,33 @@
 {
+	"name": "rspc",
+	"version": "0.0.0",
+	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
+	"keywords": [],
+	"author": "Oscar Beaumont",
+	"license": "MIT",
 	"private": true,
 	"scripts": {
-		"build": "pnpm --filter './packages/*' build",
-		"typecheck": "pnpm tsc -b",
-		"fix": "biome lint --write . && biome format --write . && biome check . --write"
+		"dev": "pnpm -r --parallel --filter=!@rspc/docs --filter=!@rspc/examples-*  --filter=!rspc-vscode exec pnpm dev",
+		"build": "pnpm turbo run build --filter='./packages/*'",
+		"typecheck": "pnpm -r --filter=!rspc-vscode exec tsc --noEmit",
+		"docs": "pnpm --filter @rspc/docs -- ",
+		"client": "pnpm --filter @rspc/client -- ",
+		"examples": "pnpm --filter @rspc/examples-* -- ",
+		"playground": "pnpm --filter @rspc/playground -- ",
+		"react": "pnpm --filter @rspc/react -- ",
+		"solid": "pnpm --filter @rspc/solid -- ",
+		"tauri": "pnpm --filter @rspc/tauri -- ",
+		"fix": "biome lint --apply . && biome format --write . && biome check . --apply"
+	},
+	"engines": {
+		"pnpm": ">=7.0.0",
+		"npm": "pnpm",
+		"yarn": "pnpm",
+		"node": ">=16.0.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.8.3",
-		"typescript": "^5.5.3"
-	}
+		"biome": "^0.3.3",
+		"turbo": "^2.0.6"
+	},
+	"packageManager": "pnpm@9.5.0"
 }

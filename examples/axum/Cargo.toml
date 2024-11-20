@@ -1,22 +1,15 @@
 [package]
-name = "rspc-example-axum"
+name = "example-axum"
 version = "0.0.0"
 edition = "2021"
 publish = false
 
 [dependencies]
-axum = "0.7.5"
-rspc = { path = "../../rspc" }
-rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
-tokio = { version = "1.39.3", features = ["macros", "rt-multi-thread"] }
-thiserror = "1.0.63"
+rspc = { path = "../../" }
+rspc-axum = { path = "../../crates/axum", features = ["ws"] }
+tokio = { version = "1.36.0", features = ["full"] }
 async-stream = "0.3.5"
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
-rspc-tracing = { path = "../../middleware/tracing" }
-rspc-openapi = { path = "../../middleware/openapi" }
-serde = { version = "1", features = ["derive"] }
-specta = { version = "=2.0.0-rc.20", features = ["derive"] } # TODO: Drop requirement on `derive`
-specta-util = "0.0.7" # TODO: We need this for `TypeCollection` which is cringe
-specta-typescript = "0.0.7"
-futures = "0.3.30"
+axum = { version = "0.7.4", features = ["ws"] }
+tower-http = { version = "0.5.2", default-features = false, features = [
+    "cors",
+] }

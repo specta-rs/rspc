@@ -1,0 +1,32 @@
+---
+import QuickLinks from "./QuickLinks.astro";
+import Logo from "./Logo.astro";
+import SidebarToggle from "./SidebarToggle.astro";
+import ThemeToggleButton from "./ThemeToggleButton.astro";
+
+const isLanding = Astro.url.pathname === "/";
+---
+
+<nav
+  class="flex flex-col relative justify-between items-center py-4 my-2 transition-colors z-20"
+  aria-label="Global"
+>
+  <div class="flex items-center justify-between w-full px-10">
+    <div class="flex justify-between items-center w-full md:w-auto">
+      <a href="/" rel="prefetch" aria-label="rspc landing page">
+        <Logo width="50" height="50" />
+      </a>
+    </div>
+    <div class="flex flex-grow justify-end items-center">
+      <QuickLinks class="hidden sm:flex" />
+
+      <div class="text-center mx-4 md:mx-4 hidden sm:block">
+        <ThemeToggleButton />
+      </div>
+
+      <div id="sidebar-toggle" class={isLanding ? "hidden" : ""}>
+        <SidebarToggle />
+      </div>
+    </div>
+  </div>
+</nav>

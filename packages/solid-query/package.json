@@ -1,64 +1,47 @@
 {
 	"name": "@rspc/solid-query",
-	"version": "0.3.0-alpha.0",
+	"version": "0.2.4",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",
 	"license": "MIT",
 	"type": "module",
-	"exports": "./src/index.tsx",
-	"publishConfig": {
-		"source": "src/index.tsx",
-		"main": "dist/cjs/index.js",
-		"module": "dist/esm/index.js",
-		"types": "dist/types/index.d.ts",
-		"exports": {
-			".": {
-				"types": "./dist/types/index.d.ts",
-				"solid": "./dist/source/index.jsx",
-				"import": "./dist/esm/index.js",
-				"browser": "./dist/esm/index.js",
-				"require": "./dist/cjs/index.js",
-				"node": "./dist/cjs/index.js"
-			}
-		}
-	},
+	"source": "src/index.tsx",
+	"main": "dist/cjs/index.js",
+	"module": "dist/esm/index.js",
+	"types": "dist/types/index.d.ts",
 	"files": [
 		"dist"
 	],
+	"exports": {
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"solid": "./dist/source/index.jsx",
+			"import": "./dist/esm/index.js",
+			"browser": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js",
+			"node": "./dist/cjs/index.js"
+		}
+	},
 	"scripts": {
-		"dev": "tsup --watch",
-		"build": "tsup && tsc"
+		"dev": "rollup -c -w",
+		"build": "rollup -c && tsc",
+		"prepare": "rollup -c && tsc"
 	},
 	"dependencies": {
+		"@rspc/client": "workspace:*",
 		"@rspc/query-core": "workspace:*"
 	},
 	"devDependencies": {
-		"@rspc/client": "workspace:*",
-		"@solidjs/testing-library": "^0.8.8",
 		"@tanstack/solid-query": "^5.51.2",
-		"jsdom": "^24.1.0",
+		"rollup": "^4.18.0",
+		"rollup-preset-solid": "^2.0.1",
 		"solid-js": "^1.8.18",
-		"tsup": "^8.1.0",
-		"typescript": "^5.5.3",
-		"vite-plugin-solid": "^2.10.2",
-		"vitest": "^2.0.3"
+		"turbo": "^2.0.6",
+		"typescript": "^5.5.3"
 	},
 	"peerDependencies": {
-		"@rspc/client": "workspace:*",
 		"@tanstack/solid-query": "^5.0.0",
-		"solid-js": "^1.8.0"
-	},
-	"tsup": {
-		"entry": [
-			"src/index.tsx"
-		],
-		"format": [
-			"esm",
-			"cjs"
-		],
-		"splitting": true,
-		"clean": true,
-		"sourcemap": true
+		"solid-js": "^1.0.0"
 	}
 }

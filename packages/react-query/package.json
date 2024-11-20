@@ -1,22 +1,19 @@
 {
 	"name": "@rspc/react-query",
-	"version": "0.3.0-alpha.0",
+	"version": "0.2.4",
 	"description": "A blazing fast and easy to use TRPC-like server for Rust.",
 	"keywords": [],
 	"author": "Oscar Beaumont",
 	"license": "MIT",
 	"type": "module",
-	"exports": "./src/index.tsx",
-	"publishConfig": {
-		"main": "dist/index.cjs",
-		"types": "dist/types/index.d.ts",
-		"exports": {
-			"./package.json": "./package.json",
-			".": {
-				"types": "./dist/types/index.d.ts",
-				"import": "./dist/index.js",
-				"default": "./dist/index.cjs"
-			}
+	"main": "dist/index.cjs",
+	"types": "dist/types/index.d.ts",
+	"exports": {
+		"./package.json": "./package.json",
+		".": {
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.cjs"
 		}
 	},
 	"files": [
@@ -24,25 +21,8 @@
 	],
 	"scripts": {
 		"dev": "tsup --watch",
-		"build": "tsup && tsc"
-	},
-	"dependencies": {
-		"@rspc/query-core": "workspace:*"
-	},
-	"devDependencies": {
-		"@rspc/client": "workspace:*",
-		"@tanstack/react-query": "^5.51.1",
-		"@testing-library/react": "^16.0.0",
-		"@types/react": "^18.3.3",
-		"@vitejs/plugin-react": "^4.3.1",
-		"react": "^18.3.1",
-		"tsup": "^8.1.0",
-		"vitest": "^2.0.3"
-	},
-	"peerDependencies": {
-		"@rspc/client": "workspace:*",
-		"@tanstack/react-query": "^5.0.0",
-		"react": "^18.0.0"
+		"build": "tsup && tsc",
+		"prepare": "tsup && tsc"
 	},
 	"tsup": {
 		"entry": [
@@ -55,5 +35,20 @@
 		"splitting": true,
 		"clean": true,
 		"sourcemap": true
+	},
+	"dependencies": {
+		"@rspc/client": "workspace:*",
+		"@rspc/query-core": "workspace:*"
+	},
+	"devDependencies": {
+		"@tanstack/react-query": "^5.51.1",
+		"@types/react": "^18.3.3",
+		"react": "^18.3.1",
+		"tsup": "^8.1.0",
+		"typescript": "^5.5.3"
+	},
+	"peerDependencies": {
+		"@tanstack/react-query": "^5.0.0",
+		"react": "^18.0.0"
 	}
 }

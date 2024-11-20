@@ -1,12 +1,12 @@
-import type { Procedures } from "@rspc/client";
-import type { Context } from "@rspc/query-core";
+import type { ProceduresDef } from "@rspc/client";
 import { getContext, setContext } from "svelte";
+import type { Context } from "@rspc/query-core";
 
 const _contextKey = "$$_rspcClient";
 
 /** Retrieves a Client from Svelte's context */
 export const getRspcClientContext = <
-	P extends Procedures,
+	P extends ProceduresDef,
 >(): Context<P> | null => {
 	const ctx = getContext(_contextKey) ?? null;
 	return ctx as Context<P> | null;

@@ -1,3 +1,5 @@
 packages:
-  - packages/*
-  - examples/web
+ - docs/
+ - packages/*
+ - examples/astro
+ - examples/nextjs

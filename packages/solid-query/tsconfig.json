@@ -1,12 +1,10 @@
 {
-	"extends": "../../tsconfig.base.json",
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
-		"outDir": "dist/types",
-		"rootDir": "src"
+		"outDir": "dist/types"
 	},
 	"include": ["src/**/*"],
-	"exclude": ["dist/**/*", "src/**/*.test.ts"],
-	"references": [{ "path": "../client" }, { "path": "../query-core" }]
+	"exclude": ["dist/**/*"]
 }

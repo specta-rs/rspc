@@ -1,9 +1,0 @@
-{
-	"extends": "astro/tsconfigs/strict",
-	"compilerOptions": {
-		"jsx": "react-jsx",
-		"jsxImportSource": "react"
-	},
-	"include": ["src/components/react/*"],
-	"exclude": ["src/components/solid/*"]
-}
