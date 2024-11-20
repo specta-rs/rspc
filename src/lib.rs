@@ -1,4 +1,11 @@
-//! rspc: A blazingly fast and easy to use TRPC-like server for Rust.
+//! rspc is a framework for building typesafe web backends in Rust.
+//!
+//! Powered by [Specta](https://docs.rs/specta)'s powerful language exporting, rspc comes with integrations for [Axum](https://docs.rs/axum) and [Tauri](https://docs.rs/tauri) out of the box. This project brings the next level developer experience inspired by [tRPC](https://trpc.io) to your Rust stack.
+//!
+//! ## WARNING
+//!
+//! Checkout the official docs at <https://rspc.dev>. This documentation is generally written **for authors of middleware and adapter**.
+//!
 #![forbid(unsafe_code)]
 #![warn(
     clippy::all,
@@ -16,5 +23,7 @@
 )]
 
 mod legacy;
+#[doc(hidden)]
+pub mod rewrite;
 
 pub use legacy::*;
