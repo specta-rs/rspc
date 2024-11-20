@@ -1,8 +1,7 @@
 <p align="center">
- <img width="150" height="150" src="/docs/public/logo.png" alt="Logo">
+ <img width="150" height="150" src="/.github/logo.png" alt="Logo">
 </p>
 <h1 align="center">rspc</h1>
-<p align="center">🚧 Work in progress 🚧</p>
 <div align="center">
  <strong>
    A blazing fast and easy to use TRPC-like server for Rust.
@@ -50,9 +49,9 @@ let router = <rspc::Router>::new()
 
 ## Features:
 
- - Per Request Context - Great for database connection & authentication data
- - Middleware - With support for context switching
- - Merging routers - Great for separating code between files
+- Per Request Context - Great for database connection & authentication data
+- Middleware - With support for context switching
+- Merging routers - Great for separating code between files
 
 ### Inspiration
 

@@ -1,8 +1,8 @@
 //! rspc-tauri: Tauri integration for [rspc](https://rspc.dev).
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
-    html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
+    html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",
+    html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
 use std::{borrow::Borrow, collections::HashMap, sync::Arc};
