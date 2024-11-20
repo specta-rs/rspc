@@ -9,7 +9,7 @@
     clippy::panic_in_result_fn,
     // missing_docs
 )] // TODO: Move to workspace lints
-#![cfg_attr(docsrs2, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png",
     html_favicon_url = "https://github.com/oscartbeaumont/rspc/raw/main/docs/public/logo.png"
