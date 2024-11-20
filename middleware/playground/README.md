@@ -1,3 +1,0 @@
-# rspc Playground
-
-Coming soon...

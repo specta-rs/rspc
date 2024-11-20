@@ -1,9 +1,8 @@
 {
-	"extends": "../../tsconfig.base.json",
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"outDir": "dist/types"
 	},
-	"include": ["src/**/*", "tests/**/*"],
-	"exclude": ["dist/**/*", "src/**/*.test.ts"],
-	"references": [{ "path": "../client" }, { "path": "../query-core" }]
+	"include": ["src/**/*"],
+	"exclude": ["dist/**/*"]
 }

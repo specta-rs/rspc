@@ -1,16 +1,46 @@
+[package]
+name = "rspc"
+description = "A blazing fast and easy to use TRPC server for Rust."
+version = "0.2.0"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+include = ["/src", "/LICENCE", "/README.md"]
+repository = "https://github.com/oscartbeaumont/rspc"
+documentation = "https://docs.rs/rspc/latest/rspc"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs2" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs2",
+] # TODO: Rename to `docsrs` once Tokio fixes https://github.com/tokio-rs/tokio/pull/6360
+
+[features]
+default = []
+specta2 = ["dep:specta2"]
+tracing = ["dep:tracing"]
+
+[dependencies]
+specta = { version = "1.0.5", features = ["serde", "typescript"] }
+specta2 = { package = "specta", optional = true, version = "=2.0.0-rc.11", features = [
+    "serde",
+    "typescript",
+    "interop",
+] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114" # TODO: Drop this
+thiserror = "1.0.58"
+futures = "0.3.30"
+tokio = { version = "1.36.0", features = ["sync", "rt", "macros"] }
+tracing = { version = "0.1.40", optional = true }
+
 [workspace]
-resolver = "2"
+members = ["./crates/*", "./examples", "./examples/axum"]
 
-members = ["./rspc", "./integrations/*", "middleware/*", "./examples/axum"]
-
-[workspace.lints.rust]
-unsafe_code = { level = "forbid", priority = -1 }
-missing_docs = { level = "warn", priority = -1 }  # TODO: Enable this
-
-[workspace.lints.clippy]
-all = { level = "warn", priority = -1 }
-cargo = { level = "warn", priority = -1 }
-unwrap_used = { level = "warn", priority = -1 }
-panic = { level = "warn", priority = -1 }
-todo = { level = "warn", priority = -1 }
-panic_in_result_fn = { level = "warn", priority = -1 }
+[patch.crates-io]
+# Interop support
+specta = { git = "https://github.com/oscartbeaumont/specta", rev = "d32f7189246e821f1152c0b78d43fcc3eebfd8fd" }

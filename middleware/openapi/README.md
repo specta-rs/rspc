@@ -1,3 +1,0 @@
-# rspc OpenAPI
-
-Coming soon...

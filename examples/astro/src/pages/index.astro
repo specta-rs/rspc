@@ -1,0 +1,32 @@
+---
+import ReactComponent from "../components/react";
+import SolidComponent from "../components/solid";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RSPC Example with Astro</title>
+    <style is:global>
+      * {
+        margin: 0;
+      }
+
+      h1,
+      h2,
+      p {
+        padding: 0.5rem;
+      }
+
+      button {
+        margin: 0.5rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <ReactComponent client:only="react" />
+    <SolidComponent client:only="solid" />
+  </body>
+</html>
