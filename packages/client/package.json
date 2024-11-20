@@ -25,8 +25,8 @@
 		"prepare": "tsup && tsc"
 	},
 	"devDependencies": {
-		"tsup": "^8.1.0",
-		"typescript": "^5.5.3"
+		"tsup": "^8.3.5",
+		"typescript": "^5.6.3"
 	},
 	"tsup": {
 		"entry": [

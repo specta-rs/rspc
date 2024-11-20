@@ -7,9 +7,9 @@ publish = false
 [dependencies]
 rspc = { path = "../../" }
 rspc-axum = { path = "../../crates/axum", features = ["ws"] }
-tokio = { version = "1.36.0", features = ["full"] }
-async-stream = "0.3.5"
-axum = { version = "0.7.4", features = ["ws"] }
-tower-http = { version = "0.5.2", default-features = false, features = [
+tokio = { version = "1.41.1", features = ["full"] }
+async-stream = "0.3.6"
+axum = { version = "0.7.9", features = ["ws"] }
+tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }
