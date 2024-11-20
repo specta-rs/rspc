@@ -33,14 +33,14 @@
 	},
 	"devDependencies": {
 		"@rspc/client": "workspace:*",
-		"@sveltejs/package": "^2.2.2",
-		"@tanstack/svelte-query": "^5.51.1",
-		"tslib": "^2.6.2",
-		"typescript": "^5.2.2",
-		"vitest": "^0.34.6"
+		"@sveltejs/package": "^2.3.7",
+		"@tanstack/svelte-query": "^5.60.6",
+		"tslib": "^2.8.1",
+		"typescript": "^5.6.3",
+		"vitest": "^2.1.5"
 	},
 	"peerDependencies": {
-		"svelte": ">=3 <5",
-		"@tanstack/svelte-query": "^5.0.0"
+		"@tanstack/svelte-query": "^5.0.0",
+		"svelte": ">=3 <5"
 	}
 }

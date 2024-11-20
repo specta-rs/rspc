@@ -9,7 +9,7 @@ use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    AppHandle, Manager, Runtime,
+    AppHandle, Emitter, Listener, Manager, Runtime,
 };
 use tokio::sync::{mpsc, Mutex};
 
@@ -27,7 +27,7 @@ where
     TMeta: Send + Sync + 'static,
 {
     Builder::new("rspc")
-        .setup(|app_handle| {
+        .setup(|app_handle, _| {
             let (tx, mut rx) = mpsc::unbounded_channel::<jsonrpc::Request>();
             let (resp_tx, mut resp_rx) = mpsc::unbounded_channel::<jsonrpc::Response>();
             // TODO: Don't keep using a tokio mutex. We don't need to hold it over the await point.
@@ -60,7 +60,7 @@ where
                 tokio::spawn(async move {
                     while let Some(event) = resp_rx.recv().await {
                         let _ = app_handle
-                            .emit_all("plugin:rspc:transport:resp", event)
+                            .emit("plugin:rspc:transport:resp", event)
                             .map_err(|err| {
                                 #[cfg(feature = "tracing")]
                                 tracing::error!("failed to emit JSON-RPC response: {}", err);
@@ -69,26 +69,16 @@ where
                 });
             }
 
-            app_handle.listen_global("plugin:rspc:transport", move |event| {
+            app_handle.listen_any("plugin:rspc:transport", move |event| {
                 let _ = tx
-                    .send(
-                        match serde_json::from_str(match event.payload() {
-                            Some(v) => v,
-                            None => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Tauri event payload is empty");
-
-                                return;
-                            }
-                        }) {
-                            Ok(v) => v,
-                            Err(err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("failed to parse JSON-RPC request: {}", err);
-                                return;
-                            }
-                        },
-                    )
+                    .send(match serde_json::from_str(event.payload()) {
+                        Ok(v) => v,
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("failed to parse JSON-RPC request: {}", err);
+                            return;
+                        }
+                    })
                     .map_err(|err| {
                         #[cfg(feature = "tracing")]
                         tracing::error!("failed to send JSON-RPC request: {}", err);

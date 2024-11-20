@@ -25,11 +25,11 @@
 		"prepare": "tsup && tsc"
 	},
 	"dependencies": {
-		"@tanstack/query-core": "^5.0.0"
+		"@tanstack/query-core": "^5.60.6"
 	},
 	"devDependencies": {
-		"tsup": "^8.1.0",
-		"typescript": "^5.5.3"
+		"tsup": "^8.3.5",
+		"typescript": "^5.6.3"
 	},
 	"peerDependencies": {
 		"@rspc/client": "workspace:*"
