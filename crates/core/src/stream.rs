@@ -10,50 +10,71 @@ use futures::Stream;
 use pin_project_lite::pin_project;
 use serde::Serializer;
 
+use crate::{ProcedureError, ResolverError};
+
 /// TODO
 // TODO: Rename this type.
 pub struct ProcedureStream {
-    src: Pin<Box<dyn A>>,
+    src: Pin<Box<dyn DynReturnValue>>,
 }
 
 impl ProcedureStream {
-    pub fn from_stream<S: Stream + 'static>(src: S) -> Self
+    // TODO
+    // pub fn from_value<S: Stream + 'static>(src: S) -> Self
+    // {
+    //     Self {
+    //         src: Box::pin(StreamToA { src, value: None }),
+    //     }
+    // }
+
+    // TODO: `from_future`
+
+    pub fn from_stream<T, S>(src: S) -> Self
     where
-        S::Item: Serialize, // TODO: Drop this bound!!!
+        S: Stream<Item = Result<T, ResolverError>> + 'static,
+        T: Serialize + 'static, // TODO: Drop `Serialize`!!!
     {
         Self {
             src: Box::pin(StreamToA { src, value: None }),
         }
     }
 
-    // TODO: Would be much better if this was just `next` and the polling was done internally with the same serializer.
-    pub fn poll_next<S: Serializer>(
+    // /// TODO
+    // ///
+    // /// TODO: This method doesn't allow reusing the serializer between polls. Maybe remove it???
+    // pub fn poll_next<S: Serializer>(
+    //     &mut self,
+    //     cx: &mut Context<'_>,
+    //     serializer: S,
+    // ) -> Poll<Option<()>> {
+    //     let mut serializer = &mut <dyn erased_serde::Serializer>::erase(serializer);
+
+    //     self.src.as_mut().poll_next_value(cx)
+    // }
+
+    // TODO: Fn to get syncronous value???
+
+    /// TODO
+    pub async fn next<S: Serializer>(
         &mut self,
-        cx: &mut Context<'_>,
         serializer: S,
-    ) -> Poll<Option<()>> {
-        let mut serializer = &mut <dyn erased_serde::Serializer>::erase(serializer);
-
-        self.src.as_mut().poll_next_value(cx, &mut serializer)
-    }
-
-    pub async fn next<S: Serializer>(&mut self, serializer: S) -> Option<Result<S::Ok, S::Error>> {
-        // let mut serializer = &mut <dyn erased_serde::Serializer>::erase(serializer);
+    ) -> Option<Result<S::Ok, ProcedureError<S>>> {
         let mut serializer = Some(serializer);
 
-        poll_fn(|cx| match self.src.as_mut().poll_next_value2(cx) {
-            Poll::Ready(Some(())) => {
-                let value = self.src.take();
-                let result = erased_serde::serialize(value, serializer.take().unwrap());
-                Poll::Ready(Some(result))
-            }
+        poll_fn(|cx| match self.src.as_mut().poll_next_value(cx) {
+            Poll::Ready(Some(result)) => Poll::Ready(Some(match result {
+                Ok(()) => {
+                    let value = self.src.value();
+                    erased_serde::serialize(value, serializer.take().unwrap())
+                        .map_err(ProcedureError::Serializer)
+                }
+                Err(err) => Err(err.into()),
+            })),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
         })
         .await
     }
-
-    // TODO: Should this implement `Stream`. Well it can't cause serializer.
 }
 
 impl fmt::Debug for ProcedureStream {
@@ -62,61 +83,51 @@ impl fmt::Debug for ProcedureStream {
     }
 }
 
-trait A {
-    fn poll_next_value(
-        self: Pin<&mut Self>,
+trait DynReturnValue {
+    fn poll_next_value<'a>(
+        self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
-        serializer: &mut dyn erased_serde::Serializer,
-    ) -> Poll<Option<()>>;
+    ) -> Poll<Option<Result<(), ResolverError>>>;
 
-    fn poll_next_value2<'a>(self: Pin<&'a mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>>;
-
-    // TODO: Merge this return type of `Self::poll_next_value2`.
-    fn take(&self) -> &dyn erased_serde::Serialize;
+    fn value(&self) -> &dyn erased_serde::Serialize;
 }
 
 pin_project! {
-    struct StreamToA<S: Stream>{
+    struct StreamToA<T, S: Stream>{
         #[pin]
         src: S,
-        value: Option<S::Item>,
+        value: Option<T>,
     }
 }
 
-impl<S: Stream> A for StreamToA<S>
+impl<T, S: Stream<Item = Result<T, ResolverError>>> DynReturnValue for StreamToA<T, S>
 where
-    S::Item: Serialize, // TODO: Drop this bound!!!
+    T: Serialize, // TODO: Drop this bound!!!
 {
-    fn poll_next_value(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        serializer: &mut dyn erased_serde::Serializer,
-    ) -> Poll<Option<()>> {
-        let this = self.project();
-        match this.src.poll_next(cx) {
-            Poll::Ready(Some(value)) => {
-                value.erased_serialize(serializer).unwrap();
-                Poll::Ready(Some(()))
-            }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
-        }
-    }
-
     // TODO: Cleanup this impl's pattern matching.
-    fn poll_next_value2<'a>(mut self: Pin<&'a mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>> {
+    fn poll_next_value<'a>(
+        mut self: Pin<&'a mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<(), ResolverError>>> {
         let this = self.as_mut().project();
+        let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
         match this.src.poll_next(cx) {
-            Poll::Ready(Some(value)) => {
-                *this.value = Some(value);
-                Poll::Ready(Some(()))
-            }
+            Poll::Ready(Some(value)) => Poll::Ready(Some(match value {
+                Ok(value) => {
+                    *this.value = Some(value);
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            })),
             Poll::Ready(None) => return Poll::Ready(None),
             Poll::Pending => return Poll::Pending,
         }
     }
 
-    fn take(&self) -> &dyn erased_serde::Serialize {
-        self.value.as_ref().unwrap()
+    fn value(&self) -> &dyn erased_serde::Serialize {
+        self.value
+            .as_ref()
+            // Attempted to access value when `Poll::Ready(None)` was not returned.
+            .expect("unreachable")
     }
 }

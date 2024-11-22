@@ -2,38 +2,33 @@
 //!
 //! TODO: Describe all the types and why the split?
 //! TODO: This is kinda like `tower::Service`
+//! TODO: Why this crate doesn't depend on Specta.
+//! TODO: Discuss the traits that need to be layered on for this to be useful.
+//! TODO: Discuss how middleware don't exist here.
 // TODO: Crate icon and stuff
 
 // TODO: Solve layer:
+// TODO: Returning non-Serialize types (Eg. `File`)
+// TODO: Should downcast have custom error (for more info Eg. type_name)?
+// - `ProcedureStream::from_value`
+// - `ProcedureStream::from_future`
 // - Crate documentation
+// - Finish `Debug` impls
+// - Rename `DynInput` to `DynValue` maybe???
+// - `ProcedureStream` to `impl futures::Stream` adapter.
+// - `ProcedureStream::poll_next` - Keep or remove???
+// - `Send` + `Sync` and the issues with single-threaded async runtimes
 // - `DynInput<'a, 'de>` should really be &'a Input<'de>` but that's hard.
-// - `DynInput` errors:
-//    - store `type_name` for better errors.
-//    - Deserializer error
 
 mod dyn_input;
 mod error;
 mod procedure;
 mod stream;
 
-pub use dyn_input::DynInput;
+pub use dyn_input::{DeserializeError, DynInput};
+pub use error::{ProcedureError, ResolverError};
 pub use procedure::Procedure;
 pub use stream::ProcedureStream;
-
-// TODO: Should `Procedure` hold types? It prevents them from being removed at runtime.
-
-// TODO: Async or sync procedures??
-// TODO: Single-threaded async support
-
-// TODO: Result types
-// TODO: Typesafe error handling
-
-// TODO: non-'static TypeId would prevent the need for `Argument` vs `Input` because you could parse down `&dyn erased_serde::Deserializer`.
-
-// TODO: The two `exec` methods is survivable by the problem is that we have `Input` and
-// need to go from it to `TInput` within the erased procedure, either via Deserialize or downcast.
-//
-// We can avoid doing this in `rspc_core` but it's still a problem `rspc` needs to deal with.
 
 // TODO: The naming is horid.
 // Low-level concerns:
@@ -82,3 +77,5 @@ pub use stream::ProcedureStream;
 //
 
 // A decent cause of the bloat is because `T` (Eg. `File`), `Deserializer` and `Deserialize` are all different. You end up with a `ResolverInput` trait which is `Deserialize` + `T` , a `ProcedureInput` trait which is `Deserializer` + `T` and then `ExecInput` which is the dyn-safe output of  `ProcedureInput` and is given into `ResolverInput` so it can decode it back to the value the user expects. Then you basically copy the same thing for the output value. I think it might be worth replacing `ProcedureInput` with `Procedure::exec_with_deserializer` and `Procedure::exec_with_value` but i'm not sure we could get away with doing the same thing for `ResolverInput` because that would mean requiring two forms of queries/mutations/subscriptions in the high-level API. That being said `ResolverInput` could probably be broken out of the procedure primitive.
+
+// TODO: The new system doesn't allocate Serde related `Error`'s and Serde return values, pog.

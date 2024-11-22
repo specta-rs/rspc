@@ -1,4 +1,7 @@
-use std::{any::Any, fmt};
+use std::{
+    any::{type_name, Any},
+    fmt,
+};
 
 use serde::Deserializer;
 
@@ -27,6 +30,7 @@ impl<TCtx> Procedure<TCtx> {
         let value = DynInput {
             value: None,
             deserializer: Some(&mut deserializer),
+            type_name: type_name::<D>(),
         };
 
         (self.handler)(ctx, value)
@@ -37,6 +41,7 @@ impl<TCtx> Procedure<TCtx> {
         let value = DynInput {
             value: Some(&mut input),
             deserializer: None,
+            type_name: type_name::<T>(),
         };
 
         (self.handler)(ctx, value)

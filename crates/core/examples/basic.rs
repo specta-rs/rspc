@@ -1,18 +1,41 @@
 use std::pin::pin;
 
 use futures::{stream::poll_fn, StreamExt};
-use rspc_core::{Procedure, ProcedureStream};
+use rspc_core::{Procedure, ProcedureStream, ResolverError};
 
 #[derive(Debug)]
 struct File;
 
 fn main() {
-    // // /* Serialize */
-    // let y = Procedure::new(|_ctx, input| {
-    //     let input: String = input.deserialize().unwrap();
-    //     println!("GOT {}", input);
-    // });
-    // let result = y.exec_with_deserializer((), serde_json::Value::String("hello".to_string()));
+    futures::executor::block_on(main2());
+}
+
+async fn main2() {
+    // /* Serialize */
+    // TODO
+
+    // /* Serialize + Stream */
+    let y = Procedure::new(|_ctx, input| {
+        let input = input.deserialize::<String>();
+        // println!("GOT {}", input);
+
+        ProcedureStream::from_stream(futures::stream::iter(vec![
+            input.map(|x| x.len()).map_err(Into::into),
+            Ok(1),
+            Ok(2),
+            Ok(3),
+            Err(ResolverError::new(500, "Not found", None::<std::io::Error>)),
+        ]))
+    });
+    // let mut result = y.exec_with_deserializer((), serde_json::Value::String("hello".to_string()));
+    // while let Some(value) = result.next(serde_json::value::Serializer).await {
+    //     println!("{value:?}");
+    // }
+
+    let mut result = y.exec_with_deserializer((), serde_json::Value::Null);
+    while let Some(value) = result.next(serde_json::value::Serializer).await {
+        println!("{value:?}");
+    }
 
     // // /* Non-serialize */
     // let y = Procedure::new(|_ctx, input| {
@@ -41,32 +64,40 @@ fn main() {
     // .await;
     // println!("{:?}", got);
 
-    futures::executor::block_on(todo());
+    // todo().await;
 }
 
 async fn todo() {
     println!("A");
 
     // Side-effect based serializer
-    let mut result: ProcedureStream =
-        ProcedureStream::from_stream(futures::stream::iter(vec![1, 2, 3]));
+    // let mut result: ProcedureStream = ProcedureStream::from_stream(futures::stream::iter(vec![
+    //     Ok(1),
+    //     Ok(2),
+    //     Ok(3),
+    //     Err(ResolverError::new(500, "Not found", None::<std::io::Error>)),
+    // ]));
 
     // TODO: Clean this up + `Stream` adapter.
-    loop {
-        let mut buf = Vec::new();
-        let Some(result) = result
-            .next(&mut serde_json::Serializer::new(&mut buf))
-            .await
-        else {
-            break;
-        };
-        let _result: () = result.unwrap();
-        println!("{:?}", String::from_utf8_lossy(&buf));
-    }
+    // loop {
+    //     let mut buf = Vec::new();
+    //     let Some(result) = result
+    //         .next(&mut serde_json::Serializer::new(&mut buf))
+    //         .await
+    //     else {
+    //         break;
+    //     };
+    //     let _result: () = result.unwrap(); // TODO
+    //     println!("{:?}", String::from_utf8_lossy(&buf));
+    // }
 
     // Result based serializer
-    let mut result: ProcedureStream =
-        ProcedureStream::from_stream(futures::stream::iter(vec![1, 2, 3]));
+    let mut result: ProcedureStream = ProcedureStream::from_stream(futures::stream::iter(vec![
+        Ok(1),
+        Ok(2),
+        Ok(3),
+        Err(ResolverError::new(500, "Not found", None::<std::io::Error>)),
+    ]));
 
     while let Some(value) = result.next(serde_json::value::Serializer).await {
         println!("{value:?}");
