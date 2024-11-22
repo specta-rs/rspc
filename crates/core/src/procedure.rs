@@ -2,40 +2,44 @@ use std::{any::Any, fmt};
 
 use serde::Deserializer;
 
-use crate::DynInput;
+use crate::{DynInput, ProcedureStream};
 
 /// a single type-erased operation that the server can execute.
 ///
 /// TODO: Show constructing and executing procedure.
 pub struct Procedure<TCtx> {
-    handler: Box<dyn Fn(TCtx, DynInput)>,
+    handler: Box<dyn Fn(TCtx, DynInput) -> ProcedureStream>,
 }
 
 impl<TCtx> Procedure<TCtx> {
-    pub fn new(handler: impl Fn(TCtx, DynInput) + 'static) -> Self {
+    pub fn new(handler: impl Fn(TCtx, DynInput) -> ProcedureStream + 'static) -> Self {
         Self {
             handler: Box::new(handler),
         }
     }
 
-    pub fn exec_with_deserializer<'de, D: Deserializer<'de>>(&self, ctx: TCtx, input: D) {
+    pub fn exec_with_deserializer<'de, D: Deserializer<'de>>(
+        &self,
+        ctx: TCtx,
+        input: D,
+    ) -> ProcedureStream {
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(input);
         let value = DynInput {
             value: None,
             deserializer: Some(&mut deserializer),
         };
 
-        (self.handler)(ctx, value);
+        (self.handler)(ctx, value)
     }
 
-    pub fn exec_with_value<T: Any>(&self, ctx: TCtx, input: T) {
+    pub fn exec_with_value<T: Any>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         let mut input = Some(input);
         let value = DynInput {
             value: Some(&mut input),
             deserializer: None,
         };
 
-        (self.handler)(ctx, value);
+        (self.handler)(ctx, value)
     }
 }
 

@@ -14,9 +14,11 @@
 mod dyn_input;
 mod error;
 mod procedure;
+mod stream;
 
 pub use dyn_input::DynInput;
 pub use procedure::Procedure;
+pub use stream::ProcedureStream;
 
 // TODO: Should `Procedure` hold types? It prevents them from being removed at runtime.
 
