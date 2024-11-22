@@ -1,0 +1,12 @@
+[package]
+name = "rspc-core"
+version = "0.0.0"
+edition = "2021"
+publish = false    # TODO: Metadata
+
+[dependencies]
+erased-serde = "0.4.5"
+serde = "1.0.215"
+
+[dev-dependencies]
+serde_json = "1.0.133"

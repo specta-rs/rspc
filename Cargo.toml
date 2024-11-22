@@ -41,6 +41,11 @@ serde_json = "1.0.133"                                              # TODO: Drop
 thiserror = "2.0.3"
 tokio = { version = "1.41.1", features = ["sync", "rt", "macros"] }
 tracing = { version = "0.1.40", optional = true }
+transient = "0.4.1"
+better_any = "0.2.0"
+
+# https://github.com/rust-lang/rust/issues/77125
+typeid = "1.0.2"
 
 [workspace]
-members = ["./crates/*", "./examples", "./examples/axum"]
+members = ["./crates/*", "./examples", "./examples/axum", "crates/core"]

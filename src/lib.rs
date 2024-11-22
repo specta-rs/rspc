@@ -6,7 +6,7 @@
 //!
 //! Checkout the official docs at <https://rspc.dev>. This documentation is generally written **for authors of middleware and adapter**.
 //!
-#![forbid(unsafe_code)]
+// #![forbid(unsafe_code)] // TODO
 #![warn(
     clippy::all,
     clippy::cargo,
