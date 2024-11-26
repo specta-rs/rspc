@@ -1,6 +1,11 @@
-use std::{any::Any, fmt};
+use std::{
+    any::{type_name, Any},
+    fmt,
+};
 
 use serde::{de::Error, Deserialize};
+
+use crate::{DeserializeError, DowncastError};
 
 /// TODO
 pub struct DynInput<'a, 'de> {
@@ -22,14 +27,21 @@ impl<'a, 'de> DynInput<'a, 'de> {
     }
 
     /// TODO
-    pub fn value<T: 'static>(self) -> Option<T> {
-        Some(
-            self.value?
-                .downcast_mut::<Option<T>>()?
-                .take()
-                // This takes method takes `self` and it's not `Clone` so it's not possible to double take the value.
-                .expect("unreachable"),
-        )
+    pub fn value<T: 'static>(self) -> Result<T, DowncastError> {
+        Ok(self
+            .value
+            .ok_or(DowncastError {
+                from: None,
+                to: type_name::<T>(),
+            })?
+            .downcast_mut::<Option<T>>()
+            .ok_or(DowncastError {
+                from: Some(self.type_name),
+                to: type_name::<T>(),
+            })?
+            .take()
+            // This takes method takes `self` and it's not `Clone` so it's not possible to double take the value.
+            .expect("unreachable"))
     }
 }
 
@@ -38,10 +50,3 @@ impl<'a, 'de> fmt::Debug for DynInput<'a, 'de> {
         todo!();
     }
 }
-
-// TODO: Here or `error.rs`???
-// TODO: impl Debug, Display, Error
-#[derive(Debug)] // TODO: Remove
-pub struct DeserializeError(pub(crate) erased_serde::Error);
-
-// TODO: This should be convertable to a `ResolverError`.

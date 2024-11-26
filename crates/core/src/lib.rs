@@ -7,26 +7,25 @@
 //! TODO: Discuss how middleware don't exist here.
 // TODO: Crate icon and stuff
 
-// TODO: Solve layer:
-// TODO: Returning non-Serialize types (Eg. `File`)
-// TODO: Should downcast have custom error (for more info Eg. type_name)?
-// - `ProcedureStream::from_value`
-// - `ProcedureStream::from_future`
-// - Crate documentation
-// - Finish `Debug` impls
+// - Returning non-Serialize types (Eg. `File`) via `ProcedureStream`.
+//
 // - Rename `DynInput` to `DynValue` maybe???
 // - `ProcedureStream` to `impl futures::Stream` adapter.
 // - `ProcedureStream::poll_next` - Keep or remove???
 // - `Send` + `Sync` and the issues with single-threaded async runtimes
 // - `DynInput<'a, 'de>` should really be &'a Input<'de>` but that's hard.
 
+// TODO: Optional:
+// - Finish `Debug` impls
+// - Crate documentation
+
 mod dyn_input;
 mod error;
 mod procedure;
 mod stream;
 
-pub use dyn_input::{DeserializeError, DynInput};
-pub use error::{ProcedureError, ResolverError};
+pub use dyn_input::DynInput;
+pub use error::{DeserializeError, DowncastError, ProcedureError, ResolverError};
 pub use procedure::Procedure;
 pub use stream::ProcedureStream;
 

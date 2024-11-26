@@ -1,12 +1,12 @@
 use core::fmt;
 use std::{
-    future::poll_fn,
+    future::{poll_fn, Future},
     pin::Pin,
     task::{Context, Poll},
 };
 
 use erased_serde::Serialize;
-use futures::Stream;
+use futures_core::Stream;
 use pin_project_lite::pin_project;
 use serde::Serializer;
 
@@ -19,23 +19,39 @@ pub struct ProcedureStream {
 }
 
 impl ProcedureStream {
-    // TODO
-    // pub fn from_value<S: Stream + 'static>(src: S) -> Self
-    // {
-    //     Self {
-    //         src: Box::pin(StreamToA { src, value: None }),
-    //     }
-    // }
+    /// TODO
+    pub fn from_value<T>(value: Result<T, ResolverError>) -> Self
+    where
+        T: Serialize + 'static, // TODO: Drop `Serialize`!!!
+    {
+        Self {
+            src: Box::pin(DynReturnValueFutureCompat {
+                // TODO: Should we do this in a more efficient way???
+                src: std::future::ready(value),
+                value: None,
+            }),
+        }
+    }
 
-    // TODO: `from_future`
+    /// TODO
+    pub fn from_future<T, S>(src: S) -> Self
+    where
+        S: Future<Output = Result<T, ResolverError>> + 'static,
+        T: Serialize + 'static, // TODO: Drop `Serialize`!!!
+    {
+        Self {
+            src: Box::pin(DynReturnValueFutureCompat { src, value: None }),
+        }
+    }
 
+    /// TODO
     pub fn from_stream<T, S>(src: S) -> Self
     where
         S: Stream<Item = Result<T, ResolverError>> + 'static,
         T: Serialize + 'static, // TODO: Drop `Serialize`!!!
     {
         Self {
-            src: Box::pin(StreamToA { src, value: None }),
+            src: Box::pin(DynReturnValueStreamCompat { src, value: None }),
         }
     }
 
@@ -93,14 +109,55 @@ trait DynReturnValue {
 }
 
 pin_project! {
-    struct StreamToA<T, S: Stream>{
+    struct DynReturnValueFutureCompat<T, S>{
         #[pin]
         src: S,
         value: Option<T>,
     }
 }
 
-impl<T, S: Stream<Item = Result<T, ResolverError>>> DynReturnValue for StreamToA<T, S>
+impl<T, S: Future<Output = Result<T, ResolverError>>> DynReturnValue
+    for DynReturnValueFutureCompat<T, S>
+where
+    T: Serialize, // TODO: Drop this bound!!!
+{
+    // TODO: Cleanup this impl's pattern matching.
+    fn poll_next_value<'a>(
+        mut self: Pin<&'a mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<(), ResolverError>>> {
+        let this = self.as_mut().project();
+        let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
+        match this.src.poll(cx) {
+            Poll::Ready(value) => Poll::Ready(Some(match value {
+                Ok(value) => {
+                    *this.value = Some(value);
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            })),
+            Poll::Pending => return Poll::Pending,
+        }
+    }
+
+    fn value(&self) -> &dyn erased_serde::Serialize {
+        self.value
+            .as_ref()
+            // Attempted to access value when `Poll::Ready(None)` was not returned.
+            .expect("unreachable")
+    }
+}
+
+pin_project! {
+    struct DynReturnValueStreamCompat<T, S>{
+        #[pin]
+        src: S,
+        value: Option<T>,
+    }
+}
+
+impl<T, S: Stream<Item = Result<T, ResolverError>>> DynReturnValue
+    for DynReturnValueStreamCompat<T, S>
 where
     T: Serialize, // TODO: Drop this bound!!!
 {
