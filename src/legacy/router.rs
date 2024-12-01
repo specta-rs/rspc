@@ -161,15 +161,19 @@ export type Procedures = {{
 }};"#
         )?;
 
-        for export in self.type_map.iter().map(|(_, ty)| {
-            datatype(
-                &config,
-                &FunctionResultVariant::Value(ty.inner.clone()),
-                &self.type_map,
+        // Generate type exports (non-Procedures)
+        for (name, export) in self.type_map.iter().map(|(_, ty)| {
+            (
+                ty.name(),
+                datatype(
+                    &config,
+                    &FunctionResultVariant::Value(ty.inner.clone()),
+                    &self.type_map,
+                )
+                .unwrap(),
             )
-            .unwrap()
         }) {
-            writeln!(file, "\n{}", export)?;
+            writeln!(file, "\nexport type {} = {};", name, export)?;
         }
 
         Ok(())

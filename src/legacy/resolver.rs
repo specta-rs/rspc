@@ -122,5 +122,8 @@ pub fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeMap) -> ProcedureDataTy
     let mut type_map = TypeMap::default();
     let arg_ty = TArg::reference(&mut type_map, &[]).inner;
     let result_ty = TResult::reference(&mut type_map, &[]).inner;
+
+    defs.append(&mut type_map);
+    
     ProcedureDataType { arg_ty, result_ty }
 }
