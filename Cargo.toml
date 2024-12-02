@@ -22,6 +22,7 @@ tracing = ["dep:tracing"]
 
 [dependencies]
 # Public
+rspc-core = { path = "./crates/core" }
 serde = { version = "1", features = ["derive"] } # TODO: Remove features
 futures = "0.3"
 specta = { version = "=2.0.0-rc.20", features = [

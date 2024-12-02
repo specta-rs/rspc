@@ -176,7 +176,7 @@ where
 
 // TODO: Is this a duplicate of any type?
 // TODO: Move into public API cause it might be used in middleware
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcedureKind {
     Query,
     Mutation,
