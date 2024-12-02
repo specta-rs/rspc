@@ -14,8 +14,6 @@
 // - `ProcedureStream::poll_next` - Keep or remove???
 // - `Send` + `Sync` and the issues with single-threaded async runtimes
 // - `DynInput<'a, 'de>` should really be &'a Input<'de>` but that's hard.
-
-// TODO: Optional:
 // - Finish `Debug` impls
 // - Crate documentation
 

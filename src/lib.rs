@@ -22,8 +22,28 @@
     html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
-mod legacy;
-#[doc(hidden)]
-pub mod rewrite;
+mod procedure;
+mod procedure_kind;
+mod router;
 
-pub use legacy::*;
+pub use procedure_kind::ProcedureKind2;
+pub use router::Router2;
+
+// TODO: These will come in the future.
+pub(crate) use procedure::Procedure2;
+pub(crate) type State = ();
+
+// TODO: Expose everything from `rspc_core`?
+
+// Legacy stuff
+mod legacy;
+
+// These remain to respect semver but will all go with the next major.
+#[allow(deprecated)]
+pub use legacy::{
+    internal, test_result_type, test_result_value, typedef, Config, DoubleArgMarker,
+    DoubleArgStreamMarker, Error, ErrorCode, ExecError, ExecKind, ExportError, FutureMarker,
+    Middleware, MiddlewareBuilder, MiddlewareContext, MiddlewareLike,
+    MiddlewareWithResponseHandler, RequestLayer, Resolver, ResultMarker, Router, RouterBuilder,
+    SerializeMarker, StreamResolver,
+};

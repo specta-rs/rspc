@@ -4,6 +4,11 @@ version = "0.0.0"
 edition = "2021"
 publish = false    # TODO: Metadata
 
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 # TODO: Disable all features for each of them
 [dependencies]
 # Public
