@@ -11,7 +11,7 @@ use std::{
 use futures::Stream;
 use serde_json::Value;
 use specta::{datatype::FunctionResultVariant, DataType, TypeMap};
-use specta_typescript::{self as ts, datatype, Typescript};
+use specta_typescript::{self as ts, datatype, export_named_datatype, Typescript};
 
 use crate::{
     internal::{Procedure, ProcedureKind, ProcedureStore, RequestContext, ValueOrStream},
@@ -162,18 +162,12 @@ export type Procedures = {{
         )?;
 
         // Generate type exports (non-Procedures)
-        for (name, export) in self.type_map.iter().map(|(_, ty)| {
-            (
-                ty.name(),
-                datatype(
-                    &config,
-                    &FunctionResultVariant::Value(ty.inner.clone()),
-                    &self.type_map,
-                )
-                .unwrap(),
-            )
-        }) {
-            writeln!(file, "\nexport type {} = {};", name, export)?;
+        for export in self
+            .type_map
+            .iter()
+            .map(|(_, ty)| export_named_datatype(&config, ty, &self.type_map).unwrap())
+        {
+            writeln!(file, "\n{}", export)?;
         }
 
         Ok(())
