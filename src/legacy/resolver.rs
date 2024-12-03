@@ -119,8 +119,8 @@ where
 }
 
 pub fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeMap) -> ProcedureDataType {
-    let mut type_map = TypeMap::default();
-    let arg_ty = TArg::reference(&mut type_map, &[]).inner;
-    let result_ty = TResult::reference(&mut type_map, &[]).inner;
+    let arg_ty = TArg::reference(defs, &[]).inner;
+    let result_ty = TResult::reference(defs, &[]).inner;
+
     ProcedureDataType { arg_ty, result_ty }
 }
