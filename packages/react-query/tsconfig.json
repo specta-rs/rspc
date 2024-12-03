@@ -1,8 +1,9 @@
 {
-	"extends": "../tsconfig.json",
-	"compilerOptions": {
-		"jsx": "react-jsx",
-	},
-	"include": ["src/**/*"],
-	"exclude": ["dist/**/*"]
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist/**/*"]
 }
