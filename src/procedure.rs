@@ -1,13 +1,13 @@
 use specta::datatype::DataType;
 
-use crate::internal::ProcedureKind;
+use crate::{internal::ProcedureKind, State};
 
 /// Represents a single operations on the server that can be executed.
 ///
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
 pub struct Procedure2<TCtx> {
-    // pub(crate) setup
+    pub(crate) setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     pub(crate) kind: ProcedureKind,
     pub(crate) input: DataType,
     pub(crate) result: DataType,
@@ -15,16 +15,14 @@ pub struct Procedure2<TCtx> {
     pub(crate) inner: rspc_core::Procedure<TCtx>,
 }
 
-// TODO: `Clone`, `Debug`, `PartialEq`, `Eq`, `Hash`
-
-// TODO: `Type` which should be like `Record<string, { kind: ..., input: ..., result: ... }>`
+// TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
 
 impl<TCtx> Procedure2<TCtx> {
     // TODO: `fn builder`
 
-    pub fn kind(&self) -> ProcedureKind {
-        self.kind
-    }
+    // pub fn kind(&self) -> ProcedureKind {
+    //     self.kind
+    // }
 
     // TODO: Expose all fields
 
@@ -73,16 +71,4 @@ impl<TCtx> Procedure2<TCtx> {
     //             Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value()))),
     //         }
     //     }
-}
-
-impl<TCtx> Clone for Procedure2<TCtx> {
-    fn clone(&self) -> Self {
-        Self {
-            kind: self.kind,
-            input: self.input.clone(),
-            result: self.result.clone(),
-            error: self.error.clone(),
-            inner: self.inner.clone(),
-        }
-    }
 }
