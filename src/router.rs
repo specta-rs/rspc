@@ -11,7 +11,7 @@ use crate::State;
 pub struct Router2<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     types: TypeCollection,
-    procedures: BTreeMap<String, Procedure<TCtx>>, // TODO: This must be a thing that holds a setup function, type and `Procedure`!
+    procedures: BTreeMap<Vec<Cow<'static, str>>, Procedure<TCtx>>, // TODO: This must be a thing that holds a setup function, type and `Procedure`!
 }
 
 impl<TCtx> Default for Router2<TCtx> {
@@ -43,22 +43,16 @@ impl<TCtx> Router2<TCtx> {
     //     self
     // }
 
-    pub fn merge(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
+    pub fn nest(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
         self.setup.append(&mut other.setup);
 
         let prefix = prefix.into();
-        let prefix = if prefix.is_empty() {
-            Cow::Borrowed("")
-        } else {
-            format!("{prefix}.").into()
-        };
 
-        self.procedures.extend(
-            other
-                .procedures
-                .into_iter()
-                .map(|(k, v)| (format!("{prefix}{k}").into(), v)),
-        );
+        self.procedures
+            .extend(other.procedures.into_iter().map(|(mut k, v)| {
+                k.push(prefix.clone());
+                (k, v)
+            }));
 
         self
     }
