@@ -56,7 +56,7 @@ where
             queries: ProcedureStore::new("query"),
             mutations: ProcedureStore::new("mutation"),
             subscriptions: ProcedureStore::new("subscription"),
-            type_map: TypeMap::default(),
+            type_map: Default::default(),
             phantom: PhantomData,
         }
     }
@@ -93,7 +93,7 @@ where
             queries,
             mutations,
             subscriptions,
-            type_map: typ_store,
+            type_map,
             ..
         } = self;
 
@@ -108,7 +108,7 @@ where
             queries,
             mutations,
             subscriptions,
-            type_map: typ_store,
+            type_map,
             phantom: PhantomData,
         }
     }
@@ -252,9 +252,7 @@ where
             );
         }
 
-        for (name, typ) in router.type_map.iter() {
-            self.type_map.insert(name, typ.clone());
-        }
+        self.type_map.extend(&router.type_map);
 
         self
     }
@@ -292,7 +290,7 @@ where
             mut queries,
             mut mutations,
             mut subscriptions,
-            type_map: mut typ_store,
+            mut type_map,
             ..
         } = self;
 
@@ -320,9 +318,7 @@ where
             );
         }
 
-        for (name, typ) in router.type_map.iter() {
-            typ_store.insert(name, typ.clone());
-        }
+        type_map.extend(&router.type_map);
 
         RouterBuilder {
             config,
@@ -334,7 +330,7 @@ where
             queries,
             mutations,
             subscriptions,
-            type_map: typ_store,
+            type_map,
             phantom: PhantomData,
         }
     }
@@ -345,7 +341,7 @@ where
             queries,
             mutations,
             subscriptions,
-            type_map: typ_store,
+            type_map,
             ..
         } = self;
 
@@ -355,7 +351,7 @@ where
             queries,
             mutations,
             subscriptions,
-            type_map: typ_store,
+            type_map,
             phantom: PhantomData,
         };
 

@@ -20,11 +20,12 @@ default = []
 ws = ["dep:tokio", "axum/ws"]
 
 [dependencies]
-rspc = { version = "0.3.1", path = "../.." }
+rspc-core = { version = "0.0.0", path = "../core" }
 axum = "0.7.9"
 serde_json = "1.0.133"
 
 # TODO: Drop these
+rspc = { version = "0.3.1", path = "../.." }
 form_urlencoded = "1.2.1"                       # TODO: use Axum's built in extractor
 futures = "0.3.31"                              # TODO: No blocking execution, etc
 tokio = { version = "1.41.1", optional = true } # TODO: No more `tokio::select` + spawning threads. Axum's Websocket upgrade handles that.

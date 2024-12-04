@@ -87,6 +87,19 @@ where
     )
 }
 
+pub fn endpoint2<TCtx, TCtxFnMarker, TCtxFn, S>(
+    router: impl Iterator<Item = (String, rspc_core::Procedure<TCtx>)>,
+    ctx_fn: TCtxFn,
+) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    TCtx: Send + Sync + 'static,
+    TCtxFnMarker: Send + Sync + 'static,
+    TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
+{
+    todo!();
+}
+
 async fn handle_http<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,

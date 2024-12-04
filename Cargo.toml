@@ -50,3 +50,12 @@ typeid = "1.0.2"
 
 [workspace]
 members = ["./crates/*", "./examples", "./examples/axum", "crates/core"]
+
+[patch.crates-io]
+specta = { git = "https://github.com/specta-rs/specta", rev = "a7bbe7b579c448ff4bcefb0b44489d48d8fd37ee" }
+specta-util = { git = "https://github.com/specta-rs/specta", rev = "a7bbe7b579c448ff4bcefb0b44489d48d8fd37ee" }
+specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "a7bbe7b579c448ff4bcefb0b44489d48d8fd37ee" }
+
+# specta = { path = "/Users/oscar/Desktop/specta/specta" }
+# specta-util = { path = "/Users/oscar/Desktop/specta/specta-util" }
+# specta-typescript = { path = "/Users/oscar/Desktop/specta/specta-typescript" }

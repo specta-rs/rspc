@@ -164,7 +164,7 @@ export type Procedures = {{
         // Generate type exports (non-Procedures)
         for export in self
             .type_map
-            .iter()
+            .into_iter()
             .map(|(_, ty)| export_named_datatype(&config, ty, &self.type_map).unwrap())
         {
             writeln!(file, "\n{}", export)?;

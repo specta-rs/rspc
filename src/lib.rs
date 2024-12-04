@@ -22,6 +22,7 @@
     html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
+pub(crate) mod interop;
 mod procedure;
 mod procedure_kind;
 mod router;

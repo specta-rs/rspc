@@ -1,7 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt};
 
 use specta::TypeMap;
-use specta_util::TypeCollection;
 
 use rspc_core::Procedure;
 
@@ -10,13 +9,17 @@ use crate::State;
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
-    types: TypeCollection,
+    types: TypeMap,
     procedures: BTreeMap<String, Procedure<TCtx>>, // TODO: This must be a thing that holds a setup function, type and `Procedure`!
 }
 
 impl<TCtx> Default for Router2<TCtx> {
     fn default() -> Self {
-        todo!()
+        Self {
+            setup: Default::default(),
+            types: Default::default(),
+            procedures: Default::default(),
+        }
     }
 }
 
@@ -69,15 +72,7 @@ impl<TCtx> Router2<TCtx> {
     //     self
     // }
 
-    pub fn build(
-        self,
-    ) -> Result<
-        (
-            impl Iterator<Item = (String, Procedure<TCtx>)>,
-            TypeCollection,
-        ),
-        (),
-    > {
+    pub fn build(self) -> Result<(impl Iterator<Item = (String, Procedure<TCtx>)>, TypeMap), ()> {
         let mut state = ();
         for setup in self.setup {
             setup(&mut state);
@@ -245,23 +240,30 @@ impl<TCtx> Router2<TCtx> {
         //     type_map.insert(<Procedures as specta::NamedType>::sid(), named_type);
         // }
 
-        todo!();
+        // todo!();
 
         Ok((
             BTreeMap::<String, Procedure<TCtx>>::new().into_iter(),
-            TypeCollection::default(),
+            self.types,
         ))
     }
 }
 
 // TODO: `Iterator` or `IntoIterator`?
 
-impl<TCtx> TryFrom<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
-    type Error = ();
+impl<TCtx> From<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
+    fn from(router: crate::legacy::Router<TCtx>) -> Self {
+        crate::interop::legacy_to_modern(router)
+    }
+}
 
-    fn try_from(value: crate::legacy::Router<TCtx>) -> Result<Self, Self::Error> {
-        // TODO: Enforce unique across all methods (query, subscription, etc)
+// TODO: Remove this block with the interop system
+impl<TCtx> Router2<TCtx> {
+    pub(crate) fn interop_procedures(&mut self) -> &mut BTreeMap<String, Procedure<TCtx>> {
+        &mut self.procedures
+    }
 
-        todo!()
+    pub(crate) fn interop_types(&mut self) -> &mut TypeMap {
+        &mut self.types
     }
 }
