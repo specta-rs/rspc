@@ -27,6 +27,9 @@ pub use error::{DeserializeError, DowncastError, ProcedureError, ResolverError};
 pub use procedure::Procedure;
 pub use stream::ProcedureStream;
 
+pub type Procedures<TCtx> =
+    std::collections::BTreeMap<Vec<std::borrow::Cow<'static, str>>, Procedure<TCtx>>;
+
 // TODO: The naming is horid.
 // Low-level concerns:
 // - `Procedure` - Holds the handler (and probably type information)

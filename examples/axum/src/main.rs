@@ -22,7 +22,7 @@ async fn main() {
         .config(Config::new().export_ts_bindings(
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings-legacy.ts"),
         ))
-        .merge("nested", inner)
+        .merge("nested.", inner)
         .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
         .query("error", |t| {
@@ -70,10 +70,13 @@ async fn main() {
     types
         .export_to(
             Typescript::default(),
+            // .formatter(specta_typescript::formatter::prettier),
+            // .header("// My custom header\n")
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
         )
         .unwrap();
-    return; // TODO
+
+    // TODO: Export the legacy bindings from a new router
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()

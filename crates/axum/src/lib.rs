@@ -20,6 +20,7 @@ use rspc::internal::{
     jsonrpc::{self, handle_json_rpc, RequestId, Sender, SubscriptionMap},
     ProcedureKind,
 };
+use rspc_core::Procedures;
 use serde_json::Value;
 
 mod extractors;
@@ -87,8 +88,10 @@ where
     )
 }
 
+// type ValidRouter = BTreeMap<String, rspc_core::Procedure<TCtx>>; // TODO
+
 pub fn endpoint2<TCtx, TCtxFnMarker, TCtxFn, S>(
-    router: impl Iterator<Item = (String, rspc_core::Procedure<TCtx>)>,
+    router: impl Into<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> Router<S>
 where
@@ -97,6 +100,10 @@ where
     TCtxFnMarker: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
 {
+    let router = router.into();
+
+    // TODO: Flatten keys
+
     todo!();
 }
 

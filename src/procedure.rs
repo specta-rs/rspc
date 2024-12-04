@@ -7,11 +7,12 @@ use crate::internal::ProcedureKind;
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
 pub struct Procedure2<TCtx> {
-    pub(crate) inner: rspc_core::Procedure<TCtx>,
     // pub(crate) setup
     pub(crate) kind: ProcedureKind,
     pub(crate) input: DataType,
     pub(crate) result: DataType,
+    pub(crate) error: DataType,
+    pub(crate) inner: rspc_core::Procedure<TCtx>,
 }
 
 // TODO: `Clone`, `Debug`, `PartialEq`, `Eq`, `Hash`
