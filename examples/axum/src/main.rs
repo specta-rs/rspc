@@ -2,7 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
 use axum::{http::request::Parts, routing::get};
-use rspc::{Config, Router2};
+use rspc::Router2;
 use serde::Serialize;
 use specta::Type;
 use specta_typescript::Typescript;
@@ -43,7 +43,7 @@ fn mount() -> rspc::Router<Ctx> {
     let router = rspc::Router::<Ctx>::new()
         .merge("nested.", inner)
         .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
-        .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        // .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
         .query("error", |t| {
             t(|_, _: ()| {
@@ -96,7 +96,7 @@ async fn main() {
         .export_to(
             Typescript::default(),
             // .formatter(specta_typescript::formatter::prettier),
-            // .header("// My custom header\n")
+            // .header("// My custom header"),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
         )
         .unwrap();

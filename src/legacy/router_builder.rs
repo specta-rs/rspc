@@ -2,8 +2,7 @@ use std::marker::PhantomData;
 
 use futures::Stream;
 use serde::{de::DeserializeOwned, Serialize};
-use specta::Type;
-use specta::TypeMap;
+use specta::{Type, TypeCollection};
 
 use crate::{
     internal::{
@@ -28,7 +27,7 @@ pub struct RouterBuilder<
     queries: ProcedureStore<TCtx>,
     mutations: ProcedureStore<TCtx>,
     subscriptions: ProcedureStore<TCtx>,
-    type_map: TypeMap,
+    type_map: TypeCollection,
     phantom: PhantomData<TMeta>,
 }
 

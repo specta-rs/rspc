@@ -10,7 +10,7 @@ use std::{
 
 use futures::Stream;
 use serde_json::Value;
-use specta::{datatype::FunctionResultVariant, DataType, TypeMap};
+use specta::{datatype::FunctionResultVariant, DataType, TypeCollection};
 use specta_typescript::{self as ts, datatype, export_named_datatype, Typescript};
 
 use crate::{
@@ -27,7 +27,7 @@ where
     pub(crate) queries: ProcedureStore<TCtx>,
     pub(crate) mutations: ProcedureStore<TCtx>,
     pub(crate) subscriptions: ProcedureStore<TCtx>,
-    pub(crate) type_map: TypeMap,
+    pub(crate) type_map: TypeCollection,
     pub(crate) phantom: PhantomData<TMeta>,
 }
 
@@ -107,11 +107,11 @@ where
     }
 
     #[deprecated = "Use `Self::type_map`"]
-    pub fn typ_store(&self) -> TypeMap {
+    pub fn typ_store(&self) -> TypeCollection {
         self.type_map.clone()
     }
 
-    pub fn type_map(&self) -> TypeMap {
+    pub fn type_map(&self) -> TypeCollection {
         self.type_map.clone()
     }
 
@@ -178,7 +178,7 @@ export type Procedures = {{
 fn generate_procedures_ts<Ctx>(
     config: &Typescript,
     procedures: &BTreeMap<String, Procedure<Ctx>>,
-    type_map: &TypeMap,
+    type_map: &TypeCollection,
 ) -> String {
     match procedures.len() {
         0 => "never".to_string(),

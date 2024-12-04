@@ -3,8 +3,7 @@ use std::marker::PhantomData;
 use futures::{Stream, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
-use specta::Type;
-use specta::TypeMap;
+use specta::{Type, TypeCollection};
 
 use crate::{
     internal::{LayerResult, ProcedureDataType},
@@ -16,7 +15,7 @@ pub trait Resolver<TCtx, TMarker> {
 
     fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
 
-    fn typedef(defs: &mut TypeMap) -> ProcedureDataType;
+    fn typedef(defs: &mut TypeCollection) -> ProcedureDataType;
 }
 
 // pub struct NoArgMarker<TResultMarker>(/* private */ PhantomData<TResultMarker>);
@@ -84,7 +83,7 @@ where
         self(ctx, input).into_layer_result()
     }
 
-    fn typedef(defs: &mut TypeMap) -> ProcedureDataType {
+    fn typedef(defs: &mut TypeCollection) -> ProcedureDataType {
         typedef::<TArg, TResult::Result>(defs)
     }
 }
@@ -92,7 +91,7 @@ where
 pub trait StreamResolver<TCtx, TMarker> {
     fn exec(&self, ctx: TCtx, input: Value) -> Result<LayerResult, ExecError>;
 
-    fn typedef(defs: &mut TypeMap) -> ProcedureDataType;
+    fn typedef(defs: &mut TypeCollection) -> ProcedureDataType;
 }
 
 pub struct DoubleArgStreamMarker<TArg, TResult, TStream>(
@@ -113,12 +112,12 @@ where
         }))))
     }
 
-    fn typedef(defs: &mut TypeMap) -> ProcedureDataType {
+    fn typedef(defs: &mut TypeCollection) -> ProcedureDataType {
         typedef::<TArg, TResult>(defs)
     }
 }
 
-pub fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeMap) -> ProcedureDataType {
+pub fn typedef<TArg: Type, TResult: Type>(defs: &mut TypeCollection) -> ProcedureDataType {
     let arg_ty = TArg::reference(defs, &[]).inner;
     let result_ty = TResult::reference(defs, &[]).inner;
 
