@@ -3,6 +3,7 @@ use std::{path::PathBuf, time::Duration};
 use async_stream::stream;
 use axum::routing::get;
 use rspc::{Config, ErrorCode, MiddlewareContext, Router};
+use specta_typescript::Typescript;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -31,84 +32,88 @@ pub struct AuthenticatedCtx {
 
 #[tokio::main]
 async fn main() {
-    let router =
-        Router::<UnauthenticatedContext>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
-            ))
-            // Logger middleware
-            .middleware(|mw| {
-                mw.middleware(|mw| async move {
-                    let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
-                    Ok(mw.with_state(state))
-                })
-                .resp(|state, result| async move {
-                    println!(
-                        "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
-                        state.0, state.1, state.2, result
-                    );
-                    Ok(result)
-                })
+    let router = Router::<UnauthenticatedContext>::new()
+        // Logger middleware
+        .middleware(|mw| {
+            mw.middleware(|mw| async move {
+                let state = (mw.req.clone(), mw.ctx.clone(), mw.input.clone());
+                Ok(mw.with_state(state))
             })
-            .query("version", |t| {
-                t(|_ctx, _: ()| {
-                    println!("ANOTHER QUERY");
-                    env!("CARGO_PKG_VERSION")
-                })
+            .resp(|state, result| async move {
+                println!(
+                    "[LOG] req='{:?}' ctx='{:?}'  input='{:?}' result='{:?}'",
+                    state.0, state.1, state.2, result
+                );
+                Ok(result)
             })
-            // Auth middleware
-            .middleware(|mw| {
-                mw.middleware(|mw| async move {
-                    match mw.ctx.session_id {
-                        Some(ref session_id) => {
-                            let user = db_get_user_from_session(session_id).await;
-                            Ok(mw.with_ctx(AuthenticatedCtx { user }))
-                        }
-                        None => Err(rspc::Error::new(
-                            ErrorCode::Unauthorized,
-                            "Unauthorized".into(),
-                        )),
+        })
+        .query("version", |t| {
+            t(|_ctx, _: ()| {
+                println!("ANOTHER QUERY");
+                env!("CARGO_PKG_VERSION")
+            })
+        })
+        // Auth middleware
+        .middleware(|mw| {
+            mw.middleware(|mw| async move {
+                match mw.ctx.session_id {
+                    Some(ref session_id) => {
+                        let user = db_get_user_from_session(session_id).await;
+                        Ok(mw.with_ctx(AuthenticatedCtx { user }))
                     }
-                })
-            })
-            .query("another", |t| {
-                t(|_, _: ()| {
-                    println!("ANOTHER QUERY");
-                    "Another Result!"
-                })
-            })
-            .subscription("subscriptions.pings", |t| {
-                t(|_ctx, _args: ()| {
-                    stream! {
-                        println!("Client subscribed to 'pings'");
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                })
-            })
-            // Reject all middleware
-            .middleware(|mw| {
-                mw.middleware(|_mw| async move {
-                    Err(rspc::Error::new(
+                    None => Err(rspc::Error::new(
                         ErrorCode::Unauthorized,
                         "Unauthorized".into(),
-                    )) as Result<MiddlewareContext<_>, _>
-                })
+                    )),
+                }
             })
-            // Plugin middleware // TODO: Coming soon!
-            // .middleware(|mw| mw.openapi(OpenAPIConfig {}))
-            .build()
-            .arced();
+        })
+        .query("another", |t| {
+            t(|_, _: ()| {
+                println!("ANOTHER QUERY");
+                "Another Result!"
+            })
+        })
+        .subscription("subscriptions.pings", |t| {
+            t(|_ctx, _args: ()| {
+                stream! {
+                    println!("Client subscribed to 'pings'");
+                    for i in 0..5 {
+                        println!("Sending ping {}", i);
+                        yield "ping".to_string();
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            })
+        })
+        // Reject all middleware
+        .middleware(|mw| {
+            mw.middleware(|_mw| async move {
+                Err(rspc::Error::new(
+                    ErrorCode::Unauthorized,
+                    "Unauthorized".into(),
+                )) as Result<MiddlewareContext<_>, _>
+            })
+        })
+        // Plugin middleware // TODO: Coming soon!
+        // .middleware(|mw| mw.openapi(OpenAPIConfig {}))
+        .build();
+
+    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+
+    types
+        .export_to(
+            Typescript::default(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        )
+        .unwrap();
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router, || UnauthenticatedContext {
+            rspc_axum::endpoint(routes, || UnauthenticatedContext {
                 session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.
             }),
         )

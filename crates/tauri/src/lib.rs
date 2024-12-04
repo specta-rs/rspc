@@ -53,7 +53,7 @@ where
                             handle_json_rpc(
                                 ctx,
                                 req,
-                                &router,
+                                &routes,
                                 &mut Sender::ResponseChannel(&mut resp_tx),
                                 &mut SubscriptionMap::Mutex(subscriptions.borrow()),
                             )

@@ -101,8 +101,6 @@ async fn main() {
         )
         .unwrap();
 
-    // TODO: Export the legacy bindings from a new router
-
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
         .allow_methods(Any)

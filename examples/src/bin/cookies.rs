@@ -4,6 +4,7 @@ use std::{ops::Add, path::PathBuf};
 
 use axum::routing::get;
 use rspc::Config;
+use specta_typescript::Typescript;
 use time::OffsetDateTime;
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
@@ -14,28 +15,32 @@ pub struct Ctx {
 
 #[tokio::main]
 async fn main() {
-    let router =
-        rspc::Router::<Ctx>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ))
-            .query("getCookie", |t| {
-                t(|ctx, _: ()| {
-                    ctx.cookies
-                        .get("myDemoCookie")
-                        .map(|c| c.value().to_string())
-                })
+    let router = rspc::Router::<Ctx>::new()
+        .query("getCookie", |t| {
+            t(|ctx, _: ()| {
+                ctx.cookies
+                    .get("myDemoCookie")
+                    .map(|c| c.value().to_string())
             })
-            .mutation("setCookie", |t| {
-                t(|ctx, new_value: String| {
-                    let mut cookie = Cookie::new("myDemoCookie", new_value);
-                    cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
-                    cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
-                    ctx.cookies.add(cookie);
-                })
+        })
+        .mutation("setCookie", |t| {
+            t(|ctx, new_value: String| {
+                let mut cookie = Cookie::new("myDemoCookie", new_value);
+                cookie.set_expires(Some(OffsetDateTime::now_utc().add(time::Duration::DAY)));
+                cookie.set_path("/"); // Ensure you have this or it will default to `/rspc` which will cause issues.
+                ctx.cookies.add(cookie);
             })
-            .build()
-            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+        })
+        .build();
+
+    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+
+    types
+        .export_to(
+            Typescript::default(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        )
+        .unwrap();
 
     let app = axum::Router::new()
         .with_state(())
@@ -43,7 +48,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router, |cookies: Cookies| Ctx { cookies }),
+            rspc_axum::endpoint(routes, |cookies: Cookies| Ctx { cookies }),
         )
         .layer(CookieManagerLayer::new())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!

@@ -6,29 +6,34 @@ use example::{basic, selection, subscriptions};
 
 use axum::{http::request::Parts, routing::get};
 use rspc::{Config, Router};
+use specta_typescript::Typescript;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
     let r1 = Router::<i32>::new().query("demo", |t| t(|_, _: ()| "Merging Routers!"));
 
-    let router =
-        <rspc::Router>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
-            ))
-            // Basic query
-            .query("version", |t| {
-                t(|_, _: ()| async move { env!("CARGO_PKG_VERSION") })
-            })
-            .merge("basic.", basic::mount())
-            .merge("subscriptions.", subscriptions::mount())
-            .merge("selection.", selection::mount())
-            // This middleware changes the TCtx (context type) from `()` to `i32`. All routers being merge under need to take `i32` as their context type.
-            .middleware(|mw| mw.middleware(|ctx| async move { Ok(ctx.with_ctx(42i32)) }))
-            .merge("r1.", r1)
-            .build()
-            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+    let router = <rspc::Router>::new()
+        // Basic query
+        .query("version", |t| {
+            t(|_, _: ()| async move { env!("CARGO_PKG_VERSION") })
+        })
+        .merge("basic.", basic::mount())
+        .merge("subscriptions.", subscriptions::mount())
+        .merge("selection.", selection::mount())
+        // This middleware changes the TCtx (context type) from `()` to `i32`. All routers being merge under need to take `i32` as their context type.
+        .middleware(|mw| mw.middleware(|ctx| async move { Ok(ctx.with_ctx(42i32)) }))
+        .merge("r1.", r1)
+        .build();
+
+    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+
+    types
+        .export_to(
+            Typescript::default(),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+        )
+        .unwrap();
 
     let app = axum::Router::new()
         .with_state(())
@@ -36,7 +41,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router, |parts: Parts| {
+            rspc_axum::endpoint(routes, |parts: Parts| {
                 println!("Client requested operation '{}'", parts.uri.path());
 
                 ()

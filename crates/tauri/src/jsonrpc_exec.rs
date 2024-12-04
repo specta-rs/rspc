@@ -4,7 +4,7 @@ use rspc_core::ProcedureError;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 
-use crate::{jsonrpc, v2::Routes};
+use crate::{jsonrpc, Routes};
 
 use super::jsonrpc::{RequestId, RequestInner, ResponseInner};
 
