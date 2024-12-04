@@ -1,29 +1,21 @@
 use std::{borrow::Cow, collections::BTreeMap, fmt};
 
-use specta::TypeMap;
 use specta_util::TypeCollection;
 
 use rspc_core::Procedure;
 
-use crate::State;
+use crate::{internal::ProcedureKind, Procedure2, State};
 
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     types: TypeCollection,
-    procedures: BTreeMap<Vec<Cow<'static, str>>, Procedure<TCtx>>, // TODO: This must be a thing that holds a setup function, type and `Procedure`!
+    procedures: BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>>, // TODO: This must be a thing that holds a setup function, type and `Procedure`!
 }
 
 impl<TCtx> Default for Router2<TCtx> {
     fn default() -> Self {
         todo!()
-    }
-}
-
-impl<TCtx> fmt::Debug for Router2<TCtx> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // f.debug_tuple("Router").field(&self.procedures).finish()
-        todo!();
     }
 }
 
@@ -248,7 +240,26 @@ impl<TCtx> Router2<TCtx> {
     }
 }
 
-// TODO: `Iterator` or `IntoIterator`?
+impl<TCtx> fmt::Debug for Router2<TCtx> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let procedure_keys = |kind: ProcedureKind| {
+            self.procedures
+                .iter()
+                .filter(move |(_, p)| p.kind() == kind)
+                .map(|(k, _)| k.join("::"))
+                .collect::<Vec<_>>()
+        };
+
+        f.debug_struct("Router")
+            .field("queries", &procedure_keys(ProcedureKind::Query))
+            .field("mutations", &procedure_keys(ProcedureKind::Mutation))
+            .field(
+                "subscriptions",
+                &procedure_keys(ProcedureKind::Subscription),
+            )
+            .finish()
+    }
+}
 
 impl<TCtx> TryFrom<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
     type Error = ();
@@ -257,5 +268,14 @@ impl<TCtx> TryFrom<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
         // TODO: Enforce unique across all methods (query, subscription, etc)
 
         todo!()
+    }
+}
+
+impl<'a, TCtx> IntoIterator for &'a Router2<TCtx> {
+    type Item = (&'a Vec<Cow<'static, str>>, &'a Procedure2<TCtx>);
+    type IntoIter = std::collections::btree_map::Iter<'a, Vec<Cow<'static, str>>, Procedure2<TCtx>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.procedures.iter()
     }
 }
