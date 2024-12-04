@@ -1,4 +1,4 @@
-//! rspc-core: The core interface for rspc's ecosystem.
+//! rspc-core: Core interface for [rspc](https://docs.rs/rspc).
 //!
 //! TODO: Describe all the types and why the split?
 //! TODO: This is kinda like `tower::Service`
