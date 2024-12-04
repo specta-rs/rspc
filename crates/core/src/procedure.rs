@@ -1,6 +1,7 @@
 use std::{
     any::{type_name, Any},
     fmt,
+    sync::Arc,
 };
 
 use serde::Deserializer;
@@ -11,13 +12,13 @@ use crate::{DynInput, ProcedureStream};
 ///
 /// TODO: Show constructing and executing procedure.
 pub struct Procedure<TCtx> {
-    handler: Box<dyn Fn(TCtx, DynInput) -> ProcedureStream>,
+    handler: Arc<dyn Fn(TCtx, DynInput) -> ProcedureStream>,
 }
 
 impl<TCtx> Procedure<TCtx> {
     pub fn new(handler: impl Fn(TCtx, DynInput) -> ProcedureStream + 'static) -> Self {
         Self {
-            handler: Box::new(handler),
+            handler: Arc::new(handler),
         }
     }
 
@@ -45,6 +46,14 @@ impl<TCtx> Procedure<TCtx> {
         };
 
         (self.handler)(ctx, value)
+    }
+}
+
+impl<TCtx> Clone for Procedure<TCtx> {
+    fn clone(&self) -> Self {
+        Self {
+            handler: self.handler.clone(),
+        }
     }
 }
 

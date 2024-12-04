@@ -74,3 +74,15 @@ impl<TCtx> Procedure2<TCtx> {
     //         }
     //     }
 }
+
+impl<TCtx> Clone for Procedure2<TCtx> {
+    fn clone(&self) -> Self {
+        Self {
+            kind: self.kind,
+            input: self.input.clone(),
+            result: self.result.clone(),
+            error: self.error.clone(),
+            inner: self.inner.clone(),
+        }
+    }
+}

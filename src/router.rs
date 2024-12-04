@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap, fmt};
 
 use specta::{datatype::DataType, NamedType, SpectaID, Type, TypeMap};
 
-use rspc_core::{Procedure, Procedures};
+use rspc_core::Procedures;
 
 use crate::{internal::ProcedureKind, Procedure2, State};
 
@@ -39,6 +39,12 @@ impl<TCtx> Router2<TCtx> {
     //     self
     // }
 
+    // TODO: Document the order this is run in for `build`
+    // pub fn setup(mut self, func: impl FnOnce(&mut State) + 'static) -> Self {
+    //     self.setup.push(Box::new(func));
+    //     self
+    // }
+
     pub fn nest(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
         self.setup.append(&mut other.setup);
 
@@ -53,13 +59,15 @@ impl<TCtx> Router2<TCtx> {
         self
     }
 
-    // TODO: Document the order this is run in for `build`
-    // pub fn setup(mut self, func: impl FnOnce(&mut State) + 'static) -> Self {
-    //     self.setup.push(Box::new(func));
-    //     self
-    // }
+    pub fn merge(mut self, mut other: Self) -> Self {
+        self.setup.append(&mut other.setup);
+        self.procedures.extend(other.procedures.into_iter());
+        self
+    }
 
-    pub fn build(mut self) -> Result<(impl Into<Procedures<TCtx>>, TypeMap), ()> {
+    pub fn build(
+        mut self,
+    ) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, TypeMap), ()> {
         let mut state = ();
         for setup in self.setup {
             setup(&mut state);
@@ -91,6 +99,16 @@ impl<TCtx> Router2<TCtx> {
                 self.0
             }
         }
+        impl<TCtx> Clone for Impl<TCtx> {
+            fn clone(&self) -> Self {
+                Self(self.0.clone())
+            }
+        }
+        impl<TCtx> fmt::Debug for Impl<TCtx> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{:?}", self.0)
+            }
+        }
 
         Ok((Impl::<TCtx>(procedures), self.types))
     }
@@ -114,25 +132,6 @@ impl<TCtx> fmt::Debug for Router2<TCtx> {
                 &procedure_keys(ProcedureKind::Subscription),
             )
             .finish()
-    }
-}
-
-impl<TCtx> From<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
-    fn from(router: crate::legacy::Router<TCtx>) -> Self {
-        crate::interop::legacy_to_modern(router)
-    }
-}
-
-// TODO: Remove this block with the interop system
-impl<TCtx> Router2<TCtx> {
-    pub(crate) fn interop_procedures(
-        &mut self,
-    ) -> &mut BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>> {
-        &mut self.procedures
-    }
-
-    pub(crate) fn interop_types(&mut self) -> &mut TypeMap {
-        &mut self.types
     }
 }
 
@@ -198,5 +197,25 @@ fn construct_bindings_type<TCtx>(
                 vec![construct_bindings_type(&key[1..], p)].into_iter(),
             ),
         )
+    }
+}
+
+// TODO: Remove this block with the interop system
+impl<TCtx> From<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
+    fn from(router: crate::legacy::Router<TCtx>) -> Self {
+        crate::interop::legacy_to_modern(router)
+    }
+}
+
+// TODO: Remove this block with the interop system
+impl<TCtx> Router2<TCtx> {
+    pub(crate) fn interop_procedures(
+        &mut self,
+    ) -> &mut BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>> {
+        &mut self.procedures
+    }
+
+    pub(crate) fn interop_types(&mut self) -> &mut TypeMap {
+        &mut self.types
     }
 }

@@ -88,7 +88,7 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            rspc_axum::endpoint2(routes, |parts: Parts| {
+            rspc_axum::endpoint2(routes.clone(), |parts: Parts| {
                 println!("Client requested operation '{}'", parts.uri.path());
                 Ctx {}
             }),
