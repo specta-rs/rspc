@@ -3,8 +3,6 @@ use std::{error, fmt, sync::Arc};
 use serde::Serialize;
 use specta::Type;
 
-use crate::internal::jsonrpc::JsonRPCError;
-
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
     #[error("the requested operation '{0}' is not supported by this server")]
@@ -75,12 +73,12 @@ impl From<ExecError> for Error {
     }
 }
 
-impl From<ExecError> for JsonRPCError {
-    fn from(err: ExecError) -> Self {
-        let x: Error = err.into();
-        x.into()
-    }
-}
+// impl From<ExecError> for JsonRPCError {
+//     fn from(err: ExecError) -> Self {
+//         let x: Error = err.into();
+//         x.into()
+//     }
+// }
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExportError {
@@ -97,15 +95,15 @@ pub struct Error {
     pub(crate) cause: Option<Arc<dyn std::error::Error + Send + Sync>>, // We are using `Arc` instead of `Box` so we can clone the error cause `Clone` isn't dyn safe.
 }
 
-impl From<Error> for JsonRPCError {
-    fn from(err: Error) -> Self {
-        JsonRPCError {
-            code: err.code.to_status_code() as i32,
-            message: err.message,
-            data: None,
-        }
-    }
-}
+// impl From<Error> for JsonRPCError {
+//     fn from(err: Error) -> Self {
+//         JsonRPCError {
+//             code: err.code.to_status_code() as i32,
+//             message: err.message,
+//             data: None,
+//         }
+//     }
+// }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

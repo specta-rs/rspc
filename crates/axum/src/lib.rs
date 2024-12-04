@@ -8,8 +8,7 @@
 mod extractors;
 mod jsonrpc;
 mod jsonrpc_exec;
-mod legacy;
+// mod legacy;
 mod v2;
 
-pub use legacy::endpoint;
-pub use v2::endpoint2;
+pub use v2::endpoint;

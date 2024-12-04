@@ -9,7 +9,7 @@ use specta::{
 };
 
 use crate::{
-    internal::{jsonrpc::JsonRPCError, Layer, ProcedureKind, RequestContext, ValueOrStream},
+    internal::{Layer, ProcedureKind, RequestContext, ValueOrStream},
     router::literal_object,
     Procedure2, Router, Router2,
 };
@@ -57,7 +57,7 @@ pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
             .insert(key.clone(), procedure)
             .is_some()
         {
-            panic!("Attempted to mount '{key:?}' multiple times. Note: rspc no longer supports different operations (query/mutation/subscription) with overlapping names.")
+            panic!("Attempted to mount '{key:?}' multiple times.\nrspc no longer supports different operations (query/mutation/subscription) with overlapping names.")
         }
     }
 
@@ -65,7 +65,7 @@ pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
     r
 }
 
-fn layer_to_procedure<TCtx: 'static>(
+pub(crate) fn layer_to_procedure<TCtx: 'static>(
     path: String,
     kind: ProcedureKind,
     value: Box<dyn Layer<TCtx>>,
@@ -102,11 +102,11 @@ fn layer_to_procedure<TCtx: 'static>(
                     }
                     Ok(ValueOrStream::Stream(s)) => Ok(s
                         .map_err(|err| {
-                            let err = JsonRPCError::from(err);
+                            let err = crate::legacy::Error::from(err);
                             ResolverError::new(
-                                err.code.try_into().unwrap_or(500),
-                                err,
-                                None::<std::io::Error>,
+                                err.code.to_status_code(),
+                                (), /* typesafe errors aren't supported in legacy router */
+                                Some(rspc_core::LegacyErrorInterop(err.message)),
                             )
                         })
                         .boxed()),

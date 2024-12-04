@@ -41,11 +41,9 @@ fn mount() -> rspc::Router<Ctx> {
     let inner = rspc::Router::<Ctx>::new().query("hello", |t| t(|_, _: ()| "Hello World!"));
 
     let router = rspc::Router::<Ctx>::new()
-        .config(Config::new().export_ts_bindings(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings-legacy.ts"),
-        ))
         .merge("nested.", inner)
         .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
         .query("error", |t| {
             t(|_, _: ()| {
@@ -115,14 +113,7 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            rspc_axum::endpoint2(routes.clone(), |parts: Parts| {
-                println!("Client requested operation '{}'", parts.uri.path());
-                Ctx {}
-            }),
-        )
-        .nest(
-            "/legacy",
-            rspc_axum::endpoint(mount().arced(), |parts: Parts| {
+            rspc_axum::endpoint(routes, |parts: Parts| {
                 println!("Client requested operation '{}'", parts.uri.path());
                 Ctx {}
             }),

@@ -14,7 +14,6 @@ Cargo.lock
 
 # Typescript bindings exported by the examples
 bindings.ts
-bindings-legacy.ts
 
 # Node
 node_modules

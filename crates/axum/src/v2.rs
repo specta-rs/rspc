@@ -11,18 +11,15 @@ use axum::{
 use rspc_core::{Procedure, Procedures};
 use serde_json::Value;
 
-// TODO: Remove everything
-use rspc::internal::ProcedureKind;
-
 use crate::{
     extractors::TCtxFunc,
-    jsonrpc::{self, RequestId},
+    jsonrpc::{self, ProcedureKind, RequestId},
     jsonrpc_exec::{handle_json_rpc, Sender, SubscriptionMap},
 };
 
 pub(crate) type Routes<TCtx> = HashMap<String, Procedure<TCtx>>;
 
-pub fn endpoint2<TCtx, TCtxFnMarker, TCtxFn, S>(
+pub fn endpoint<TCtx, TCtxFnMarker, TCtxFn, S>(
     router: impl Into<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> Router<S>
@@ -127,12 +124,7 @@ where
         Ok(input) => input,
         Err(_err) => {
             #[cfg(feature = "tracing")]
-            tracing::error!(
-                "Error passing parameters to operation '{}' with key '{:?}': {}",
-                kind.to_str(),
-                procedure_name,
-                _err
-            );
+            tracing::error!("Error passing parameters to operation '{procedure_name}': {_err}");
 
             return Response::builder()
                 .status(StatusCode::NOT_FOUND)
@@ -143,12 +135,7 @@ where
     };
 
     #[cfg(feature = "tracing")]
-    tracing::debug!(
-        "Executing operation '{}' with key '{}' with params {:?}",
-        kind.to_str(),
-        procedure_name,
-        input
-    );
+    tracing::debug!("Executing operation '{procedure_name}' with params {input:?}");
 
     let mut resp = Sender::Response(None);
 

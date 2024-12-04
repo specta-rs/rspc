@@ -1,11 +1,15 @@
-//! rspc-core
+//! rspc-core: The core interface for rspc's ecosystem.
 //!
 //! TODO: Describe all the types and why the split?
 //! TODO: This is kinda like `tower::Service`
 //! TODO: Why this crate doesn't depend on Specta.
 //! TODO: Discuss the traits that need to be layered on for this to be useful.
 //! TODO: Discuss how middleware don't exist here.
-// TODO: Crate icon and stuff
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![doc(
+    html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",
+    html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
+)]
 
 // - Returning non-Serialize types (Eg. `File`) via `ProcedureStream`.
 //
@@ -15,36 +19,23 @@
 // - `Send` + `Sync` and the issues with single-threaded async runtimes
 // - `DynInput<'a, 'de>` should really be &'a Input<'de>` but that's hard.
 // - Finish `Debug` impls
+// - Should `Procedure2::error` being `Option<DataType>` or not?
 // - Crate documentation
 
 mod dyn_input;
 mod error;
+mod interop;
 mod procedure;
 mod stream;
 
 pub use dyn_input::DynInput;
 pub use error::{DeserializeError, DowncastError, ProcedureError, ResolverError};
+pub use interop::LegacyErrorInterop;
 pub use procedure::Procedure;
 pub use stream::ProcedureStream;
 
 pub type Procedures<TCtx> =
     std::collections::BTreeMap<Vec<std::borrow::Cow<'static, str>>, Procedure<TCtx>>;
-
-// TODO: Remove this once we remove the legacy executor.
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct LegacyErrorInterop(pub String);
-impl std::fmt::Debug for LegacyErrorInterop {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LegacyErrorInterop({})", self.0)
-    }
-}
-impl std::fmt::Display for LegacyErrorInterop {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LegacyErrorInterop({})", self.0)
-    }
-}
-impl std::error::Error for LegacyErrorInterop {}
 
 // TODO: The naming is horid.
 // Low-level concerns:

@@ -7,25 +7,33 @@
 
 use std::{borrow::Borrow, collections::HashMap, sync::Arc};
 
+use jsonrpc_exec::{handle_json_rpc, Sender, SubscriptionMap};
+use rspc_core::{Procedure, Procedures};
 use tauri::{
+    async_runtime::{spawn, Mutex},
     plugin::{Builder, TauriPlugin},
-    AppHandle, Emitter, Listener, Manager, Runtime,
+    AppHandle, Emitter, Listener, Runtime,
 };
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 
-use rspc::{
-    internal::jsonrpc::{self, handle_json_rpc, Sender, SubscriptionMap},
-    Router,
-};
+mod jsonrpc;
+mod jsonrpc_exec;
 
-pub fn plugin<R: Runtime, TCtx, TMeta>(
-    router: Arc<Router<TCtx, TMeta>>,
+pub(crate) type Routes<TCtx> = HashMap<String, Procedure<TCtx>>;
+
+pub fn plugin<R: Runtime, TCtx>(
+    router: impl Into<Procedures<TCtx>>,
     ctx_fn: impl Fn(AppHandle<R>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
     TCtx: Send + 'static,
-    TMeta: Send + Sync + 'static,
 {
+    let routes = router
+        .into()
+        .into_iter()
+        .map(|(key, value)| (key.join("."), value))
+        .collect::<Routes<TCtx>>();
+
     Builder::new("rspc")
         .setup(|app_handle, _| {
             let (tx, mut rx) = mpsc::unbounded_channel::<jsonrpc::Request>();
@@ -33,15 +41,15 @@ where
             // TODO: Don't keep using a tokio mutex. We don't need to hold it over the await point.
             let subscriptions = Arc::new(Mutex::new(HashMap::new()));
 
-            tokio::spawn({
+            spawn({
                 let app_handle = app_handle.clone();
                 async move {
                     while let Some(req) = rx.recv().await {
                         let ctx = ctx_fn(app_handle.clone());
-                        let router = router.clone();
+                        let routes = routes.clone();
                         let mut resp_tx = resp_tx.clone();
                         let subscriptions = subscriptions.clone();
-                        tokio::spawn(async move {
+                        spawn(async move {
                             handle_json_rpc(
                                 ctx,
                                 req,
@@ -57,7 +65,7 @@ where
 
             {
                 let app_handle = app_handle.clone();
-                tokio::spawn(async move {
+                spawn(async move {
                     while let Some(event) = resp_rx.recv().await {
                         let _ = app_handle
                             .emit("plugin:rspc:transport:resp", event)

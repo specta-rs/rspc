@@ -1,5 +1,4 @@
 use axum::{extract::FromRequestParts, http::request::Parts};
-use rspc::ExecError;
 use std::future::Future;
 
 use std::marker::PhantomData;
@@ -9,11 +8,7 @@ where
     TState: Send + Sync,
     TCtx: Send + 'static,
 {
-    fn exec(
-        &self,
-        parts: Parts,
-        state: &TState,
-    ) -> impl Future<Output = Result<TCtx, ExecError>> + Send;
+    fn exec(&self, parts: Parts, state: &TState) -> impl Future<Output = Result<TCtx, ()>> + Send;
 }
 
 pub struct ZeroArgMarker;
@@ -24,7 +19,7 @@ where
     TState: Send + Sync,
     TCtx: Send + 'static,
 {
-    async fn exec(&self, _: Parts, _: &TState) -> Result<TCtx, ExecError> {
+    async fn exec(&self, _: Parts, _: &TState) -> Result<TCtx, ()> {
         Ok(self.clone()())
     }
 }
@@ -40,12 +35,12 @@ macro_rules! impl_fn {
             TState: Send + Sync,
             TCtx: Send + 'static
         {
-            async fn exec(&self, mut parts: Parts, state: &TState) -> Result<TCtx, ExecError>
+            async fn exec(&self, mut parts: Parts, state: &TState) -> Result<TCtx, ()>
             {
 		            $(
 										#[allow(non_snake_case)]
 										let Ok($generics) = $generics::from_request_parts(&mut parts, &state).await else {
-												 return Err(ExecError::AxumExtractorError)
+												 return Err(())
 										};
 								)*
 
