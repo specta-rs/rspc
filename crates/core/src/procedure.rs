@@ -8,15 +8,19 @@ use serde::Deserializer;
 
 use crate::{DynInput, ProcedureStream};
 
+// TODO: Document the importance of the `size_hint`
+
 /// a single type-erased operation that the server can execute.
 ///
 /// TODO: Show constructing and executing procedure.
 pub struct Procedure<TCtx> {
-    handler: Arc<dyn Fn(TCtx, DynInput) -> ProcedureStream>,
+    handler: Arc<dyn Fn(TCtx, DynInput) -> ProcedureStream + Send + Sync>,
 }
 
 impl<TCtx> Procedure<TCtx> {
-    pub fn new(handler: impl Fn(TCtx, DynInput) -> ProcedureStream + 'static) -> Self {
+    pub fn new(
+        handler: impl Fn(TCtx, DynInput) -> ProcedureStream + Send + Sync + 'static,
+    ) -> Self {
         Self {
             handler: Arc::new(handler),
         }

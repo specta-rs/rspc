@@ -20,9 +20,10 @@ pub struct Procedure2<TCtx> {
 impl<TCtx> Procedure2<TCtx> {
     // TODO: `fn builder`
 
-    // pub fn kind(&self) -> ProcedureKind {
-    //     self.kind
-    // }
+    // TODO: Make `pub`
+    pub(crate) fn kind(&self) -> ProcedureKind {
+        self.kind
+    }
 
     // TODO: Expose all fields
 

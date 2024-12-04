@@ -30,6 +30,22 @@ pub use stream::ProcedureStream;
 pub type Procedures<TCtx> =
     std::collections::BTreeMap<Vec<std::borrow::Cow<'static, str>>, Procedure<TCtx>>;
 
+// TODO: Remove this once we remove the legacy executor.
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct LegacyErrorInterop(pub String);
+impl std::fmt::Debug for LegacyErrorInterop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LegacyErrorInterop({})", self.0)
+    }
+}
+impl std::fmt::Display for LegacyErrorInterop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LegacyErrorInterop({})", self.0)
+    }
+}
+impl std::error::Error for LegacyErrorInterop {}
+
 // TODO: The naming is horid.
 // Low-level concerns:
 // - `Procedure` - Holds the handler (and probably type information)

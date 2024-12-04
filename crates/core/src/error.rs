@@ -65,7 +65,7 @@ impl From<DowncastError> for ResolverError {
 pub struct ResolverError(Repr);
 
 impl ResolverError {
-    pub fn new<T: Serialize + 'static, E: error::Error + 'static>(
+    pub fn new<T: Serialize + Send + 'static, E: error::Error + Send + 'static>(
         status: u16,
         value: T,
         source: Option<E>,
@@ -77,9 +77,9 @@ impl ResolverError {
     }
 
     /// TODO
-    pub fn status(&self) -> &dyn erased_serde::Serialize {
+    pub fn status(&self) -> u16 {
         match &self.0 {
-            Repr::Custom { status, value: _ } => status,
+            Repr::Custom { status, value: _ } => *status,
             // We flatten these to `ResolverError` so this won't be hit.
             Repr::Deserialize(_) => unreachable!(),
             Repr::Downcast(_) => unreachable!(),
@@ -100,7 +100,7 @@ impl ResolverError {
     }
 
     /// TODO
-    pub fn error(&self) -> Option<&dyn error::Error> {
+    pub fn error(&self) -> Option<&(dyn error::Error + Send + 'static)> {
         match &self.0 {
             Repr::Custom {
                 status: _,
@@ -188,21 +188,25 @@ struct ErrorInternal<T, E> {
     err: Option<E>,
 }
 
-trait ErrorInternalExt {
+trait ErrorInternalExt: Send {
     fn value(&self) -> &dyn erased_serde::Serialize;
 
-    fn error(&self) -> Option<&dyn error::Error>;
+    fn error(&self) -> Option<&(dyn error::Error + Send + 'static)>;
 
     fn debug(&self) -> Option<&dyn fmt::Debug>;
 }
 
-impl<T: Serialize + 'static, E: error::Error + 'static> ErrorInternalExt for ErrorInternal<T, E> {
+impl<T: Serialize + Send + 'static, E: error::Error + Send + 'static> ErrorInternalExt
+    for ErrorInternal<T, E>
+{
     fn value(&self) -> &dyn erased_serde::Serialize {
         &self.value
     }
 
-    fn error(&self) -> Option<&dyn error::Error> {
-        self.err.as_ref().map(|err| err as &dyn error::Error)
+    fn error(&self) -> Option<&(dyn error::Error + Send + 'static)> {
+        self.err
+            .as_ref()
+            .map(|err| err as &(dyn error::Error + Send + 'static))
     }
 
     fn debug(&self) -> Option<&dyn fmt::Debug> {

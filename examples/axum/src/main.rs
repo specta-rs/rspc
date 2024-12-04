@@ -14,8 +14,30 @@ struct Ctx {}
 #[derive(Serialize, Type)]
 pub struct MyCustomType(String);
 
-#[tokio::main]
-async fn main() {
+#[derive(Type, Serialize)]
+#[serde(tag = "type")]
+#[specta(export = false)]
+pub enum DeserializationError {
+    // Is not a map-type so invalid.
+    A(String),
+}
+
+// http://[::]:4000/rspc/version
+// http://[::]:4000/legacy/version
+
+// http://[::]:4000/rspc/nested.hello
+// http://[::]:4000/legacy/nested.hello
+
+// http://[::]:4000/rspc/error
+// http://[::]:4000/legacy/error
+
+// http://[::]:4000/rspc/echo
+// http://[::]:4000/legacy/echo
+
+// http://[::]:4000/rspc/echo?input=42
+// http://[::]:4000/legacy/echo?input=42
+
+fn mount() -> rspc::Router<Ctx> {
     let inner = rspc::Router::<Ctx>::new().query("hello", |t| t(|_, _: ()| "Hello World!"));
 
     let router = rspc::Router::<Ctx>::new()
@@ -65,7 +87,12 @@ async fn main() {
         // }))
         .build();
 
-    let (routes, types) = Router2::from(router).build().unwrap();
+    router
+}
+
+#[tokio::main]
+async fn main() {
+    let (routes, types) = Router2::from(mount()).build().unwrap();
 
     types
         .export_to(
@@ -89,6 +116,13 @@ async fn main() {
         .nest(
             "/rspc",
             rspc_axum::endpoint2(routes.clone(), |parts: Parts| {
+                println!("Client requested operation '{}'", parts.uri.path());
+                Ctx {}
+            }),
+        )
+        .nest(
+            "/legacy",
+            rspc_axum::endpoint(mount().arced(), |parts: Parts| {
                 println!("Client requested operation '{}'", parts.uri.path());
                 Ctx {}
             }),

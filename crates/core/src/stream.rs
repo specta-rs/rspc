@@ -22,7 +22,7 @@ impl ProcedureStream {
     /// TODO
     pub fn from_value<T>(value: Result<T, ResolverError>) -> Self
     where
-        T: Serialize + 'static, // TODO: Drop `Serialize`!!!
+        T: Serialize + Send + 'static, // TODO: Drop `Serialize`!!!
     {
         Self {
             src: Box::pin(DynReturnValueFutureCompat {
@@ -36,8 +36,8 @@ impl ProcedureStream {
     /// TODO
     pub fn from_future<T, S>(src: S) -> Self
     where
-        S: Future<Output = Result<T, ResolverError>> + 'static,
-        T: Serialize + 'static, // TODO: Drop `Serialize`!!!
+        S: Future<Output = Result<T, ResolverError>> + Send + 'static,
+        T: Serialize + Send + 'static, // TODO: Drop `Serialize`!!!
     {
         Self {
             src: Box::pin(DynReturnValueFutureCompat { src, value: None }),
@@ -47,11 +47,26 @@ impl ProcedureStream {
     /// TODO
     pub fn from_stream<T, S>(src: S) -> Self
     where
-        S: Stream<Item = Result<T, ResolverError>> + 'static,
-        T: Serialize + 'static, // TODO: Drop `Serialize`!!!
+        S: Stream<Item = Result<T, ResolverError>> + Send + 'static,
+        T: Serialize + Send + 'static, // TODO: Drop `Serialize`!!!
     {
         Self {
             src: Box::pin(DynReturnValueStreamCompat { src, value: None }),
+        }
+    }
+
+    // TODO: I'm not sure if we should keep this or not?
+    // The crate `futures`'s flatten stuff doesn't handle it how we need it so maybe we could patch that instead of having this special case???
+    // This is a special case because we need to ensure the `size_hint` is correct.
+    /// TODO
+    pub fn from_future_stream<T, F, S>(src: F) -> Self
+    where
+        F: Future<Output = Result<S, ResolverError>> + Send + 'static,
+        S: Stream<Item = Result<T, ResolverError>> + Send + 'static,
+        T: Serialize + Send + 'static, // TODO: Drop `Serialize`!!!
+    {
+        Self {
+            src: Box::pin(DynReturnValueStreamFutureCompat::Future { src }),
         }
     }
 
@@ -69,6 +84,11 @@ impl ProcedureStream {
     // }
 
     // TODO: Fn to get syncronous value???
+
+    /// TODO
+    pub fn size_hint(&self) -> (usize, Option<usize>) {
+        self.src.size_hint()
+    }
 
     /// TODO
     pub async fn next<S: Serializer>(
@@ -99,13 +119,15 @@ impl fmt::Debug for ProcedureStream {
     }
 }
 
-trait DynReturnValue {
+trait DynReturnValue: Send {
     fn poll_next_value<'a>(
         self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<(), ResolverError>>>;
 
     fn value(&self) -> &dyn erased_serde::Serialize;
+
+    fn size_hint(&self) -> (usize, Option<usize>);
 }
 
 pin_project! {
@@ -116,7 +138,7 @@ pin_project! {
     }
 }
 
-impl<T, S: Future<Output = Result<T, ResolverError>>> DynReturnValue
+impl<T: Send, S: Future<Output = Result<T, ResolverError>> + Send> DynReturnValue
     for DynReturnValueFutureCompat<T, S>
 where
     T: Serialize, // TODO: Drop this bound!!!
@@ -146,6 +168,10 @@ where
             // Attempted to access value when `Poll::Ready(None)` was not returned.
             .expect("unreachable")
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (1, Some(1))
+    }
 }
 
 pin_project! {
@@ -156,7 +182,7 @@ pin_project! {
     }
 }
 
-impl<T, S: Stream<Item = Result<T, ResolverError>>> DynReturnValue
+impl<T: Send, S: Stream<Item = Result<T, ResolverError>> + Send> DynReturnValue
     for DynReturnValueStreamCompat<T, S>
 where
     T: Serialize, // TODO: Drop this bound!!!
@@ -186,5 +212,83 @@ where
             .as_ref()
             // Attempted to access value when `Poll::Ready(None)` was not returned.
             .expect("unreachable")
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.src.size_hint()
+    }
+}
+
+pin_project! {
+    #[project = DynReturnValueStreamFutureCompatProj]
+    enum DynReturnValueStreamFutureCompat<T, F, S> {
+        Future {
+            #[pin] src: F,
+        },
+        Stream {
+            #[pin] src: S,
+            value: Option<T>,
+        }
+    }
+}
+
+impl<T, F, S> DynReturnValue for DynReturnValueStreamFutureCompat<T, F, S>
+where
+    T: Serialize + Send, // TODO: Drop `Serialize` bound!!!
+    F: Future<Output = Result<S, ResolverError>> + Send + 'static,
+    S: Stream<Item = Result<T, ResolverError>> + Send,
+{
+    // TODO: Cleanup this impl's pattern matching.
+    fn poll_next_value<'a>(
+        mut self: Pin<&'a mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<(), ResolverError>>> {
+        loop {
+            return match self.as_mut().project() {
+                DynReturnValueStreamFutureCompatProj::Future { src } => match src.poll(cx) {
+                    Poll::Ready(Ok(result)) => {
+                        self.as_mut().set(DynReturnValueStreamFutureCompat::Stream {
+                            src: result,
+                            value: None,
+                        });
+                        continue;
+                    }
+                    Poll::Ready(Err(err)) => return Poll::Ready(Some(Err(err))),
+                    Poll::Pending => return Poll::Pending,
+                },
+                DynReturnValueStreamFutureCompatProj::Stream { src, value } => {
+                    let _ = value.take(); // Reset value to ensure `take` being misused causes it to panic.
+                    match src.poll_next(cx) {
+                        Poll::Ready(Some(v)) => Poll::Ready(Some(match v {
+                            Ok(v) => {
+                                *value = Some(v);
+                                Ok(())
+                            }
+                            Err(err) => Err(err),
+                        })),
+                        Poll::Ready(None) => Poll::Ready(None),
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+            };
+        }
+    }
+
+    fn value(&self) -> &dyn erased_serde::Serialize {
+        match self {
+            // Attempted to acces value before first `Poll::Ready` was returned.
+            Self::Future { .. } => panic!("unreachable"),
+            Self::Stream { value, .. } => value
+                .as_ref()
+                // Attempted to access value when `Poll::Ready(None)` was not returned.
+                .expect("unreachable"),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Future { .. } => (0, None),
+            Self::Stream { src, .. } => src.size_hint(),
+        }
     }
 }

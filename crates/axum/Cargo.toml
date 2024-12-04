@@ -29,3 +29,9 @@ rspc = { version = "0.3.1", path = "../.." }
 form_urlencoded = "1.2.1"                       # TODO: use Axum's built in extractor
 futures = "0.3.31"                              # TODO: No blocking execution, etc
 tokio = { version = "1.41.1", optional = true } # TODO: No more `tokio::select` + spawning threads. Axum's Websocket upgrade handles that.
+serde = { version = "1", features = ["derive"] } # TODO: Remove features
+specta = { version = "=2.0.0-rc.20", features = [
+    "derive",
+    "serde",
+    "serde_json",
+] } # TODO: Drop all features

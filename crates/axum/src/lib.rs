@@ -6,6 +6,8 @@
 )]
 
 mod extractors;
+mod jsonrpc;
+mod jsonrpc_exec;
 mod legacy;
 mod v2;
 

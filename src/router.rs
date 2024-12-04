@@ -4,7 +4,7 @@ use specta::{datatype::DataType, NamedType, SpectaID, Type, TypeMap};
 
 use rspc_core::Procedures;
 
-use crate::{internal::ProcedureKind, Procedure2, State};
+use crate::{internal::ProcedureKind, interop::construct_legacy_bindings_type, Procedure2, State};
 
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
@@ -32,10 +32,11 @@ impl<TCtx> Router2<TCtx> {
     // pub fn procedure(
     //     mut self,
     //     key: impl Into<Cow<'static, str>>,
-    //     procedure: UnbuiltProcedure<TCtx>,
+    //     procedure: Procedure2<TCtx>,
     // ) -> Self {
     //     let name = key.into();
     //     self.procedures.insert(name, procedure);
+    //     self.setup.extend(procedure.setup);
     //     self
     // }
 
@@ -73,6 +74,8 @@ impl<TCtx> Router2<TCtx> {
             setup(&mut state);
         }
 
+        let legacy_types = construct_legacy_bindings_type(&self.procedures);
+
         let (types, procedures): (Vec<_>, BTreeMap<_, _>) = self
             .procedures
             .into_iter()
@@ -91,6 +94,20 @@ impl<TCtx> Router2<TCtx> {
             let mut ndt = Procedures::definition_named_data_type(&mut self.types);
             ndt.inner = s.into();
             self.types.insert(Procedures::sid(), ndt);
+        }
+
+        {
+            #[derive(Type)]
+            struct ProceduresLegacy;
+
+            let s = literal_object(
+                "ProceduresLegacy".into(),
+                Some(ProceduresLegacy::sid()),
+                legacy_types.into_iter(),
+            );
+            let mut ndt = ProceduresLegacy::definition_named_data_type(&mut self.types);
+            ndt.inner = s.into();
+            self.types.insert(ProceduresLegacy::sid(), ndt);
         }
 
         struct Impl<TCtx>(Procedures<TCtx>);
@@ -145,7 +162,7 @@ impl<'a, TCtx> IntoIterator for &'a Router2<TCtx> {
 }
 
 // TODO: Probally using `DataTypeFrom` stuff cause we shouldn't be using `specta::internal`
-fn literal_object(
+pub(crate) fn literal_object(
     name: Cow<'static, str>,
     sid: Option<SpectaID>,
     fields: impl Iterator<Item = (Cow<'static, str>, DataType)>,
@@ -201,7 +218,7 @@ fn construct_bindings_type<TCtx>(
 }
 
 // TODO: Remove this block with the interop system
-impl<TCtx> From<crate::legacy::Router<TCtx, ()>> for Router2<TCtx> {
+impl<TCtx> From<crate::legacy::Router<TCtx>> for Router2<TCtx> {
     fn from(router: crate::legacy::Router<TCtx>) -> Self {
         crate::interop::legacy_to_modern(router)
     }
