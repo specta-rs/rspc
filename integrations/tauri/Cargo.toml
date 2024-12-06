@@ -23,3 +23,6 @@ serde_json = "1"
 # TODO: Drop these
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["sync"] } # TODO: No more `tokio::select` + spawning threads. Axum's Websocket upgrade handles that.
+
+[lints]
+workspace = true

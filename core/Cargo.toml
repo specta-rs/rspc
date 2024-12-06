@@ -25,3 +25,6 @@ erased-serde = { version = "0.4", default-features = false, features = [
     "std",
 ] }
 pin-project-lite = { version = "0.2", default-features = false }
+
+[lints]
+workspace = true

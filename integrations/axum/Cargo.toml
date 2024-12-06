@@ -29,3 +29,6 @@ form_urlencoded = "1.2.1"                       # TODO: use Axum's built in extr
 futures = "0.3"                              # TODO: No blocking execution, etc
 tokio = { version = "1", features = ["sync", "macros"] } # TODO: No more `tokio::select` + spawning threads. Axum's Websocket upgrade handles that.
 serde = { version = "1", features = ["derive"] } # TODO: Remove features
+
+[lints]
+workspace = true

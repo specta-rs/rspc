@@ -51,6 +51,10 @@ impl<TCtx> Procedure<TCtx> {
 
         (self.handler)(ctx, value)
     }
+
+    pub fn exec_with_dyn_input(&self, ctx: TCtx, input: DynInput) -> ProcedureStream {
+        (self.handler)(ctx, input)
+    }
 }
 
 impl<TCtx> Clone for Procedure<TCtx> {

@@ -1,9 +1,5 @@
 //! TODO: A temporary module to allow for interop between modern and legacy code.
 
-use std::sync::Arc;
-
-use crate::Procedures;
-
 // TODO: Remove this once we remove the legacy executor.
 #[doc(hidden)]
 #[derive(Clone)]

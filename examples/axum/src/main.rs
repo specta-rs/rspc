@@ -14,7 +14,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
-struct Ctx {}
+pub struct Ctx {}
 
 #[derive(Serialize, Type)]
 pub struct MyCustomType(String);
@@ -184,6 +184,8 @@ async fn main() {
     //         &types,
     //     )
     //     .unwrap();
+
+    let routes = rspc_devtools::mount(routes, &types);
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
