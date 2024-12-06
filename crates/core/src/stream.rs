@@ -29,6 +29,7 @@ impl ProcedureStream {
                 // TODO: Should we do this in a more efficient way???
                 src: std::future::ready(value),
                 value: None,
+                done: false,
             }),
         }
     }
@@ -40,7 +41,11 @@ impl ProcedureStream {
         T: Serialize + Send + 'static, // TODO: Drop `Serialize`!!!
     {
         Self {
-            src: Box::pin(DynReturnValueFutureCompat { src, value: None }),
+            src: Box::pin(DynReturnValueFutureCompat {
+                src,
+                value: None,
+                done: false,
+            }),
         }
     }
 
@@ -67,6 +72,20 @@ impl ProcedureStream {
     {
         Self {
             src: Box::pin(DynReturnValueStreamFutureCompat::Future { src }),
+        }
+    }
+
+    // TODO: Rename and replace `Self::from_future_stream`???
+    // TODO: I'm not sure if we should keep this or not?
+    // The crate `futures`'s flatten stuff doesn't handle it how we need it so maybe we could patch that instead of having this special case???
+    // This is a special case because we need to ensure the `size_hint` is correct.
+    /// TODO
+    pub fn from_future_procedure_stream<F>(src: F) -> Self
+    where
+        F: Future<Output = Result<Self, ResolverError>> + Send + 'static,
+    {
+        Self {
+            src: Box::pin(DynReturnValueFutureProcedureStreamCompat::Future { src }),
         }
     }
 
@@ -135,6 +154,7 @@ pin_project! {
         #[pin]
         src: S,
         value: Option<T>,
+        done: bool,
     }
 }
 
@@ -151,13 +171,17 @@ where
         let this = self.as_mut().project();
         let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
         match this.src.poll(cx) {
-            Poll::Ready(value) => Poll::Ready(Some(match value {
-                Ok(value) => {
-                    *this.value = Some(value);
-                    Ok(())
-                }
-                Err(err) => Err(err),
-            })),
+            Poll::Ready(value) => {
+                *this.done = true;
+                Poll::Ready(Some(match value {
+                    Ok(value) => {
+                        *this.value = Some(value);
+
+                        Ok(())
+                    }
+                    Err(err) => Err(err),
+                }))
+            }
             Poll::Pending => return Poll::Pending,
         }
     }
@@ -170,6 +194,9 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
+        if self.done {
+            return (0, Some(0));
+        }
         (1, Some(1))
     }
 }
@@ -289,6 +316,62 @@ where
         match self {
             Self::Future { .. } => (0, None),
             Self::Stream { src, .. } => src.size_hint(),
+        }
+    }
+}
+
+pin_project! {
+    #[project = DynReturnValueFutureProcedureStreamCompatProj]
+    enum DynReturnValueFutureProcedureStreamCompat<F> {
+        Future {
+            #[pin] src: F,
+        },
+        Inner {
+            src: ProcedureStream,
+        }
+    }
+}
+
+impl<F> DynReturnValue for DynReturnValueFutureProcedureStreamCompat<F>
+where
+    F: Future<Output = Result<ProcedureStream, ResolverError>> + Send + 'static,
+{
+    // TODO: Cleanup this impl's pattern matching.
+    fn poll_next_value<'a>(
+        mut self: Pin<&'a mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<(), ResolverError>>> {
+        loop {
+            return match self.as_mut().project() {
+                DynReturnValueFutureProcedureStreamCompatProj::Future { src } => match src.poll(cx)
+                {
+                    Poll::Ready(Ok(result)) => {
+                        self.as_mut()
+                            .set(DynReturnValueFutureProcedureStreamCompat::Inner { src: result });
+                        continue;
+                    }
+                    Poll::Ready(Err(err)) => return Poll::Ready(Some(Err(err))),
+                    Poll::Pending => return Poll::Pending,
+                },
+                DynReturnValueFutureProcedureStreamCompatProj::Inner { src } => {
+                    src.src.as_mut().poll_next_value(cx)
+                }
+            };
+        }
+    }
+
+    fn value(&self) -> &dyn erased_serde::Serialize {
+        match self {
+            // Attempted to acces value before first `Poll::Ready` was returned.
+            Self::Future { .. } => panic!("unreachable"),
+            Self::Inner { src } => src.src.value(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Future { .. } => (0, None),
+            Self::Inner { src } => src.src.size_hint(),
         }
     }
 }

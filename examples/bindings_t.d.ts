@@ -7,6 +7,7 @@ export type Procedures = {
 	nested: {
 	hello: { input: null, output: string, error: unknown },
 },
+	newstuff: { input: any, output: any, error: any },
 	pings: { input: null, output: string, error: unknown },
 	sendMsg: { input: string, output: string, error: unknown },
 	transformMe: { input: null, output: string, error: unknown },

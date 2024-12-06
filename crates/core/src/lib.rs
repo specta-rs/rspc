@@ -5,6 +5,7 @@
 //! TODO: Why this crate doesn't depend on Specta.
 //! TODO: Discuss the traits that need to be layered on for this to be useful.
 //! TODO: Discuss how middleware don't exist here.
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",

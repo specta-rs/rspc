@@ -9,8 +9,8 @@ use crate::{DeserializeError, DowncastError};
 
 /// TODO
 pub struct DynInput<'a, 'de> {
-    pub(crate) value: Option<&'a mut dyn Any>,
-    pub(crate) deserializer: Option<&'a mut dyn erased_serde::Deserializer<'de>>,
+    pub(crate) value: Option<&'a mut (dyn Any + Send)>,
+    pub(crate) deserializer: Option<&'a mut (dyn erased_serde::Deserializer<'de> + Send)>,
     pub(crate) type_name: &'static str,
 }
 

@@ -6,16 +6,7 @@
 //!
 //! Checkout the official docs at <https://rspc.dev>. This documentation is generally written **for authors of middleware and adapter**.
 //!
-// #![forbid(unsafe_code)] // TODO
-#![warn(
-    clippy::all,
-    clippy::cargo,
-    clippy::unwrap_used,
-    clippy::panic,
-    clippy::todo,
-    clippy::panic_in_result_fn,
-    // missing_docs
-)] // TODO: Move to workspace lints
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",
@@ -34,6 +25,9 @@ pub use languages::*;
 pub use procedure_kind::ProcedureKind;
 pub use router::Router2;
 pub use types::Types;
+
+#[deprecated = "This stuff is unstable. Don't use it unless you know what your doing"]
+pub mod modern;
 
 // TODO: These will come in the future.
 pub(crate) use procedure::Procedure2;

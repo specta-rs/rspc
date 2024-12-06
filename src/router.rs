@@ -184,3 +184,18 @@ fn get_flattened_name(name: &Vec<Cow<'static, str>>) -> Cow<'static, str> {
         name.join(".").to_string().into()
     }
 }
+
+// TODO: Remove once procedure syntax stabilizes
+impl<TCtx> Router2<TCtx> {
+    #[doc(hidden)]
+    // TODO: Enforce unique across all methods (query, subscription, etc). Eg. `insert` should yield error if key already exists.
+    pub fn procedure_not_stable(
+        mut self,
+        key: impl Into<Cow<'static, str>>,
+        mut procedure: Procedure2<TCtx>,
+    ) -> Self {
+        self.setup.extend(procedure.setup.drain(..));
+        self.procedures.insert(vec![key.into()], procedure);
+        self
+    }
+}

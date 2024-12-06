@@ -26,7 +26,7 @@ impl<TCtx> Procedure<TCtx> {
         }
     }
 
-    pub fn exec_with_deserializer<'de, D: Deserializer<'de>>(
+    pub fn exec_with_deserializer<'de, D: Deserializer<'de> + Send>(
         &self,
         ctx: TCtx,
         input: D,
@@ -41,7 +41,7 @@ impl<TCtx> Procedure<TCtx> {
         (self.handler)(ctx, value)
     }
 
-    pub fn exec_with_value<T: Any>(&self, ctx: TCtx, input: T) -> ProcedureStream {
+    pub fn exec_with_value<T: Any + Send>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         let mut input = Some(input);
         let value = DynInput {
             value: Some(&mut input),
