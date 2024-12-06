@@ -1,6 +1,17 @@
+use std::panic::Location;
+
 use specta::datatype::DataType;
 
-use crate::{internal::ProcedureKind, State};
+use crate::{ProcedureKind, State};
+
+#[derive(Clone)]
+pub(crate) struct ProcedureType {
+    pub(crate) kind: ProcedureKind,
+    pub(crate) input: DataType,
+    pub(crate) output: DataType,
+    pub(crate) error: DataType,
+    // pub(crate) location: Location<'static>,
+}
 
 /// Represents a single operations on the server that can be executed.
 ///
@@ -8,10 +19,7 @@ use crate::{internal::ProcedureKind, State};
 ///
 pub struct Procedure2<TCtx> {
     pub(crate) setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
-    pub(crate) kind: ProcedureKind,
-    pub(crate) input: DataType,
-    pub(crate) result: DataType,
-    pub(crate) error: DataType,
+    pub(crate) ty: ProcedureType,
     pub(crate) inner: rspc_core::Procedure<TCtx>,
 }
 
@@ -21,9 +29,9 @@ impl<TCtx> Procedure2<TCtx> {
     // TODO: `fn builder`
 
     // TODO: Make `pub`
-    pub(crate) fn kind(&self) -> ProcedureKind {
-        self.kind
-    }
+    // pub(crate) fn kind(&self) -> ProcedureKind2 {
+    //     self.kind
+    // }
 
     // TODO: Expose all fields
 

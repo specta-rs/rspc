@@ -5,7 +5,6 @@ use axum::{http::request::Parts, routing::get};
 use rspc::Router2;
 use serde::Serialize;
 use specta::Type;
-use specta_typescript::Typescript;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -60,7 +59,7 @@ fn mount() -> rspc::Router<Ctx> {
                 v
             })
         })
-        .mutation("anotherOne", |t| t(|_, v: String| Ok(MyCustomType(v))))
+        // .mutation("anotherOne", |t| t(|_, v: String| Ok(MyCustomType(v))))
         .subscription("pings", |t| {
             t(|_ctx, _args: ()| {
                 stream! {
@@ -92,12 +91,22 @@ fn mount() -> rspc::Router<Ctx> {
 async fn main() {
     let (routes, types) = Router2::from(mount()).build().unwrap();
 
-    types
+    rspc::Typescript::default()
+        // .formatter(specta_typescript::formatter::prettier),
+        .header("// My custom header")
+        .enable_source_maps()
         .export_to(
-            Typescript::default(),
-            // .formatter(specta_typescript::formatter::prettier),
-            // .header("// My custom header"),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
+        )
+        .unwrap();
+
+    // Be aware this is very experimental and doesn't support many types yet.
+    rspc::Rust::default()
+        // .header("// My custom header")
+        .export_to(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../client/src/bindings.rs"),
+            &types,
         )
         .unwrap();
 

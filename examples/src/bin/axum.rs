@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use example::{basic, selection, subscriptions};
 
 use axum::{http::request::Parts, routing::get};
-use rspc::{Config, Router};
+use rspc::Router;
 use specta_typescript::Typescript;
 use tower_http::cors::{Any, CorsLayer};
 

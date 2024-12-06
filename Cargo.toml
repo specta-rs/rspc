@@ -20,6 +20,9 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = []
 tracing = ["dep:tracing"]
 
+typescript = []
+rust = []
+
 [dependencies]
 # Public
 rspc-core = { path = "./crates/core" }
@@ -30,32 +33,34 @@ specta = { version = "=2.0.0-rc.20", features = [
     "serde",
     "serde_json",
 ] } # TODO: Drop all features
-specta-util = "0.0.7"
 
 # Private
 serde-value = "0.7"
 erased-serde = "0.4"
+specta-typescript = { version = "=0.0.7", features = [] }
+specta-rust = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 
 # Temporary # TODO: Remove
-specta-typescript = { version = "=0.0.7", features = [] }
 serde_json = "1.0.133"                                              # TODO: Drop this
 thiserror = "2.0.3"
 tokio = { version = "1.41.1", features = ["sync", "rt", "macros"] }
+specta-serde = "0.0.7"
 tracing = { version = "0.1.40", optional = true }
-transient = "0.4.1"
-better_any = "0.2.0"
+# transient = "0.4.1"
+# better_any = "0.2.0"
 
 # https://github.com/rust-lang/rust/issues/77125
-typeid = "1.0.2"
+# typeid = "1.0.2"
 
 [workspace]
-members = ["./crates/*", "./examples", "./examples/axum", "crates/core"]
+members = ["./crates/*", "./examples", "./examples/axum", "./examples/client", "crates/core"]
 
 [patch.crates-io]
-specta = { git = "https://github.com/specta-rs/specta", rev = "d13f097a43ca8170eaca33df84a2f368e08d63ab" }
-specta-util = { git = "https://github.com/specta-rs/specta", rev = "d13f097a43ca8170eaca33df84a2f368e08d63ab" }
-specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "d13f097a43ca8170eaca33df84a2f368e08d63ab" }
+specta = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+specta-serde = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 
 # specta = { path = "/Users/oscar/Desktop/specta/specta" }
-# specta-util = { path = "/Users/oscar/Desktop/specta/specta-util" }
 # specta-typescript = { path = "/Users/oscar/Desktop/specta/specta-typescript" }
+# specta-serde = { path = "/Users/oscar/Desktop/specta/specta-serde" }
+# specta-util = { path = "/Users/oscar/Desktop/specta/specta-util" }

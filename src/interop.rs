@@ -1,16 +1,16 @@
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{borrow::Cow, collections::BTreeMap, panic::Location};
 
-use futures::{stream, FutureExt, Stream, StreamExt, TryStreamExt};
+use futures::{stream, StreamExt, TryStreamExt};
 use rspc_core::{ProcedureStream, ResolverError};
 use serde_json::Value;
 use specta::{
     datatype::{DataType, EnumRepr, EnumVariant, LiteralType},
-    NamedType, Type,
+    NamedType, SpectaID, Type,
 };
 
 use crate::{
     internal::{Layer, ProcedureKind, RequestContext, ValueOrStream},
-    router::literal_object,
+    procedure::ProcedureType,
     Procedure2, Router, Router2,
 };
 
@@ -43,10 +43,13 @@ pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
                     .collect::<Vec<Cow<'static, str>>>(),
                 Procedure2 {
                     setup: Default::default(),
-                    kind,
-                    input: p.ty.arg_ty,
-                    result: p.ty.result_ty,
-                    error: specta::datatype::DataType::Unknown,
+                    ty: ProcedureType {
+                        kind,
+                        input: p.ty.arg_ty,
+                        output: p.ty.result_ty,
+                        error: specta::datatype::DataType::Unknown,
+                    },
+                    // location: Location::caller().clone(), // TODO: This needs to actually be correct
                     inner: layer_to_procedure(key, kind, p.exec),
                 },
             )
@@ -124,12 +127,12 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
     })
 }
 
-fn map_method<TCtx>(
+fn map_method(
     kind: ProcedureKind,
-    p: &BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>>,
+    p: &BTreeMap<Vec<Cow<'static, str>>, ProcedureType>,
 ) -> Vec<(Cow<'static, str>, EnumVariant)> {
     p.iter()
-        .filter(|(_, p)| p.kind() == kind)
+        .filter(|(_, p)| p.kind == kind)
         .map(|(key, p)| {
             let key = key.join(".").to_string();
             (
@@ -150,7 +153,7 @@ fn map_method<TCtx>(
                                 vec![
                                     ("key".into(), LiteralType::String(key.clone()).into()),
                                     ("input".into(), p.input.clone()),
-                                    ("result".into(), p.result.clone()),
+                                    ("result".into(), p.output.clone()),
                                 ]
                                 .into_iter(),
                             )),
@@ -163,8 +166,8 @@ fn map_method<TCtx>(
 }
 
 // TODO: Remove this block with the interop system
-pub(crate) fn construct_legacy_bindings_type<TCtx>(
-    p: &BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>>,
+pub(crate) fn construct_legacy_bindings_type(
+    p: &BTreeMap<Vec<Cow<'static, str>>, ProcedureType>,
 ) -> Vec<(Cow<'static, str>, DataType)> {
     #[derive(Type)]
     struct Queries;
@@ -211,4 +214,30 @@ pub(crate) fn construct_legacy_bindings_type<TCtx>(
             .into(),
         ),
     ]
+}
+
+// TODO: Probally using `DataTypeFrom` stuff cause we shouldn't be using `specta::internal`
+pub(crate) fn literal_object(
+    name: Cow<'static, str>,
+    sid: Option<SpectaID>,
+    fields: impl Iterator<Item = (Cow<'static, str>, DataType)>,
+) -> DataType {
+    specta::internal::construct::r#struct(
+        name,
+        sid,
+        Default::default(),
+        specta::internal::construct::struct_named(
+            fields
+                .into_iter()
+                .map(|(name, ty)| {
+                    (
+                        name.into(),
+                        specta::internal::construct::field(false, false, None, "".into(), Some(ty)),
+                    )
+                })
+                .collect(),
+            None,
+        ),
+    )
+    .into()
 }
