@@ -4,12 +4,7 @@ use serde_json::json;
 use specta::{datatype::DataType, NamedType, Type};
 use specta_typescript::{datatype, export_named_datatype, ExportError};
 
-use crate::{
-    interop::{construct_legacy_bindings_type, literal_object},
-    procedure::ProcedureType,
-    types::TypesOrType,
-    Types,
-};
+use crate::{procedure::ProcedureType, types::TypesOrType, util::literal_object, Types};
 
 pub struct Typescript {
     inner: specta_typescript::Typescript,
@@ -104,33 +99,13 @@ impl Typescript {
     }
 
     pub fn export(&self, types: &Types) -> Result<String, ExportError> {
-        // TODO: Add special `Bindings` type
+        let mut typess = types.types.clone();
 
-        let legacy_types = construct_legacy_bindings_type(&types.procedures);
-
-        // let bindings_types = types
-        //     .procedures
-        //     .iter()
-        //     .map(|(key, p)| construct_bindings_type(&key, &p))
-        //     .collect::<Vec<_>>();
-
-        let mut types = types.types.clone();
-
-        // {
-        //     #[derive(Type)]
-        //     struct Procedures;
-
-        //     let s = literal_object(
-        //         "Procedures".into(),
-        //         Some(Procedures::sid()),
-        //         bindings_types.into_iter(),
-        //     );
-        //     let mut ndt = Procedures::definition_named_data_type(&mut types);
-        //     ndt.inner = s.into();
-        //     types.insert(Procedures::sid(), ndt);
-        // }
-
+        #[cfg(not(feature = "nolegacy"))]
         {
+            let legacy_types =
+                crate::legacy::interop::construct_legacy_bindings_type(&types.procedures);
+
             #[derive(Type)]
             struct ProceduresLegacy;
 
@@ -139,12 +114,12 @@ impl Typescript {
                 Some(ProceduresLegacy::sid()),
                 legacy_types.into_iter(),
             );
-            let mut ndt = ProceduresLegacy::definition_named_data_type(&mut types);
+            let mut ndt = ProceduresLegacy::definition_named_data_type(&mut typess);
             ndt.inner = s.into();
-            types.insert(ProceduresLegacy::sid(), ndt);
+            typess.insert(ProceduresLegacy::sid(), ndt);
         }
 
-        self.inner.export(&types)
+        self.inner.export(&typess)
     }
 
     // pub fn export_ // TODO: Source map (can we make it be inline?)
@@ -159,7 +134,7 @@ fn generate_bindings(
     fn inner(
         out: &mut String,
         this: &Typescript,
-        mut on_procedure: &mut impl FnMut(&Cow<'static, str>, (usize, usize), &ProcedureType),
+        on_procedure: &mut impl FnMut(&Cow<'static, str>, (usize, usize), &ProcedureType),
         types: &Types,
         source_pos: (usize, usize),
         key: &Cow<'static, str>,

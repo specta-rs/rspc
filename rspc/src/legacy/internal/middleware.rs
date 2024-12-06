@@ -176,28 +176,7 @@ where
 
 // TODO: Is this a duplicate of any type?
 // TODO: Move into public API cause it might be used in middleware
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProcedureKind {
-    Query,
-    Mutation,
-    Subscription,
-}
-
-impl ProcedureKind {
-    pub fn to_str(&self) -> &'static str {
-        match self {
-            ProcedureKind::Query => "query",
-            ProcedureKind::Mutation => "mutation",
-            ProcedureKind::Subscription => "subscription",
-        }
-    }
-}
-
-impl ToString for ProcedureKind {
-    fn to_string(&self) -> String {
-        self.to_str().to_string()
-    }
-}
+pub use crate::ProcedureKind;
 
 // TODO: Maybe rename to `Request` or something else. Also move into Public API cause it might be used in middleware
 #[derive(Debug, Clone)]

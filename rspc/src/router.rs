@@ -8,7 +8,7 @@ use specta::TypeCollection;
 
 use rspc_core::Procedures;
 
-use crate::{internal::ProcedureKind, types::TypesOrType, Procedure2, State, Types};
+use crate::{types::TypesOrType, Procedure2, ProcedureKind, State, Types};
 
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
@@ -33,21 +33,23 @@ impl<TCtx> Router2<TCtx> {
     }
 
     // TODO: Enforce unique across all methods (query, subscription, etc). Eg. `insert` should yield error if key already exists.
-    // pub fn procedure(
-    //     mut self,
-    //     key: impl Into<Cow<'static, str>>,
-    //     mut procedure: Procedure2<TCtx>,
-    // ) -> Self {
-    //     self.setup.extend(procedure.setup.drain(..));
-    //     self.procedures.insert(vec![key.into()], procedure);
-    //     self
-    // }
+    #[cfg(feature = "unstable")]
+    pub fn procedure(
+        mut self,
+        key: impl Into<Cow<'static, str>>,
+        mut procedure: Procedure2<TCtx>,
+    ) -> Self {
+        self.setup.extend(procedure.setup.drain(..));
+        self.procedures.insert(vec![key.into()], procedure);
+        self
+    }
 
     // TODO: Document the order this is run in for `build`
-    // pub fn setup(mut self, func: impl FnOnce(&mut State) + 'static) -> Self {
-    //     self.setup.push(Box::new(func));
-    //     self
-    // }
+    #[cfg(feature = "unstable")]
+    pub fn setup(mut self, func: impl FnOnce(&mut State) + 'static) -> Self {
+        self.setup.push(Box::new(func));
+        self
+    }
 
     // TODO: Yield error if key already exists
     pub fn nest(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
@@ -71,7 +73,21 @@ impl<TCtx> Router2<TCtx> {
     }
 
     pub fn build(self) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, Types), ()> {
-        let mut state = ();
+        self.build_with_state_inner(State::default())
+    }
+
+    #[cfg(feature = "unstable")]
+    pub fn build_with_state(
+        self,
+        state: State,
+    ) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, Types), ()> {
+        self.build_with_state_inner(state)
+    }
+
+    fn build_with_state_inner(
+        self,
+        mut state: State,
+    ) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, Types), ()> {
         for setup in self.setup {
             setup(&mut state);
         }
@@ -155,14 +171,14 @@ impl<'a, TCtx> IntoIterator for &'a Router2<TCtx> {
     }
 }
 
-// TODO: Remove this block with the interop system
+#[cfg(not(feature = "nolegacy"))]
 impl<TCtx> From<crate::legacy::Router<TCtx>> for Router2<TCtx> {
     fn from(router: crate::legacy::Router<TCtx>) -> Self {
         crate::interop::legacy_to_modern(router)
     }
 }
 
-// TODO: Remove this block with the interop system
+#[cfg(not(feature = "nolegacy"))]
 impl<TCtx> Router2<TCtx> {
     pub(crate) fn interop_procedures(
         &mut self,
@@ -182,20 +198,5 @@ fn get_flattened_name(name: &Vec<Cow<'static, str>>) -> Cow<'static, str> {
         name[0].clone()
     } else {
         name.join(".").to_string().into()
-    }
-}
-
-// TODO: Remove once procedure syntax stabilizes
-impl<TCtx> Router2<TCtx> {
-    #[doc(hidden)]
-    // TODO: Enforce unique across all methods (query, subscription, etc). Eg. `insert` should yield error if key already exists.
-    pub fn procedure_not_stable(
-        mut self,
-        key: impl Into<Cow<'static, str>>,
-        mut procedure: Procedure2<TCtx>,
-    ) -> Self {
-        self.setup.extend(procedure.setup.drain(..));
-        self.procedures.insert(vec![key.into()], procedure);
-        self
     }
 }

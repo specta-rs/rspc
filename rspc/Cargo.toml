@@ -18,31 +18,29 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-tracing = ["dep:tracing"]
 
-typescript = []
-rust = []
+typescript = [] # TODO: "dep:specta-typescript"
+rust = ["dep:specta-rust"]
+
+# TODO: Remove these in future
+unstable = []
+nolegacy = []
 
 [dependencies]
 # Public
 rspc-core = { path = "../core" }
-serde = { version = "1", features = ["derive"] } # TODO: Remove features
-futures = "0.3"
+serde = "1"
+futures = "0.3" # TODO: Drop down to `futures-core` when removing legacy stuff?
 specta = { version = "=2.0.0-rc.20", features = [
-    "derive",
     "serde",
     "serde_json",
-] } # TODO: Drop all features
+    "derive", # TODO: remove this
+] }
 
 # Private
-serde-value = "0.7"
-erased-serde = "0.4"
-specta-typescript = { version = "=0.0.7", features = [] }
-specta-rust = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+specta-typescript = { version = "=0.0.7", features = [] } # TODO: Make optional once legacy stuff is removed -  optional = true,
+specta-rust = { git = "https://github.com/specta-rs/specta", optional = true, rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 
 # Temporary # TODO: Remove
-serde_json = "1.0.133"                                              # TODO: Drop this
+serde_json = "1.0.133"
 thiserror = "2.0.3"
-tokio = { version = "1.41.1", features = ["sync", "rt", "macros"] }
-specta-serde = "0.0.7"
-tracing = { version = "0.1.40", optional = true }

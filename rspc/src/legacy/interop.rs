@@ -12,6 +12,7 @@ use crate::{
     internal::{Layer, ProcedureKind, RequestContext, ValueOrStream},
     procedure::ProcedureType,
     types::TypesOrType,
+    util::literal_object,
     Procedure2, Router, Router2,
 };
 
@@ -242,30 +243,4 @@ fn flatten_procedures_for_legacy(
             }
         }
     }
-}
-
-// TODO: Probally using `DataTypeFrom` stuff cause we shouldn't be using `specta::internal`
-pub(crate) fn literal_object(
-    name: Cow<'static, str>,
-    sid: Option<SpectaID>,
-    fields: impl Iterator<Item = (Cow<'static, str>, DataType)>,
-) -> DataType {
-    specta::internal::construct::r#struct(
-        name,
-        sid,
-        Default::default(),
-        specta::internal::construct::struct_named(
-            fields
-                .into_iter()
-                .map(|(name, ty)| {
-                    (
-                        name.into(),
-                        specta::internal::construct::field(false, false, None, "".into(), Some(ty)),
-                    )
-                })
-                .collect(),
-            None,
-        ),
-    )
-    .into()
 }

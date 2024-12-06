@@ -29,7 +29,7 @@
 // //     note = "ResolverOutput requires a `T where T: serde::Serialize + specta::Type + 'static` to be returned from your procedure"
 // // )]
 
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use rspc_core::ProcedureStream;
 use serde::Serialize;
 use specta::{datatype::DataType, Generics, Type, TypeCollection};

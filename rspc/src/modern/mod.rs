@@ -6,7 +6,7 @@ mod infallible;
 mod state;
 mod stream;
 
-pub use crate::procedure::Procedure2;
+// pub use crate::procedure::Procedure2;
 pub use error::Error;
 pub use infallible::Infallible;
 pub use state::State;

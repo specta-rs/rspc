@@ -13,12 +13,13 @@
     html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
-pub(crate) mod interop;
 mod languages;
+pub(crate) mod modern;
 mod procedure;
 mod procedure_kind;
 mod router;
 mod types;
+pub(crate) mod util;
 
 #[allow(unused)]
 pub use languages::*;
@@ -26,20 +27,35 @@ pub use procedure_kind::ProcedureKind;
 pub use router::Router2;
 pub use types::Types;
 
-#[deprecated = "This stuff is unstable. Don't use it unless you know what your doing"]
-pub mod modern;
-
 // TODO: These will come in the future.
+#[cfg(not(feature = "unstable"))]
+pub(crate) use modern::State;
+#[cfg(not(feature = "unstable"))]
 pub(crate) use procedure::Procedure2;
-pub(crate) type State = ();
 
-// TODO: Expose everything from `rspc_core`?
+#[cfg(feature = "unstable")]
+pub use modern::{
+    middleware, procedure::ProcedureBuilder, procedure::ProcedureMeta, procedure::ResolverInput,
+    procedure::ResolverOutput, Error as Error2, Infallible, State, Stream,
+};
+#[cfg(feature = "unstable")]
+pub use procedure::Procedure2;
+
+pub use rspc_core::{
+    DeserializeError, DowncastError, DynInput, Procedure, ProcedureError, ProcedureStream,
+    Procedures, ResolverError,
+};
 
 // Legacy stuff
+#[cfg(not(feature = "nolegacy"))]
 mod legacy;
+
+#[cfg(not(feature = "nolegacy"))]
+pub(crate) use legacy::interop;
 
 // These remain to respect semver but will all go with the next major.
 #[allow(deprecated)]
+#[cfg(not(feature = "nolegacy"))]
 pub use legacy::{
     internal, test_result_type, test_result_value, typedef, Config, DoubleArgMarker,
     DoubleArgStreamMarker, Error, ErrorCode, ExecError, ExecKind, ExportError, FutureMarker,
@@ -47,3 +63,5 @@ pub use legacy::{
     MiddlewareWithResponseHandler, RequestLayer, Resolver, ResultMarker, Router, RouterBuilder,
     SerializeMarker, StreamResolver,
 };
+#[cfg(not(feature = "nolegacy"))]
+pub use rspc_core::LegacyErrorInterop;

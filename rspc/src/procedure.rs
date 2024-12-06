@@ -33,7 +33,7 @@ pub struct Procedure2<TCtx> {
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
 
 impl<TCtx> Procedure2<TCtx> {
-    #[doc(hidden)] // TODO: Remove this once stable
+    #[cfg(feature = "unstable")]
     /// Construct a new procedure using [`ProcedureBuilder`].
     #[track_caller]
     pub fn builder<I, R, TError>() -> ProcedureBuilder<TError, TCtx, TCtx, I, R>

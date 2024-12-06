@@ -3,12 +3,7 @@ use std::{marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
 use async_stream::stream;
 use axum::{http::request::Parts, routing::get};
 use rspc::{
-    modern::{
-        self,
-        middleware::Middleware,
-        procedure::{ResolverInput, ResolverOutput},
-        Procedure2,
-    },
+    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
     Router2,
 };
 use serde::Serialize;
@@ -104,14 +99,13 @@ pub enum Error {
     Mistake(String),
 }
 
-impl modern::Error for Error {}
+impl Error2 for Error {}
 
 pub struct BaseProcedure<TErr = Error>(PhantomData<TErr>);
 impl<TErr> BaseProcedure<TErr> {
-    pub fn builder<TInput, TResult>(
-    ) -> modern::procedure::ProcedureBuilder<TErr, Ctx, Ctx, TInput, TResult>
+    pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Ctx, Ctx, TInput, TResult>
     where
-        TErr: modern::Error,
+        TErr: Error2,
         TInput: ResolverInput,
         TResult: ResolverOutput<TErr>,
     {
@@ -121,10 +115,10 @@ impl<TErr> BaseProcedure<TErr> {
 
 fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
     router
-        .procedure_not_stable("newstuff", {
+        .procedure("newstuff", {
             <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
-        .procedure_not_stable("newstuff2", {
+        .procedure("newstuff2", {
             <BaseProcedure>::builder()
                 // .with(invalidation(|ctx: Ctx, key, event| false))
                 .with(Middleware::new(

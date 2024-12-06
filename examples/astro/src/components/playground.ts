@@ -9,3 +9,5 @@ function createProxy<T>(): { [K in keyof T]: () => T[K] } {
 const procedures = createProxy<Procedures>();
 
 procedures.version();
+
+procedures.newstuff();
