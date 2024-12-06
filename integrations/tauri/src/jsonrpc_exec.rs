@@ -74,8 +74,8 @@ impl Sender2 {
             Self::ResponseChannel(tx) => tx.send(resp)?,
             Self::Broadcast(tx) => {
                 let _ = tx.send(resp).map_err(|_err| {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Failed to send response: {}", _err);
+                    // #[cfg(feature = "tracing")]
+                    // tracing::error!("Failed to send response: {}", _err);
                 });
             }
         }
@@ -94,8 +94,8 @@ impl<'a> Sender<'a> {
             Self::ResponseChannel(tx) => tx.send(resp)?,
             Self::Broadcast(tx) => {
                 let _ = tx.send(resp).map_err(|_err| {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Failed to send response: {}", _err);
+                    // #[cfg(feature = "tracing")]
+                    // tracing::error!("Failed to send response: {}", _err);
                 });
             }
             Self::Response(r) => {
@@ -138,8 +138,8 @@ pub async fn handle_json_rpc<TCtx>(
             })
             .await
             .map_err(|_err| {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Failed to send response: {}", _err);
+                // #[cfg(feature = "tracing")]
+                // tracing::error!("Failed to send response: {}", _err);
             });
     }
 
@@ -168,8 +168,8 @@ pub async fn handle_json_rpc<TCtx>(
                     .expect("checked at if above")
                     .map(ResponseInner::Response)
                     .unwrap_or_else(|err| {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Error executing operation: {:?}", err);
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error executing operation: {:?}", err);
 
                         ResponseInner::Error(match err {
                             ProcedureError::Deserialize(_) => jsonrpc::JsonRPCError {
@@ -220,8 +220,8 @@ pub async fn handle_json_rpc<TCtx>(
                         })
                         .await
                         .map_err(|_err| {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("Failed to send response: {}", _err);
+                            // #[cfg(feature = "tracing")]
+                            // tracing::error!("Failed to send response: {}", _err);
                         });
                 }
 
@@ -240,8 +240,8 @@ pub async fn handle_json_rpc<TCtx>(
                             })
                             .await
                             .map_err(|_err| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Failed to send response: {}", _err);
+                                // #[cfg(feature = "tracing")]
+                                // tracing::error!("Failed to send response: {}", _err);
                             });
                     } else if subscriptions.has_subscription(&id).await {
                         let _ = sender
@@ -256,8 +256,8 @@ pub async fn handle_json_rpc<TCtx>(
                             })
                             .await
                             .map_err(|_err| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Failed to send response: {}", _err);
+                                // #[cfg(feature = "tracing")]
+                                // tracing::error!("Failed to send response: {}", _err);
                             });
                     }
 
@@ -275,13 +275,13 @@ pub async fn handle_json_rpc<TCtx>(
                                     })
                                     .await
                                     .map_err(|_err| {
-                                        #[cfg(feature = "tracing")]
-                                        tracing::error!("Failed to send response: {:?}", _err);
+                                        // #[cfg(feature = "tracing")]
+                                        // tracing::error!("Failed to send response: {:?}", _err);
                                     });
                             }
                             Some(Err(_err)) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Subscription error: {:?}", _err);
+                                // #[cfg(feature = "tracing")]
+                                // tracing::error!("Subscription error: {:?}", _err);
                             }
                             None => return,
                         }
@@ -290,8 +290,8 @@ pub async fn handle_json_rpc<TCtx>(
                             tokio::select! {
                                 biased; // Note: Order matters
                                 _ = &mut shutdown_rx => {
-                                    #[cfg(feature = "tracing")]
-                                    tracing::debug!("Removing subscription with id '{:?}'", id);
+                                    // #[cfg(feature = "tracing")]
+                                    // tracing::debug!("Removing subscription with id '{:?}'", id);
                                     break;
                                 }
                                 v = stream.next(serde_json::value::Serializer) => {
@@ -304,13 +304,13 @@ pub async fn handle_json_rpc<TCtx>(
                                             })
                                             .await
                                             .map_err(|_err| {
-                                                #[cfg(feature = "tracing")]
-                                                tracing::error!("Failed to send response: {:?}", _err);
+                                                // #[cfg(feature = "tracing")]
+                                                // tracing::error!("Failed to send response: {:?}", _err);
                                             });
                                         }
                                         Some(Err(_err)) => {
-                                           #[cfg(feature = "tracing")]
-                                            tracing::error!("Subscription error: {:?}", _err);
+                                           // #[cfg(feature = "tracing")]
+                                           //  tracing::error!("Subscription error: {:?}", _err);
                                         }
                                         None => {
                                             break;
@@ -326,8 +326,8 @@ pub async fn handle_json_rpc<TCtx>(
             }
         }
         None => {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error executing operation: the requested operation '{path}' is not supported by this server");
+            // #[cfg(feature = "tracing")]
+            // tracing::error!("Error executing operation: the requested operation '{path}' is not supported by this server");
             ResponseInner::Error(jsonrpc::JsonRPCError {
                 code: 404,
                 message: "the requested operation is not supported by this server".to_string(),
@@ -344,7 +344,7 @@ pub async fn handle_json_rpc<TCtx>(
         })
         .await
         .map_err(|_err| {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Failed to send response: {:?}", _err);
+            // #[cfg(feature = "tracing")]
+            // tracing::error!("Failed to send response: {:?}", _err);
         });
 }

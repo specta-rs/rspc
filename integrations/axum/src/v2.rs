@@ -117,8 +117,8 @@ where
     let input = match input {
         Ok(input) => input,
         Err(_err) => {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error passing parameters to operation '{procedure_name}': {_err}");
+            // #[cfg(feature = "tracing")]
+            // tracing::error!("Error passing parameters to operation '{procedure_name}': {_err}");
 
             return Response::builder()
                 .status(StatusCode::NOT_FOUND)
@@ -128,16 +128,16 @@ where
         }
     };
 
-    #[cfg(feature = "tracing")]
-    tracing::debug!("Executing operation '{procedure_name}' with params {input:?}");
+    // #[cfg(feature = "tracing")]
+    // tracing::debug!("Executing operation '{procedure_name}' with params {input:?}");
 
     let mut resp = Sender::Response(None);
 
     let ctx = match ctx_fn.exec(parts, &state).await {
         Ok(ctx) => ctx,
         Err(_err) => {
-            #[cfg(feature = "tracing")]
-            tracing::error!("Error executing context function: {}", _err);
+            // #[cfg(feature = "tracing")]
+            // tracing::error!("Error executing context function: {}", _err);
 
             return Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -162,8 +162,8 @@ where
                     input,
                 },
                 ProcedureKind::Subscription => {
-                    #[cfg(feature = "tracing")]
-                    tracing::error!("Attempted to execute a subscription operation with HTTP");
+                    // #[cfg(feature = "tracing")]
+                    // tracing::error!("Attempted to execute a subscription operation with HTTP");
 
                     return Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -187,8 +187,8 @@ where
                 .body(Body::from(v))
                 .unwrap(),
             Err(_err) => {
-                #[cfg(feature = "tracing")]
-                tracing::error!("Error serializing response: {}", _err);
+                // #[cfg(feature = "tracing")]
+                // tracing::error!("Error serializing response: {}", _err);
 
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -217,8 +217,8 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
     use futures::StreamExt;
     use tokio::sync::mpsc;
 
-    #[cfg(feature = "tracing")]
-    tracing::debug!("Accepting websocket connection");
+    // #[cfg(feature = "tracing")]
+    // tracing::debug!("Accepting websocket connection");
 
     let mut subscriptions = HashMap::new();
     let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
@@ -230,16 +230,16 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
                 match socket.send(Message::Text(match serde_json::to_string(&msg) {
                     Ok(v) => v,
                     Err(_err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Error serializing websocket message: {}", _err);
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error serializing websocket message: {}", _err);
 
                         continue;
                     }
                 })).await {
                     Ok(_) => {}
                     Err(_err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Error sending websocket message: {}", _err);
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error sending websocket message: {}", _err);
 
                         continue;
                     }
@@ -268,8 +268,8 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
                                         },
                                         Err(_err) => {
 
-                                            #[cfg(feature = "tracing")]
-                                            tracing::error!("Error executing context function: {}", _err);
+                                            // #[cfg(feature = "tracing")]
+                                            // tracing::error!("Error executing context function: {}", _err);
 
                                             continue;
                                         }
@@ -280,8 +280,8 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
                                 }
                             },
                             Err(_err) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("Error parsing websocket message: {}", _err);
+                                // #[cfg(feature = "tracing")]
+                                // tracing::error!("Error parsing websocket message: {}", _err);
 
                                 // TODO: Send report of error to frontend
 
@@ -290,16 +290,16 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
                         };
                     }
                     Some(Err(_err)) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Error in websocket: {}", _err);
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error in websocket: {}", _err);
 
                         // TODO: Send report of error to frontend
 
                         continue;
                     },
                     None => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!("Shutting down websocket connection");
+                        // #[cfg(feature = "tracing")]
+                        // tracing::debug!("Shutting down websocket connection");
 
                         // TODO: Send report of error to frontend
 

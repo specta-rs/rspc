@@ -65,8 +65,8 @@ where
                         let _ = app_handle
                             .emit("plugin:rspc:transport:resp", event)
                             .map_err(|err| {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("failed to emit JSON-RPC response: {}", err);
+                                // #[cfg(feature = "tracing")]
+                                // tracing::error!("failed to emit JSON-RPC response: {}", err);
                             });
                     }
                 });
@@ -77,14 +77,14 @@ where
                     .send(match serde_json::from_str(event.payload()) {
                         Ok(v) => v,
                         Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("failed to parse JSON-RPC request: {}", err);
+                            // #[cfg(feature = "tracing")]
+                            // tracing::error!("failed to parse JSON-RPC request: {}", err);
                             return;
                         }
                     })
                     .map_err(|err| {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("failed to send JSON-RPC request: {}", err);
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("failed to send JSON-RPC request: {}", err);
                     });
             });
 
