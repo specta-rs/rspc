@@ -20,7 +20,7 @@ default = []
 ws = ["axum/ws"]
 
 [dependencies]
-rspc-core = { version = "0.0.1", path = "../core" }
+rspc-core = { version = "0.0.1", path = "../../crates/core" }
 axum = "0.7.9"
 serde_json = "1"
 

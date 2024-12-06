@@ -46,14 +46,9 @@ thiserror = "2.0.3"
 tokio = { version = "1.41.1", features = ["sync", "rt", "macros"] }
 specta-serde = "0.0.7"
 tracing = { version = "0.1.40", optional = true }
-# transient = "0.4.1"
-# better_any = "0.2.0"
-
-# https://github.com/rust-lang/rust/issues/77125
-# typeid = "1.0.2"
 
 [workspace]
-members = ["./crates/*", "./examples", "./examples/axum", "./examples/client", "crates/core"]
+members = ["./integrations/*", "./middleware/*", "./crates/*", "./examples", "./examples/axum", "./examples/client", "crates/core"]
 
 [patch.crates-io]
 specta = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
@@ -64,3 +59,11 @@ specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "bf3a09
 # specta-typescript = { path = "/Users/oscar/Desktop/specta/specta-typescript" }
 # specta-serde = { path = "/Users/oscar/Desktop/specta/specta-serde" }
 # specta-util = { path = "/Users/oscar/Desktop/specta/specta-util" }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+unwrap_used = { level = "warn", priority = -1 }
+panic = { level = "warn", priority = -1 }
+todo = { level = "warn", priority = -1 }
+panic_in_result_fn = { level = "warn", priority = -1 }

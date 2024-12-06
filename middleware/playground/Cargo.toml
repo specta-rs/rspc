@@ -1,0 +1,15 @@
+[package]
+name = "rspc-playground"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
