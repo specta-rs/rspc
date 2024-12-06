@@ -7,7 +7,6 @@ use std::{
 };
 
 use rspc::{Config, Router};
-use specta_typescript::Typescript;
 
 #[derive(Clone)]
 pub struct MyCtx {
@@ -26,10 +25,10 @@ async fn main() {
 
     let (routes, types) = rspc::Router2::from(router).build().unwrap();
 
-    types
+    rspc::Typescript::default()
         .export_to(
-            Typescript::default(),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
         )
         .unwrap();
 

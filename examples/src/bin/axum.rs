@@ -6,7 +6,6 @@ use example::{basic, selection, subscriptions};
 
 use axum::{http::request::Parts, routing::get};
 use rspc::Router;
-use specta_typescript::Typescript;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -28,10 +27,10 @@ async fn main() {
 
     let (routes, types) = rspc::Router2::from(router).build().unwrap();
 
-    types
+    rspc::Typescript::default()
         .export_to(
-            Typescript::default(),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
         )
         .unwrap();
 

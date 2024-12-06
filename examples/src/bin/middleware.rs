@@ -3,7 +3,6 @@ use std::{path::PathBuf, time::Duration};
 use async_stream::stream;
 use axum::routing::get;
 use rspc::{Config, ErrorCode, MiddlewareContext, Router};
-use specta_typescript::Typescript;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -101,10 +100,10 @@ async fn main() {
 
     let (routes, types) = rspc::Router2::from(router).build().unwrap();
 
-    types
+    rspc::Typescript::default()
         .export_to(
-            Typescript::default(),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
         )
         .unwrap();
 

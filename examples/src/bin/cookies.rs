@@ -4,7 +4,6 @@ use std::{ops::Add, path::PathBuf};
 
 use axum::routing::get;
 use rspc::Config;
-use specta_typescript::Typescript;
 use time::OffsetDateTime;
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use tower_http::cors::{Any, CorsLayer};
@@ -35,10 +34,10 @@ async fn main() {
 
     let (routes, types) = rspc::Router2::from(router).build().unwrap();
 
-    types
+    rspc::Typescript::default()
         .export_to(
-            Typescript::default(),
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
         )
         .unwrap();
 

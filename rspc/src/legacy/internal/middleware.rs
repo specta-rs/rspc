@@ -193,6 +193,12 @@ impl ProcedureKind {
     }
 }
 
+impl ToString for ProcedureKind {
+    fn to_string(&self) -> String {
+        self.to_str().to_string()
+    }
+}
+
 // TODO: Maybe rename to `Request` or something else. Also move into Public API cause it might be used in middleware
 #[derive(Debug, Clone)]
 pub struct RequestContext {

@@ -15,7 +15,7 @@ impl<T: fmt::Debug> Traceable<DebugMarker> for T {
 #[doc(hidden)]
 pub enum StreamMarker {}
 // `rspc::Stream: !Debug` so the marker will never overlap
-impl<S> Traceable<StreamMarker> for rspc::Stream<S>
+impl<S> Traceable<StreamMarker> for rspc::modern::Stream<S>
 where
     S: futures::Stream,
     S::Item: fmt::Debug,

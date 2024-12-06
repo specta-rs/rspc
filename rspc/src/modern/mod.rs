@@ -11,3 +11,5 @@ pub use error::Error;
 pub use infallible::Infallible;
 pub use state::State;
 pub use stream::Stream;
+
+pub use rspc_core::DynInput;
