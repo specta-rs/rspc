@@ -14,18 +14,19 @@
 // TODO: Supporting transport formats other than JSON?
 // TODO: Is this safe to use from the same app that defines the router? If not we should try and forbid it with a compiler error.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, marker::PhantomData};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// TODO
 #[derive(Debug, Clone)]
-pub struct Client {
+pub struct Client<P> {
     url: Cow<'static, str>,
     client: reqwest::Client,
+    phantom: PhantomData<P>,
 }
 
-impl Client {
+impl<P> Client<P> {
     pub fn new(url: impl Into<Cow<'static, str>>) -> Self {
         Self {
             url: url.into(),
@@ -37,10 +38,14 @@ impl Client {
                 ))
                 .build()
                 .unwrap(), // TODO: Can this fail?
+            phantom: PhantomData,
         }
     }
 
-    pub async fn exec<O: Procedure>(&self, input: O::Input) -> Result<O::Output, O::Error> {
+    pub async fn exec<O: Procedure<Procedures = P>>(
+        &self,
+        input: O::Input,
+    ) -> Result<O::Output, O::Error> {
         let url = format!(
             "{}{}{}",
             self.url,
@@ -110,6 +115,7 @@ pub trait Procedure {
     type Input: Serialize;
     type Output: DeserializeOwned;
     type Error: DeserializeOwned;
+    type Procedures;
 
     const KEY: &'static str;
     const KIND: ProcedureKind;

@@ -11,6 +11,7 @@ use specta::{
 use crate::{
     internal::{Layer, ProcedureKind, RequestContext, ValueOrStream},
     procedure::ProcedureType,
+    types::TypesOrType,
     Procedure2, Router, Router2,
 };
 
@@ -48,6 +49,9 @@ pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
                         input: p.ty.arg_ty,
                         output: p.ty.result_ty,
                         error: specta::datatype::DataType::Unknown,
+                        // TODO: This location is obviously wrong but the legacy router has no location information.
+                        // This will work properly with the new procedure syntax.
+                        location: Location::caller().clone(),
                     },
                     // location: Location::caller().clone(), // TODO: This needs to actually be correct
                     inner: layer_to_procedure(key, kind, p.exec),
@@ -167,7 +171,7 @@ fn map_method(
 
 // TODO: Remove this block with the interop system
 pub(crate) fn construct_legacy_bindings_type(
-    p: &BTreeMap<Vec<Cow<'static, str>>, ProcedureType>,
+    map: &BTreeMap<Cow<'static, str>, TypesOrType>,
 ) -> Vec<(Cow<'static, str>, DataType)> {
     #[derive(Type)]
     struct Queries;
@@ -175,6 +179,11 @@ pub(crate) fn construct_legacy_bindings_type(
     struct Mutations;
     #[derive(Type)]
     struct Subscriptions;
+
+    let mut p = BTreeMap::new();
+    for (k, v) in map {
+        flatten_procedures_for_legacy(&mut p, vec![k.clone()], v.clone());
+    }
 
     vec![
         (
@@ -185,7 +194,7 @@ pub(crate) fn construct_legacy_bindings_type(
                 EnumRepr::Untagged,
                 false,
                 Default::default(),
-                map_method(ProcedureKind::Query, p),
+                map_method(ProcedureKind::Query, &p),
             )
             .into(),
         ),
@@ -197,7 +206,7 @@ pub(crate) fn construct_legacy_bindings_type(
                 EnumRepr::Untagged,
                 false,
                 Default::default(),
-                map_method(ProcedureKind::Mutation, p),
+                map_method(ProcedureKind::Mutation, &p),
             )
             .into(),
         ),
@@ -209,11 +218,30 @@ pub(crate) fn construct_legacy_bindings_type(
                 EnumRepr::Untagged,
                 false,
                 Default::default(),
-                map_method(ProcedureKind::Subscription, p),
+                map_method(ProcedureKind::Subscription, &p),
             )
             .into(),
         ),
     ]
+}
+
+fn flatten_procedures_for_legacy(
+    p: &mut BTreeMap<Vec<Cow<'static, str>>, ProcedureType>,
+    key: Vec<Cow<'static, str>>,
+    item: TypesOrType,
+) {
+    match item {
+        TypesOrType::Type(ty) => {
+            p.insert(key, ty);
+        }
+        TypesOrType::Types(types) => {
+            for (k, v) in types {
+                let mut key = key.clone();
+                key.push(k.clone());
+                flatten_procedures_for_legacy(p, key, v);
+            }
+        }
+    }
 }
 
 // TODO: Probally using `DataTypeFrom` stuff cause we shouldn't be using `specta::internal`

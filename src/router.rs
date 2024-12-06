@@ -1,10 +1,14 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    fmt,
+};
 
-use specta::{datatype::DataType, SpectaID, TypeCollection};
+use specta::TypeCollection;
 
 use rspc_core::Procedures;
 
-use crate::{internal::ProcedureKind, procedure::ProcedureType, Procedure2, State, Types};
+use crate::{internal::ProcedureKind, types::TypesOrType, Procedure2, State, Types};
 
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
@@ -32,11 +36,10 @@ impl<TCtx> Router2<TCtx> {
     // pub fn procedure(
     //     mut self,
     //     key: impl Into<Cow<'static, str>>,
-    //     procedure: Procedure2<TCtx>,
+    //     mut procedure: Procedure2<TCtx>,
     // ) -> Self {
-    //     let name = key.into();
-    //     self.procedures.insert(name, procedure);
-    //     self.setup.extend(procedure.setup);
+    //     self.setup.extend(procedure.setup.drain(..));
+    //     self.procedures.insert(vec![key.into()], procedure);
     //     self
     // }
 
@@ -46,6 +49,7 @@ impl<TCtx> Router2<TCtx> {
     //     self
     // }
 
+    // TODO: Yield error if key already exists
     pub fn nest(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
         self.setup.append(&mut other.setup);
 
@@ -56,10 +60,10 @@ impl<TCtx> Router2<TCtx> {
                 k.push(prefix.clone());
                 (k, v)
             }));
-
         self
     }
 
+    // TODO: Yield error if key already exists
     pub fn merge(mut self, mut other: Self) -> Self {
         self.setup.append(&mut other.setup);
         self.procedures.extend(other.procedures.into_iter());
@@ -72,11 +76,27 @@ impl<TCtx> Router2<TCtx> {
             setup(&mut state);
         }
 
-        let (procedure_types, procedures): (BTreeMap<_, _>, BTreeMap<_, _>) = self
+        let mut procedure_types = BTreeMap::new();
+        let procedures = self
             .procedures
             .into_iter()
-            .map(|(key, p)| ((key.clone(), p.ty), (key, p.inner)))
-            .unzip();
+            .map(|(key, p)| {
+                let mut current = &mut procedure_types;
+                // TODO: if `key.len()` is `0` we might run into issues here. It shouldn't but probs worth protecting.
+                for part in &key[..(key.len() - 1)] {
+                    let a = current
+                        .entry(part.clone())
+                        .or_insert_with(|| TypesOrType::Types(Default::default()));
+                    match a {
+                        TypesOrType::Type(_) => unreachable!(), // TODO: Confirm this is unreachable
+                        TypesOrType::Types(map) => current = map,
+                    }
+                }
+                current.insert(key[key.len() - 1].clone(), TypesOrType::Type(p.ty));
+
+                (get_flattened_name(&key), p.inner)
+            })
+            .collect::<HashMap<_, _>>();
 
         struct Impl<TCtx>(Procedures<TCtx>);
         impl<TCtx> Into<Procedures<TCtx>> for Impl<TCtx> {
@@ -111,7 +131,7 @@ impl<TCtx> fmt::Debug for Router2<TCtx> {
             self.procedures
                 .iter()
                 .filter(move |(_, p)| p.ty.kind == kind)
-                .map(|(k, _)| k.join("::"))
+                .map(|(k, _)| k.join("."))
                 .collect::<Vec<_>>()
         };
 
@@ -152,5 +172,15 @@ impl<TCtx> Router2<TCtx> {
 
     pub(crate) fn interop_types(&mut self) -> &mut TypeCollection {
         &mut self.types
+    }
+}
+
+fn get_flattened_name(name: &Vec<Cow<'static, str>>) -> Cow<'static, str> {
+    if name.len() == 1 {
+        // By cloning we are ensuring we passthrough to the `Cow` to avoid cloning if this is a `&'static str`.
+        // Doing `.join` will always produce a new `String` removing the `&'static str` optimization.
+        name[0].clone()
+    } else {
+        name.join(".").to_string().into()
     }
 }

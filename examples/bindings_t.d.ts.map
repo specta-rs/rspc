@@ -1,1 +1,1 @@
-{"file":"bindings_t.d.ts","mappings":"","names":[],"sources":[],"version":3}
+{"file":"bindings_t.d.ts","mappings":";;;;CAqDmCA;CAAAC;;CAAAC;;CAAAC;CAAAC;CAAAC;CAAAC;","names":["echo","error","hello","pings","sendMsg","transformMe","version"],"sources":["/Users/oscar/Desktop/rspc/src/interop.rs"],"version":3}

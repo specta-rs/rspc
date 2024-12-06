@@ -35,7 +35,7 @@ pub use procedure::Procedure;
 pub use stream::ProcedureStream;
 
 pub type Procedures<TCtx> =
-    std::collections::BTreeMap<Vec<std::borrow::Cow<'static, str>>, Procedure<TCtx>>;
+    std::collections::HashMap<std::borrow::Cow<'static, str>, Procedure<TCtx>>;
 
 // TODO: The naming is horid.
 // Low-level concerns:

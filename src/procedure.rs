@@ -10,7 +10,7 @@ pub(crate) struct ProcedureType {
     pub(crate) input: DataType,
     pub(crate) output: DataType,
     pub(crate) error: DataType,
-    // pub(crate) location: Location<'static>,
+    pub(crate) location: Location<'static>,
 }
 
 /// Represents a single operations on the server that can be executed.

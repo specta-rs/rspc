@@ -19,20 +19,14 @@ use tokio::sync::mpsc;
 mod jsonrpc;
 mod jsonrpc_exec;
 
-pub(crate) type Routes<TCtx> = HashMap<String, Procedure<TCtx>>;
-
 pub fn plugin<R: Runtime, TCtx>(
-    router: impl Into<Procedures<TCtx>>,
+    routes: impl Into<Procedures<TCtx>>,
     ctx_fn: impl Fn(AppHandle<R>) -> TCtx + Send + Sync + 'static,
 ) -> TauriPlugin<R>
 where
     TCtx: Send + 'static,
 {
-    let routes = router
-        .into()
-        .into_iter()
-        .map(|(key, value)| (key.join("."), value))
-        .collect::<Routes<TCtx>>();
+    let routes = routes.into();
 
     Builder::new("rspc")
         .setup(|app_handle, _| {

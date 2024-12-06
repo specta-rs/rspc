@@ -17,10 +17,8 @@ use crate::{
     jsonrpc_exec::{handle_json_rpc, Sender, SubscriptionMap},
 };
 
-pub(crate) type Routes<TCtx> = HashMap<String, Procedure<TCtx>>;
-
 pub fn endpoint<TCtx, TCtxFnMarker, TCtxFn, S>(
-    router: impl Into<Procedures<TCtx>>,
+    routes: impl Into<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> Router<S>
 where
@@ -29,11 +27,7 @@ where
     TCtxFnMarker: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
 {
-    let routes = router
-        .into()
-        .into_iter()
-        .map(|(key, value)| (key.join("."), value))
-        .collect::<Routes<TCtx>>();
+    let routes = routes.into();
 
     Router::<S>::new().route(
         "/:id",
@@ -92,7 +86,7 @@ async fn handle_http<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
     req: Request,
-    routes: &Routes<TCtx>,
+    routes: &Procedures<TCtx>,
     state: TState,
 ) -> impl IntoResponse
 where
@@ -212,7 +206,7 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     mut socket: axum::extract::ws::WebSocket,
     parts: Parts,
-    routes: Routes<TCtx>,
+    routes: Procedures<TCtx>,
     state: TState,
 ) where
     TCtx: Send + Sync + 'static,

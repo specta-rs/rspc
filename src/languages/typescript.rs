@@ -1,13 +1,13 @@
-use std::{borrow::Cow, collections::BTreeMap, path::Path};
+use std::{borrow::Cow, collections::BTreeMap, iter::once, path::Path};
 
 use serde_json::json;
-use specta::{datatype::DataType, internal::detect_duplicate_type_names, NamedType, Type};
-use specta_serde::is_valid_ty;
-use specta_typescript::{export_named_datatype, ExportError};
+use specta::{datatype::DataType, NamedType, Type};
+use specta_typescript::{datatype, export_named_datatype, ExportError};
 
 use crate::{
     interop::{construct_legacy_bindings_type, literal_object},
     procedure::ProcedureType,
+    types::TypesOrType,
     Types,
 };
 
@@ -56,7 +56,7 @@ impl Typescript {
 
             bindings += "export { Procedures } from './bindings_t';";
         } else {
-            generate_bindings(&mut bindings, types);
+            generate_bindings(&mut bindings, self, types, |_, _, _| {});
         }
         std::fs::write(&path, bindings)?;
         self.inner.format(&path)?;
@@ -64,15 +64,28 @@ impl Typescript {
         if self.generate_source_maps {
             let stem = path.file_stem().unwrap().to_str().unwrap().to_string(); // TODO: Error handling
             let d_ts_file_name = format!("{stem}_t.d.ts");
+            let d_ts_map_file_name = format!("{stem}_t.d.ts.map");
             let d_ts_path = path.parent().unwrap().join(&d_ts_file_name); // TODO: Error handling
-            let d_ts_map_path = path.parent().unwrap().join(&format!("{stem}_t.d.ts.map")); // TODO: Error handling
+            let d_ts_map_path = path.parent().unwrap().join(&d_ts_map_file_name); // TODO: Error handling
 
             // let mut bindings = construct_file(self);
             // bindings += "export * from './bindings_t';";
 
-            let source_map = SourceMap::default();
+            let mut source_map = SourceMap::default();
             let mut d_ts_file = construct_file(self);
-            generate_bindings(&mut d_ts_file, types);
+            generate_bindings(&mut d_ts_file, self, types, |name, pos, procedure_type| {
+                source_map.insert(
+                    name.to_string(),
+                    pos,
+                    (
+                        // TODO: Don't cast
+                        procedure_type.location.line() as usize,
+                        procedure_type.location.column() as usize,
+                    ),
+                    procedure_type.location.file().to_string(),
+                );
+            });
+            d_ts_file += &format!("\n//# sourceMappingURL={d_ts_map_file_name}");
 
             // std::fs::write(&path, bindings)?;
             std::fs::write(&d_ts_path, d_ts_file)?;
@@ -80,7 +93,7 @@ impl Typescript {
                 &d_ts_map_path,
                 source_map.generate(
                     d_ts_file_name.into(),
-                    "todo".into(), // TODO
+                    "".into(), // TODO
                 ),
             )?;
 
@@ -137,28 +150,86 @@ impl Typescript {
     // pub fn export_ // TODO: Source map (can we make it be inline?)
 }
 
-fn generate_bindings(out: &mut String, types: &Types) {
-    *out += "export type Procedures = {\n";
+fn generate_bindings(
+    out: &mut String,
+    this: &Typescript,
+    types: &Types,
+    mut on_procedure: impl FnMut(&Cow<'static, str>, (usize, usize), &ProcedureType),
+) {
+    fn inner(
+        out: &mut String,
+        this: &Typescript,
+        mut on_procedure: &mut impl FnMut(&Cow<'static, str>, (usize, usize), &ProcedureType),
+        types: &Types,
+        source_pos: (usize, usize),
+        key: &Cow<'static, str>,
+        item: &TypesOrType,
+    ) {
+        match item {
+            TypesOrType::Type(procedure_type) => {
+                on_procedure(&key, source_pos, procedure_type);
 
-    for (name, ty) in types.procedures.iter() {
-        *out += "\t";
-        // *out += name.join(".");
-        *out += ": {},\n";
+                // *out += "\t"; // TODO: Correct padding
+                *out += "{ input: ";
+                *out += &datatype(
+                    &this.inner,
+                    &specta::datatype::FunctionResultVariant::Value(procedure_type.input.clone()),
+                    &types.types,
+                )
+                .unwrap(); // TODO: Error handling
+
+                *out += ", output: ";
+                *out += &datatype(
+                    &this.inner,
+                    &specta::datatype::FunctionResultVariant::Value(procedure_type.output.clone()),
+                    &types.types,
+                )
+                .unwrap(); // TODO: Error handling
+
+                *out += ", error: ";
+                *out += &datatype(
+                    &this.inner,
+                    &specta::datatype::FunctionResultVariant::Value(procedure_type.error.clone()),
+                    &types.types,
+                )
+                .unwrap(); // TODO: Error handling
+
+                *out += " }";
+            }
+            TypesOrType::Types(btree_map) => {
+                // TODO: Jump to definition on routers
+                // *out += "name: ";
+
+                *out += "{\n";
+
+                for (key, item) in btree_map.iter() {
+                    *out += "\t";
+
+                    let source_pos = get_current_pos(out);
+
+                    *out += key;
+                    *out += ": ";
+                    inner(out, this, on_procedure, types, source_pos, key, &item);
+                    *out += ",\n";
+                }
+
+                *out += "}";
+            }
+        }
     }
 
-    // let generated_pos = get_current_pos(&types);
-    // let source_pos = (location.line() as usize, (location.column() - 1) as usize);
-    // types.push_str(name);
-    // types.push_str(": { input: string },\n");
-
-    // map.insert(
-    //     name.to_string(),
-    //     generated_pos,
-    //     source_pos,
-    //     location.file().to_string(),
-    // );
-
-    *out += "}\n";
+    *out += "export type Procedures = ";
+    inner(
+        out,
+        this,
+        &mut on_procedure,
+        types,
+        // We know this is only used in `TypesOrType::Type` and we don't parse that so it's value means nothing.
+        (0, 0),
+        // We know this is only used in `TypesOrType::Type` and we don't parse that so it's value means nothing.
+        &"".into(),
+        &TypesOrType::Types(types.procedures.clone()),
+    );
 }
 
 fn construct_file(this: &Typescript) -> String {
@@ -169,36 +240,6 @@ fn construct_file(this: &Typescript) -> String {
     out += &this.inner.framework_header;
     out.push_str("\n\n");
     out
-}
-
-fn construct_bindings_type(
-    key: &[Cow<'static, str>],
-    p: &ProcedureType,
-) -> (Cow<'static, str>, DataType) {
-    if key.len() == 1 {
-        (
-            key[0].clone(),
-            literal_object(
-                "".into(),
-                None,
-                vec![
-                    ("input".into(), p.input.clone()),
-                    ("output".into(), p.output.clone()),
-                    ("error".into(), p.error.clone()),
-                ]
-                .into_iter(),
-            ),
-        )
-    } else {
-        (
-            key[0].clone(),
-            literal_object(
-                "".into(),
-                None,
-                vec![construct_bindings_type(&key[1..], p)].into_iter(),
-            ),
-        )
-    }
 }
 
 #[derive(Default)]
