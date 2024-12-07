@@ -15,18 +15,22 @@ pub struct MyCtx {
 
 #[tokio::main]
 async fn main() {
-    let router =
-        Router::<MyCtx>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("./bindings.ts"),
-            ))
-            // This is a query so it can be accessed in browser without frontend. A `mutation`
-            // shoudl be used if the method returns a side effect.
-            .query("hit", |t| {
-                t(|ctx, _: ()| ctx.count.fetch_add(1, Ordering::SeqCst))
-            })
-            .build()
-            .arced();
+    let router = Router::<MyCtx>::new()
+        // This is a query so it can be accessed in browser without frontend. A `mutation`
+        // shoudl be used if the method returns a side effect.
+        .query("hit", |t| {
+            t(|ctx, _: ()| ctx.count.fetch_add(1, Ordering::SeqCst))
+        })
+        .build();
+
+    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+
+    rspc::Typescript::default()
+        .export_to(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
+        )
+        .unwrap();
 
     // AtomicU16 provided interior mutability but if your type does not wrap it in an
     // `Arc<Mutex<T>>`. This could be your database connecton or any other value.
@@ -34,7 +38,7 @@ async fn main() {
 
     let app = axum::Router::new().nest(
         "/rspc",
-        rspc_axum::endpoint(router, move || MyCtx {
+        rspc_axum::endpoint(routes, move || MyCtx {
             count: count.clone(),
         }),
     );
