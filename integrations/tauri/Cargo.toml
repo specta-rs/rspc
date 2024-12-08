@@ -18,12 +18,8 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 rspc-core = { version = "0.0.1", path = "../../core" }
 tauri = "2"
-serde_json = "1"
-
-# TODO: Drop these
-serde = { version = "1", features = ["derive"] }
-tokio = { version = "1", features = ["sync"] }
-futures = "0.3.31"
+serde = { version = "1", features = ["derive"] } # is a dependency of Tauri anyway
+serde_json = "1" # is a dependency of Tauri anyway
 
 [lints]
 workspace = true

@@ -9,27 +9,24 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard},
-    task::Poll,
+    sync::{Arc, Mutex, MutexGuard, PoisonError},
 };
 
-use futures::{pin_mut, stream, FutureExt, StreamExt};
 use rspc_core::{ProcedureError, Procedures};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{value::Serializer, Value};
 use tauri::{
-    async_runtime::spawn,
+    async_runtime::{spawn, JoinHandle},
     generate_handler,
     plugin::{Builder, TauriPlugin},
     Manager,
 };
-use tokio::sync::oneshot;
 
 struct RpcHandler<R, TCtxFn, TCtx> {
-    subscriptions: Mutex<HashMap<u32, oneshot::Sender<()>>>,
+    subscriptions: Mutex<HashMap<u32, JoinHandle<()>>>,
     ctx_fn: TCtxFn,
     procedures: Procedures<TCtx>,
-    phantom: std::marker::PhantomData<R>,
+    phantom: std::marker::PhantomData<fn() -> R>,
 }
 
 impl<R, TCtxFn, TCtx> RpcHandler<R, TCtxFn, TCtx>
@@ -38,159 +35,75 @@ where
     TCtxFn: Fn(tauri::Window<R>) -> TCtx + Send + Sync + 'static,
     TCtx: Send + 'static,
 {
-    fn new(procedures: Procedures<TCtx>, ctx_fn: TCtxFn) -> Self {
-        Self {
-            subscriptions: Default::default(),
-            ctx_fn,
-            procedures,
-            phantom: Default::default(),
-        }
+    fn subscriptions(&self) -> MutexGuard<HashMap<u32, JoinHandle<()>>> {
+        self.subscriptions
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
-    fn subscriptions(&self) -> MutexGuard<HashMap<u32, oneshot::Sender<()>>> {
-        self.subscriptions.lock().unwrap()
-    }
-
-    async fn handle_rpc_impl(
+    fn handle_rpc_impl(
         self: Arc<Self>,
         window: tauri::Window<R>,
         channel: tauri::ipc::Channel<Response>,
         req: Request,
     ) {
-        let (path, input, sub_id) = match req {
-            Request::Query { path, input } | Request::Mutation { path, input } => {
-                (path, input, None)
-            }
-            Request::Subscription { path, input, id } => (path, input, Some(id)),
-            Request::SubscriptionStop { id } => {
-                self.subscriptions().remove(&id);
-                return;
-            }
-        };
+        match req {
+            Request::Request { path, input } => {
+                let ctx = (self.ctx_fn)(window);
 
-        let ctx = (self.ctx_fn)(window);
+                let id = channel.id();
+                let send = move |resp: Option<Result<Value, ProcedureError<Serializer>>>| {
+                    channel
+                        .send(
+                            resp.ok_or(Response::Done)
+                                .and_then(|v| {
+                                    v.map(|value| Response::Value { code: 200, value }).map_err(
+                                        |err| Response::Value {
+                                            code: err.code(),
+                                            value: serde_json::to_value(err).unwrap(), // TODO: Error handling (can we throw it back into Tauri, else we are at an impasse)
+                                        },
+                                    )
+                                })
+                                .unwrap_or_else(|e| e),
+                        )
+                        .ok()
+                };
 
-        let resp = match self.procedures.get(&Cow::Borrowed(&*path)) {
-            Some(procedure) => {
+                let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
+                    send(Some(Err(ProcedureError::NotFound)));
+                    send(None);
+                    return;
+                };
+
                 let mut stream =
                     procedure.exec_with_deserializer(ctx, input.unwrap_or(Value::Null));
 
-                // It's really important this is before getting the first value
-                // Size hints can change after the first value is polled based on implementation.
-                let is_value = stream.size_hint() == (1, Some(1));
+                let this = self.clone();
+                let handle = spawn(async move {
+                    loop {
+                        let value = stream.next(Serializer).await;
+                        let is_finished = value.is_none();
+                        send(value);
 
-                let first_value = stream.next(serde_json::value::Serializer).await;
-
-                if (is_value || stream.size_hint() == (0, Some(0))) && first_value.is_some() {
-                    first_value
-                        .expect("checked at if above")
-                        .map(Response::Response)
-                        .unwrap_or_else(|err| {
-                            // #[cfg(feature = "tracing")]
-                            // tracing::error!("Error executing operation: {:?}", err);
-
-                            Response::Error(match err {
-                                ProcedureError::Deserialize(_) => Error {
-                                    code: 400,
-                                    message: "error deserializing procedure arguments".to_string(),
-                                    data: None,
-                                },
-                                ProcedureError::Downcast(_) => Error {
-                                    code: 400,
-                                    message: "error downcasting procedure arguments".to_string(),
-                                    data: None,
-                                },
-                                ProcedureError::Serializer(_) => Error {
-                                    code: 500,
-                                    message: "error serializing procedure result".to_string(),
-                                    data: None,
-                                },
-                                ProcedureError::Resolver(resolver_error) => {
-                                    let legacy_error = resolver_error
-                                        .error()
-                                        .and_then(|v| {
-                                            v.downcast_ref::<rspc_core::LegacyErrorInterop>()
-                                        })
-                                        .cloned();
-
-                                    Error {
-                                        code: resolver_error.status() as i32,
-                                        message: legacy_error
-                                            .map(|v| v.0.clone())
-                                            // This probally isn't a great format but we are assuming your gonna use the new router with a new executor for typesafe errors.
-                                            .unwrap_or_else(|| resolver_error.to_string()),
-                                        data: None,
-                                    }
-                                }
-                            })
-                        })
-                } else {
-                    let Some(id) = sub_id else {
-                        return;
-                    };
-
-                    if self.subscriptions().contains_key(&id) {
-                        Response::Error(Error {
-                            code: 400,
-                            message: "error creating subscription with duplicate id".into(),
-                            data: None,
-                        })
-                    } else {
-                        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-                        self.subscriptions().insert(id.clone(), shutdown_tx);
-
-                        let channel = channel.clone();
-                        spawn(async move {
-                            let mut first_value = Some(first_value);
-
-                            let mut stream = stream::poll_fn(|cx| {
-                                if let Some(first_value) = first_value.take() {
-                                    // if first_value is None, the stream should stop
-                                    return Poll::Ready(first_value.map(Some));
-                                }
-
-                                if let Poll::Ready(_) = shutdown_rx.poll_unpin(cx) {
-                                    return Poll::Ready(None);
-                                }
-
-                                let stream_fut = stream.next(serde_json::value::Serializer);
-                                pin_mut!(stream_fut);
-
-                                stream_fut.poll_unpin(cx).map(|v| v.map(Some))
-                            });
-
-                            while let Some(event) = stream.next().await {
-                                match event {
-                                    Some(Ok(v)) => {
-                                        channel.send(Response::Event(v)).ok();
-                                    }
-                                    Some(Err(_err)) => {
-                                        // #[cfg(feature = "tracing")]
-                                        //  tracing::error!("Subscription error: {:?}", _err);
-                                    }
-                                    None => {
-                                        break;
-                                    }
-                                }
-                            }
-                        });
-
-                        return;
+                        if is_finished {
+                            break;
+                        }
                     }
+
+                    this.subscriptions().remove(&id);
+                });
+
+                // if the client uses an existing ID, we will assume the previous subscription is no longer required
+                if let Some(old) = self.subscriptions().insert(id, handle) {
+                    old.abort();
                 }
             }
-            None => {
-                // #[cfg(feature = "tracing")]
-                // tracing::error!("Error executing operation: the requested operation '{path}' is not supported by this server");
-                Response::Error(Error {
-                    code: 404,
-                    message: "the requested operation is not supported by this server".to_string(),
-                    data: None,
-                })
+            Request::Abort(id) => {
+                if let Some(h) = self.subscriptions().remove(&id) {
+                    h.abort();
+                }
             }
-        };
-
-        channel.send(resp).ok();
+        }
     }
 }
 
@@ -215,7 +128,7 @@ where
         channel: tauri::ipc::Channel<Response>,
         req: Request,
     ) {
-        spawn(Self::handle_rpc_impl(self, window, channel, req));
+        Self::handle_rpc_impl(self, window, channel, req);
     }
 }
 
@@ -236,7 +149,7 @@ fn handle_rpc<R: tauri::Runtime>(
 }
 
 pub fn plugin<R, TCtxFn, TCtx>(
-    routes: impl Into<Procedures<TCtx>>,
+    procedures: impl Into<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> TauriPlugin<R>
 where
@@ -244,50 +157,42 @@ where
     TCtxFn: Fn(tauri::Window<R>) -> TCtx + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
 {
-    let routes = routes.into();
+    let procedures = procedures.into();
 
     Builder::new("rspc")
         .invoke_handler(generate_handler![handle_rpc])
         .setup(move |app_handle, _| {
-            app_handle.manage(State(Arc::new(RpcHandler::new(routes, ctx_fn))));
+            if app_handle.manage(State(Arc::new(RpcHandler {
+                subscriptions: Default::default(),
+                ctx_fn,
+                procedures,
+                phantom: Default::default(),
+            }))) {
+                panic!("Attempted to mount `rspc_tauri::plugin` multiple times. Please ensure you only mount it once!");
+            }
 
             Ok(())
         })
         .build()
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
-pub enum Request {
-    Query {
-        path: String,
-        input: Option<Value>,
-    },
-    Mutation {
-        path: String,
-        input: Option<Value>,
-    },
-    Subscription {
-        path: String,
-        id: u32,
-        input: Option<Value>,
-    },
-    SubscriptionStop {
-        id: u32,
-    },
+enum Request {
+    /// A request to execute a procedure.
+    Request { path: String, input: Option<Value> },
+    /// Abort a running task
+    /// You must provide the ID of the Tauri channel provided when the task was started.
+    Abort(u32),
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
-pub enum Response {
-    Event(Value),
-    Response(Value),
-    Error(Error),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct Error {
-    pub code: i32,
-    pub message: String,
-    pub data: Option<Value>,
+enum Response {
+    /// A value being returned from a procedure.
+    /// Based on the code we can determine if it's an error or not.
+    Value { code: u16, value: Value },
+    /// A procedure has been completed.
+    /// It's important you avoid calling `Request::Abort { id }` after this as it's up to Tauri what happens.
+    Done,
 }

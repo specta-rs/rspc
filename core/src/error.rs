@@ -1,9 +1,11 @@
-use std::{error, fmt};
+use std::{borrow::Cow, error, fmt};
 
-use serde::{Serialize, Serializer};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 /// TODO
 pub enum ProcedureError<S: Serializer> {
+    /// Failed to find a procedure with the given name.
+    NotFound,
     /// Attempted to deserialize a value but failed.
     Deserialize(DeserializeError),
     /// Attempting to downcast a value failed.
@@ -12,6 +14,51 @@ pub enum ProcedureError<S: Serializer> {
     Serializer(S::Error),
     /// An error occurred while running the procedure.
     Resolver(ResolverError),
+}
+
+impl<S: Serializer> ProcedureError<S> {
+    pub fn code(&self) -> u16 {
+        match self {
+            Self::NotFound => 404,
+            Self::Deserialize(_) => 400,
+            Self::Downcast(_) => 400,
+            Self::Serializer(_) => 500,
+            Self::Resolver(err) => err.status(),
+        }
+    }
+
+    pub fn serialize<Se: Serializer>(&self, s: Se) -> Result<Se::Ok, Se::Error> {
+        match self {
+            Self::NotFound => s.serialize_none(),
+            Self::Deserialize(err) => s.serialize_str(&format!("{}", err)),
+            Self::Downcast(err) => s.serialize_str(&format!("{}", err)),
+            Self::Serializer(err) => s.serialize_str(&format!("{}", err)),
+            Self::Resolver(err) => s.serialize_str(&format!("{}", err)),
+        }
+    }
+
+    pub fn variant(&self) -> &'static str {
+        match self {
+            ProcedureError::NotFound => "NotFound",
+            ProcedureError::Deserialize(_) => "Deserialize",
+            ProcedureError::Downcast(_) => "Downcast",
+            ProcedureError::Serializer(_) => "Serializer",
+            ProcedureError::Resolver(_) => "Resolver",
+        }
+    }
+
+    pub fn message(&self) -> Cow<'static, str> {
+        match self {
+            ProcedureError::NotFound => "procedure not found".into(),
+            ProcedureError::Deserialize(err) => err.0.to_string().into(),
+            ProcedureError::Downcast(err) => err.to_string().into(),
+            ProcedureError::Serializer(err) => err.to_string().into(),
+            ProcedureError::Resolver(err) => err
+                .error()
+                .map(|err| err.to_string().into())
+                .unwrap_or("resolver error".into()),
+        }
+    }
 }
 
 impl<S: Serializer> From<ResolverError> for ProcedureError<S> {
@@ -28,6 +75,7 @@ impl<S: Serializer> fmt::Debug for ProcedureError<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: Proper format
         match self {
+            Self::NotFound => write!(f, "NotFound"),
             Self::Deserialize(err) => write!(f, "Deserialize({:?})", err),
             Self::Downcast(err) => write!(f, "Downcast({:?})", err),
             Self::Serializer(err) => write!(f, "Serializer({:?})", err),
@@ -43,6 +91,23 @@ impl<S: Serializer> fmt::Display for ProcedureError<S> {
 }
 
 impl<S: Serializer> error::Error for ProcedureError<S> {}
+
+impl<Se: Serializer> Serialize for ProcedureError<Se> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let ProcedureError::Resolver(err) = self {
+            return err.value().serialize(serializer);
+        }
+
+        let mut state = serializer.serialize_struct("ProcedureError", 1)?;
+        state.serialize_field("_rspc", &true)?;
+        state.serialize_field("variant", &self.variant())?;
+        state.serialize_field("message", &self.message())?;
+        state.end()
+    }
+}
 
 enum Repr {
     // An actual resolver error.
@@ -87,7 +152,7 @@ impl ResolverError {
     }
 
     /// TODO
-    pub fn value(&self) -> &dyn erased_serde::Serialize {
+    pub fn value(&self) -> impl Serialize + '_ {
         match &self.0 {
             Repr::Custom {
                 status: _,
