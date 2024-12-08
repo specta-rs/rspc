@@ -1,8 +1,16 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    future::{poll_fn, Future},
+};
 
-use rspc_core::{ProcedureError, Procedures};
+use rspc_core::{ProcedureError, ProcedureStream, Procedures, ResolverError};
+use serde::Serialize;
 use serde_json::Value;
-use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
+use tokio::{
+    pin,
+    sync::{broadcast, mpsc, oneshot, Mutex},
+};
 
 use super::jsonrpc::{self, RequestId, RequestInner, ResponseInner};
 
@@ -161,7 +169,7 @@ pub async fn handle_json_rpc<TCtx>(
             // Size hints can change after the first value is polled based on implementation.
             let is_value = stream.size_hint() == (1, Some(1));
 
-            let first_value = stream.next(serde_json::value::Serializer).await;
+            let first_value = next(&mut stream).await;
 
             if (is_value || stream.size_hint() == (0, Some(0))) && first_value.is_some() {
                 first_value
@@ -172,6 +180,7 @@ pub async fn handle_json_rpc<TCtx>(
                         // tracing::error!("Error executing operation: {:?}", err);
 
                         ResponseInner::Error(match err {
+                            ProcedureError::NotFound => unreachable!(),
                             ProcedureError::Deserialize(_) => jsonrpc::JsonRPCError {
                                 code: 400,
                                 message: "error deserializing procedure arguments".to_string(),
@@ -294,7 +303,7 @@ pub async fn handle_json_rpc<TCtx>(
                                     // tracing::debug!("Removing subscription with id '{:?}'", id);
                                     break;
                                 }
-                                v = stream.next(serde_json::value::Serializer) => {
+                                v = next(&mut stream) => {
                                     match v {
                                         Some(Ok(v)) => {
                                             let _ = sender2.send(jsonrpc::Response {
@@ -347,4 +356,17 @@ pub async fn handle_json_rpc<TCtx>(
             // #[cfg(feature = "tracing")]
             // tracing::error!("Failed to send response: {:?}", _err);
         });
+}
+
+async fn next(
+    stream: &mut ProcedureStream,
+) -> Option<Result<serde_json::Value, ProcedureError<serde_json::value::Serializer>>> {
+    let fut = stream.next();
+    let mut fut = std::pin::pin!(fut);
+    poll_fn(|cx| fut.as_mut().poll(cx)).await.map(|v| {
+        v.map_err(ProcedureError::from).and_then(|v| {
+            v.serialize(serde_json::value::Serializer)
+                .map_err(ProcedureError::Serializer)
+        })
+    })
 }

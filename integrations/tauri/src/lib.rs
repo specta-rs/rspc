@@ -14,10 +14,11 @@ use std::{
 
 use rspc_core::{ProcedureError, Procedures};
 use serde::{Deserialize, Serialize};
-use serde_json::{value::Serializer, Value};
+use serde_json::Serializer;
 use tauri::{
     async_runtime::{spawn, JoinHandle},
     generate_handler,
+    ipc::{Channel, InvokeResponseBody},
     plugin::{Builder, TauriPlugin},
     Manager,
 };
@@ -44,7 +45,7 @@ where
     fn handle_rpc_impl(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<Response>,
+        channel: tauri::ipc::Channel<InvokeResponseBody>,
         req: Request,
     ) {
         match req {
@@ -52,45 +53,28 @@ where
                 let ctx = (self.ctx_fn)(window);
 
                 let id = channel.id();
-                let send = move |resp: Option<Result<Value, ProcedureError<Serializer>>>| {
-                    channel
-                        .send(
-                            resp.ok_or(Response::Done)
-                                .and_then(|v| {
-                                    v.map(|value| Response::Value { code: 200, value }).map_err(
-                                        |err| Response::Value {
-                                            code: err.code(),
-                                            value: serde_json::to_value(err).unwrap(), // TODO: Error handling (can we throw it back into Tauri, else we are at an impasse)
-                                        },
-                                    )
-                                })
-                                .unwrap_or_else(|e| e),
-                        )
-                        .ok()
-                };
 
                 let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
-                    send(Some(Err(ProcedureError::NotFound)));
-                    send(None);
+                    let err = ProcedureError::<&mut Serializer<Vec<u8>>>::NotFound;
+                    send(&channel, Some((err.code(), &err)));
+                    send::<()>(&channel, None);
                     return;
                 };
 
                 let mut stream =
-                    procedure.exec_with_deserializer(ctx, input.unwrap_or(Value::Null));
+                    procedure.exec_with_deserializer(ctx, input.unwrap_or(serde_json::Value::Null));
 
                 let this = self.clone();
                 let handle = spawn(async move {
-                    loop {
-                        let value = stream.next(Serializer).await;
-                        let is_finished = value.is_none();
-                        send(value);
-
-                        if is_finished {
-                            break;
+                    while let Some(value) = stream.next().await {
+                        match value {
+                            Ok(v) => send(&channel, Some((200, &v))),
+                            Err(err) => send(&channel, Some((err.status(), &err.value()))),
                         }
                     }
 
                     this.subscriptions().remove(&id);
+                    send::<()>(&channel, None);
                 });
 
                 // if the client uses an existing ID, we will assume the previous subscription is no longer required
@@ -111,7 +95,7 @@ trait HandleRpc<R: tauri::Runtime>: Send + Sync {
     fn handle_rpc(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<Response>,
+        channel: tauri::ipc::Channel<InvokeResponseBody>,
         req: Request,
     );
 }
@@ -125,7 +109,7 @@ where
     fn handle_rpc(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<Response>,
+        channel: tauri::ipc::Channel<InvokeResponseBody>,
         req: Request,
     ) {
         Self::handle_rpc_impl(self, window, channel, req);
@@ -142,7 +126,7 @@ struct State<R>(Arc<dyn HandleRpc<R>>);
 fn handle_rpc<R: tauri::Runtime>(
     state: tauri::State<'_, State<R>>,
     window: tauri::Window<R>,
-    channel: tauri::ipc::Channel<Response>,
+    channel: tauri::ipc::Channel<InvokeResponseBody>,
     req: Request,
 ) {
     state.0.clone().handle_rpc(window, channel, req);
@@ -162,7 +146,7 @@ where
     Builder::new("rspc")
         .invoke_handler(generate_handler![handle_rpc])
         .setup(move |app_handle, _| {
-            if app_handle.manage(State(Arc::new(RpcHandler {
+            if !app_handle.manage(State(Arc::new(RpcHandler {
                 subscriptions: Default::default(),
                 ctx_fn,
                 procedures,
@@ -180,19 +164,29 @@ where
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
 enum Request {
     /// A request to execute a procedure.
-    Request { path: String, input: Option<Value> },
+    Request {
+        path: String,
+        input: Option<serde_json::Value>,
+    },
     /// Abort a running task
     /// You must provide the ID of the Tauri channel provided when the task was started.
     Abort(u32),
 }
 
-#[derive(Clone, Serialize)]
-#[serde(tag = "type", content = "data", rename_all = "camelCase")]
-enum Response {
-    /// A value being returned from a procedure.
-    /// Based on the code we can determine if it's an error or not.
-    Value { code: u16, value: Value },
-    /// A procedure has been completed.
-    /// It's important you avoid calling `Request::Abort { id }` after this as it's up to Tauri what happens.
-    Done,
+fn send<T: Serialize>(channel: &Channel<InvokeResponseBody>, value: Option<(u16, &T)>) {
+    #[derive(Serialize)]
+    struct Response<'a, T: Serialize> {
+        code: u16,
+        value: &'a T,
+    }
+
+    match value {
+        Some((code, value)) => {
+            let mut buffer = Vec::with_capacity(128);
+            let mut serializer = Serializer::new(&mut buffer);
+            Response { code, value }.serialize(&mut serializer).unwrap(); // TODO: Error handling (throw back to Tauri)
+            channel.send(InvokeResponseBody::Raw(buffer)).ok()
+        }
+        None => channel.send(InvokeResponseBody::Raw("DONE".into())).ok(),
+    };
 }

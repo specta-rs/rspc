@@ -1,8 +1,4 @@
-use std::{
-    any::{type_name, Any},
-    fmt,
-    sync::Arc,
-};
+use std::{any::Any, fmt, sync::Arc};
 
 use serde::Deserializer;
 

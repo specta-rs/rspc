@@ -5,12 +5,11 @@ use std::{
     task::{Context, Poll},
 };
 
-use erased_serde::Serialize;
 use futures_core::Stream;
 use pin_project_lite::pin_project;
-use serde::Serializer;
+use serde::Serialize;
 
-use crate::{ProcedureError, ResolverError};
+use crate::ResolverError;
 
 /// TODO
 // TODO: Rename this type.
@@ -109,26 +108,22 @@ impl ProcedureStream {
         self.src.size_hint()
     }
 
-    /// TODO
-    pub async fn next<S: Serializer>(
-        &mut self,
-        serializer: S,
-    ) -> Option<Result<S::Ok, ProcedureError<S>>> {
-        let mut serializer = Some(serializer);
+    // /// TODO
+    // pub fn poll_next(
+    //     mut self: Pin<&mut Self>,
+    //     cx: &mut Context<'_>,
+    // ) -> Poll<Option<Result<impl Serialize + '_, ResolverError>>> {
+    //     self.src
+    //         .as_mut()
+    //         .poll_next_value(cx)
+    //         .map(move |v| v.map(move |v| v.map(move |_: ()| self.src.value())))
+    // }
 
-        poll_fn(|cx| match self.src.as_mut().poll_next_value(cx) {
-            Poll::Ready(Some(result)) => Poll::Ready(Some(match result {
-                Ok(()) => {
-                    let value = self.src.value();
-                    erased_serde::serialize(value, serializer.take().unwrap())
-                        .map_err(ProcedureError::Serializer)
-                }
-                Err(err) => Err(err.into()),
-            })),
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
-        })
-        .await
+    /// TODO
+    pub async fn next(&mut self) -> Option<Result<impl Serialize + '_, ResolverError>> {
+        poll_fn(|cx| self.src.as_mut().poll_next_value(cx))
+            .await
+            .map(|v| v.map(|_: ()| self.src.value()))
     }
 }
 
