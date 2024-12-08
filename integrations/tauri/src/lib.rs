@@ -140,7 +140,7 @@ where
                         self.subscriptions().insert(id.clone(), shutdown_tx);
 
                         let channel = channel.clone();
-                        tokio::spawn(async move {
+                        spawn(async move {
                             let mut first_value = Some(first_value);
 
                             let mut stream = stream::poll_fn(|cx| {
