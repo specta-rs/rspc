@@ -25,14 +25,14 @@ use tauri::{
 };
 use tokio::sync::oneshot;
 
-struct State<R, TCtxFn, TCtx> {
+struct RpcHandler<R, TCtxFn, TCtx> {
     subscriptions: Mutex<HashMap<u32, oneshot::Sender<()>>>,
     ctx_fn: TCtxFn,
     procedures: Procedures<TCtx>,
     phantom: std::marker::PhantomData<R>,
 }
 
-impl<R, TCtxFn, TCtx> State<R, TCtxFn, TCtx>
+impl<R, TCtxFn, TCtx> RpcHandler<R, TCtxFn, TCtx>
 where
     R: tauri::Runtime,
     TCtxFn: Fn(tauri::Window<R>) -> TCtx + Send + Sync + 'static,
@@ -202,7 +202,7 @@ trait HandleRpc<R: tauri::Runtime>: Send + Sync {
     );
 }
 
-impl<R, TCtxFn, TCtx> HandleRpc<R> for State<R, TCtxFn, TCtx>
+impl<R, TCtxFn, TCtx> HandleRpc<R> for RpcHandler<R, TCtxFn, TCtx>
 where
     R: tauri::Runtime + Send + Sync,
     TCtxFn: Fn(tauri::Window<R>) -> TCtx + Send + Sync + 'static,
@@ -218,18 +218,20 @@ where
     }
 }
 
-type DynState<R> = Arc<dyn HandleRpc<R>>;
+// Tauri commands can't be generic except for their runtime,
+// so we need to store + access the handler behind a trait.
+// This way handle_rpc_impl has full access to the generics it was instantiated with,
+// while State can be stored a) as a singleton (enforced by the type system!) and b) as type erased Tauri state
+struct State<R>(Arc<dyn HandleRpc<R>>);
 
 #[tauri::command]
 fn handle_rpc<R: tauri::Runtime>(
-    state: tauri::State<'_, DynState<R>>,
+    state: tauri::State<'_, State<R>>,
     window: tauri::Window<R>,
     channel: tauri::ipc::Channel<Response>,
     req: Request,
-) -> Result<(), ()> {
-    state.inner().clone().handle_rpc(window, channel, req);
-
-    Ok(())
+) {
+    state.0.clone().handle_rpc(window, channel, req);
 }
 
 pub fn plugin<R, TCtxFn, TCtx>(
@@ -246,7 +248,7 @@ where
     Builder::new("rspc")
         .invoke_handler(generate_handler![handle_rpc])
         .setup(move |app_handle, _| {
-            app_handle.manage(Arc::new(State::new(routes, ctx_fn)) as DynState<R>);
+            app_handle.manage(State(Arc::new(RpcHandler::new(routes, ctx_fn))));
 
             Ok(())
         })
