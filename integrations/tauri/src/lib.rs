@@ -14,7 +14,7 @@ use std::{
 
 use rspc_core::{ProcedureError, Procedures};
 use serde::{Deserialize, Serialize};
-use serde_json::Serializer;
+use serde_json::{value::RawValue, Serializer};
 use tauri::{
     async_runtime::{spawn, JoinHandle},
     generate_handler,
@@ -50,9 +50,8 @@ where
     ) {
         match req {
             Request::Request { path, input } => {
-                let ctx = (self.ctx_fn)(window);
-
                 let id = channel.id();
+                let ctx = (self.ctx_fn)(window);
 
                 let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
                     let err = ProcedureError::<&mut Serializer<Vec<u8>>>::NotFound;
@@ -61,8 +60,10 @@ where
                     return;
                 };
 
-                let mut stream =
-                    procedure.exec_with_deserializer(ctx, input.unwrap_or(serde_json::Value::Null));
+                let mut stream = match input {
+                    Some(i) => procedure.exec_with_deserializer(ctx, i),
+                    None => procedure.exec_with_deserializer(ctx, serde_json::Value::Null),
+                };
 
                 let this = self.clone();
                 let handle = spawn(async move {
@@ -162,11 +163,12 @@ where
 
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
-enum Request {
+enum Request<'a> {
     /// A request to execute a procedure.
     Request {
         path: String,
-        input: Option<serde_json::Value>,
+        #[serde(borrow)]
+        input: Option<&'a RawValue>,
     },
     /// Abort a running task
     /// You must provide the ID of the Tauri channel provided when the task was started.
