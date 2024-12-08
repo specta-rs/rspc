@@ -10,10 +10,12 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     sync::{Arc, Mutex, MutexGuard},
+    task::Poll,
 };
 
-use jsonrpc::{Request, Response};
+use futures::{pin_mut, stream, FutureExt, StreamExt};
 use rspc_core::{ProcedureError, Procedures};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{
     async_runtime::spawn,
@@ -22,8 +24,6 @@ use tauri::{
     Manager,
 };
 use tokio::sync::oneshot;
-
-mod jsonrpc;
 
 struct State<R, TCtxFn, TCtx> {
     subscriptions: Mutex<HashMap<u32, oneshot::Sender<()>>>,
@@ -54,8 +54,8 @@ where
     async fn handle_rpc_impl(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<jsonrpc::Response>,
-        req: jsonrpc::Request,
+        channel: tauri::ipc::Channel<Response>,
+        req: Request,
     ) {
         let (path, input, sub_id) = match req {
             Request::Query { path, input } | Request::Mutation { path, input } => {
@@ -90,17 +90,17 @@ where
                             // tracing::error!("Error executing operation: {:?}", err);
 
                             Response::Error(match err {
-                                ProcedureError::Deserialize(_) => jsonrpc::JsonRPCError {
+                                ProcedureError::Deserialize(_) => Error {
                                     code: 400,
                                     message: "error deserializing procedure arguments".to_string(),
                                     data: None,
                                 },
-                                ProcedureError::Downcast(_) => jsonrpc::JsonRPCError {
+                                ProcedureError::Downcast(_) => Error {
                                     code: 400,
                                     message: "error downcasting procedure arguments".to_string(),
                                     data: None,
                                 },
-                                ProcedureError::Serializer(_) => jsonrpc::JsonRPCError {
+                                ProcedureError::Serializer(_) => Error {
                                     code: 500,
                                     message: "error serializing procedure result".to_string(),
                                     data: None,
@@ -113,7 +113,7 @@ where
                                         })
                                         .cloned();
 
-                                    jsonrpc::JsonRPCError {
+                                    Error {
                                         code: resolver_error.status() as i32,
                                         message: legacy_error
                                             .map(|v| v.0.clone())
@@ -130,51 +130,45 @@ where
                     };
 
                     if self.subscriptions().contains_key(&id) {
-                        jsonrpc::Response::Error(jsonrpc::JsonRPCError {
+                        Response::Error(Error {
                             code: 400,
                             message: "error creating subscription with duplicate id".into(),
                             data: None,
                         })
                     } else {
-                        let (shutdown_tx, mut shutdown) = oneshot::channel();
+                        let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
                         self.subscriptions().insert(id.clone(), shutdown_tx);
 
                         let channel = channel.clone();
                         tokio::spawn(async move {
-                            match first_value {
-                                Some(Ok(v)) => {
-                                    channel.send(jsonrpc::Response::Event(v)).ok();
-                                }
-                                Some(Err(_err)) => {
-                                    // #[cfg(feature = "tracing")]
-                                    // tracing::error!("Subscription error: {:?}", _err);
-                                }
-                                None => return,
-                            }
+                            let mut first_value = Some(first_value);
 
-                            loop {
-                                tokio::select! {
-                                    biased; // Note: Order matters
-                                    _ = &mut shutdown => {
-                                        // #[cfg(feature = "tracing")]
-                                        // tracing::debug!("Removing subscription with id '{:?}'", id);
-                                        break;
+                            let mut stream = stream::poll_fn(|cx| {
+                                if let Some(first_value) = first_value.take() {
+                                    return Poll::Ready(Some(first_value));
+                                }
+
+                                if let Poll::Ready(_) = shutdown_rx.poll_unpin(cx) {
+                                    return Poll::Ready(None);
+                                }
+
+                                let stream_fut = stream.next(serde_json::value::Serializer);
+                                pin_mut!(stream_fut);
+
+                                stream_fut.poll_unpin(cx).map(|v| v.map(Some))
+                            });
+
+                            while let Some(event) = stream.next().await {
+                                match event {
+                                    Some(Ok(v)) => {
+                                        channel.send(Response::Event(v)).ok();
                                     }
-                                    v = stream.next(serde_json::value::Serializer) => {
-                                        match v {
-                                            Some(Ok(v)) => {
-                                                channel.send(
-                                                    jsonrpc::Response::Event(v)
-                                                ).ok();
-                                            }
-                                            Some(Err(_err)) => {
-                                               // #[cfg(feature = "tracing")]
-                                               //  tracing::error!("Subscription error: {:?}", _err);
-                                            }
-                                            None => {
-                                                break;
-                                            }
-                                        }
+                                    Some(Err(_err)) => {
+                                        // #[cfg(feature = "tracing")]
+                                        //  tracing::error!("Subscription error: {:?}", _err);
+                                    }
+                                    None => {
+                                        break;
                                     }
                                 }
                             }
@@ -187,7 +181,7 @@ where
             None => {
                 // #[cfg(feature = "tracing")]
                 // tracing::error!("Error executing operation: the requested operation '{path}' is not supported by this server");
-                Response::Error(jsonrpc::JsonRPCError {
+                Response::Error(Error {
                     code: 404,
                     message: "the requested operation is not supported by this server".to_string(),
                     data: None,
@@ -203,8 +197,8 @@ trait HandleRpc<R: tauri::Runtime>: Send + Sync {
     fn handle_rpc(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<jsonrpc::Response>,
-        req: jsonrpc::Request,
+        channel: tauri::ipc::Channel<Response>,
+        req: Request,
     );
 }
 
@@ -217,8 +211,8 @@ where
     fn handle_rpc(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<jsonrpc::Response>,
-        req: jsonrpc::Request,
+        channel: tauri::ipc::Channel<Response>,
+        req: Request,
     ) {
         spawn(Self::handle_rpc_impl(self, window, channel, req));
     }
@@ -230,8 +224,8 @@ type DynState<R> = Arc<dyn HandleRpc<R>>;
 fn handle_rpc<R: tauri::Runtime>(
     state: tauri::State<'_, DynState<R>>,
     window: tauri::Window<R>,
-    channel: tauri::ipc::Channel<jsonrpc::Response>,
-    req: jsonrpc::Request,
+    channel: tauri::ipc::Channel<Response>,
+    req: Request,
 ) -> Result<(), ()> {
     state.inner().clone().handle_rpc(window, channel, req);
 
@@ -257,4 +251,40 @@ where
             Ok(())
         })
         .build()
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "method", content = "params", rename_all = "camelCase")]
+pub enum Request {
+    Query {
+        path: String,
+        input: Option<Value>,
+    },
+    Mutation {
+        path: String,
+        input: Option<Value>,
+    },
+    Subscription {
+        path: String,
+        id: u32,
+        input: Option<Value>,
+    },
+    SubscriptionStop {
+        id: u32,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum Response {
+    Event(Value),
+    Response(Value),
+    Error(Error),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Error {
+    pub code: i32,
+    pub message: String,
+    pub data: Option<Value>,
 }
