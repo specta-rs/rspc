@@ -32,22 +32,14 @@ impl<TCtx> Procedure<TCtx> {
         input: D,
     ) -> ProcedureStream {
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(input);
-        let value = DynInput {
-            value: None,
-            deserializer: Some(&mut deserializer),
-            type_name: type_name::<D>(),
-        };
+        let value = DynInput::new_deserializer(&mut deserializer);
 
         (self.handler)(ctx, value)
     }
 
     pub fn exec_with_value<T: Any + Send>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         let mut input = Some(input);
-        let value = DynInput {
-            value: Some(&mut input),
-            deserializer: None,
-            type_name: type_name::<T>(),
-        };
+        let value = DynInput::new_value(&mut input);
 
         (self.handler)(ctx, value)
     }
