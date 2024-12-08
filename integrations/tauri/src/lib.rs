@@ -145,7 +145,8 @@ where
 
                             let mut stream = stream::poll_fn(|cx| {
                                 if let Some(first_value) = first_value.take() {
-                                    return Poll::Ready(Some(first_value));
+                                    // if first_value is None, the stream should stop
+                                    return Poll::Ready(first_value.map(Some));
                                 }
 
                                 if let Poll::Ready(_) = shutdown_rx.poll_unpin(cx) {
