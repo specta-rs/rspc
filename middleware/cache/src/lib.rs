@@ -62,16 +62,7 @@ where
             let (ttl, result): (Option<usize>, Result<TResult, TError>) =
                 poll_fn(|cx| fut.as_mut().poll(cx).map(|v| (CACHE_TTL.get(), v))).await;
 
-            // self.project().fut.poll(cx).map(|v| {
-            //     if let Some(ttl) = CACHE_TTL.get() {
-            //         println!("REQUESTED CACHE {:?}", ttl);
-            //     }
-
-            //     v
-            // })
-
-            // TODO: Only cache if `ttl` is actually set
-            if let Some(ttl) = CACHE_TTL.get() {
+            if let Some(ttl) = ttl {
                 // TODO: Caching error responses?
                 if let Ok(value) = &result {
                     cache.store().set(key, Value::new(value.clone()), ttl);
@@ -82,29 +73,3 @@ where
         }
     })
 }
-
-// pin_project! {
-//     struct Cached<F> {
-//         #[pin]
-//         fut: F,
-//     }
-// }
-
-// impl<F: Future> Future for Cached<F> {
-//     type Output = F::Output;
-
-//     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-//         // match self.project().fut.poll(cx) {
-//         //     Poll::Ready(_) => todo!(),
-//         //     Poll::Pending => todo!(),
-//         // }
-
-//         self.project().fut.poll(cx).map(|v| {
-//             if let Some(ttl) = CACHE_TTL.get() {
-//                 println!("REQUESTED CACHE {:?}", ttl);
-//             }
-
-//             v
-//         })
-//     }
-// }
