@@ -13,9 +13,11 @@ mod types;
 
 use std::{
     any::Any,
+    future,
     sync::{Arc, Mutex, PoisonError},
 };
 
+use futures::stream;
 use rspc_core::{Procedure, ProcedureStream, Procedures};
 use types::{Metadata, ProcedureMetadata};
 
@@ -44,7 +46,7 @@ pub fn mount<TCtx: 'static>(
                 name.clone(),
                 Procedure::new(move |ctx, input| {
                     let start = std::time::Instant::now();
-                    let result = procedure.exec_with_dyn_input(ctx, input);
+                    let result = procedure.exec(ctx, input);
                     history
                         .lock()
                         .unwrap_or_else(PoisonError::into_inner)
@@ -57,17 +59,21 @@ pub fn mount<TCtx: 'static>(
 
     procedures.insert(
         "~rspc.devtools.meta".into(),
-        Procedure::new(move |ctx, input| ProcedureStream::from_value(Ok(meta.clone()))),
+        Procedure::new(move |ctx, input| {
+            let value = Ok(meta.clone());
+            ProcedureStream::from_stream(stream::once(future::ready(value)))
+        }),
     );
     procedures.insert(
         "~rspc.devtools.history".into(),
         Procedure::new({
             let history = history.clone();
             move |ctx, input| {
-                ProcedureStream::from_value(Ok(history
+                let value = Ok(history
                     .lock()
                     .unwrap_or_else(PoisonError::into_inner)
-                    .clone()))
+                    .clone());
+                ProcedureStream::from_stream(stream::once(future::ready(value)))
             }
         }),
     );

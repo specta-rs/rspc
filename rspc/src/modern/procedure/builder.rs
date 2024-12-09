@@ -1,4 +1,4 @@
-use std::{fmt, future::Future};
+use std::{fmt, future::Future, sync::Arc};
 
 use crate::{
     modern::{
@@ -9,6 +9,8 @@ use crate::{
 };
 
 use super::{ProcedureKind, ProcedureMeta};
+
+use futures::{FutureExt, StreamExt};
 
 // TODO: Document the generics like `Middleware`
 pub struct ProcedureBuilder<TError, TCtx, TNextCtx, TInput, TResult> {
@@ -74,7 +76,7 @@ where
         (self.build)(
             ProcedureKind::Query,
             Vec::new(),
-            Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
+            Arc::new(move |ctx, input, _| Box::pin(handler(ctx, input).into_stream())),
         )
     }
 
@@ -85,7 +87,7 @@ where
         (self.build)(
             ProcedureKind::Mutation,
             Vec::new(),
-            Box::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
+            Arc::new(move |ctx, input, _| Box::pin(handler(ctx, input).into_stream())),
         )
     }
 }

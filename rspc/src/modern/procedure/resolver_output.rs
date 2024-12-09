@@ -29,8 +29,8 @@
 // //     note = "ResolverOutput requires a `T where T: serde::Serialize + specta::Type + 'static` to be returned from your procedure"
 // // )]
 
-use futures::Stream;
-use rspc_core::ProcedureStream;
+use futures::{Stream, TryStreamExt};
+use rspc_core::{ProcedureStream, ResolverError};
 use serde::Serialize;
 use specta::{datatype::DataType, Generics, Type, TypeCollection};
 
@@ -40,90 +40,67 @@ use crate::modern::Error;
 
 /// TODO: bring back any correct parts of the docs above
 pub trait ResolverOutput<TError>: Sized + Send + 'static {
-    // /// Convert the procedure and any async part of the value into a [`ProcedureStream`].
-    // ///
-    // /// This primarily exists so the [`rspc::Stream`](crate::Stream) implementation can merge it's stream into the procedure stream.
-    // fn into_procedure_stream(
-    //     procedure: impl Stream<Item = Result<Self, TError>> + Send + 'static,
-    // ) -> ProcedureStream
-    // where
-    //     TError: Error,
-    // {
-    //     ProcedureStream::from_stream(procedure.map(|v| v?.into_procedure_result()))
-    // }
-
-    // /// Convert the value from the user into a [`ProcedureOutput`].
-    // fn into_procedure_result(self) -> Result<ProcedureOutput, TError>;
+    // TODO: This won't allow us to return upcast/downcastable stuff
+    type T; // : Serialize + Send + Sync + 'static;
 
     // TODO: Be an associated type instead so we can constrain later for better errors????
     fn data_type(types: &mut TypeCollection) -> DataType;
 
-    fn into_procedure_stream(self) -> ProcedureStream;
+    /// Convert the procedure into a [`Stream`].
+    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static;
+
+    /// Convert the stream into a [`ProcedureStream`].
+    fn into_procedure_stream(
+        stream: impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static,
+    ) -> ProcedureStream;
 }
 
-// TODO: Should this be `Result`?
-impl<T, TError> ResolverOutput<TError> for T
+impl<T, E> ResolverOutput<E> for T
 where
-    T: Serialize + Type + Send + 'static,
-    TError: Error,
+    T: Serialize + Type + Send + Sync + 'static,
+    E: Error,
 {
+    type T = T;
+
     fn data_type(types: &mut TypeCollection) -> DataType {
         T::inline(types, Generics::Definition)
     }
 
-    fn into_procedure_stream(self) -> ProcedureStream {
-        ProcedureStream::from_value(Ok(self))
+    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static {
+        futures::stream::once(async move { Ok(self) })
+    }
+
+    fn into_procedure_stream(
+        stream: impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static,
+    ) -> ProcedureStream {
+        ProcedureStream::from_stream(stream)
     }
 }
 
 impl<TErr, S, T> ResolverOutput<TErr> for crate::modern::Stream<S>
 where
-    TErr: Send,
+    TErr: Error,
     S: Stream<Item = Result<T, TErr>> + Send + 'static,
     T: ResolverOutput<TErr>,
+    // Should prevent nesting `Stream`s
+    T::T: Serialize + Send + Sync + 'static,
 {
+    type T = T::T;
+
     fn data_type(types: &mut TypeCollection) -> DataType {
         T::data_type(types) // TODO: Do we need to do anything special here so the frontend knows this is a stream?
     }
 
-    fn into_procedure_stream(self) -> ProcedureStream {
-        // ProcedureStream::from_value(Ok(self))
-
-        // ProcedureStream::from_stream(
-        //     self.0
-        //         .map(|v| match v {
-        //             Ok(s) => {
-        //                 s.0.map(|v| v.and_then(|v| v.into_procedure_result()))
-        //                     .right_stream()
-        //             }
-        //             Err(err) => once(async move { Err(err) }).left_stream(),
-        //         })
-        //         .flatten(),
-        // )
-
-        todo!();
+    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static {
+        self.0
+            .map_ok(|v| v.into_stream())
+            .map_err(|err| err.into_resolver_error())
+            .try_flatten()
     }
 
-    // fn into_procedure_stream(
-    //     procedure: impl Stream<Item = Result<Self, TErr>> + Send + 'static,
-    // ) -> ProcedureStream
-    // where
-    //     TErr: Error,
-    // {
-    //     ProcedureStream::from_stream(
-    //         procedure
-    //             .map(|v| match v {
-    //                 Ok(s) => {
-    //                     s.0.map(|v| v.and_then(|v| v.into_procedure_result()))
-    //                         .right_stream()
-    //                 }
-    //                 Err(err) => once(async move { Err(err) }).left_stream(),
-    //             })
-    //             .flatten(),
-    //     )
-    // }
-
-    // fn into_procedure_result(self) -> Result<ProcedureOutput, TErr> {
-    //     panic!("returning nested rspc::Stream's is not currently supported.")
-    // }
+    fn into_procedure_stream(
+        stream: impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static,
+    ) -> ProcedureStream {
+        ProcedureStream::from_stream(stream)
+    }
 }

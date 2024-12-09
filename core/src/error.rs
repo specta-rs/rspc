@@ -130,11 +130,16 @@ impl From<DowncastError> for ResolverError {
 pub struct ResolverError(Repr);
 
 impl ResolverError {
+    // Warning: Returning > 400 will fallback to `500`. As redirects would be invalid and `200` would break matching.
     pub fn new<T: Serialize + Send + 'static, E: error::Error + Send + 'static>(
-        status: u16,
+        mut status: u16,
         value: T,
         source: Option<E>,
     ) -> Self {
+        if status < 400 {
+            status = 500;
+        }
+
         Self(Repr::Custom {
             status,
             value: Box::new(ErrorInternal { value, err: source }),

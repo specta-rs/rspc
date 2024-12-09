@@ -1,4 +1,4 @@
-use std::{any::Any, fmt, sync::Arc};
+use std::{fmt, sync::Arc};
 
 use serde::Deserializer;
 
@@ -22,6 +22,10 @@ impl<TCtx> Procedure<TCtx> {
         }
     }
 
+    pub fn exec(&self, ctx: TCtx, input: DynInput) -> ProcedureStream {
+        (self.handler)(ctx, input)
+    }
+
     pub fn exec_with_deserializer<'de, D: Deserializer<'de> + Send>(
         &self,
         ctx: TCtx,
@@ -33,15 +37,11 @@ impl<TCtx> Procedure<TCtx> {
         (self.handler)(ctx, value)
     }
 
-    pub fn exec_with_value<T: Any + Send>(&self, ctx: TCtx, input: T) -> ProcedureStream {
+    pub fn exec_with_value<T: Send + 'static>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         let mut input = Some(input);
         let value = DynInput::new_value(&mut input);
 
         (self.handler)(ctx, value)
-    }
-
-    pub fn exec_with_dyn_input(&self, ctx: TCtx, input: DynInput) -> ProcedureStream {
-        (self.handler)(ctx, input)
     }
 }
 

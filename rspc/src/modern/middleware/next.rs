@@ -1,11 +1,13 @@
-use std::{fmt, sync::Arc};
+use std::fmt;
+
+use futures::Stream;
 
 use crate::modern::{middleware::middleware::MiddlewareHandler, procedure::ProcedureMeta};
 
 pub struct Next<TError, TCtx, TInput, TReturn> {
     // TODO: `pub(super)` over `pub(crate)`
     pub(crate) meta: ProcedureMeta,
-    pub(crate) next: Arc<MiddlewareHandler<TError, TCtx, TInput, TReturn>>,
+    pub(crate) next: MiddlewareHandler<TError, TCtx, TInput, TReturn>,
 }
 
 impl<TError, TCtx, TInput, TReturn> fmt::Debug for Next<TError, TCtx, TInput, TReturn> {
@@ -24,7 +26,7 @@ where
         self.meta.clone()
     }
 
-    pub async fn exec(&self, ctx: TCtx, input: TInput) -> Result<TReturn, TError> {
-        (self.next)(ctx, input, self.meta.clone()).await
+    pub fn exec(&self, ctx: TCtx, input: TInput) -> impl Stream<Item = Result<TReturn, TError>> {
+        (self.next)(ctx, input, self.meta.clone())
     }
 }

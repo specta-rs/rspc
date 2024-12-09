@@ -151,10 +151,10 @@ pub async fn handle_json_rpc<TCtx>(
             });
     }
 
-    let (path, input, sub_id) = match req.inner {
-        RequestInner::Query { path, input } => (path, input, None),
-        RequestInner::Mutation { path, input } => (path, input, None),
-        RequestInner::Subscription { path, input } => (path, input.1, Some(input.0)),
+    let (path, input, sub_id, is_subscription) = match req.inner {
+        RequestInner::Query { path, input } => (path, input, None, false),
+        RequestInner::Mutation { path, input } => (path, input, None, false),
+        RequestInner::Subscription { path, input } => (path, input.1, Some(input.0), true),
         RequestInner::SubscriptionStop { input } => {
             subscriptions.remove(&input).await;
             return;
@@ -164,14 +164,9 @@ pub async fn handle_json_rpc<TCtx>(
     let result = match routes.get(&Cow::Borrowed(&*path)) {
         Some(procedure) => {
             let mut stream = procedure.exec_with_deserializer(ctx, input.unwrap_or(Value::Null));
-
-            // It's really important this is before getting the first value
-            // Size hints can change after the first value is polled based on implementation.
-            let is_value = stream.size_hint() == (1, Some(1));
-
             let first_value = next(&mut stream).await;
 
-            if (is_value || stream.size_hint() == (0, Some(0))) && first_value.is_some() {
+            if !is_subscription {
                 first_value
                     .expect("checked at if above")
                     .map(ResponseInner::Response)

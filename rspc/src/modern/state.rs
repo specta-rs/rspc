@@ -45,21 +45,21 @@ impl Default for State {
 }
 
 impl State {
-    pub fn get<T: Any + Send + Sync + 'static>(&self) -> Option<&T> {
+    pub fn get<T: Send + Sync + 'static>(&self) -> Option<&T> {
         self.0.get(&TypeId::of::<T>()).map(|v| {
             v.downcast_ref::<T>()
                 .expect("unreachable: TypeId matches but downcast failed")
         })
     }
 
-    pub fn get_mut<T: Any + Send + Sync + 'static>(&self) -> Option<&T> {
+    pub fn get_mut<T: Send + Sync + 'static>(&self) -> Option<&T> {
         self.0.get(&TypeId::of::<T>()).map(|v| {
             v.downcast_ref::<T>()
                 .expect("unreachable: TypeId matches but downcast failed")
         })
     }
 
-    pub fn get_or_init<T: Any + Send + Sync + 'static>(&mut self, init: impl FnOnce() -> T) -> &T {
+    pub fn get_or_init<T: Send + Sync + 'static>(&mut self, init: impl FnOnce() -> T) -> &T {
         self.0
             .entry(TypeId::of::<T>())
             .or_insert_with(|| Box::new(init()))
@@ -67,7 +67,7 @@ impl State {
             .expect("unreachable: TypeId matches but downcast failed")
     }
 
-    pub fn get_mut_or_init<T: Any + Send + Sync + 'static>(
+    pub fn get_mut_or_init<T: Send + Sync + 'static>(
         &mut self,
         init: impl FnOnce() -> T,
     ) -> &mut T {
@@ -78,15 +78,15 @@ impl State {
             .expect("unreachable: TypeId matches but downcast failed")
     }
 
-    pub fn contains_key<T: Any + Send + Sync + 'static>(&self) -> bool {
+    pub fn contains_key<T: Send + Sync + 'static>(&self) -> bool {
         self.0.contains_key(&TypeId::of::<T>())
     }
 
-    pub fn insert<T: Any + Send + Sync + 'static>(&mut self, t: T) {
+    pub fn insert<T: Send + Sync + 'static>(&mut self, t: T) {
         self.0.insert(TypeId::of::<T>(), Box::new(t));
     }
 
-    pub fn remove<T: Any + Send + Sync + 'static>(&mut self) -> Option<T> {
+    pub fn remove<T: Send + Sync + 'static>(&mut self) -> Option<T> {
         self.0.remove(&TypeId::of::<T>()).map(|v| {
             *v.downcast::<T>()
                 .expect("unreachable: TypeId matches but downcast failed")

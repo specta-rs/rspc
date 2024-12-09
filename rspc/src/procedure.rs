@@ -1,6 +1,7 @@
-use std::{borrow::Cow, panic::Location, sync::Arc};
+use std::{borrow::Cow, panic::Location};
 
-use rspc_core::{Procedure, ProcedureStream};
+use futures::TryStreamExt;
+use rspc_core::Procedure;
 use specta::datatype::DataType;
 
 use crate::{
@@ -44,11 +45,10 @@ impl<TCtx> Procedure2<TCtx> {
         I: ResolverInput,
         R: ResolverOutput<TError>,
     {
+        use futures::Stream;
+
         ProcedureBuilder {
             build: Box::new(|kind, setups, handler| {
-                // TODO: Don't be `Arc<Box<_>>` just `Arc<_>`
-                let handler = Arc::new(handler);
-
                 Procedure2 {
                     setup: Default::default(),
                     ty: ProcedureType {
@@ -95,24 +95,22 @@ impl<TCtx> Procedure2<TCtx> {
 
                         //             Ok(R::into_procedure_stream(fut.into_stream()))
 
-                        // ProcedureStream::from_value(Ok("todo")) // TODO
-                        //
                         // TODO: borrow into procedure
                         let key: Cow<'static, str> = "todo".to_string().into(); // TODO: Work this out properly
                         let meta = ProcedureMeta::new(key.clone(), kind);
                         // TODO: END
 
-                        let fut = handler(
-                            ctx,
-                            I::from_input(input).unwrap(), // TODO: Error handling
-                            meta.clone(),
-                        );
-
-                        ProcedureStream::from_future_procedure_stream(async move {
-                            Ok(R::into_procedure_stream(fut.await.unwrap())) // TODO: Error handling
-
-                            // Ok(futures::stream::once(async move { Ok("todo") }))
-                        })
+                        R::into_procedure_stream(
+                            handler(
+                                ctx,
+                                I::from_input(input).unwrap(), // TODO: Error handling
+                                meta.clone(),
+                            )
+                            .map_ok(|v| v.into_stream())
+                            .map_err(|err| err.into_resolver_error())
+                            .try_flatten()
+                            .into_stream(),
+                        )
                     }),
                 }
             }),

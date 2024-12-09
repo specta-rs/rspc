@@ -24,7 +24,7 @@ impl Serialize for Infallible {
 impl std::error::Error for Infallible {}
 
 impl crate::modern::Error for Infallible {
-    fn status(&self) -> u16 {
+    fn into_resolver_error(self) -> rspc_core::ResolverError {
         unreachable!()
     }
 }

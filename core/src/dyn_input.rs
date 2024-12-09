@@ -19,7 +19,7 @@ enum DynInputInner<'a, 'de> {
 }
 
 impl<'a, 'de> DynInput<'a, 'de> {
-    pub fn new_value<T: Any + Send>(value: &'a mut Option<T>) -> Self {
+    pub fn new_value<T: Send + 'static>(value: &'a mut Option<T>) -> Self {
         Self {
             inner: DynInputInner::Value(value),
             type_name: type_name::<T>(),

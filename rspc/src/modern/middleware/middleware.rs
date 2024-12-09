@@ -21,18 +21,18 @@
 
 use std::{pin::Pin, sync::Arc};
 
-use futures::Future;
+use futures::{Future, FutureExt, Stream};
 
 use crate::modern::{procedure::ProcedureMeta, State};
 
 use super::Next;
 
-pub(crate) type MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult> = Box<
+pub(crate) type MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult> = Arc<
     dyn Fn(
             TNextCtx,
             TNextInput,
             ProcedureMeta,
-        ) -> Pin<Box<dyn Future<Output = Result<TNextResult, TError>> + Send + 'static>>
+        ) -> Pin<Box<dyn Stream<Item = Result<TNextResult, TError>> + Send + 'static>>
         + Send
         + Sync
         + 'static,
@@ -114,10 +114,7 @@ where
         Self {
             setup: None,
             inner: Box::new(move |next| {
-                // TODO: Don't `Arc<Box<_>>`
-                let next = Arc::new(next);
-
-                Box::new(move |ctx, input, meta| {
+                Arc::new(move |ctx, input, meta| {
                     let f = func(
                         ctx,
                         input,
@@ -127,7 +124,7 @@ where
                         },
                     );
 
-                    Box::pin(f)
+                    Box::pin(f.into_stream())
                 })
             }),
         }

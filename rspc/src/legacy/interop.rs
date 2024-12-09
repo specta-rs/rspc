@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, panic::Location};
 
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::{stream, FutureExt, StreamExt, TryStreamExt};
 use rspc_core::{ProcedureStream, ResolverError};
 use serde_json::Value;
 use specta::{
@@ -103,31 +103,39 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
             });
 
         match result {
-            Ok(result) => ProcedureStream::from_future_stream(async move {
-                match result.into_value_or_stream().await {
-                    Ok(ValueOrStream::Value(value)) => {
-                        Ok(stream::once(async { Ok(value) }).boxed())
-                    }
-                    Ok(ValueOrStream::Stream(s)) => Ok(s
-                        .map_err(|err| {
-                            let err = crate::legacy::Error::from(err);
-                            ResolverError::new(
+            Ok(result) => ProcedureStream::from_stream(
+                async move {
+                    match result.into_value_or_stream().await {
+                        Ok(ValueOrStream::Value(value)) => {
+                            stream::once(async { Ok(value) }).boxed()
+                        }
+                        Ok(ValueOrStream::Stream(s)) => s
+                            .map_err(|err| {
+                                let err = crate::legacy::Error::from(err);
+                                ResolverError::new(
+                                    err.code.to_status_code(),
+                                    (), /* typesafe errors aren't supported in legacy router */
+                                    Some(rspc_core::LegacyErrorInterop(err.message)),
+                                )
+                            })
+                            .boxed(),
+                        Err(err) => {
+                            let err: crate::legacy::Error = err.into();
+                            let err = ResolverError::new(
                                 err.code.to_status_code(),
-                                (), /* typesafe errors aren't supported in legacy router */
-                                Some(rspc_core::LegacyErrorInterop(err.message)),
-                            )
-                        })
-                        .boxed()),
-                    Err(err) => {
-                        let err: crate::legacy::Error = err.into();
-                        let err =
-                            ResolverError::new(err.code.to_status_code(), err.message, err.cause);
-                        // stream::once(async { Err(err) }).boxed()
-                        Err(err)
+                                err.message,
+                                err.cause,
+                            );
+                            stream::once(async { Err(err) }).boxed()
+                        }
                     }
                 }
-            }),
-            Err(err) => ProcedureStream::from_value(Err::<(), _>(err)),
+                .into_stream()
+                .flatten(),
+            ),
+            Err(err) => {
+                ProcedureStream::from_stream(stream::once(async move { Err::<(), _>(err) }))
+            }
         }
     })
 }
