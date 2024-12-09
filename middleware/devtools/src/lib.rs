@@ -22,10 +22,10 @@ use rspc_core::{Procedure, ProcedureStream, Procedures};
 use types::{Metadata, ProcedureMetadata};
 
 pub fn mount<TCtx: 'static>(
-    routes: impl Into<Procedures<TCtx>>,
+    procedures: impl Into<Procedures<TCtx>>,
     types: &impl Any,
-) -> impl Into<Procedures<TCtx>> {
-    let procedures = routes.into();
+) -> Procedures<TCtx> {
+    let procedures = procedures.into();
     let meta = Metadata {
         crate_name: env!("CARGO_PKG_NAME"),
         crate_version: env!("CARGO_PKG_VERSION"),

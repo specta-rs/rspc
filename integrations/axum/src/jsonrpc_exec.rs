@@ -124,7 +124,7 @@ impl<'a> Sender<'a> {
 pub async fn handle_json_rpc<TCtx>(
     ctx: TCtx,
     req: jsonrpc::Request,
-    routes: &Procedures<TCtx>,
+    procedures: &Procedures<TCtx>,
     sender: &mut Sender<'_>,
     subscriptions: &mut SubscriptionMap<'_>,
 ) where
@@ -158,7 +158,7 @@ pub async fn handle_json_rpc<TCtx>(
         }
     };
 
-    let result = match routes.get(&Cow::Borrowed(&*path)) {
+    let result = match procedures.get(&Cow::Borrowed(&*path)) {
         Some(procedure) => {
             let mut stream = procedure.exec_with_deserializer(ctx, input.unwrap_or(Value::Null));
             let first_value = next(&mut stream).await;

@@ -32,7 +32,7 @@ async fn main() {
         })
         .build();
 
-    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+    let (procedures, types) = rspc::Router2::from(router).build().unwrap();
 
     rspc::Typescript::default()
         .export_to(
@@ -47,7 +47,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(routes, |cookies: Cookies| Ctx { cookies }),
+            rspc_axum::endpoint(procedures, |cookies: Cookies| Ctx { cookies }),
         )
         .layer(CookieManagerLayer::new())
         // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!

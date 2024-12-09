@@ -134,7 +134,7 @@ fn handle_rpc<R: tauri::Runtime>(
 }
 
 pub fn plugin<R, TCtxFn, TCtx>(
-    procedures: impl Into<Procedures<TCtx>>,
+    procedures: impl AsRef<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> TauriPlugin<R>
 where

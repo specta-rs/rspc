@@ -7,6 +7,8 @@ use serde::{de::Error, Deserialize};
 
 use crate::{DeserializeError, DowncastError, ProcedureError};
 
+// It would be really nice if this with `&'a DynInput<'de>` but that would require `#[repr(transparent)]` with unsafe which is probally not worth it.
+
 /// TODO
 pub struct DynInput<'a, 'de> {
     inner: DynInputInner<'a, 'de>,

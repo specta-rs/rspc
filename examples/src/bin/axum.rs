@@ -25,7 +25,7 @@ async fn main() {
         .merge("r1.", r1)
         .build();
 
-    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+    let (procedures, types) = rspc::Router2::from(router).build().unwrap();
 
     rspc::Typescript::default()
         .export_to(
@@ -40,7 +40,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(routes, |parts: Parts| {
+            rspc_axum::endpoint(procedures, |parts: Parts| {
                 println!("Client requested operation '{}'", parts.uri.path());
 
                 ()

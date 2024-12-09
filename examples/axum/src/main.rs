@@ -166,7 +166,7 @@ where
 async fn main() {
     let router = Router2::from(mount());
     let router = test_unstable_stuff(router);
-    let (routes, types) = router.build().unwrap();
+    let (procedures, types) = router.build().unwrap();
 
     rspc::Typescript::default()
         // .formatter(specta_typescript::formatter::prettier),
@@ -187,7 +187,7 @@ async fn main() {
     //     )
     //     .unwrap();
 
-    let routes = rspc_devtools::mount(routes, &types);
+    let procedures = rspc_devtools::mount(procedures, &types);
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -199,7 +199,7 @@ async fn main() {
         .route("/", get(|| async { "Hello 'rspc'!" }))
         .nest(
             "/rspc",
-            rspc_axum::endpoint(routes, |parts: Parts| {
+            rspc_axum::endpoint(procedures, |parts: Parts| {
                 println!("Client requested operation '{}'", parts.uri.path());
                 Ctx {}
             }),

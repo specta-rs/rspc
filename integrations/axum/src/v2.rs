@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Borrow, collections::HashMap};
 
 use axum::{
     body::{to_bytes, Body},
@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub fn endpoint<TCtx, TCtxFnMarker, TCtxFn, S>(
-    routes: impl Into<Procedures<TCtx>>,
+    procedures: impl Borrow<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> Router<S>
 where
@@ -27,14 +27,14 @@ where
     TCtxFnMarker: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
 {
-    let routes = routes.into();
+    let procedures = procedures.borrow().clone();
 
     Router::<S>::new().route(
         "/:id",
         on(
             MethodFilter::GET.or(MethodFilter::POST),
             move |state: State<S>, req: axum::extract::Request<Body>| {
-                let routes = routes.clone();
+                let procedures = procedures.clone();
 
                 async move {
                     match (req.method(), &req.uri().path()[1..]) {
@@ -51,7 +51,7 @@ where
                                             ctx_fn,
                                             socket,
                                             req.into_parts().0,
-                                            routes,
+                                            procedures,
                                             state.0,
                                         )
                                     })
@@ -65,12 +65,12 @@ where
                                 .unwrap()
                         }
                         (&Method::GET, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Query, req, &routes, state.0)
+                            handle_http(ctx_fn, ProcedureKind::Query, req, &procedures, state.0)
                                 .await
                                 .into_response()
                         }
                         (&Method::POST, _) => {
-                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &routes, state.0)
+                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &procedures, state.0)
                                 .await
                                 .into_response()
                         }
@@ -86,7 +86,7 @@ async fn handle_http<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     kind: ProcedureKind,
     req: Request,
-    routes: &Procedures<TCtx>,
+    procedures: &Procedures<TCtx>,
     state: TState,
 ) -> impl IntoResponse
 where
@@ -173,7 +173,7 @@ where
                 }
             },
         },
-        routes,
+        procedures,
         &mut resp,
         &mut SubscriptionMap::None,
     )
@@ -206,7 +206,7 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
     ctx_fn: TCtxFn,
     mut socket: axum::extract::ws::WebSocket,
     parts: Parts,
-    routes: Procedures<TCtx>,
+    procedures: Procedures<TCtx>,
     state: TState,
 ) where
     TCtx: Send + Sync + 'static,
@@ -275,7 +275,7 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
                                         }
                                     };
 
-                                    handle_json_rpc(ctx, request, &routes, &mut Sender::Channel(&mut tx),
+                                    handle_json_rpc(ctx, request, &procedures, &mut Sender::Channel(&mut tx),
                                     &mut SubscriptionMap::Ref(&mut subscriptions)).await;
                                 }
                             },

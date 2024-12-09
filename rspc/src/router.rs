@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     collections::{BTreeMap, HashMap},
     fmt,
 };
@@ -72,7 +72,15 @@ impl<TCtx> Router2<TCtx> {
         self
     }
 
-    pub fn build(self) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, Types), ()> {
+    pub fn build(
+        self,
+    ) -> Result<
+        (
+            impl Borrow<Procedures<TCtx>> + Into<Procedures<TCtx>> + fmt::Debug,
+            Types,
+        ),
+        (),
+    > {
         self.build_with_state_inner(State::default())
     }
 
@@ -80,14 +88,26 @@ impl<TCtx> Router2<TCtx> {
     pub fn build_with_state(
         self,
         state: State,
-    ) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, Types), ()> {
+    ) -> Result<
+        (
+            impl Borrow<Procedures<TCtx>> + Into<Procedures<TCtx>> + fmt::Debug,
+            Types,
+        ),
+        (),
+    > {
         self.build_with_state_inner(state)
     }
 
     fn build_with_state_inner(
         self,
         mut state: State,
-    ) -> Result<(impl Into<Procedures<TCtx>> + Clone + fmt::Debug, Types), ()> {
+    ) -> Result<
+        (
+            impl Borrow<Procedures<TCtx>> + Into<Procedures<TCtx>> + fmt::Debug,
+            Types,
+        ),
+        (),
+    > {
         for setup in self.setup {
             setup(&mut state);
         }
@@ -120,9 +140,9 @@ impl<TCtx> Router2<TCtx> {
                 self.0
             }
         }
-        impl<TCtx> Clone for Impl<TCtx> {
-            fn clone(&self) -> Self {
-                Self(self.0.clone())
+        impl<TCtx> Borrow<Procedures<TCtx>> for Impl<TCtx> {
+            fn borrow(&self) -> &Procedures<TCtx> {
+                &self.0
             }
         }
         impl<TCtx> fmt::Debug for Impl<TCtx> {

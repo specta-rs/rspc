@@ -23,7 +23,7 @@ async fn main() {
         })
         .build();
 
-    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+    let (procedures, types) = rspc::Router2::from(router).build().unwrap();
 
     rspc::Typescript::default()
         .export_to(
@@ -38,7 +38,7 @@ async fn main() {
 
     let app = axum::Router::new().nest(
         "/rspc",
-        rspc_axum::endpoint(routes, move || MyCtx {
+        rspc_axum::endpoint(procedures, move || MyCtx {
             count: count.clone(),
         }),
     );

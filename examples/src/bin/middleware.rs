@@ -98,7 +98,7 @@ async fn main() {
         // .middleware(|mw| mw.openapi(OpenAPIConfig {}))
         .build();
 
-    let (routes, types) = rspc::Router2::from(router).build().unwrap();
+    let (procedures, types) = rspc::Router2::from(router).build().unwrap();
 
     rspc::Typescript::default()
         .export_to(
@@ -112,7 +112,7 @@ async fn main() {
         // Attach the rspc router to your axum router. The closure is used to generate the request context for each request.
         .nest(
             "/rspc",
-            rspc_axum::endpoint(routes, || UnauthenticatedContext {
+            rspc_axum::endpoint(procedures, || UnauthenticatedContext {
                 session_id: Some("abc".into()), // Change this line to control whether you are authenticated and can access the "another" query.
             }),
         )
