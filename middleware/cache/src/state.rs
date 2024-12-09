@@ -20,11 +20,9 @@ impl<S: Store> CacheState<S> {
     // TODO: Default ttl
 
     pub fn mount(self) -> impl FnOnce(&mut State) {
-        let cache: Arc<dyn Store> = Arc::new(self.store);
-        let cache: CacheState<Arc<dyn Store>> = CacheState::<Arc<dyn Store>>::builder(cache);
+        let cache = CacheState::<Arc<dyn Store>>::builder(Arc::new(self.store));
         move |state: &mut State| {
-            println!("SETUP"); // TODO
-            state.insert::<CacheState<Arc<dyn Store>>>(cache);
+            state.insert(cache);
         }
     }
 }

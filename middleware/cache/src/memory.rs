@@ -16,7 +16,7 @@ impl Store for Memory {
     }
 
     fn set(&self, key: &str, value: Value, ttl: usize) {
-        assert_eq!(ttl, 0); // TODO: Implement TTL
+        // TODO: Properly set ttl
         self.0.insert(key.to_string(), value);
     }
 }
