@@ -13,10 +13,18 @@ impl<S: Store> CacheState<S> {
         Self { store }
     }
 
+    pub fn store(&self) -> &S {
+        &self.store
+    }
+
+    // TODO: Default ttl
+
     pub fn mount(self) -> impl FnOnce(&mut State) {
-        let cache = CacheState::builder(Arc::new(self.store));
+        let cache: Arc<dyn Store> = Arc::new(self.store);
+        let cache: CacheState<Arc<dyn Store>> = CacheState::<Arc<dyn Store>>::builder(cache);
         move |state: &mut State| {
-            state.insert(cache);
+            println!("SETUP"); // TODO
+            state.insert::<CacheState<Arc<dyn Store>>>(cache);
         }
     }
 }

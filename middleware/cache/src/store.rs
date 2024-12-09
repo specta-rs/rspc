@@ -1,23 +1,42 @@
 use std::{any::Any, sync::Arc};
 
-use moka::sync::Cache;
-
 pub trait Store: Send + Sync + 'static {
-    // fn get<V: Clone + Send + Sync + 'static>(&self, key: &str) -> Option<V>;
-    // fn set<V: Clone + Send + Sync + 'static>(&self, key: &str, value: &V, ttl: usize);
+    fn get(&self, key: &str) -> Option<Value>;
+
+    fn set(&self, key: &str, value: Value, ttl: usize);
+}
+
+impl Store for Arc<dyn Store> {
+    fn get(&self, key: &str) -> Option<Value> {
+        self.as_ref().get(key)
+    }
+
+    fn set(&self, key: &str, value: Value, ttl: usize) {
+        self.as_ref().set(key, value, ttl)
+    }
 }
 
 impl<S: Store + Send> Store for Arc<S> {
-    // fn get<V: Clone + Send + Sync + 'static>(&self, key: &str) -> Option<V> {
-    //     self.as_ref().get(key)
-    // }
+    fn get(&self, key: &str) -> Option<Value> {
+        self.as_ref().get(key)
+    }
 
-    // fn set<V: Clone + Send + Sync + 'static>(&self, key: &str, value: &V, ttl: usize) {
-    //     self.as_ref().set(key, value, ttl)
-    // }
+    fn set(&self, key: &str, value: Value, ttl: usize) {
+        self.as_ref().set(key, value, ttl)
+    }
 }
 
-struct Value(Box<dyn DynClone + Send + Sync>);
+pub struct Value(Box<dyn Repr + Send + Sync>);
+
+impl Value {
+    pub fn new<T: Clone + Send + Sync + 'static>(v: T) -> Self {
+        Self(Box::new(v))
+    }
+
+    pub fn downcast_ref<T: Clone + Send + Sync + 'static>(&self) -> Option<&T> {
+        self.0.inner().downcast_ref()
+    }
+}
 
 impl Clone for Value {
     fn clone(&self) -> Self {
@@ -26,30 +45,18 @@ impl Clone for Value {
 }
 
 // TODO: Sealing this better.
-pub trait DynClone: Send + Sync {
+trait Repr: Send + Sync + 'static {
     // Return `Value` instead of `Box` directly for sealing
-    fn dyn_clone(&self) -> Box<dyn DynClone + Send + Sync>;
+    fn dyn_clone(&self) -> Box<dyn Repr + Send + Sync>;
+
+    fn inner(&self) -> &dyn Any;
 }
-impl<T: Clone + Send + Sync + 'static> DynClone for T {
-    fn dyn_clone(&self) -> Box<dyn DynClone + Send + Sync> {
+impl<T: Clone + Send + Sync + 'static> Repr for T {
+    fn dyn_clone(&self) -> Box<dyn Repr + Send + Sync> {
         Box::new(self.clone())
     }
-}
 
-pub struct Memory(Cache<String, Value>);
-
-impl Memory {
-    pub fn new() -> Self {
-        Self(Cache::new(100)) // TODO: Configurable
+    fn inner(&self) -> &dyn Any {
+        self
     }
-}
-
-impl Store for Memory {
-    // fn get<V: Clone + Send + Sync + 'static>(&self, key: &str) -> Option<V> {
-    //     self.0.get(key).map(|v| v.downcast_ref().clone())
-    // }
-
-    // fn set<V: Clone + Send + Sync + 'static>(&self, key: &str, value: &V, ttl: usize) {
-    //     todo!()
-    // }
 }

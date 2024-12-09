@@ -1,4 +1,9 @@
-use std::{marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    marker::PhantomData,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use async_stream::stream;
 use axum::routing::get;
@@ -150,7 +155,7 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                     // if input.some_arg {}
                     cache_ttl(10);
 
-                    Ok(env!("CARGO_PKG_VERSION"))
+                    Ok(SystemTime::now())
                 })
         })
 }

@@ -32,9 +32,7 @@ pub struct State(
 
 impl fmt::Debug for State {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("State")
-            // .field("state", &self.state) // TODO
-            .finish()
+        f.debug_tuple("State").field(&self.0.keys()).finish()
     }
 }
 
