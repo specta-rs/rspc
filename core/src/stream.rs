@@ -1,6 +1,7 @@
 use core::fmt;
 use std::{
     future::poll_fn,
+    panic::{catch_unwind, AssertUnwindSafe},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -9,7 +10,7 @@ use futures_core::Stream;
 use pin_project_lite::pin_project;
 use serde::Serialize;
 
-use crate::{ProcedureError, ResolverError};
+use crate::ProcedureError;
 
 /// TODO
 #[must_use = "ProcedureStream does nothing unless polled"]
@@ -24,6 +25,7 @@ impl ProcedureStream {
     {
         Self(Box::pin(DynReturnImpl {
             src: s,
+            unwound: false,
             value: None,
         }))
     }
@@ -84,6 +86,7 @@ pin_project! {
     struct DynReturnImpl<T, S>{
         #[pin]
         src: S,
+        unwound: bool,
         value: Option<T>,
     }
 }
@@ -97,16 +100,31 @@ where
         mut self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<(), ProcedureError>>> {
+        if self.unwound {
+            // The stream is now done.
+            return Poll::Ready(None);
+        }
+
         let this = self.as_mut().project();
-        let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
-        this.src.poll_next(cx).map(|v| {
-            v.map(|v| {
+        let r = catch_unwind(AssertUnwindSafe(|| {
+            let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
+            this.src.poll_next(cx).map(|v| {
                 v.map(|v| {
-                    *this.value = Some(v);
-                    ()
+                    v.map(|v| {
+                        *this.value = Some(v);
+                        ()
+                    })
                 })
             })
-        })
+        }));
+
+        match r {
+            Ok(v) => v,
+            Err(err) => {
+                *this.unwound = true;
+                Poll::Ready(Some(Err(ProcedureError::Unwind(err))))
+            }
+        }
     }
 
     fn value(&self) -> &(dyn erased_serde::Serialize + Send + Sync) {

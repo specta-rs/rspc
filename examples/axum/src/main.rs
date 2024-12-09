@@ -48,6 +48,7 @@ fn mount() -> rspc::Router<Ctx> {
     let router = rspc::Router::<Ctx>::new()
         .merge("nested.", inner)
         .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .query("panic", |t| t(|_, _: ()| todo!()))
         // .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
         .query("error", |t| {

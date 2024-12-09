@@ -1,4 +1,4 @@
-use std::{borrow::Cow, error, fmt};
+use std::{any::Any, borrow::Cow, error, fmt};
 
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
@@ -12,6 +12,9 @@ pub enum ProcedureError {
     Downcast(DowncastError),
     /// An error occurred while running the procedure.
     Resolver(ResolverError),
+    /// The procedure unexpectedly unwinded.
+    /// This happens when you panic inside a procedure.
+    Unwind(Box<dyn Any + Send>),
 }
 
 impl ProcedureError {
@@ -21,6 +24,7 @@ impl ProcedureError {
             Self::Deserialize(_) => 400,
             Self::Downcast(_) => 400,
             Self::Resolver(err) => err.status(),
+            Self::Unwind(_) => 500,
         }
     }
 
@@ -30,6 +34,7 @@ impl ProcedureError {
             Self::Deserialize(err) => s.serialize_str(&format!("{}", err)),
             Self::Downcast(err) => s.serialize_str(&format!("{}", err)),
             Self::Resolver(err) => s.serialize_str(&format!("{}", err)),
+            Self::Unwind(_) => s.serialize_none(),
         }
     }
 
@@ -39,9 +44,11 @@ impl ProcedureError {
             ProcedureError::Deserialize(_) => "Deserialize",
             ProcedureError::Downcast(_) => "Downcast",
             ProcedureError::Resolver(_) => "Resolver",
+            ProcedureError::Unwind(_) => "ResolverPanic",
         }
     }
 
+    // TODO: This should be treated as sanitized and okay for the frontend right?
     pub fn message(&self) -> Cow<'static, str> {
         match self {
             ProcedureError::NotFound => "procedure not found".into(),
@@ -51,6 +58,7 @@ impl ProcedureError {
                 .error()
                 .map(|err| err.to_string().into())
                 .unwrap_or("resolver error".into()),
+            ProcedureError::Unwind(_) => "resolver panic".into(),
         }
     }
 }
@@ -66,9 +74,10 @@ impl fmt::Debug for ProcedureError {
         // TODO: Proper format
         match self {
             Self::NotFound => write!(f, "NotFound"),
-            Self::Deserialize(err) => write!(f, "Deserialize({:?})", err),
-            Self::Downcast(err) => write!(f, "Downcast({:?})", err),
-            Self::Resolver(err) => write!(f, "Resolver({:?})", err),
+            Self::Deserialize(err) => write!(f, "Deserialize({err:?})"),
+            Self::Downcast(err) => write!(f, "Downcast({err:?})"),
+            Self::Resolver(err) => write!(f, "Resolver({err:?})"),
+            Self::Unwind(err) => write!(f, "ResolverPanic({err:?})"),
         }
     }
 }
