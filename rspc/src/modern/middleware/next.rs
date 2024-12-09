@@ -26,7 +26,7 @@ where
         self.meta.clone()
     }
 
-    pub fn exec(&self, ctx: TCtx, input: TInput) -> impl Stream<Item = Result<TReturn, TError>> {
-        (self.next)(ctx, input, self.meta.clone())
+    pub async fn exec(&self, ctx: TCtx, input: TInput) -> Result<TReturn, TError> {
+        (self.next)(ctx, input, self.meta.clone()).await
     }
 }

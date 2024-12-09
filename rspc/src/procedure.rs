@@ -45,7 +45,7 @@ impl<TCtx> Procedure2<TCtx> {
         I: ResolverInput,
         R: ResolverOutput<TError>,
     {
-        use futures::Stream;
+        use futures::{FutureExt, Stream};
 
         ProcedureBuilder {
             build: Box::new(|kind, setups, handler| {
@@ -106,6 +106,7 @@ impl<TCtx> Procedure2<TCtx> {
                                 I::from_input(input).unwrap(), // TODO: Error handling
                                 meta.clone(),
                             )
+                            .into_stream()
                             .map_ok(|v| v.into_stream())
                             .map_err(|err| err.into_resolver_error())
                             .try_flatten()

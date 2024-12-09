@@ -1,3 +1,10 @@
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+
+use futures::StreamExt;
+
 /// Return a [`Stream`](futures::Stream) of values from a [`Procedure::query`](procedure::ProcedureBuilder::query) or [`Procedure::mutation`](procedure::ProcedureBuilder::mutation).
 ///
 /// ## Why not a subscription?
@@ -31,5 +38,18 @@ impl<S: futures::Stream + Default> Default for Stream<S> {
 impl<S: futures::Stream + Clone> Clone for Stream<S> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
+    }
+}
+
+// TODO: I hate this requiring `Unpin` but we couldn't use `pin-project-lite` with the tuple variant.
+impl<S: futures::Stream + Unpin> futures::Stream for Stream<S> {
+    type Item = S::Item;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.0.poll_next_unpin(cx)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }

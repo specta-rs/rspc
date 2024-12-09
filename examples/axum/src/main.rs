@@ -3,8 +3,8 @@ use std::{marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
 use async_stream::stream;
 use axum::{http::request::Parts, routing::get};
 use rspc::{
-    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
-    Router2,
+    middleware::Middleware, Error2, Infallible, Procedure2, ProcedureBuilder, ResolverInput,
+    ResolverOutput, Router2,
 };
 use serde::Serialize;
 use specta::Type;
@@ -124,13 +124,13 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
         })
         .procedure("newstuff2", {
             <BaseProcedure>::builder()
-                // .with(invalidation(|ctx: Ctx, key, event| false))
-                // .with(Middleware::new(
-                //     move |ctx: Ctx, input: (), next| async move {
-                //         let result = next.exec(ctx, input).await;
-                //         result
-                //     },
-                // ))
+                .with(invalidation(|ctx: Ctx, key, event| false))
+                .with(Middleware::new(
+                    move |ctx: Ctx, input: (), next| async move {
+                        let result = next.exec(ctx, input).await;
+                        result
+                    },
+                ))
                 .query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
 }
@@ -140,29 +140,26 @@ pub enum InvalidateEvent {
     InvalidateKey(String),
 }
 
-// fn invalidation<TError, TCtx, TInput, TResult>(
-//     handler: impl Fn(TCtx, TInput, InvalidateEvent) -> bool + Send + Sync + 'static,
-// ) -> Middleware<TError, TCtx, TInput, TResult>
-// where
-//     TError: Send + 'static,
-//     TCtx: Clone + Send + 'static,
-//     TInput: Clone + Send + 'static,
-//     TResult: Send + 'static,
-// {
-//     let handler = Arc::new(handler);
-//     Middleware::new(move |ctx: TCtx, input: TInput, next| {
-//         let handler = handler.clone();
-//         async move {
-//             // TODO: Register this with `TCtx`
-//             let ctx2 = ctx.clone();
-//             let input2 = input.clone();
-//             let result = next.exec(ctx, input);
+fn invalidation<TError, TCtx, TInput, TResult>(
+    handler: impl Fn(TCtx, TInput, InvalidateEvent) -> bool + Send + Sync + 'static,
+) -> Middleware<TError, TCtx, TInput, TResult>
+where
+    TError: Send + 'static,
+    TCtx: Clone + Send + 'static,
+    TInput: Clone + Send + 'static,
+    TResult: Send + 'static,
+{
+    let handler = Arc::new(handler);
+    Middleware::new(move |ctx: TCtx, input: TInput, next| async move {
+        // TODO: Register this with `TCtx`
+        let ctx2 = ctx.clone();
+        let input2 = input.clone();
+        let result = next.exec(ctx, input).await;
 
-//             // TODO: Unregister this with `TCtx`
-//             result
-//         }
-//     })
-// }
+        // TODO: Unregister this with `TCtx`
+        result
+    })
+}
 
 #[tokio::main]
 async fn main() {

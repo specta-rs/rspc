@@ -76,7 +76,7 @@ where
         (self.build)(
             ProcedureKind::Query,
             Vec::new(),
-            Arc::new(move |ctx, input, _| Box::pin(handler(ctx, input).into_stream())),
+            Arc::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }
 
@@ -87,7 +87,7 @@ where
         (self.build)(
             ProcedureKind::Mutation,
             Vec::new(),
-            Arc::new(move |ctx, input, _| Box::pin(handler(ctx, input).into_stream())),
+            Arc::new(move |ctx, input, _| Box::pin(handler(ctx, input))),
         )
     }
 }

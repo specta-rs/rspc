@@ -32,7 +32,7 @@ pub(crate) type MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult> = A
             TNextCtx,
             TNextInput,
             ProcedureMeta,
-        ) -> Pin<Box<dyn Stream<Item = Result<TNextResult, TError>> + Send + 'static>>
+        ) -> Pin<Box<dyn Future<Output = Result<TNextResult, TError>> + Send + 'static>>
         + Send
         + Sync
         + 'static,
@@ -124,7 +124,7 @@ where
                         },
                     );
 
-                    Box::pin(f.into_stream())
+                    Box::pin(f)
                 })
             }),
         }
