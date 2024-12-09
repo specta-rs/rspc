@@ -4,8 +4,6 @@ use serde::Deserializer;
 
 use crate::{DynInput, ProcedureStream};
 
-// TODO: Document the importance of the `size_hint`
-
 /// a single type-erased operation that the server can execute.
 ///
 /// TODO: Show constructing and executing procedure.

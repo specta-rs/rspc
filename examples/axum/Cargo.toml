@@ -9,7 +9,7 @@ rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
 rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
 tokio = { version = "1.41.1", features = ["full"] }
 async-stream = "0.3.6"
-axum = { version = "0.7.9", features = ["ws"] }
+axum = { version = "0.7.9", features = ["ws", "tokio"] }
 tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }
@@ -19,3 +19,6 @@ specta = { version = "=2.0.0-rc.20", features = [
 ] } # TODO: Drop all features
 thiserror = "2.0.4"
 rspc-devtools = { version = "0.0.0", path = "../../middleware/devtools" }
+tracing = "0.1.41"
+futures = "0.3.31"
+rspc-cache = { version = "0.0.0", path = "../../middleware/cache" }

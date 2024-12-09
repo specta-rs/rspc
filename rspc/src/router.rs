@@ -2,6 +2,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::{BTreeMap, HashMap},
     fmt,
+    sync::Arc,
 };
 
 use specta::TypeCollection;
@@ -111,6 +112,7 @@ impl<TCtx> Router2<TCtx> {
         for setup in self.setup {
             setup(&mut state);
         }
+        let state = Arc::new(state);
 
         let mut procedure_types = BTreeMap::new();
         let procedures = self
@@ -130,7 +132,7 @@ impl<TCtx> Router2<TCtx> {
                 }
                 current.insert(key[key.len() - 1].clone(), TypesOrType::Type(p.ty));
 
-                (get_flattened_name(&key), p.inner)
+                (get_flattened_name(&key), (p.inner)(state.clone()))
             })
             .collect::<HashMap<_, _>>();
 

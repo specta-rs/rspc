@@ -9,6 +9,7 @@
 // http://[::]:4000/rspc/~rspc.devtools.meta
 // http://[::]:4000/rspc/~rspc.devtools.history
 
+mod tracing;
 mod types;
 
 use std::{

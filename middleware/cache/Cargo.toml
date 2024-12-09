@@ -1,11 +1,12 @@
 [package]
-name = "rspc-cached"
+name = "rspc-cache"
 version = "0.0.0"
 edition = "2021"
 publish = false
 
 [dependencies]
-rspc-core = { path = "../../core" }
+moka = { version = "0.12.8", features = ["sync"] }
+rspc = { path = "../../rspc", features = ["unstable"] }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]

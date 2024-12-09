@@ -1,16 +1,18 @@
 use std::{marker::PhantomData, path::PathBuf, sync::Arc, time::Duration};
 
 use async_stream::stream;
-use axum::{http::request::Parts, routing::get};
+use axum::routing::get;
 use rspc::{
-    middleware::Middleware, Error2, Infallible, Procedure2, ProcedureBuilder, ResolverInput,
-    ResolverOutput, Router2,
+    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
+    Router2,
 };
+use rspc_cache::{cache, cache_ttl, CacheState, Memory};
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
+use tracing::info;
 
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
@@ -47,7 +49,13 @@ fn mount() -> rspc::Router<Ctx> {
 
     let router = rspc::Router::<Ctx>::new()
         .merge("nested.", inner)
-        .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .query("version", |t| {
+            t(|_, _: ()| {
+                info!("Hello World from Version Query!");
+
+                env!("CARGO_PKG_VERSION")
+            })
+        })
         .query("panic", |t| t(|_, _: ()| todo!()))
         // .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
@@ -134,6 +142,17 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                 ))
                 .query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
+        .setup(CacheState::builder(Memory::new()).mount())
+        .procedure("cached", {
+            <BaseProcedure>::builder()
+                .with(cache())
+                .query(|_, _: ()| async {
+                    // if input.some_arg {}
+                    cache_ttl(10);
+
+                    Ok(env!("CARGO_PKG_VERSION"))
+                })
+        })
 }
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -197,10 +216,17 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
+        // .nest(
+        //     "/rspc",
+        //     rspc_axum::endpoint(procedures, |parts: Parts| {
+        //         println!("Client requested operation '{}'", parts.uri.path());
+        //         Ctx {}
+        //     }),
+        // )
         .nest(
             "/rspc",
-            rspc_axum::endpoint(procedures, |parts: Parts| {
-                println!("Client requested operation '{}'", parts.uri.path());
+            rspc_axum::Endpoint::builder(procedures).build(|| {
+                // println!("Client requested operation '{}'", parts.uri.path()); // TODO: Fix this
                 Ctx {}
             }),
         )

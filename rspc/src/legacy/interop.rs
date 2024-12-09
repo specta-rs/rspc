@@ -55,7 +55,7 @@ pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
                         location: Location::caller().clone(),
                     },
                     // location: Location::caller().clone(), // TODO: This needs to actually be correct
-                    inner: layer_to_procedure(key, kind, p.exec),
+                    inner: Box::new(move |_| layer_to_procedure(key, kind, p.exec)),
                 },
             )
         });

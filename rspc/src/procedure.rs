@@ -1,6 +1,6 @@
-use std::{borrow::Cow, panic::Location};
+use std::{borrow::Cow, panic::Location, sync::Arc};
 
-use futures::TryStreamExt;
+use futures::{FutureExt, TryStreamExt};
 use rspc_core::Procedure;
 use specta::datatype::DataType;
 
@@ -28,7 +28,7 @@ pub(crate) struct ProcedureType {
 pub struct Procedure2<TCtx> {
     pub(crate) setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     pub(crate) ty: ProcedureType,
-    pub(crate) inner: rspc_core::Procedure<TCtx>,
+    pub(crate) inner: Box<dyn FnOnce(Arc<State>) -> rspc_core::Procedure<TCtx>>,
 }
 
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
@@ -45,8 +45,6 @@ impl<TCtx> Procedure2<TCtx> {
         I: ResolverInput,
         R: ResolverOutput<TError>,
     {
-        use futures::{FutureExt, Stream};
-
         ProcedureBuilder {
             build: Box::new(|kind, setups, handler| {
                 Procedure2 {
@@ -58,60 +56,24 @@ impl<TCtx> Procedure2<TCtx> {
                         error: DataType::Any,  // TODO
                         location: Location::caller().clone(),
                     },
-                    inner: Procedure::new(move |ctx, input| {
-                        // let input: I = I::from_input(input).unwrap(); // TODO: Error handling
-
-                        // let key = "todo".to_string().into(); // TODO: Work this out properly
-
-                        // let meta = ProcedureMeta::new(key.clone(), kind);
-                        //     for setup in setups {
-                        //         setup(state, meta.clone());
-                        //     }
-
-                        //     Procedure {
-                        //         kind,
-                        //         ty: ProcedureTypeDefinition {
-                        //             key,
-                        //             kind,
-                        //             input: I::data_type(type_map),
-                        //             result: R::data_type(type_map),
-                        //         },
-                        //         handler: Arc::new(move |ctx, input| {
-                        //             let fut = handler(
-                        //                 ctx,
-                        //                 I::from_value(ProcedureExecInput::new(input))?,
-                        //                 meta.clone(),
-                        //             );
-
-                        //             Ok(R::into_procedure_stream(fut.into_stream()))
-                        //         }),
-                        //     }
-
-                        //             let fut = handler(
-                        //                 ctx,
-                        //                 I::from_value(ProcedureExecInput::new(input))?,
-                        //                 meta.clone(),
-                        //             );
-
-                        //             Ok(R::into_procedure_stream(fut.into_stream()))
-
-                        // TODO: borrow into procedure
+                    inner: Box::new(move |state| {
                         let key: Cow<'static, str> = "todo".to_string().into(); // TODO: Work this out properly
-                        let meta = ProcedureMeta::new(key.clone(), kind);
-                        // TODO: END
+                        let meta = ProcedureMeta::new(key.clone(), kind, state);
 
-                        R::into_procedure_stream(
-                            handler(
-                                ctx,
-                                I::from_input(input).unwrap(), // TODO: Error handling
-                                meta.clone(),
+                        Procedure::new(move |ctx, input| {
+                            R::into_procedure_stream(
+                                handler(
+                                    ctx,
+                                    I::from_input(input).unwrap(), // TODO: Error handling
+                                    meta.clone(),
+                                )
+                                .into_stream()
+                                .map_ok(|v| v.into_stream())
+                                .map_err(|err| err.into_resolver_error())
+                                .try_flatten()
+                                .into_stream(),
                             )
-                            .into_stream()
-                            .map_ok(|v| v.into_stream())
-                            .map_err(|err| err.into_resolver_error())
-                            .try_flatten()
-                            .into_stream(),
-                        )
+                        })
                     }),
                 }
             }),

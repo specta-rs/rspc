@@ -1,8 +1,9 @@
-use std::fmt;
+use std::{fmt, sync::Arc};
 
-use futures::Stream;
-
-use crate::modern::{middleware::middleware::MiddlewareHandler, procedure::ProcedureMeta};
+use crate::{
+    modern::{middleware::middleware::MiddlewareHandler, procedure::ProcedureMeta},
+    State,
+};
 
 pub struct Next<TError, TCtx, TInput, TReturn> {
     // TODO: `pub(super)` over `pub(crate)`

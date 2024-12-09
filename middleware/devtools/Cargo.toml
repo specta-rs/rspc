@@ -9,6 +9,7 @@ futures = "0.3.31"
 rspc-core = { path = "../../core" }
 serde = { version = "1.0.215", features = ["derive"] }
 specta = { version = "=2.0.0-rc.20", features = ["derive"] }
+tracing = "0.1.41"
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]

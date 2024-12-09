@@ -19,6 +19,7 @@ use std::{borrow::Cow, sync::Arc};
 // }
 
 pub use crate::ProcedureKind;
+use crate::State;
 
 #[derive(Debug, Clone)]
 enum ProcedureName {
@@ -30,13 +31,15 @@ enum ProcedureName {
 pub struct ProcedureMeta {
     name: ProcedureName,
     kind: ProcedureKind,
+    state: Arc<State>,
 }
 
 impl ProcedureMeta {
-    pub(crate) fn new(name: Cow<'static, str>, kind: ProcedureKind) -> Self {
+    pub(crate) fn new(name: Cow<'static, str>, kind: ProcedureKind, state: Arc<State>) -> Self {
         Self {
             name: ProcedureName::Dynamic(Arc::new(name.into_owned())),
             kind,
+            state,
         }
     }
 }
@@ -51,5 +54,9 @@ impl ProcedureMeta {
 
     pub fn kind(&self) -> ProcedureKind {
         self.kind
+    }
+
+    pub fn state(&self) -> &Arc<State> {
+        &self.state
     }
 }
