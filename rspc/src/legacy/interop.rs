@@ -79,28 +79,26 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
     value: Box<dyn Layer<TCtx>>,
 ) -> rspc_core::Procedure<TCtx> {
     rspc_core::Procedure::new(move |ctx, input| {
-        let result = input
-            .deserialize::<Value>()
-            .map_err(Into::into)
-            .and_then(|input| {
-                value
-                    .call(
-                        ctx,
-                        input,
-                        RequestContext {
-                            kind: kind.clone(),
-                            path: path.clone(),
-                        },
+        let result = input.deserialize::<Value>().and_then(|input| {
+            value
+                .call(
+                    ctx,
+                    input,
+                    RequestContext {
+                        kind: kind.clone(),
+                        path: path.clone(),
+                    },
+                )
+                .map_err(|err| {
+                    let err: crate::legacy::Error = err.into();
+                    ResolverError::new(
+                        err.code.to_status_code(),
+                        (), /* typesafe errors aren't supported in legacy router */
+                        Some(rspc_core::LegacyErrorInterop(err.message)),
                     )
-                    .map_err(|err| {
-                        let err: crate::legacy::Error = err.into();
-                        ResolverError::new(
-                            err.code.to_status_code(),
-                            (), /* typesafe errors aren't supported in legacy router */
-                            Some(rspc_core::LegacyErrorInterop(err.message)),
-                        )
-                    })
-            });
+                    .into()
+                })
+        });
 
         match result {
             Ok(result) => ProcedureStream::from_stream(
@@ -117,6 +115,7 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                                     (), /* typesafe errors aren't supported in legacy router */
                                     Some(rspc_core::LegacyErrorInterop(err.message)),
                                 )
+                                .into()
                             })
                             .boxed(),
                         Err(err) => {
@@ -126,7 +125,7 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                                 err.message,
                                 err.cause,
                             );
-                            stream::once(async { Err(err) }).boxed()
+                            stream::once(async { Err(err.into()) }).boxed()
                         }
                     }
                 }

@@ -13,12 +13,12 @@ use std::{
 };
 
 use rspc_core::{ProcedureError, Procedures};
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Serialize};
 use serde_json::{value::RawValue, Serializer};
 use tauri::{
     async_runtime::{spawn, JoinHandle},
     generate_handler,
-    ipc::{Channel, InvokeResponseBody},
+    ipc::{Channel, InvokeResponseBody, IpcResponse},
     plugin::{Builder, TauriPlugin},
     Manager,
 };
@@ -45,7 +45,7 @@ where
     fn handle_rpc_impl(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<InvokeResponseBody>,
+        channel: tauri::ipc::Channel<IpcResultResponse>,
         req: Request,
     ) {
         match req {
@@ -54,8 +54,8 @@ where
                 let ctx = (self.ctx_fn)(window);
 
                 let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
-                    let err = ProcedureError::<&mut Serializer<Vec<u8>>>::NotFound;
-                    send(&channel, Some((err.code(), &err)));
+                    let err = ProcedureError::NotFound;
+                    send(&channel, Some((err.status(), &err)));
                     send::<()>(&channel, None);
                     return;
                 };
@@ -70,7 +70,7 @@ where
                     while let Some(value) = stream.next().await {
                         match value {
                             Ok(v) => send(&channel, Some((200, &v))),
-                            Err(err) => send(&channel, Some((err.status(), &err.value()))),
+                            Err(err) => send(&channel, Some((err.status(), &err))),
                         }
                     }
 
@@ -96,7 +96,7 @@ trait HandleRpc<R: tauri::Runtime>: Send + Sync {
     fn handle_rpc(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<InvokeResponseBody>,
+        channel: tauri::ipc::Channel<IpcResultResponse>,
         req: Request,
     );
 }
@@ -110,7 +110,7 @@ where
     fn handle_rpc(
         self: Arc<Self>,
         window: tauri::Window<R>,
-        channel: tauri::ipc::Channel<InvokeResponseBody>,
+        channel: tauri::ipc::Channel<IpcResultResponse>,
         req: Request,
     ) {
         Self::handle_rpc_impl(self, window, channel, req);
@@ -127,7 +127,7 @@ struct State<R>(Arc<dyn HandleRpc<R>>);
 fn handle_rpc<R: tauri::Runtime>(
     state: tauri::State<'_, State<R>>,
     window: tauri::Window<R>,
-    channel: tauri::ipc::Channel<InvokeResponseBody>,
+    channel: tauri::ipc::Channel<IpcResultResponse>,
     req: Request,
 ) {
     state.0.clone().handle_rpc(window, channel, req);
@@ -175,7 +175,7 @@ enum Request<'a> {
     Abort(u32),
 }
 
-fn send<T: Serialize>(channel: &Channel<InvokeResponseBody>, value: Option<(u16, &T)>) {
+fn send<T: Serialize>(channel: &Channel<IpcResultResponse>, value: Option<(u16, &T)>) {
     #[derive(Serialize)]
     struct Response<'a, T: Serialize> {
         code: u16,
@@ -186,9 +186,28 @@ fn send<T: Serialize>(channel: &Channel<InvokeResponseBody>, value: Option<(u16,
         Some((code, value)) => {
             let mut buffer = Vec::with_capacity(128);
             let mut serializer = Serializer::new(&mut buffer);
-            Response { code, value }.serialize(&mut serializer).unwrap(); // TODO: Error handling (throw back to Tauri)
-            channel.send(InvokeResponseBody::Raw(buffer)).ok()
+            channel
+                .send(IpcResultResponse(
+                    Response { code, value }
+                        .serialize(&mut serializer)
+                        .map(|_: ()| InvokeResponseBody::Raw(buffer))
+                        .map_err(|err| err.to_string()),
+                ))
+                .ok()
         }
-        None => channel.send(InvokeResponseBody::Raw("DONE".into())).ok(),
+        None => channel
+            .send(IpcResultResponse(Ok(InvokeResponseBody::Raw(
+                "DONE".into(),
+            ))))
+            .ok(),
     };
+}
+
+#[derive(Clone)]
+struct IpcResultResponse(Result<InvokeResponseBody, String>);
+
+impl IpcResponse for IpcResultResponse {
+    fn body(self) -> tauri::Result<InvokeResponseBody> {
+        self.0.map_err(|err| serde_json::Error::custom(err).into())
+    }
 }

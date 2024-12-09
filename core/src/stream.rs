@@ -9,7 +9,7 @@ use futures_core::Stream;
 use pin_project_lite::pin_project;
 use serde::Serialize;
 
-use crate::ResolverError;
+use crate::{ProcedureError, ResolverError};
 
 /// TODO
 #[must_use = "ProcedureStream does nothing unless polled"]
@@ -19,7 +19,7 @@ impl ProcedureStream {
     /// TODO
     pub fn from_stream<T, S>(s: S) -> Self
     where
-        S: Stream<Item = Result<T, ResolverError>> + Send + 'static,
+        S: Stream<Item = Result<T, ProcedureError>> + Send + 'static,
         T: Serialize + Send + Sync + 'static,
     {
         Self(Box::pin(DynReturnImpl {
@@ -31,7 +31,7 @@ impl ProcedureStream {
     /// TODO
     pub fn from_stream_value<T, S>(s: S) -> Self
     where
-        S: Stream<Item = Result<T, ResolverError>> + Send + 'static,
+        S: Stream<Item = Result<T, ProcedureError>> + Send + 'static,
         T: Send + Sync + 'static,
     {
         Self(todo!())
@@ -46,7 +46,7 @@ impl ProcedureStream {
     pub fn poll_next(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<impl Serialize + Send + Sync + '_, ResolverError>>> {
+    ) -> Poll<Option<Result<impl Serialize + Send + Sync + '_, ProcedureError>>> {
         self.0
             .as_mut()
             .poll_next_value(cx)
@@ -56,7 +56,7 @@ impl ProcedureStream {
     /// TODO
     pub async fn next(
         &mut self,
-    ) -> Option<Result<impl Serialize + Send + Sync + '_, ResolverError>> {
+    ) -> Option<Result<impl Serialize + Send + Sync + '_, ProcedureError>> {
         poll_fn(|cx| self.0.as_mut().poll_next_value(cx))
             .await
             .map(|v| v.map(|_: ()| self.0.value()))
@@ -73,7 +73,7 @@ trait DynReturnValue: Send {
     fn poll_next_value<'a>(
         self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<(), ResolverError>>>;
+    ) -> Poll<Option<Result<(), ProcedureError>>>;
 
     fn value(&self) -> &(dyn erased_serde::Serialize + Send + Sync);
 
@@ -88,7 +88,7 @@ pin_project! {
     }
 }
 
-impl<T, S: Stream<Item = Result<T, ResolverError>> + Send + 'static> DynReturnValue
+impl<T, S: Stream<Item = Result<T, ProcedureError>> + Send + 'static> DynReturnValue
     for DynReturnImpl<T, S>
 where
     T: Send + Sync + Serialize,
@@ -96,7 +96,7 @@ where
     fn poll_next_value<'a>(
         mut self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<(), ResolverError>>> {
+    ) -> Poll<Option<Result<(), ProcedureError>>> {
         let this = self.as_mut().project();
         let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
         this.src.poll_next(cx).map(|v| {

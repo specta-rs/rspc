@@ -5,7 +5,7 @@ use std::{
 
 use serde::{de::Error, Deserialize};
 
-use crate::{DeserializeError, DowncastError};
+use crate::{DeserializeError, DowncastError, ProcedureError};
 
 /// TODO
 pub struct DynInput<'a, 'de> {
@@ -36,15 +36,18 @@ impl<'a, 'de> DynInput<'a, 'de> {
     }
 
     /// TODO
-    pub fn deserialize<T: Deserialize<'de>>(self) -> Result<T, DeserializeError> {
+    pub fn deserialize<T: Deserialize<'de>>(self) -> Result<T, ProcedureError> {
         let DynInputInner::Deserializer(deserializer) = self.inner else {
-            return Err(DeserializeError(erased_serde::Error::custom(format!(
-                "attempted to deserialize from value '{}' but expected deserializer",
-                self.type_name
-            ))));
+            return Err(ProcedureError::Deserialize(DeserializeError(
+                erased_serde::Error::custom(format!(
+                    "attempted to deserialize from value '{}' but expected deserializer",
+                    self.type_name
+                )),
+            )));
         };
 
-        erased_serde::deserialize(deserializer).map_err(|err| DeserializeError(err))
+        erased_serde::deserialize(deserializer)
+            .map_err(|err| ProcedureError::Deserialize(DeserializeError(err)))
     }
 
     /// TODO

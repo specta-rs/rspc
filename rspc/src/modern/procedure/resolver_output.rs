@@ -30,7 +30,7 @@
 // // )]
 
 use futures::{Stream, TryStreamExt};
-use rspc_core::{ProcedureStream, ResolverError};
+use rspc_core::{ProcedureError, ProcedureStream};
 use serde::Serialize;
 use specta::{datatype::DataType, Generics, Type, TypeCollection};
 
@@ -47,11 +47,11 @@ pub trait ResolverOutput<TError>: Sized + Send + 'static {
     fn data_type(types: &mut TypeCollection) -> DataType;
 
     /// Convert the procedure into a [`Stream`].
-    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static;
+    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static;
 
     /// Convert the stream into a [`ProcedureStream`].
     fn into_procedure_stream(
-        stream: impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static,
+        stream: impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static,
     ) -> ProcedureStream;
 }
 
@@ -66,12 +66,12 @@ where
         T::inline(types, Generics::Definition)
     }
 
-    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static {
+    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
         futures::stream::once(async move { Ok(self) })
     }
 
     fn into_procedure_stream(
-        stream: impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static,
+        stream: impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static,
     ) -> ProcedureStream {
         ProcedureStream::from_stream(stream)
     }
@@ -91,7 +91,7 @@ where
         T::data_type(types) // TODO: Do we need to do anything special here so the frontend knows this is a stream?
     }
 
-    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static {
+    fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
         self.0
             .map_ok(|v| v.into_stream())
             .map_err(|err| err.into_resolver_error())
@@ -99,7 +99,7 @@ where
     }
 
     fn into_procedure_stream(
-        stream: impl Stream<Item = Result<Self::T, ResolverError>> + Send + 'static,
+        stream: impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static,
     ) -> ProcedureStream {
         ProcedureStream::from_stream(stream)
     }

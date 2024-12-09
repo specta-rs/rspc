@@ -3,26 +3,23 @@ use std::{borrow::Cow, error, fmt};
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 /// TODO
-pub enum ProcedureError<S: Serializer> {
+pub enum ProcedureError {
     /// Failed to find a procedure with the given name.
     NotFound,
     /// Attempted to deserialize a value but failed.
     Deserialize(DeserializeError),
     /// Attempting to downcast a value failed.
     Downcast(DowncastError),
-    /// An error occurred while serializing the value returned by the procedure.
-    Serializer(S::Error),
     /// An error occurred while running the procedure.
     Resolver(ResolverError),
 }
 
-impl<S: Serializer> ProcedureError<S> {
-    pub fn code(&self) -> u16 {
+impl ProcedureError {
+    pub fn status(&self) -> u16 {
         match self {
             Self::NotFound => 404,
             Self::Deserialize(_) => 400,
             Self::Downcast(_) => 400,
-            Self::Serializer(_) => 500,
             Self::Resolver(err) => err.status(),
         }
     }
@@ -32,7 +29,6 @@ impl<S: Serializer> ProcedureError<S> {
             Self::NotFound => s.serialize_none(),
             Self::Deserialize(err) => s.serialize_str(&format!("{}", err)),
             Self::Downcast(err) => s.serialize_str(&format!("{}", err)),
-            Self::Serializer(err) => s.serialize_str(&format!("{}", err)),
             Self::Resolver(err) => s.serialize_str(&format!("{}", err)),
         }
     }
@@ -42,7 +38,6 @@ impl<S: Serializer> ProcedureError<S> {
             ProcedureError::NotFound => "NotFound",
             ProcedureError::Deserialize(_) => "Deserialize",
             ProcedureError::Downcast(_) => "Downcast",
-            ProcedureError::Serializer(_) => "Serializer",
             ProcedureError::Resolver(_) => "Resolver",
         }
     }
@@ -52,7 +47,6 @@ impl<S: Serializer> ProcedureError<S> {
             ProcedureError::NotFound => "procedure not found".into(),
             ProcedureError::Deserialize(err) => err.0.to_string().into(),
             ProcedureError::Downcast(err) => err.to_string().into(),
-            ProcedureError::Serializer(err) => err.to_string().into(),
             ProcedureError::Resolver(err) => err
                 .error()
                 .map(|err| err.to_string().into())
@@ -61,38 +55,33 @@ impl<S: Serializer> ProcedureError<S> {
     }
 }
 
-impl<S: Serializer> From<ResolverError> for ProcedureError<S> {
+impl From<ResolverError> for ProcedureError {
     fn from(err: ResolverError) -> Self {
-        match err.0 {
-            Repr::Custom { .. } => ProcedureError::Resolver(err),
-            Repr::Deserialize(err) => ProcedureError::Deserialize(err),
-            Repr::Downcast(downcast) => ProcedureError::Downcast(downcast),
-        }
+        ProcedureError::Resolver(err)
     }
 }
 
-impl<S: Serializer> fmt::Debug for ProcedureError<S> {
+impl fmt::Debug for ProcedureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: Proper format
         match self {
             Self::NotFound => write!(f, "NotFound"),
             Self::Deserialize(err) => write!(f, "Deserialize({:?})", err),
             Self::Downcast(err) => write!(f, "Downcast({:?})", err),
-            Self::Serializer(err) => write!(f, "Serializer({:?})", err),
             Self::Resolver(err) => write!(f, "Resolver({:?})", err),
         }
     }
 }
 
-impl<S: Serializer> fmt::Display for ProcedureError<S> {
+impl fmt::Display for ProcedureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{self:?}")
     }
 }
 
-impl<S: Serializer> error::Error for ProcedureError<S> {}
+impl error::Error for ProcedureError {}
 
-impl<Se: Serializer> Serialize for ProcedureError<Se> {
+impl Serialize for ProcedureError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -109,25 +98,11 @@ impl<Se: Serializer> Serialize for ProcedureError<Se> {
     }
 }
 
-enum Repr {
-    // An actual resolver error.
-    Custom {
-        status: u16,
-        value: Box<dyn ErrorInternalExt>,
-    },
-    // We hide these in here for DX (being able to do `?`) and then convert them to proper `ProcedureError` variants.
-    Deserialize(DeserializeError),
-    Downcast(DowncastError),
-}
-
-impl From<DowncastError> for ResolverError {
-    fn from(err: DowncastError) -> Self {
-        Self(Repr::Downcast(err))
-    }
-}
-
 /// TODO
-pub struct ResolverError(Repr);
+pub struct ResolverError {
+    status: u16,
+    value: Box<dyn ErrorInternalExt>,
+}
 
 impl ResolverError {
     // Warning: Returning > 400 will fallback to `500`. As redirects would be invalid and `200` would break matching.
@@ -140,62 +115,36 @@ impl ResolverError {
             status = 500;
         }
 
-        Self(Repr::Custom {
+        Self {
             status,
             value: Box::new(ErrorInternal { value, err: source }),
-        })
+        }
     }
 
     /// TODO
     pub fn status(&self) -> u16 {
-        match &self.0 {
-            Repr::Custom { status, value: _ } => *status,
-            // We flatten these to `ResolverError` so this won't be hit.
-            Repr::Deserialize(_) => unreachable!(),
-            Repr::Downcast(_) => unreachable!(),
-        }
+        self.status
     }
 
     /// TODO
     pub fn value(&self) -> impl Serialize + '_ {
-        match &self.0 {
-            Repr::Custom {
-                status: _,
-                value: error,
-            } => error.value(),
-            // We flatten these to `ResolverError` so this won't be hit.
-            Repr::Deserialize(_) => unreachable!(),
-            Repr::Downcast(_) => unreachable!(),
-        }
+        self.value.value()
     }
 
     /// TODO
     pub fn error(&self) -> Option<&(dyn error::Error + Send + 'static)> {
-        match &self.0 {
-            Repr::Custom {
-                status: _,
-                value: error,
-            } => error.error(),
-            // We flatten these to `ResolverError` so this won't be hit.
-            Repr::Deserialize(_) => unreachable!(),
-            Repr::Downcast(_) => unreachable!(),
-        }
+        self.value.error()
     }
 }
 
 impl fmt::Debug for ResolverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.0 {
-            Repr::Custom {
-                status,
-                value: error,
-            } => {
-                write!(f, "status: {status:?}, error: {:?}", error.debug())
-            }
-            // In practice these won't be hit.
-            Repr::Deserialize(err) => write!(f, "Deserialize({err:?})"),
-            Repr::Downcast(err) => write!(f, "Downcast({err:?})"),
-        }
+        write!(
+            f,
+            "status: {:?}, error: {:?}",
+            self.status,
+            self.value.debug()
+        )
     }
 }
 
@@ -223,12 +172,6 @@ impl fmt::Display for DeserializeError {
 }
 
 impl error::Error for DeserializeError {}
-
-impl From<DeserializeError> for ResolverError {
-    fn from(err: DeserializeError) -> Self {
-        Self(Repr::Deserialize(err))
-    }
-}
 
 /// TODO
 pub struct DowncastError {

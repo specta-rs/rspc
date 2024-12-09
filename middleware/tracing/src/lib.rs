@@ -8,7 +8,7 @@
 
 use std::{fmt, marker::PhantomData};
 
-use rspc::modern::middleware::Middleware;
+use rspc::middleware::Middleware;
 use tracing::info;
 
 mod traceable;

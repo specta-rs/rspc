@@ -41,7 +41,7 @@ pub trait ResolverInput: Sized + Send + 'static {
     fn data_type(types: &mut TypeCollection) -> DataType;
 
     /// Convert the [`DynInput`] into the type the user specified for the procedure.
-    fn from_input(input: rspc_core::DynInput) -> Result<Self, rspc_core::ResolverError>;
+    fn from_input(input: rspc_core::DynInput) -> Result<Self, rspc_core::ProcedureError>;
 }
 
 impl<T: DeserializeOwned + Type + Send + 'static> ResolverInput for T {
@@ -49,7 +49,7 @@ impl<T: DeserializeOwned + Type + Send + 'static> ResolverInput for T {
         T::inline(types, specta::Generics::Definition)
     }
 
-    fn from_input(input: rspc_core::DynInput) -> Result<Self, rspc_core::ResolverError> {
+    fn from_input(input: rspc_core::DynInput) -> Result<Self, rspc_core::ProcedureError> {
         Ok(input.deserialize()?)
     }
 }

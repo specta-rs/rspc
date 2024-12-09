@@ -4,13 +4,10 @@ use std::{
     future::{poll_fn, Future},
 };
 
-use rspc_core::{ProcedureError, ProcedureStream, Procedures, ResolverError};
+use rspc_core::{ProcedureError, ProcedureStream, Procedures};
 use serde::Serialize;
 use serde_json::Value;
-use tokio::{
-    pin,
-    sync::{broadcast, mpsc, oneshot, Mutex},
-};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 
 use super::jsonrpc::{self, RequestId, RequestInner, ResponseInner};
 
@@ -174,39 +171,7 @@ pub async fn handle_json_rpc<TCtx>(
                         // #[cfg(feature = "tracing")]
                         // tracing::error!("Error executing operation: {:?}", err);
 
-                        ResponseInner::Error(match err {
-                            ProcedureError::NotFound => unreachable!(),
-                            ProcedureError::Deserialize(_) => jsonrpc::JsonRPCError {
-                                code: 400,
-                                message: "error deserializing procedure arguments".to_string(),
-                                data: None,
-                            },
-                            ProcedureError::Downcast(_) => jsonrpc::JsonRPCError {
-                                code: 400,
-                                message: "error downcasting procedure arguments".to_string(),
-                                data: None,
-                            },
-                            ProcedureError::Serializer(_) => jsonrpc::JsonRPCError {
-                                code: 500,
-                                message: "error serializing procedure result".to_string(),
-                                data: None,
-                            },
-                            ProcedureError::Resolver(resolver_error) => {
-                                let legacy_error = resolver_error
-                                    .error()
-                                    .and_then(|v| v.downcast_ref::<rspc_core::LegacyErrorInterop>())
-                                    .cloned();
-
-                                jsonrpc::JsonRPCError {
-                                    code: resolver_error.status() as i32,
-                                    message: legacy_error
-                                        .map(|v| v.0.clone())
-                                        // This probally isn't a great format but we are assuming your gonna use the new router with a new executor for typesafe errors.
-                                        .unwrap_or_else(|| resolver_error.to_string()),
-                                    data: None,
-                                }
-                            }
-                        })
+                        ResponseInner::Error(err)
                     })
             } else {
                 if matches!(sender, Sender::Response(_))
@@ -355,13 +320,37 @@ pub async fn handle_json_rpc<TCtx>(
 
 async fn next(
     stream: &mut ProcedureStream,
-) -> Option<Result<serde_json::Value, ProcedureError<serde_json::value::Serializer>>> {
+) -> Option<Result<serde_json::Value, jsonrpc::JsonRPCError>> {
     let fut = stream.next();
     let mut fut = std::pin::pin!(fut);
     poll_fn(|cx| fut.as_mut().poll(cx)).await.map(|v| {
-        v.map_err(ProcedureError::from).and_then(|v| {
-            v.serialize(serde_json::value::Serializer)
-                .map_err(ProcedureError::Serializer)
+        v.map_err(|err| match &err {
+            ProcedureError::NotFound => unimplemented!(), // Isn't created by this executor
+            ProcedureError::Deserialize(_) => jsonrpc::JsonRPCError {
+                code: 400,
+                message: "error deserializing procedure arguments".to_string(),
+                data: None,
+            },
+            ProcedureError::Downcast(_) => unimplemented!(), // Isn't supported by this executor
+            ProcedureError::Resolver(resolver_err) => {
+                let legacy_error = resolver_err
+                    .error()
+                    .and_then(|v| v.downcast_ref::<rspc_core::LegacyErrorInterop>())
+                    .cloned();
+
+                jsonrpc::JsonRPCError {
+                    code: err.status() as i32,
+                    message: legacy_error
+                        .map(|v| v.0.clone())
+                        // This probally isn't a great format but we are assuming your gonna use the new router with a new executor for typesafe errors.
+                        .unwrap_or_else(|| err.to_string()),
+                    data: None,
+                }
+            }
+        })
+        .and_then(|v| {
+            Ok(v.serialize(serde_json::value::Serializer)
+                .expect("Error serialzing value")) // This panicking is bad but this is the old exectuor
         })
     })
 }

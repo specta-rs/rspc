@@ -17,10 +17,7 @@ use axum::{
     Json,
 };
 use futures::StreamExt;
-use rspc::{
-    modern::{middleware::Middleware, procedure::ResolverInput, Procedure2},
-    Router2,
-};
+use rspc::{middleware::Middleware, Procedure2, ResolverInput, Router2};
 use serde_json::json;
 
 // TODO: Properly handle inputs from query params
