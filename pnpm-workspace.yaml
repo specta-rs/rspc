@@ -1,4 +1,5 @@
 packages:
- - packages/*
- - examples/astro
- - examples/nextjs
+  - packages/*
+  - examples/astro
+  - examples/nextjs
+  - examples/tauri
