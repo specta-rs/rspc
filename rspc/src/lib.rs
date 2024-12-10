@@ -36,7 +36,7 @@ pub(crate) use procedure::Procedure2;
 #[cfg(feature = "unstable")]
 pub use modern::{
     middleware, procedure::ProcedureBuilder, procedure::ProcedureMeta, procedure::ResolverInput,
-    procedure::ResolverOutput, Error as Error2, Infallible, State, Stream,
+    procedure::ResolverOutput, Error as Error2, State, Stream,
 };
 #[cfg(feature = "unstable")]
 pub use procedure::Procedure2;

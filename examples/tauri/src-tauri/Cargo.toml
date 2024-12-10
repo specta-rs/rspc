@@ -1,11 +1,9 @@
 [package]
-name = "tauri"
-version = "0.1.0"
+name = "example-tauri"
+version = "0.0.0"
 description = "A Tauri App"
-authors = ["you"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+publish = false
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -19,8 +17,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rspc = { path = "../../../rspc", features = ["typescript", "rust", "unstable"] }
+rspc = { path = "../../../rspc", features = ["typescript", "unstable"] }
 tauri-plugin-rspc = { path = "../../../integrations/tauri" }
+specta = { version = "=2.0.0-rc.20", features = ["derive"] }

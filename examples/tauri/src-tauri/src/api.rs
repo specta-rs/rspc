@@ -1,0 +1,30 @@
+use std::fmt;
+
+use serde::Serialize;
+use specta::Type;
+
+#[derive(Type, Debug)]
+pub enum Infallible {}
+
+impl fmt::Display for Infallible {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl Serialize for Infallible {
+    fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        unreachable!()
+    }
+}
+
+impl std::error::Error for Infallible {}
+
+impl rspc::Error2 for Infallible {
+    fn into_resolver_error(self) -> rspc::ResolverError {
+        unreachable!()
+    }
+}

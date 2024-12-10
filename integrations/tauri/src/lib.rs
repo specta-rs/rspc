@@ -1,5 +1,5 @@
 //! rspc-tauri: Tauri integration for [rspc](https://rspc.dev).
-// #![forbid(unsafe_code)]
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",
@@ -29,13 +29,6 @@ struct RpcHandler<R, TCtxFn, TCtx> {
     procedures: Procedures<TCtx>,
     phantom: std::marker::PhantomData<fn() -> R>,
 }
-
-// unsafe impl<R, TCtxFn, TCtx> Send for RpcHandler<R, TCtxFn, TCtx>
-// where
-//     TCtxFn: Send,
-//     TCtx: Send,
-// {
-// }
 
 impl<R, TCtxFn, TCtx> RpcHandler<R, TCtxFn, TCtx>
 where
@@ -201,6 +194,7 @@ enum Request<'a> {
 }
 
 #[derive(Serialize)]
+#[serde(untagged)]
 enum Response<'a, T: Serialize> {
     Value { code: u16, value: &'a T },
     Done,

@@ -1,30 +1,30 @@
-use std::fmt;
+// use std::fmt;
 
-use serde::Serialize;
-use specta::Type;
+// use serde::Serialize;
+// use specta::Type;
 
-#[derive(Type, Debug)]
-pub enum Infallible {}
+// #[derive(Type, Debug)]
+// pub enum Infallible {}
 
-impl fmt::Display for Infallible {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
+// impl fmt::Display for Infallible {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "{self:?}")
+//     }
+// }
 
-impl Serialize for Infallible {
-    fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        unreachable!()
-    }
-}
+// impl Serialize for Infallible {
+//     fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         unreachable!()
+//     }
+// }
 
-impl std::error::Error for Infallible {}
+// impl std::error::Error for Infallible {}
 
-impl crate::modern::Error for Infallible {
-    fn into_resolver_error(self) -> rspc_core::ResolverError {
-        unreachable!()
-    }
-}
+// impl crate::modern::Error for Infallible {
+//     fn into_resolver_error(self) -> rspc_core::ResolverError {
+//         unreachable!()
+//     }
+// }
