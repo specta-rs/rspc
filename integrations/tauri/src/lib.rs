@@ -1,5 +1,5 @@
 //! rspc-tauri: Tauri integration for [rspc](https://rspc.dev).
-#![forbid(unsafe_code)]
+// #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",
@@ -14,7 +14,7 @@ use std::{
 
 use rspc_core::{ProcedureError, Procedures};
 use serde::{de::Error, Deserialize, Serialize};
-use serde_json::{value::RawValue, Serializer};
+use serde_json::value::RawValue;
 use tauri::{
     async_runtime::{spawn, JoinHandle},
     generate_handler,
@@ -29,6 +29,13 @@ struct RpcHandler<R, TCtxFn, TCtx> {
     procedures: Procedures<TCtx>,
     phantom: std::marker::PhantomData<fn() -> R>,
 }
+
+// unsafe impl<R, TCtxFn, TCtx> Send for RpcHandler<R, TCtxFn, TCtx>
+// where
+//     TCtxFn: Send,
+//     TCtx: Send,
+// {
+// }
 
 impl<R, TCtxFn, TCtx> RpcHandler<R, TCtxFn, TCtx>
 where
@@ -55,8 +62,14 @@ where
 
                 let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
                     let err = ProcedureError::NotFound;
-                    send(&channel, Some((err.status(), &err)));
-                    send::<()>(&channel, None);
+                    send(
+                        &channel,
+                        Response::Value {
+                            code: err.status(),
+                            value: &err,
+                        },
+                    );
+                    send::<()>(&channel, Response::Done);
                     return;
                 };
 
@@ -69,13 +82,25 @@ where
                 let handle = spawn(async move {
                     while let Some(value) = stream.next().await {
                         match value {
-                            Ok(v) => send(&channel, Some((200, &v))),
-                            Err(err) => send(&channel, Some((err.status(), &err))),
+                            Ok(v) => send(
+                                &channel,
+                                Response::Value {
+                                    code: 200,
+                                    value: &v,
+                                },
+                            ),
+                            Err(err) => send(
+                                &channel,
+                                Response::Value {
+                                    code: err.status(),
+                                    value: &err,
+                                },
+                            ),
                         }
                     }
 
                     this.subscriptions().remove(&id);
-                    send::<()>(&channel, None);
+                    send::<()>(&channel, Response::Done);
                 });
 
                 // if the client uses an existing ID, we will assume the previous subscription is no longer required
@@ -103,7 +128,7 @@ trait HandleRpc<R: tauri::Runtime>: Send + Sync {
 
 impl<R, TCtxFn, TCtx> HandleRpc<R> for RpcHandler<R, TCtxFn, TCtx>
 where
-    R: tauri::Runtime + Send + Sync,
+    R: tauri::Runtime,
     TCtxFn: Fn(tauri::Window<R>) -> TCtx + Send + Sync + 'static,
     TCtx: Send + 'static,
 {
@@ -133,12 +158,12 @@ fn handle_rpc<R: tauri::Runtime>(
     state.0.clone().handle_rpc(window, channel, req);
 }
 
-pub fn plugin<R, TCtxFn, TCtx>(
-    procedures: impl AsRef<Procedures<TCtx>>,
+pub fn init<R, TCtxFn, TCtx>(
+    procedures: impl Into<Procedures<TCtx>>,
     ctx_fn: TCtxFn,
 ) -> TauriPlugin<R>
 where
-    R: tauri::Runtime + Send + Sync,
+    R: tauri::Runtime,
     TCtxFn: Fn(tauri::Window<R>) -> TCtx + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
 {
@@ -175,32 +200,20 @@ enum Request<'a> {
     Abort(u32),
 }
 
-fn send<T: Serialize>(channel: &Channel<IpcResultResponse>, value: Option<(u16, &T)>) {
-    #[derive(Serialize)]
-    struct Response<'a, T: Serialize> {
-        code: u16,
-        value: &'a T,
-    }
+#[derive(Serialize)]
+enum Response<'a, T: Serialize> {
+    Value { code: u16, value: &'a T },
+    Done,
+}
 
-    match value {
-        Some((code, value)) => {
-            let mut buffer = Vec::with_capacity(128);
-            let mut serializer = Serializer::new(&mut buffer);
-            channel
-                .send(IpcResultResponse(
-                    Response { code, value }
-                        .serialize(&mut serializer)
-                        .map(|_: ()| InvokeResponseBody::Raw(buffer))
-                        .map_err(|err| err.to_string()),
-                ))
-                .ok()
-        }
-        None => channel
-            .send(IpcResultResponse(Ok(InvokeResponseBody::Raw(
-                "DONE".into(),
-            ))))
-            .ok(),
-    };
+fn send<'a, T: Serialize>(channel: &Channel<IpcResultResponse>, value: Response<'a, T>) {
+    channel
+        .send(IpcResultResponse(
+            serde_json::to_string(&value)
+                .map(|value| InvokeResponseBody::Json(value))
+                .map_err(|err| err.to_string()),
+        ))
+        .ok();
 }
 
 #[derive(Clone)]

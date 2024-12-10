@@ -1,6 +1,16 @@
 [workspace]
 resolver = "2"
-members = ["./rspc", "./core", "./client", "./integrations/*", "./middleware/*", "./examples", "./examples/axum", "./examples/client"]
+members = [
+	"./rspc",
+	"./core",
+	"./client",
+	"./integrations/*",
+	"./middleware/*",
+	"./examples",
+	"./examples/axum",
+	"./examples/client",
+	"./examples/tauri/src-tauri",
+]
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
