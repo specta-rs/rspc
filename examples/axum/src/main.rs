@@ -1,61 +1,217 @@
-use std::{path::PathBuf, time::Duration};
+use std::{
+    marker::PhantomData,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use async_stream::stream;
-use axum::{http::request::Parts, routing::get};
-use rspc::Config;
+use axum::routing::get;
+use rspc::{
+    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
+    Router2,
+};
+use rspc_cache::{cache, cache_ttl, CacheState, Memory};
+use serde::Serialize;
+use specta::Type;
+use thiserror::Error;
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
+use tracing::info;
 
-struct Ctx {}
+// `Clone` is only required for usage with Websockets
+#[derive(Clone)]
+pub struct Ctx {}
+
+#[derive(Serialize, Type)]
+pub struct MyCustomType(String);
+
+#[derive(Type, Serialize)]
+#[serde(tag = "type")]
+#[specta(export = false)]
+pub enum DeserializationError {
+    // Is not a map-type so invalid.
+    A(String),
+}
+
+// http://[::]:4000/rspc/version
+// http://[::]:4000/legacy/version
+
+// http://[::]:4000/rspc/nested.hello
+// http://[::]:4000/legacy/nested.hello
+
+// http://[::]:4000/rspc/error
+// http://[::]:4000/legacy/error
+
+// http://[::]:4000/rspc/echo
+// http://[::]:4000/legacy/echo
+
+// http://[::]:4000/rspc/echo?input=42
+// http://[::]:4000/legacy/echo?input=42
+
+fn mount() -> rspc::Router<Ctx> {
+    let inner = rspc::Router::<Ctx>::new().query("hello", |t| t(|_, _: ()| "Hello World!"));
+
+    let router = rspc::Router::<Ctx>::new()
+        .merge("nested.", inner)
+        .query("version", |t| {
+            t(|_, _: ()| {
+                info!("Hello World from Version Query!");
+
+                env!("CARGO_PKG_VERSION")
+            })
+        })
+        .query("panic", |t| t(|_, _: ()| todo!()))
+        // .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
+        .query("echo", |t| t(|_, v: String| v))
+        .query("error", |t| {
+            t(|_, _: ()| {
+                Err(rspc::Error::new(
+                    rspc::ErrorCode::InternalServerError,
+                    "Something went wrong".into(),
+                )) as Result<String, rspc::Error>
+            })
+        })
+        .query("transformMe", |t| t(|_, _: ()| "Hello, world!".to_string()))
+        .mutation("sendMsg", |t| {
+            t(|_, v: String| {
+                println!("Client said '{}'", v);
+                v
+            })
+        })
+        // .mutation("anotherOne", |t| t(|_, v: String| Ok(MyCustomType(v))))
+        .subscription("pings", |t| {
+            t(|_ctx, _args: ()| {
+                stream! {
+                    println!("Client subscribed to 'pings'");
+                    for i in 0..5 {
+                        println!("Sending ping {}", i);
+                        yield "ping".to_string();
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            })
+        })
+        // TODO: Results being returned from subscriptions
+        // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
+        //     stream! {
+        //         for i in 0..5 {
+        //             yield Ok("ping".to_string());
+        //             sleep(Duration::from_secs(1)).await;
+        //         }
+        //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
+        //     }
+        // }))
+        .build();
+
+    router
+}
+
+#[derive(Debug, Error, Serialize, Type)]
+pub enum Error {
+    #[error("you made a mistake: {0}")]
+    Mistake(String),
+}
+
+impl Error2 for Error {
+    fn into_resolver_error(self) -> rspc::ResolverError {
+        rspc::ResolverError::new(500, self.to_string(), None::<std::io::Error>)
+    }
+}
+
+pub struct BaseProcedure<TErr = Error>(PhantomData<TErr>);
+impl<TErr> BaseProcedure<TErr> {
+    pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Ctx, Ctx, TInput, TResult>
+    where
+        TErr: Error2,
+        TInput: ResolverInput,
+        TResult: ResolverOutput<TErr>,
+    {
+        Procedure2::builder() // You add default middleware here
+    }
+}
+
+fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
+    router
+        .procedure("newstuff", {
+            <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
+        })
+        .procedure("newstuff2", {
+            <BaseProcedure>::builder()
+                .with(invalidation(|ctx: Ctx, key, event| false))
+                .with(Middleware::new(
+                    move |ctx: Ctx, input: (), next| async move {
+                        let result = next.exec(ctx, input).await;
+                        result
+                    },
+                ))
+                .query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
+        })
+        .setup(CacheState::builder(Memory::new()).mount())
+        .procedure("cached", {
+            <BaseProcedure>::builder()
+                .with(cache())
+                .query(|_, _: ()| async {
+                    // if input.some_arg {}
+                    cache_ttl(10);
+
+                    Ok(SystemTime::now())
+                })
+        })
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+pub enum InvalidateEvent {
+    InvalidateKey(String),
+}
+
+fn invalidation<TError, TCtx, TInput, TResult>(
+    handler: impl Fn(TCtx, TInput, InvalidateEvent) -> bool + Send + Sync + 'static,
+) -> Middleware<TError, TCtx, TInput, TResult>
+where
+    TError: Send + 'static,
+    TCtx: Clone + Send + 'static,
+    TInput: Clone + Send + 'static,
+    TResult: Send + 'static,
+{
+    let handler = Arc::new(handler);
+    Middleware::new(move |ctx: TCtx, input: TInput, next| async move {
+        // TODO: Register this with `TCtx`
+        let ctx2 = ctx.clone();
+        let input2 = input.clone();
+        let result = next.exec(ctx, input).await;
+
+        // TODO: Unregister this with `TCtx`
+        result
+    })
+}
 
 #[tokio::main]
 async fn main() {
-    let router =
-        rspc::Router::<Ctx>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ))
-            .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
-            .query("echo", |t| t(|_, v: String| v))
-            .query("error", |t| {
-                t(|_, _: ()| {
-                    Err(rspc::Error::new(
-                        rspc::ErrorCode::InternalServerError,
-                        "Something went wrong".into(),
-                    )) as Result<String, rspc::Error>
-                })
-            })
-            .query("transformMe", |t| t(|_, _: ()| "Hello, world!".to_string()))
-            .mutation("sendMsg", |t| {
-                t(|_, v: String| {
-                    println!("Client said '{}'", v);
-                    v
-                })
-            })
-            .subscription("pings", |t| {
-                t(|_ctx, _args: ()| {
-                    stream! {
-                        println!("Client subscribed to 'pings'");
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                })
-            })
-            // TODO: Results being returned from subscriptions
-            // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
-            //     stream! {
-            //         for i in 0..5 {
-            //             yield Ok("ping".to_string());
-            //             sleep(Duration::from_secs(1)).await;
-            //         }
-            //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            //     }
-            // }))
-            .build()
-            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+    let router = Router2::from(mount());
+    let router = test_unstable_stuff(router);
+    let (procedures, types) = router.build().unwrap();
+
+    rspc::Typescript::default()
+        // .formatter(specta_typescript::formatter::prettier),
+        .header("// My custom header")
+        // .enable_source_maps() // TODO: Fix this
+        .export_to(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
+        )
+        .unwrap();
+
+    // Be aware this is very experimental and doesn't support many types yet.
+    // rspc::Rust::default()
+    //     // .header("// My custom header")
+    //     .export_to(
+    //         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../client/src/bindings.rs"),
+    //         &types,
+    //     )
+    //     .unwrap();
+
+    let procedures = rspc_devtools::mount(procedures, &types);
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -65,10 +221,17 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
+        // .nest(
+        //     "/rspc",
+        //     rspc_axum::endpoint(procedures, |parts: Parts| {
+        //         println!("Client requested operation '{}'", parts.uri.path());
+        //         Ctx {}
+        //     }),
+        // )
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router.clone(), |parts: Parts| {
-                println!("Client requested operation '{}'", parts.uri.path());
+            rspc_axum::Endpoint::builder(procedures).build(|| {
+                // println!("Client requested operation '{}'", parts.uri.path()); // TODO: Fix this
                 Ctx {}
             }),
         )
