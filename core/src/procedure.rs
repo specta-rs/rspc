@@ -53,6 +53,6 @@ impl<TCtx> Clone for Procedure<TCtx> {
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!();
+        f.debug_struct("Procedure").finish()
     }
 }
