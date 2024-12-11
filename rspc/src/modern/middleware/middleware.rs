@@ -66,7 +66,7 @@ pub(crate) type MiddlewareHandler<TError, TNextCtx, TNextInput, TNextResult> = A
 /// ]
 ///
 /// ```rust
-/// TODO: Example to show where the generics line up.
+/// // TODO: Example to show where the generics line up.
 /// ```
 ///
 /// # Stacking

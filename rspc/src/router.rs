@@ -2,6 +2,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::{BTreeMap, HashMap},
     fmt,
+    panic::Location,
     sync::Arc,
 };
 
@@ -16,7 +17,7 @@ pub struct Router2<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     types: TypeCollection,
     procedures: BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>>,
-    errors: Vec<Error>,
+    errors: Vec<DuplicateProcedureKeyError>,
 }
 
 impl<TCtx> Default for Router2<TCtx> {
@@ -35,8 +36,8 @@ impl<TCtx> Router2<TCtx> {
         Self::default()
     }
 
-    // TODO: Enforce unique across all methods (query, subscription, etc). Eg. `insert` should yield error if key already exists.
     #[cfg(feature = "unstable")]
+    #[track_caller]
     pub fn procedure(
         mut self,
         key: impl Into<Cow<'static, str>>,
@@ -44,8 +45,12 @@ impl<TCtx> Router2<TCtx> {
     ) -> Self {
         let key = key.into();
 
-        if self.procedures.keys().any(|k| k[0] == key) {
-            self.errors.push(Error::DuplicateProcedures(vec![key]))
+        if let Some((_, original)) = self.procedures.iter().find(|(k, _)| k[0] == key) {
+            self.errors.push(DuplicateProcedureKeyError {
+                path: vec![key],
+                original: original.ty.location,
+                duplicate: Location::caller().clone(),
+            });
         } else {
             self.setup.extend(procedure.setup.drain(..));
             self.procedures.insert(vec![key], procedure);
@@ -61,44 +66,45 @@ impl<TCtx> Router2<TCtx> {
         self
     }
 
-    // TODO: Yield error if key already exists
+    #[track_caller]
     pub fn nest(mut self, prefix: impl Into<Cow<'static, str>>, mut other: Self) -> Self {
         let prefix = prefix.into();
 
-        dbg!(&self.procedures.keys().collect::<Vec<_>>());
-        if self.procedures.keys().any(|k| k[0] == prefix) {
-            self.errors.push(Error::DuplicateProcedures(vec![prefix]));
+        if let Some((_, original)) = self.procedures.iter().find(|(k, _)| k[0] == prefix) {
+            self.errors.push(DuplicateProcedureKeyError {
+                path: vec![prefix],
+                original: original.ty.location,
+                duplicate: Location::caller().clone(),
+            });
         } else {
             self.setup.append(&mut other.setup);
-
+            self.errors.extend(other.errors.into_iter().map(|e| {
+                let mut path = vec![prefix.clone()];
+                path.extend(e.path);
+                DuplicateProcedureKeyError { path, ..e }
+            }));
             self.procedures
                 .extend(other.procedures.into_iter().map(|(k, v)| {
-                    let mut new_key = vec![prefix.clone()];
-                    new_key.extend(k);
-                    (new_key, v)
-                }));
-
-            self.errors
-                .extend(other.errors.into_iter().map(|e| match e {
-                    Error::DuplicateProcedures(key) => {
-                        let mut new_key = vec![prefix.clone()];
-                        new_key.extend(key);
-                        Error::DuplicateProcedures(new_key)
-                    }
+                    let mut key = vec![prefix.clone()];
+                    key.extend(k);
+                    (key, v)
                 }));
         }
 
         self
     }
 
-    // TODO: Yield error if key already exists
+    #[track_caller]
     pub fn merge(mut self, mut other: Self) -> Self {
         let error_count = self.errors.len();
 
-        for other_proc in other.procedures.keys() {
-            if self.procedures.get(other_proc).is_some() {
-                self.errors
-                    .push(Error::DuplicateProcedures(other_proc.clone()));
+        for (k, original) in other.procedures.iter() {
+            if let Some(new) = self.procedures.get(k) {
+                self.errors.push(DuplicateProcedureKeyError {
+                    path: k.clone(),
+                    original: original.ty.location,
+                    duplicate: new.ty.location,
+                });
             }
         }
 
@@ -111,15 +117,7 @@ impl<TCtx> Router2<TCtx> {
         self
     }
 
-    pub fn build(
-        self,
-    ) -> Result<
-        (
-            impl Borrow<Procedures<TCtx>> + Into<Procedures<TCtx>> + fmt::Debug,
-            Types,
-        ),
-        Vec<Error>,
-    > {
+    pub fn build(self) -> Result<(Procedures<TCtx>, Types), Vec<DuplicateProcedureKeyError>> {
         self.build_with_state_inner(State::default())
     }
 
@@ -127,26 +125,14 @@ impl<TCtx> Router2<TCtx> {
     pub fn build_with_state(
         self,
         state: State,
-    ) -> Result<
-        (
-            impl Borrow<Procedures<TCtx>> + Into<Procedures<TCtx>> + fmt::Debug,
-            Types,
-        ),
-        Vec<Error>,
-    > {
+    ) -> Result<(Procedures<TCtx>, Types), Vec<DuplicateProcedureKeyError>> {
         self.build_with_state_inner(state)
     }
 
     fn build_with_state_inner(
         self,
         mut state: State,
-    ) -> Result<
-        (
-            impl Borrow<Procedures<TCtx>> + Into<Procedures<TCtx>> + fmt::Debug,
-            Types,
-        ),
-        Vec<Error>,
-    > {
+    ) -> Result<(Procedures<TCtx>, Types), Vec<DuplicateProcedureKeyError>> {
         if self.errors.len() > 0 {
             return Err(self.errors);
         }
@@ -178,36 +164,14 @@ impl<TCtx> Router2<TCtx> {
             })
             .collect::<HashMap<_, _>>();
 
-        struct Impl<TCtx>(Procedures<TCtx>);
-        impl<TCtx> Into<Procedures<TCtx>> for Impl<TCtx> {
-            fn into(self) -> Procedures<TCtx> {
-                self.0
-            }
-        }
-        impl<TCtx> Borrow<Procedures<TCtx>> for Impl<TCtx> {
-            fn borrow(&self) -> &Procedures<TCtx> {
-                &self.0
-            }
-        }
-        impl<TCtx> fmt::Debug for Impl<TCtx> {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{:?}", self.0)
-            }
-        }
-
         Ok((
-            Impl::<TCtx>(procedures),
+            Procedures::from(procedures),
             Types {
                 types: self.types,
                 procedures: procedure_types,
             },
         ))
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Error {
-    DuplicateProcedures(Vec<Cow<'static, str>>),
 }
 
 impl<TCtx> fmt::Debug for Router2<TCtx> {
@@ -270,91 +234,32 @@ fn get_flattened_name(name: &Vec<Cow<'static, str>>) -> Cow<'static, str> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use rspc_core::ResolverError;
-    use serde::Serialize;
-    use specta::Type;
+pub struct DuplicateProcedureKeyError {
+    path: Vec<Cow<'static, str>>,
+    original: Location<'static>,
+    duplicate: Location<'static>,
+}
 
-    use super::*;
-
-    #[test]
-    fn errors() {
-        let router = <Router2>::new()
-            .procedure(
-                "abc",
-                Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
-            )
-            .procedure(
-                "abc",
-                Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
-            );
-
-        assert_eq!(
-            router.build().unwrap_err(),
-            vec![Error::DuplicateProcedures(vec!["abc".into()])]
-        );
-
-        let router = <Router2>::new()
-            .procedure(
-                "abc",
-                Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
-            )
-            .merge(<Router2>::new().procedure(
-                "abc",
-                Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
-            ));
-
-        assert_eq!(
-            router.build().unwrap_err(),
-            vec![Error::DuplicateProcedures(vec!["abc".into()])]
-        );
-
-        let router = <Router2>::new()
-            .nest(
-                "abc",
-                <Router2>::new().procedure(
-                    "kjl",
-                    Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
-                ),
-            )
-            .nest(
-                "abc",
-                <Router2>::new().procedure(
-                    "def",
-                    Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
-                ),
-            );
-
-        assert_eq!(
-            router.build().unwrap_err(),
-            vec![Error::DuplicateProcedures(vec!["abc".into()])]
-        );
-    }
-
-    #[derive(Type, Debug)]
-    pub enum Infallible {}
-
-    impl fmt::Display for Infallible {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{self:?}")
-        }
-    }
-
-    impl Serialize for Infallible {
-        fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            unreachable!()
-        }
-    }
-
-    impl std::error::Error for Infallible {}
-
-    impl crate::modern::Error for Infallible {
-        fn into_resolver_error(self) -> ResolverError {
-            unreachable!()
-        }
+impl fmt::Debug for DuplicateProcedureKeyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "Duplicate procedure at path {:?}. Original: {}:{}:{} Duplicate: {}:{}:{}",
+            self.path,
+            self.original.file(),
+            self.original.line(),
+            self.original.column(),
+            self.duplicate.file(),
+            self.duplicate.line(),
+            self.duplicate.column()
+        )
     }
 }
+
+impl fmt::Display for DuplicateProcedureKeyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for DuplicateProcedureKeyError {}

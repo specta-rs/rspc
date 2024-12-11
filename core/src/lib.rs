@@ -18,13 +18,12 @@ mod dyn_input;
 mod error;
 mod interop;
 mod procedure;
+mod procedures;
 mod stream;
 
 pub use dyn_input::DynInput;
 pub use error::{DeserializeError, DowncastError, ProcedureError, ResolverError};
 pub use interop::LegacyErrorInterop;
 pub use procedure::Procedure;
+pub use procedures::Procedures;
 pub use stream::ProcedureStream;
-
-pub type Procedures<TCtx> =
-    std::collections::HashMap<std::borrow::Cow<'static, str>, Procedure<TCtx>>;

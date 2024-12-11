@@ -17,7 +17,9 @@ pub struct Types {
 
 impl fmt::Debug for Types {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Types").finish()
+        f.debug_struct("Types")
+            // TODO: Finish this
+            .finish()
     }
 }
 

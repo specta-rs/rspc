@@ -45,8 +45,9 @@ impl<TCtx> Procedure2<TCtx> {
         I: ResolverInput,
         R: ResolverOutput<TError>,
     {
+        let location = Location::caller().clone();
         ProcedureBuilder {
-            build: Box::new(|kind, setups, handler| {
+            build: Box::new(move |kind, setups, handler| {
                 Procedure2 {
                     setup: Default::default(),
                     ty: ProcedureType {
@@ -54,7 +55,7 @@ impl<TCtx> Procedure2<TCtx> {
                         input: DataType::Any,  // I::data_type(type_map),
                         output: DataType::Any, // R::data_type(type_map),
                         error: DataType::Any,  // TODO
-                        location: Location::caller().clone(),
+                        location,
                     },
                     inner: Box::new(move |state| {
                         let key: Cow<'static, str> = "todo".to_string().into(); // TODO: Work this out properly

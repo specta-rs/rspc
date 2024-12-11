@@ -1,4 +1,4 @@
-use std::{fmt, sync::Arc};
+use std::{any::type_name, fmt, sync::Arc};
 
 use serde::Deserializer;
 
@@ -9,14 +9,18 @@ use crate::{DynInput, ProcedureStream};
 /// TODO: Show constructing and executing procedure.
 pub struct Procedure<TCtx> {
     handler: Arc<dyn Fn(TCtx, DynInput) -> ProcedureStream + Send + Sync>,
+    #[cfg(debug_assertions)]
+    handler_name: &'static str,
 }
 
 impl<TCtx> Procedure<TCtx> {
-    pub fn new(
-        handler: impl Fn(TCtx, DynInput) -> ProcedureStream + Send + Sync + 'static,
+    pub fn new<F: Fn(TCtx, DynInput) -> ProcedureStream + Send + Sync + 'static>(
+        handler: F,
     ) -> Self {
         Self {
             handler: Arc::new(handler),
+            #[cfg(debug_assertions)]
+            handler_name: type_name::<F>(),
         }
     }
 
@@ -47,12 +51,17 @@ impl<TCtx> Clone for Procedure<TCtx> {
     fn clone(&self) -> Self {
         Self {
             handler: self.handler.clone(),
+            #[cfg(debug_assertions)]
+            handler_name: self.handler_name,
         }
     }
 }
 
 impl<TCtx> fmt::Debug for Procedure<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Procedure").finish()
+        let mut t = f.debug_tuple("Procedure");
+        #[cfg(debug_assertions)]
+        let t = t.field(&self.handler_name);
+        t.finish()
     }
 }
