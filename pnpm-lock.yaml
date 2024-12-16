@@ -91,6 +91,9 @@ importers:
 
   examples/tauri:
     dependencies:
+      '@rspc/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@rspc/tauri':
         specifier: workspace:*
         version: link:../../packages/tauri
@@ -118,6 +121,10 @@ importers:
         version: 2.10.2(solid-js@1.9.3)(vite@5.4.11(@types/node@22.9.1)(lightningcss@1.27.0)(terser@5.36.0))
 
   packages/client:
+    dependencies:
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.5(@types/node@22.9.1)(lightningcss@1.27.0)(terser@5.36.0)
     devDependencies:
       tsup:
         specifier: ^8.3.5
@@ -149,7 +156,7 @@ importers:
         version: link:../client
       '@rspc/query-core':
         specifier: workspace:*
-        version: link:../query-core
+        version: link:../tanstack-query
     devDependencies:
       '@tanstack/react-query':
         specifier: ^5.61.0
@@ -174,7 +181,7 @@ importers:
         version: link:../client
       '@rspc/query-core':
         specifier: workspace:*
-        version: link:../query-core
+        version: link:../tanstack-query
     devDependencies:
       '@tanstack/solid-query':
         specifier: ^5.60.6
@@ -202,7 +209,7 @@ importers:
         version: link:../client
       '@rspc/query-core':
         specifier: workspace:*
-        version: link:../query-core
+        version: link:../tanstack-query
       svelte:
         specifier: '>=3 <5'
         version: 4.2.18
@@ -222,6 +229,22 @@ importers:
       vitest:
         specifier: ^2.1.5
         version: 2.1.5(@types/node@22.9.1)(lightningcss@1.27.0)(terser@5.36.0)
+
+  packages/tanstack-query:
+    dependencies:
+      '@rspc/client':
+        specifier: workspace:*
+        version: link:../client
+      '@tanstack/query-core':
+        specifier: ^5.60.6
+        version: 5.60.6
+    devDependencies:
+      tsup:
+        specifier: ^8.3.5
+        version: 8.3.5(jiti@1.21.6)(postcss@8.4.49)(typescript@5.6.3)(yaml@2.6.1)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.6.3
 
   packages/tauri:
     dependencies:

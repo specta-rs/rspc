@@ -15,6 +15,7 @@
 		"solid-js": "^1.7.8",
 		"@tauri-apps/api": "^2",
 		"@tauri-apps/plugin-shell": "^2",
+		"@rspc/client": "workspace:*",
 		"@rspc/tauri": "workspace:*"
 	},
 	"devDependencies": {

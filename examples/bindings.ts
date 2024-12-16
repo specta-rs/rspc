@@ -4,17 +4,17 @@
 export type ProceduresLegacy = { queries: { key: "cached"; input: any; result: any } | { key: "echo"; input: string; result: string } | { key: "error"; input: null; result: string } | { key: "nested.hello"; input: null; result: string } | { key: "newstuff"; input: any; result: any } | { key: "newstuff2"; input: any; result: any } | { key: "panic"; input: null; result: null } | { key: "transformMe"; input: null; result: string } | { key: "version"; input: null; result: string }; mutations: { key: "sendMsg"; input: string; result: string }; subscriptions: { key: "pings"; input: null; result: string } }
 
 export type Procedures = {
-	cached: { input: any, output: any, error: any },
-	echo: { input: string, output: string, error: unknown },
-	error: { input: null, output: string, error: unknown },
+	cached: { kind: "query", input: any, output: any, error: any },
+	echo: { kind: "query", input: string, output: string, error: unknown },
+	error: { kind: "query", input: null, output: string, error: unknown },
 	nested: {
-	hello: { input: null, output: string, error: unknown },
+	hello: { kind: "query", input: null, output: string, error: unknown },
 },
-	newstuff: { input: any, output: any, error: any },
-	newstuff2: { input: any, output: any, error: any },
-	panic: { input: null, output: null, error: unknown },
-	pings: { input: null, output: string, error: unknown },
-	sendMsg: { input: string, output: string, error: unknown },
-	transformMe: { input: null, output: string, error: unknown },
-	version: { input: null, output: string, error: unknown },
+	newstuff: { kind: "query", input: any, output: any, error: any },
+	newstuff2: { kind: "query", input: any, output: any, error: any },
+	panic: { kind: "query", input: null, output: null, error: unknown },
+	pings: { kind: "subscription", input: null, output: string, error: unknown },
+	sendMsg: { kind: "mutation", input: string, output: string, error: unknown },
+	transformMe: { kind: "query", input: null, output: string, error: unknown },
+	version: { kind: "query", input: null, output: string, error: unknown },
 }

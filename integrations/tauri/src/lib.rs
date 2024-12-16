@@ -67,7 +67,7 @@ where
                 };
 
                 let mut stream = match input {
-                    Some(i) => procedure.exec_with_deserializer(ctx, i),
+                    Some(i) => procedure.exec_with_deserializer(ctx, i.as_ref()),
                     None => procedure.exec_with_deserializer(ctx, serde_json::Value::Null),
                 };
 
@@ -181,12 +181,12 @@ where
 
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "method", content = "params", rename_all = "camelCase")]
-enum Request<'a> {
+enum Request {
     /// A request to execute a procedure.
     Request {
         path: String,
-        #[serde(borrow)]
-        input: Option<&'a RawValue>,
+        // #[serde(borrow)]
+        input: Option<Box<RawValue>>,
     },
     /// Abort a running task
     /// You must provide the ID of the Tauri channel provided when the task was started.

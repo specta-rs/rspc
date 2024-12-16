@@ -1,5 +1,5 @@
 {
-  "name": "@rspc/tauri",
+  "name": "@rspc/query-core",
   "version": "0.3.1",
   "description": "A blazing fast and easy to use TRPC-like server for Rust.",
   "keywords": [],
@@ -7,20 +7,15 @@
   "license": "MIT",
   "type": "module",
   "main": "dist/index.cjs",
+  "types": "dist/index.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.cjs"
-    },
-    "./next": {
-      "types": "./dist/next.d.ts",
-      "import": "./dist/next.js",
-      "default": "./dist/next.cjs"
     }
   },
-  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
@@ -29,31 +24,27 @@
     "build": "tsup",
     "prepare": "tsup"
   },
+  "dependencies": {
+    "@tanstack/query-core": "^5.60.6"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "@rspc/client": "workspace:*"
+  },
   "tsup": {
     "entry": [
-      "src/index.ts",
-      "src/next.ts"
+      "src/index.ts"
     ],
     "format": [
       "esm",
       "cjs"
     ],
-    "dts": {
-      "resolve": true
-    },
+    "dts": true,
     "splitting": true,
     "clean": true,
     "sourcemap": true
-  },
-  "dependencies": {
-    "@rspc/client": "workspace:*"
-  },
-  "devDependencies": {
-    "@tauri-apps/api": "^2.1.1",
-    "tsup": "^8.3.5",
-    "typescript": "^5.6.3"
-  },
-  "peerDependencies": {
-    "@tauri-apps/api": "^2.1.1"
   }
 }
