@@ -42,10 +42,10 @@ export type ExecuteArgs = {
 };
 export type ExecuteFn = (args: ExecuteArgs) => Observable<ExeceuteData>;
 
-export type ExeceuteData =
-	| { type: "event"; data: any }
-	| { type: "response"; data: any }
-	| {
-			type: "error";
-			data: { code: number; data: any };
-	  };
+export type ExeceuteData = { code: number; value: any } | null;
+// | { type: "event"; data: any }
+// | { type: "response"; data: any }
+// | {
+// 		type: "error";
+// 		data: { code: number; data: any };
+//   };

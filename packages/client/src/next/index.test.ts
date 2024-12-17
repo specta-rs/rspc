@@ -1,5 +1,6 @@
 import { test } from "vitest";
 import { createClient, observable } from ".";
+import { fetchExecute } from "./UntypedClient";
 
 type NestedProcedures = {
 	nested: {
@@ -26,7 +27,9 @@ type NestedProcedures = {
 	};
 };
 
-const client = createClient<NestedProcedures>(() => observable(() => {}));
+const client = createClient<NestedProcedures>((args) =>
+	fetchExecute({ url: "..." }, args),
+);
 
 test("proxy", () => {
 	client.nested.procedures.one.query("test");

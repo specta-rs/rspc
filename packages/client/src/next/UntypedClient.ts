@@ -41,7 +41,10 @@ export function observable<T>(
 
 export type Observable<T> = ReturnType<typeof observable<T>>;
 
-export const fetchExecute = (config: { url: string }, args: ExecuteArgs) => {
+export const fetchExecute = (
+	config: { url: string },
+	args: ExecuteArgs,
+): ReturnType<ExecuteFn> => {
 	if (args.type === "subscription")
 		throw new Error("Subscriptions are not possible with the `fetch` executor");
 
@@ -69,7 +72,7 @@ export const fetchExecute = (config: { url: string }, args: ExecuteArgs) => {
 		});
 	}
 
-	return observable<Response>((subscriber) => {
+	return observable((subscriber) => {
 		promise
 			.then(async (r) => {
 				let json;
@@ -93,19 +96,14 @@ export class UntypedClient {
 		let data: ExeceuteData | undefined;
 
 		await obs.subscribe((d) => {
-			data = d;
+			if (data === undefined) data = d;
 		});
 
 		if (!data) throw new Error("No data received");
-		if (data.type === "error")
-			throw new Error(
-				`Error with code '${data.data.code}' occurred`,
-				data.data.data,
-			);
-		if (data.type === "event")
-			throw new Error("Received event when expecting resposne");
+		if (data.code !== 200)
+			throw new Error(`Error with code '${data.code}' occurred`, data.value);
 
-		return data.data;
+		return data.value;
 	}
 
 	public query(path: string, input: unknown) {

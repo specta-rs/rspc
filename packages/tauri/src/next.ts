@@ -1,6 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { ExecuteArgs, ExecuteFn, observable } from "@rspc/client/next";
-import { resolve } from "@tauri-apps/api/path";
 
 type Request =
 	| { method: "request"; params: { path: string; input: any } }
@@ -22,26 +21,8 @@ export const tauriExecute: ExecuteFn = (args: ExecuteArgs) => {
 		const channel = new Channel<Response<any>>();
 
 		channel.onmessage = (response) => {
-			console.log(response);
 			if (response === null) subscriber.complete();
-			else {
-				if (response.code === 200) {
-					// doesn't handle errors
-					subscriber.next({
-						type: "response",
-						data: response.value,
-					});
-				} else {
-					// doesn't handle errors
-					subscriber.next({
-						type: "error",
-						data: {
-							code: response.code,
-							data: response.value,
-						},
-					});
-				}
-			}
+			return subscriber.next(response);
 		};
 
 		handleRpc(
