@@ -1,20 +1,23 @@
 use std::{
+    convert::Infallible,
+    future::poll_fn,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use axum::{
-    body::{Bytes, HttpBody},
+    body::{Body, Bytes, HttpBody},
     extract::{FromRequest, Request},
+    http::{header, HeaderMap, StatusCode},
     response::{
         sse::{Event, KeepAlive},
-        Sse,
+        IntoResponse, Sse,
     },
     routing::{on, MethodFilter},
 };
-use futures::Stream;
-use rspc_core::{ProcedureStream, Procedures};
+use futures::{stream::once, Stream, StreamExt, TryStreamExt};
+use rspc_core::{ProcedureError, ProcedureStream, Procedures};
 
 /// Construct a new [`axum::Router`](axum::Router) to expose a given [`rspc::Router`](rspc::Router).
 pub struct Endpoint<TCtx> {
@@ -143,7 +146,7 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
                         async move {
                             let hint = req.body().size_hint();
                             let has_body = hint.lower() != 0 || hint.upper() != Some(0);
-                            let stream = if !has_body {
+                            let mut stream = if !has_body {
                                 let mut params = form_urlencoded::parse(
                                     req.uri().query().unwrap_or_default().as_ref(),
                                 );
@@ -159,10 +162,20 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
                                         .exec_with_deserializer(ctx, serde_json::Value::Null),
                                 }
                             } else {
-                                // TODO
-                                // if !json_content_type(req.headers()) {
-                                //     Err(MissingJsonContentType.into())
-                                // }
+                                if !json_content_type(req.headers()) {
+                                    let err: ProcedureError = rspc_core::DeserializeError::custom(
+                                        "Client did not set correct valid 'Content-Type' header",
+                                    )
+                                    .into();
+                                    let buf = serde_json::to_vec(&err).unwrap(); // TODO
+
+                                    return (
+                                        StatusCode::BAD_REQUEST,
+                                        [(header::CONTENT_TYPE, "application/json")],
+                                        Body::from(buf),
+                                    )
+                                        .into_response();
+                                }
 
                                 let bytes = Bytes::from_request(req, &()).await.unwrap(); // TODO: Error handling
                                 procedure.exec_with_deserializer(
@@ -171,11 +184,24 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
                                 )
                             };
 
-                            // TODO: Status code
-                            // TODO: Json headers
-                            // TODO: Maybe only SSE for subscriptions???
+                            let mut stream = ProcedureStreamResponse {
+                                code: None,
+                                stream,
+                                first: None,
+                            };
+                            stream.first = Some(stream.next().await);
 
-                            Sse::new(ProcedureStreamSSE(stream)).keep_alive(KeepAlive::default())
+                            let status = stream
+                                .code
+                                .and_then(|c| StatusCode::try_from(c).ok())
+                                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+
+                            (
+                                status,
+                                [(header::CONTENT_TYPE, "application/json")],
+                                Body::from_stream(stream),
+                            )
+                                .into_response()
                         }
                     },
                 ),
@@ -188,50 +214,72 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
     }
 }
 
-struct ProcedureStreamSSE(ProcedureStream);
+struct ProcedureStreamResponse {
+    code: Option<u16>,
+    first: Option<Option<Result<Vec<u8>, Infallible>>>,
+    stream: ProcedureStream,
+}
 
-impl Stream for ProcedureStreamSSE {
-    type Item = Result<Event, axum::Error>;
+impl Stream for ProcedureStreamResponse {
+    type Item = Result<Vec<u8>, Infallible>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.0
-            .poll_next(cx)
-            // TODO: `v` should be broken out
-            .map(|v| {
-                v.map(|v| {
-                    Event::default()
-                        // .event() // TODO: `Ok` vs `Err` - Also serve `StatusCode`
-                        .json_data(&v)
-                })
-            })
+        if let Some(first) = self.first.take() {
+            return Poll::Ready(first);
+        }
+
+        let (code, mut buf) = {
+            let Poll::Ready(v) = self.stream.poll_next(cx) else {
+                return Poll::Pending;
+            };
+
+            match v {
+                Some(Ok(v)) => (
+                    200,
+                    Some(serde_json::to_vec(&v).unwrap()), // TODO: Error handling
+                ),
+                Some(Err(err)) => (
+                    err.status(),
+                    Some(serde_json::to_vec(&err).unwrap()), // TODO: Error handling
+                ),
+                None => (200, None),
+            }
+        };
+
+        if let Some(buf) = &mut buf {
+            buf.extend_from_slice(b"\n\n");
+        };
+
+        self.code = Some(code);
+        Poll::Ready(buf.map(Ok))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
+        self.stream.size_hint()
     }
 }
 
-// fn json_content_type(headers: &HeaderMap) -> bool {
-//     let content_type = if let Some(content_type) = headers.get(header::CONTENT_TYPE) {
-//         content_type
-//     } else {
-//         return false;
-//     };
+fn json_content_type(headers: &HeaderMap) -> bool {
+    let content_type = if let Some(content_type) = headers.get(header::CONTENT_TYPE) {
+        content_type
+    } else {
+        return false;
+    };
 
-//     let content_type = if let Ok(content_type) = content_type.to_str() {
-//         content_type
-//     } else {
-//         return false;
-//     };
+    let content_type = if let Ok(content_type) = content_type.to_str() {
+        content_type
+    } else {
+        return false;
+    };
 
-//     let mime = if let Ok(mime) = content_type.parse::<mime::Mime>() {
-//         mime
-//     } else {
-//         return false;
-//     };
+    let mime = if let Ok(mime) = content_type.parse::<mime::Mime>() {
+        mime
+    } else {
+        return false;
+    };
 
-//     let is_json_content_type = mime.type_() == "application"
-//         && (mime.subtype() == "json" || mime.suffix().map_or(false, |name| name == "json"));
+    let is_json_content_type = mime.type_() == "application"
+        && (mime.subtype() == "json" || mime.suffix().map_or(false, |name| name == "json"));
 
-//     is_json_content_type
-// }
+    is_json_content_type
+}

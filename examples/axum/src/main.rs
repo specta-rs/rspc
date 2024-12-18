@@ -147,6 +147,9 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                 ))
                 .query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
+        .procedure("newstuffpanic", {
+            <BaseProcedure>::builder().query(|_, _: ()| async move { Ok(todo!()) })
+        })
         .setup(CacheState::builder(Memory::new()).mount())
         .procedure("cached", {
             <BaseProcedure>::builder()

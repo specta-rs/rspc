@@ -14,7 +14,7 @@ use crate::ProcedureError;
 
 /// TODO
 #[must_use = "ProcedureStream does nothing unless polled"]
-pub struct ProcedureStream(Pin<Box<dyn DynReturnValue>>);
+pub struct ProcedureStream(Result<Pin<Box<dyn DynReturnValue>>, Option<ProcedureError>>);
 
 impl ProcedureStream {
     /// TODO
@@ -23,11 +23,11 @@ impl ProcedureStream {
         S: Stream<Item = Result<T, ProcedureError>> + Send + 'static,
         T: Serialize + Send + Sync + 'static,
     {
-        Self(Box::pin(DynReturnImpl {
+        Self(Ok(Box::pin(DynReturnImpl {
             src: s,
             unwound: false,
             value: None,
-        }))
+        })))
     }
 
     /// TODO
@@ -41,7 +41,10 @@ impl ProcedureStream {
 
     /// TODO
     pub fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
+        match &self.0 {
+            Ok(v) => v.size_hint(),
+            Err(_) => (1, Some(1)),
+        }
     }
 
     /// TODO
@@ -49,19 +52,31 @@ impl ProcedureStream {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<impl Serialize + Send + Sync + '_, ProcedureError>>> {
-        self.0
-            .as_mut()
-            .poll_next_value(cx)
-            .map(|v| v.map(|v| v.map(|_: ()| self.0.value())))
+        match &mut self.0 {
+            Ok(v) => v
+                .as_mut()
+                .poll_next_value(cx)
+                .map(|v| v.map(|v| v.map(|_: ()| self.0.as_mut().expect("checked above").value()))),
+            Err(err) => Poll::Ready(err.take().map(Err)),
+        }
     }
 
     /// TODO
     pub async fn next(
         &mut self,
     ) -> Option<Result<impl Serialize + Send + Sync + '_, ProcedureError>> {
-        poll_fn(|cx| self.0.as_mut().poll_next_value(cx))
-            .await
-            .map(|v| v.map(|_: ()| self.0.value()))
+        match self {
+            Self(Ok(v)) => poll_fn(|cx| v.as_mut().poll_next_value(cx))
+                .await
+                .map(|v| v.map(|_: ()| self.0.as_mut().expect("checked above").value())),
+            Self(Err(err)) => err.take().map(Err),
+        }
+    }
+}
+
+impl From<ProcedureError> for ProcedureStream {
+    fn from(err: ProcedureError) -> Self {
+        Self(Err(Some(err)))
     }
 }
 

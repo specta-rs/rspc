@@ -23,6 +23,7 @@ mod stream;
 
 pub use dyn_input::DynInput;
 pub use error::{DeserializeError, DowncastError, ProcedureError, ResolverError};
+#[doc(hidden)]
 pub use interop::LegacyErrorInterop;
 pub use procedure::Procedure;
 pub use procedures::Procedures;

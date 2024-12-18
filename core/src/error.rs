@@ -1,6 +1,11 @@
 use std::{any::Any, borrow::Cow, error, fmt};
 
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+use serde::{
+    ser::{Error, SerializeStruct},
+    Serialize, Serializer,
+};
+
+use crate::LegacyErrorInterop;
 
 /// TODO
 pub enum ProcedureError {
@@ -25,16 +30,6 @@ impl ProcedureError {
             Self::Downcast(_) => 400,
             Self::Resolver(err) => err.status(),
             Self::Unwind(_) => 500,
-        }
-    }
-
-    pub fn serialize<Se: Serializer>(&self, s: Se) -> Result<Se::Ok, Se::Error> {
-        match self {
-            Self::NotFound => s.serialize_none(),
-            Self::Deserialize(err) => s.serialize_str(&format!("{}", err)),
-            Self::Downcast(err) => s.serialize_str(&format!("{}", err)),
-            Self::Resolver(err) => s.serialize_str(&format!("{}", err)),
-            Self::Unwind(_) => s.serialize_none(),
         }
     }
 
@@ -69,6 +64,18 @@ impl From<ResolverError> for ProcedureError {
     }
 }
 
+impl From<DeserializeError> for ProcedureError {
+    fn from(err: DeserializeError) -> Self {
+        ProcedureError::Deserialize(err)
+    }
+}
+
+impl From<DowncastError> for ProcedureError {
+    fn from(err: DowncastError) -> Self {
+        ProcedureError::Downcast(err)
+    }
+}
+
 impl fmt::Debug for ProcedureError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // TODO: Proper format
@@ -96,6 +103,12 @@ impl Serialize for ProcedureError {
         S: Serializer,
     {
         if let ProcedureError::Resolver(err) = self {
+            if let Some(err) = err.error() {
+                if let Some(v) = err.downcast_ref::<LegacyErrorInterop>() {
+                    return v.0.serialize(serializer);
+                }
+            }
+
             return err.value().serialize(serializer);
         }
 
@@ -167,6 +180,12 @@ impl error::Error for ResolverError {}
 
 /// TODO
 pub struct DeserializeError(pub(crate) erased_serde::Error);
+
+impl DeserializeError {
+    pub fn custom<T: fmt::Display>(err: T) -> Self {
+        Self(erased_serde::Error::custom(err))
+    }
+}
 
 impl fmt::Debug for DeserializeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

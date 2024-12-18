@@ -30,6 +30,7 @@ futures = "0.3"                              # TODO: No blocking execution, etc
 tokio = { version = "1", features = ["sync", "macros"] } # TODO: No more `tokio::select` + spawning threads. Axum's Websocket upgrade handles that.
 serde = { version = "1", features = ["derive"] } # TODO: Remove features
 serde_urlencoded = "0.7.1"
+mime = "0.3.17"
 
 [lints]
 workspace = true

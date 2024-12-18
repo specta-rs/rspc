@@ -1,8 +1,13 @@
-use std::{any::type_name, fmt, sync::Arc};
+use std::{
+    any::type_name,
+    fmt,
+    panic::{catch_unwind, AssertUnwindSafe},
+    sync::Arc,
+};
 
 use serde::Deserializer;
 
-use crate::{DynInput, ProcedureStream};
+use crate::{DynInput, ProcedureError, ProcedureStream};
 
 /// a single type-erased operation that the server can execute.
 ///
@@ -25,7 +30,9 @@ impl<TCtx> Procedure<TCtx> {
     }
 
     pub fn exec(&self, ctx: TCtx, input: DynInput) -> ProcedureStream {
-        (self.handler)(ctx, input)
+        let (Ok(v) | Err(v)) = catch_unwind(AssertUnwindSafe(|| (self.handler)(ctx, input)))
+            .map_err(|err| ProcedureError::Unwind(err).into());
+        v
     }
 
     pub fn exec_with_deserializer<'de, D: Deserializer<'de> + Send>(
@@ -36,14 +43,18 @@ impl<TCtx> Procedure<TCtx> {
         let mut deserializer = <dyn erased_serde::Deserializer>::erase(input);
         let value = DynInput::new_deserializer(&mut deserializer);
 
-        (self.handler)(ctx, value)
+        let (Ok(v) | Err(v)) = catch_unwind(AssertUnwindSafe(|| (self.handler)(ctx, value)))
+            .map_err(|err| ProcedureError::Unwind(err).into());
+        v
     }
 
     pub fn exec_with_value<T: Send + 'static>(&self, ctx: TCtx, input: T) -> ProcedureStream {
         let mut input = Some(input);
         let value = DynInput::new_value(&mut input);
 
-        (self.handler)(ctx, value)
+        let (Ok(v) | Err(v)) = catch_unwind(AssertUnwindSafe(|| (self.handler)(ctx, value)))
+            .map_err(|err| ProcedureError::Unwind(err).into());
+        v
     }
 }
 
