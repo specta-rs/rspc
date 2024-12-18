@@ -5,11 +5,12 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../" }
-rspc-axum = { path = "../../crates/axum", features = ["ws"] }
+rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
+rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
+example-core = { path = "../core" }
 tokio = { version = "1.41.1", features = ["full"] }
-async-stream = "0.3.6"
-axum = { version = "0.7.9", features = ["ws"] }
+axum = "0.7.9"
 tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }
+rspc-devtools = { version = "0.0.0", path = "../../middleware/devtools" }

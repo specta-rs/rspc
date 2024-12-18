@@ -1,61 +1,33 @@
-use std::{path::PathBuf, time::Duration};
-
-use async_stream::stream;
-use axum::{http::request::Parts, routing::get};
-use rspc::Config;
-use tokio::time::sleep;
+use axum::routing::get;
+use example_core::{create_router, Ctx};
+use std::path::PathBuf;
 use tower_http::cors::{Any, CorsLayer};
-
-struct Ctx {}
 
 #[tokio::main]
 async fn main() {
-    let router =
-        rspc::Router::<Ctx>::new()
-            .config(Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ))
-            .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
-            .query("echo", |t| t(|_, v: String| v))
-            .query("error", |t| {
-                t(|_, _: ()| {
-                    Err(rspc::Error::new(
-                        rspc::ErrorCode::InternalServerError,
-                        "Something went wrong".into(),
-                    )) as Result<String, rspc::Error>
-                })
-            })
-            .query("transformMe", |t| t(|_, _: ()| "Hello, world!".to_string()))
-            .mutation("sendMsg", |t| {
-                t(|_, v: String| {
-                    println!("Client said '{}'", v);
-                    v
-                })
-            })
-            .subscription("pings", |t| {
-                t(|_ctx, _args: ()| {
-                    stream! {
-                        println!("Client subscribed to 'pings'");
-                        for i in 0..5 {
-                            println!("Sending ping {}", i);
-                            yield "ping".to_string();
-                            sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                })
-            })
-            // TODO: Results being returned from subscriptions
-            // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
-            //     stream! {
-            //         for i in 0..5 {
-            //             yield Ok("ping".to_string());
-            //             sleep(Duration::from_secs(1)).await;
-            //         }
-            //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-            //     }
-            // }))
-            .build()
-            .arced(); // This function is a shortcut to wrap the router in an `Arc`.
+    let router = create_router();
+    let (procedures, types) = router.build().unwrap();
+
+    rspc::Typescript::default()
+        // .formatter(specta_typescript::formatter::prettier),
+        .header("// My custom header")
+        // .enable_source_maps() // TODO: Fix this
+        .export_to(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
+        )
+        .unwrap();
+
+    // Be aware this is very experimental and doesn't support many types yet.
+    // rspc::Rust::default()
+    //     // .header("// My custom header")
+    //     .export_to(
+    //         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../client/src/bindings.rs"),
+    //         &types,
+    //     )
+    //     .unwrap();
+
+    let procedures = rspc_devtools::mount(procedures, &types);
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -65,10 +37,17 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
+        // .nest(
+        //     "/rspc",
+        //     rspc_axum::endpoint(procedures, |parts: Parts| {
+        //         println!("Client requested operation '{}'", parts.uri.path());
+        //         Ctx {}
+        //     }),
+        // )
         .nest(
             "/rspc",
-            rspc_axum::endpoint(router.clone(), |parts: Parts| {
-                println!("Client requested operation '{}'", parts.uri.path());
+            rspc_axum::Endpoint::builder(procedures).build(|| {
+                // println!("Client requested operation '{}'", parts.uri.path()); // TODO: Fix this
                 Ctx {}
             }),
         )
