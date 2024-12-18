@@ -1,19 +1,72 @@
-import { type Channel, invoke } from "@tauri-apps/api/core";
+import { randomId, OperationType, Transport, RSPCError } from "@rspc/client";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
-type Request =
-  | {
-      method: "request";
-      params: { path: string; input: null | string };
-    }
-  | { method: "abort"; params: number };
+export class TauriTransport implements Transport {
+	private requestMap = new Map<string, (data: any) => void>();
+	private listener?: Promise<UnlistenFn>;
+	clientSubscriptionCallback?: (id: string, value: any) => void;
 
-type Response<T> = { code: number; value: T } | "Done";
+	constructor() {
+		this.listener = listen("plugin:rspc:transport:resp", (event) => {
+			const { id, result } = event.payload as any;
+			if (result.type === "event") {
+				if (this.clientSubscriptionCallback)
+					this.clientSubscriptionCallback(id, result.data);
+			} else if (result.type === "response") {
+				if (this.requestMap.has(id)) {
+					this.requestMap.get(id)?.({ type: "response", result: result.data });
+					this.requestMap.delete(id);
+				}
+			} else if (result.type === "error") {
+				const { message, code } = result.data;
+				if (this.requestMap.has(id)) {
+					this.requestMap.get(id)?.({ type: "error", message, code });
+					this.requestMap.delete(id);
+				}
+			} else {
+				console.error(`Received event of unknown method '${result.type}'`);
+			}
+		});
+	}
 
-// TODO: Seal `Channel` within a standard interface for all "modern links"?
-// TODO: handle detect and converting to rspc error class
-// TODO: Catch Tauri errors -> Assuming it would happen on `tauri::Error` which happens when serialization fails in Rust.
-// TODO: Return closure for cleanup
+	async doRequest(
+		operation: OperationType,
+		key: string,
+		input: any,
+	): Promise<any> {
+		if (!this.listener) {
+			await this.listener;
+		}
 
-export async function handleRpc(req: Request, channel: Channel<Response<any>>) {
-  await invoke("plugin:rspc|handle_rpc", { req, channel });
+		const id = randomId();
+		let resolve: (data: any) => void;
+		const promise = new Promise((res) => {
+			resolve = res;
+		});
+
+		// @ts-ignore
+		this.requestMap.set(id, resolve);
+
+		await getCurrentWindow().emit("plugin:rspc:transport", {
+			id,
+			method: operation,
+			params: {
+				path: key,
+				input,
+			},
+		});
+
+		const body = (await promise) as any;
+		if (body.type === "error") {
+			const { code, message } = body;
+			throw new RSPCError(code, message);
+		} else if (body.type === "response") {
+			return body.result;
+		} else {
+			throw new Error(
+				`RSPC Tauri doRequest received invalid body type '${body?.type}'`,
+			);
+		}
+	}
 }

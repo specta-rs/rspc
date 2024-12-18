@@ -1,0 +1,7 @@
+pub fn modern_to_legacy<TCtx: Send + Sync + 'static>(router: Router2<TCtx>) -> Router<TCtx> {
+    let r = Router::new();
+
+    todo!();
+
+    r.build()
+}

@@ -1,0 +1,80 @@
+use std::any::Any;
+
+use serde::{
+    de::{value, DeserializeOwned},
+    Deserializer,
+};
+
+pub trait Input<'de>: Sized {
+    /// TODO
+    // TODO: This bound is because `dyn Any`. We could probs relax it but it would require work.
+    type Value: 'static;
+
+    /// TODO
+    // TODO: Expose a no-op that can be put here???
+    type Deserializer: Deserializer<'de>;
+
+    /// TODO
+    fn into_deserializer(self) -> Result<Self::Deserializer, Self::Value>;
+}
+
+impl<'de, D: Deserializer<'de>> Input<'de> for D {
+    type Value = ();
+    type Deserializer = D;
+
+    fn into_deserializer(self) -> Result<Self::Deserializer, Self::Value> {
+        Ok(self)
+    }
+}
+
+enum RawInput<'a, 'de> {
+    Value(&'a mut dyn Any),
+    Deserializer(&'a mut dyn erased_serde::Deserializer<'de>),
+}
+
+// TODO: Avoid generics as much as possible!!!
+pub struct Procedure {
+    // TODO: Types
+    handler: Box<dyn Fn((), RawInput)>,
+}
+
+impl Procedure {
+    pub fn new<TInput>(handler: impl Fn((), TInput) + 'static) -> Self
+    where
+        TInput: DeserializeOwned + 'static, // TODO: Deserialize<'a>, // TODO: Drop `'static` bound
+    {
+        Self {
+            handler: Box::new(move |_, input| {
+                let input: TInput = match input {
+                    RawInput::Value(value) => value
+                        .downcast_mut::<Option<TInput>>()
+                        .unwrap()
+                        .take()
+                        .unwrap(),
+                    RawInput::Deserializer(deserializer) => {
+                        erased_serde::deserialize(deserializer).unwrap()
+                    }
+                };
+
+                handler((), input);
+            }),
+        }
+    }
+
+    // TODO: Avoid generics as much as possible!!!
+    // TODO: Context
+    // TODO: Async runtime
+    // TODO: Results (value or serializer)
+    pub fn exec<'a, 'de>(&'a self, ctx: (), mut input: impl Input<'de> + 'de + 'a) {
+        match input.into_deserializer() {
+            Ok(input) => {
+                let mut input = <dyn erased_serde::Deserializer<'de>>::erase(input);
+                (self.handler)(ctx, RawInput::Deserializer(&mut input));
+            }
+            Err(input) => {
+                let mut input = Some(input); // Option so we can `downcast_ref` and `take`.
+                (self.handler)(ctx, RawInput::Value(&mut input));
+            }
+        }
+    }
+}

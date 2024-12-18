@@ -1,21 +1,20 @@
-import { Channel } from "@tauri-apps/api/core";
+import { createClient } from "@rspc/client/next";
+import { tauriExecute } from "@rspc/tauri/next";
+
+import { Procedures } from "../../bindings";
+
 import "./App.css";
 
-import { handleRpc } from "@rspc/tauri";
+const client = createClient<Procedures>(tauriExecute);
 
 function App() {
-  const channel = new Channel();
-  handleRpc(
-    { method: "request", params: { path: "query", input: null } },
-    channel,
-  );
-  channel.onmessage = console.log;
+	client.sendMsg.mutate("bruh").then(console.log);
 
-  return (
-    <main class="container">
-      <h1>Welcome to Tauri + Solid</h1>
-    </main>
-  );
+	return (
+		<main class="container">
+			<h1>Welcome to Tauri + Solid</h1>
+		</main>
+	);
 }
 
 export default App;

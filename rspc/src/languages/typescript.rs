@@ -4,7 +4,9 @@ use serde_json::json;
 use specta::{datatype::DataType, NamedType, Type};
 use specta_typescript::{datatype, export_named_datatype, ExportError};
 
-use crate::{procedure::ProcedureType, types::TypesOrType, util::literal_object, Types};
+use crate::{
+    procedure::ProcedureType, types::TypesOrType, util::literal_object, ProcedureKind, Types,
+};
 
 pub struct Typescript {
     inner: specta_typescript::Typescript,
@@ -145,7 +147,14 @@ fn generate_bindings(
                 on_procedure(&key, source_pos, procedure_type);
 
                 // *out += "\t"; // TODO: Correct padding
-                *out += "{ input: ";
+                *out += "{ kind: ";
+                *out += match procedure_type.kind {
+                    ProcedureKind::Query => r#""query""#,
+                    ProcedureKind::Mutation => r#""mutation""#,
+                    ProcedureKind::Subscription => r#""subscription""#,
+                };
+
+                *out += ", input: ";
                 *out += &datatype(
                     &this.inner,
                     &specta::datatype::FunctionResultVariant::Value(procedure_type.input.clone()),
