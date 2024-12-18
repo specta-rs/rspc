@@ -13,7 +13,6 @@ use rspc_cache::{cache, cache_ttl, CacheState, Memory};
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
-use tokio::time::sleep;
 use tracing::info;
 
 // `Clone` is only required for usage with Websockets
@@ -84,7 +83,7 @@ fn mount() -> rspc::Router<Ctx> {
                     for i in 0..5 {
                         println!("Sending ping {}", i);
                         yield "ping".to_string();
-                        sleep(Duration::from_secs(1)).await;
+                        // sleep(Duration::from_secs(1)).await; // TODO: Figure this out. Async runtime is now not determined so maybe inject.
                     }
                 }
             })

@@ -7,7 +7,9 @@ members = [
 	"./integrations/*",
 	"./middleware/*",
 	"./examples",
+	"./examples/core",
 	"./examples/axum",
+	"./examples/actix-web",
 	"./examples/client",
 	"./examples/tauri/src-tauri",
 ]

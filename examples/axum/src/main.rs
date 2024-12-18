@@ -1,5 +1,5 @@
 use axum::routing::get;
-use example_axum::{create_router, Ctx};
+use example_core::{create_router, Ctx};
 use std::path::PathBuf;
 use tower_http::cors::{Any, CorsLayer};
 

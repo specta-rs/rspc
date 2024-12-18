@@ -1,0 +1,18 @@
+[package]
+name = "example-core"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
+async-stream = "0.3.6"
+serde = { version = "1.0.215", features = ["derive"] }
+specta = { version = "=2.0.0-rc.20", features = [
+    "derive",
+] }
+thiserror = "2.0.4"
+rspc-devtools = { version = "0.0.0", path = "../../middleware/devtools" }
+tracing = "0.1.41"
+futures = "0.3.31"
+rspc-cache = { version = "0.0.0", path = "../../middleware/cache" }

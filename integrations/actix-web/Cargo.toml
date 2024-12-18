@@ -1,0 +1,27 @@
+[package]
+name = "rspc-actix-web"
+description = "Actix Web adapter for rspc"
+version = "0.2.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc-axum/latest/rspc-axum"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+# ws = ["axum/ws"]
+
+[dependencies]
+rspc-core = { version = "0.0.1", path = "../../core" }
+actix-web = "4"
+
+[lints]
+workspace = true

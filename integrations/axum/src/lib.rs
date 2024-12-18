@@ -1,4 +1,4 @@
-//! rspc-axum: Axum integration for [rspc](https://rspc.dev).
+//! rspc-axum: [Axum](https://docs.rs/axum) integration for [rspc](https://rspc.dev).
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
