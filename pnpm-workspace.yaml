@@ -3,3 +3,4 @@ packages:
   - examples/astro
   - examples/nextjs
   - examples/tauri
+  - examples/sfm
