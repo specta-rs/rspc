@@ -39,13 +39,14 @@ impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
     #[cfg(feature = "unstable")]
     /// Construct a new procedure using [`ProcedureBuilder`].
     #[track_caller]
-    pub fn builder<I, R, TError>() -> ProcedureBuilder<TError, TCtx, TCtx, TInput, I, TResult, R>
+    pub fn builder<TError>(
+    ) -> ProcedureBuilder<TError, TCtx, TCtx, TInput, TInput, TResult, TResult>
     where
         TCtx: Send + 'static,
         TError: Error,
         // Only the first layer (middleware or the procedure) needs to be a valid input/output type
-        I: ResolverInput,
-        R: ResolverOutput<TError>,
+        TInput: ResolverInput,
+        TResult: ResolverOutput<TError>,
     {
         let location = Location::caller().clone();
         ProcedureBuilder {
@@ -79,10 +80,10 @@ impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
                         let meta = ProcedureMeta::new(key.clone(), kind, state);
 
                         Procedure::new(move |ctx, input| {
-                            R::into_procedure_stream(
+                            TResult::into_procedure_stream(
                                 handler(
                                     ctx,
-                                    I::from_input(input).unwrap(), // TODO: Error handling
+                                    TInput::from_input(input).unwrap(), // TODO: Error handling
                                     meta.clone(),
                                 )
                                 .into_stream()

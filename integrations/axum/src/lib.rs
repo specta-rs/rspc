@@ -14,6 +14,6 @@ mod jsonrpc_exec;
 mod request;
 mod v2;
 
-pub use endpoint::Endpoint;
+// pub use endpoint::Endpoint;
 pub use request::AxumRequest;
 pub use v2::endpoint;

@@ -339,7 +339,13 @@ async fn next(
                     .cloned();
 
                 jsonrpc::JsonRPCError {
-                    code: err.status() as i32,
+                    code: match err {
+                        ProcedureError::NotFound => 404,
+                        ProcedureError::Deserialize(_) => 400,
+                        ProcedureError::Downcast(_) => 400,
+                        ProcedureError::Resolver(_) => 500, // This is a breaking change. It previously came from the user.
+                        ProcedureError::Unwind(_) => 500,
+                    },
                     message: legacy_error
                         .map(|v| v.0.clone())
                         // This probally isn't a great format but we are assuming your gonna use the new router with a new executor for typesafe errors.

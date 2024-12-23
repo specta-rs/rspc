@@ -110,7 +110,7 @@ pub enum Error {
 
 impl Error2 for Error {
     fn into_resolver_error(self) -> rspc::ResolverError {
-        rspc::ResolverError::new(500, self.to_string(), None::<std::io::Error>)
+        rspc::ResolverError::new(self.to_string(), None::<std::io::Error>)
     }
 }
 
@@ -141,6 +141,9 @@ impl Serialize for SerialisationError {
 
 fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
     router
+        .procedure("withoutBaseProcedure", {
+            Procedure2::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
+        })
         .procedure("newstuff", {
             <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
@@ -206,6 +209,7 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                 Ok(())
             })
         })
+
     // .procedure("sfmStatefulPost", {
     //     <BaseProcedure>::builder()
     //         // .with(Invalidator::mw(|ctx, input, event| {

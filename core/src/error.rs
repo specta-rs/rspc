@@ -28,17 +28,6 @@ pub enum ProcedureError {
 }
 
 impl ProcedureError {
-    pub fn status(&self) -> u16 {
-        match self {
-            Self::NotFound => 404,
-            Self::Deserialize(_) => 400,
-            Self::Downcast(_) => 400,
-            Self::Resolver(err) => err.status(),
-            Self::Unwind(_) => 500,
-            // Self::Serializer(_) => 500,
-        }
-    }
-
     pub fn variant(&self) -> &'static str {
         match self {
             ProcedureError::NotFound => "NotFound",
@@ -133,52 +122,31 @@ impl Serialize for ProcedureError {
 }
 
 /// TODO
-pub struct ResolverError {
-    status: u16,
-    value: Box<dyn ErrorInternalExt>,
-}
+pub struct ResolverError(Box<dyn ErrorInternalExt>);
 
 impl ResolverError {
     // Warning: Returning > 400 will fallback to `500`. As redirects would be invalid and `200` would break matching.
     pub fn new<T: Serialize + Send + 'static, E: error::Error + Send + 'static>(
-        mut status: u16,
         value: T,
         source: Option<E>,
     ) -> Self {
-        if status < 400 {
-            status = 500;
-        }
-
-        Self {
-            status,
-            value: Box::new(ErrorInternal { value, err: source }),
-        }
-    }
-
-    /// TODO
-    pub fn status(&self) -> u16 {
-        self.status
+        Self(Box::new(ErrorInternal { value, err: source }))
     }
 
     /// TODO
     pub fn value(&self) -> impl Serialize + '_ {
-        self.value.value()
+        self.0.value()
     }
 
     /// TODO
     pub fn error(&self) -> Option<&(dyn error::Error + Send + 'static)> {
-        self.value.error()
+        self.0.error()
     }
 }
 
 impl fmt::Debug for ResolverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "status: {:?}, error: {:?}",
-            self.status,
-            self.value.debug()
-        )
+        write!(f, "ResolverError({:?})", self.0.debug())
     }
 }
 

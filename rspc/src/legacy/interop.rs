@@ -93,7 +93,6 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                 .map_err(|err| {
                     let err: crate::legacy::Error = err.into();
                     ResolverError::new(
-                        err.code.to_status_code(),
                         (), /* typesafe errors aren't supported in legacy router */
                         Some(rspc_core::LegacyErrorInterop(err.message)),
                     )
@@ -112,7 +111,6 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                             .map_err(|err| {
                                 let err = crate::legacy::Error::from(err);
                                 ResolverError::new(
-                                    err.code.to_status_code(),
                                     (), /* typesafe errors aren't supported in legacy router */
                                     Some(rspc_core::LegacyErrorInterop(err.message)),
                                 )
@@ -121,11 +119,7 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                             .boxed(),
                         Err(err) => {
                             let err: crate::legacy::Error = err.into();
-                            let err = ResolverError::new(
-                                err.code.to_status_code(),
-                                err.message,
-                                err.cause,
-                            );
+                            let err = ResolverError::new(err.message, err.cause);
                             stream::once(async { Err(err.into()) }).boxed()
                         }
                     }

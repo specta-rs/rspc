@@ -61,13 +61,14 @@ async fn main() -> std::io::Result<()> {
             .wrap(Cors::permissive())
             .service(hello)
             .service(upload)
-            .service(web::scope("/rspc").configure(
-                rspc_actix_web::Endpoint::builder(procedures.clone()).build(|| {
-                    // println!("Client requested operation '{}'", parts.uri.path()); // TODO: Fix this
-                    // Ctx {}
-                    todo!();
-                }),
-            ))
+        // TODO
+        // .service(web::scope("/rspc").configure(
+        //     rspc_actix_web::Endpoint::builder(procedures.clone()).build(|| {
+        //         // println!("Client requested operation '{}'", parts.uri.path()); // TODO: Fix this
+        //         // Ctx {}
+        //         todo!();
+        //     }),
+        // ))
     })
     .bind(addr)?
     .run()

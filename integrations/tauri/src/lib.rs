@@ -48,65 +48,66 @@ where
         channel: tauri::ipc::Channel<IpcResultResponse>,
         req: Request,
     ) {
-        match req {
-            Request::Request { path, input } => {
-                let id = channel.id();
-                let ctx = (self.ctx_fn)(window);
+        todo!();
+        // match req {
+        //     Request::Request { path, input } => {
+        //         let id = channel.id();
+        //         let ctx = (self.ctx_fn)(window);
 
-                let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
-                    let err = ProcedureError::NotFound;
-                    send(
-                        &channel,
-                        Response::Value {
-                            code: err.status(),
-                            value: &err,
-                        },
-                    );
-                    send::<()>(&channel, Response::Done);
-                    return;
-                };
+        //         let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
+        //             let err = ProcedureError::NotFound;
+        //             send(
+        //                 &channel,
+        //                 Response::Value {
+        //                     code: err.status(),
+        //                     value: &err,
+        //                 },
+        //             );
+        //             send::<()>(&channel, Response::Done);
+        //             return;
+        //         };
 
-                let mut stream = match input {
-                    Some(i) => procedure.exec_with_deserializer(ctx, i.as_ref()),
-                    None => procedure.exec_with_deserializer(ctx, serde_json::Value::Null),
-                };
+        //         let mut stream = match input {
+        //             Some(i) => procedure.exec_with_deserializer(ctx, i.as_ref()),
+        //             None => procedure.exec_with_deserializer(ctx, serde_json::Value::Null),
+        //         };
 
-                let this = self.clone();
-                let handle = spawn(async move {
-                    while let Some(value) = stream.next().await {
-                        match value {
-                            Ok(v) => send(
-                                &channel,
-                                Response::Value {
-                                    code: 200,
-                                    value: &v,
-                                },
-                            ),
-                            Err(err) => send(
-                                &channel,
-                                Response::Value {
-                                    code: err.status(),
-                                    value: &err,
-                                },
-                            ),
-                        }
-                    }
+        //         let this = self.clone();
+        //         let handle = spawn(async move {
+        //             while let Some(value) = stream.next().await {
+        //                 match value {
+        //                     Ok(v) => send(
+        //                         &channel,
+        //                         Response::Value {
+        //                             code: 200,
+        //                             value: &v,
+        //                         },
+        //                     ),
+        //                     Err(err) => send(
+        //                         &channel,
+        //                         Response::Value {
+        //                             code: err.status(),
+        //                             value: &err,
+        //                         },
+        //                     ),
+        //                 }
+        //             }
 
-                    this.subscriptions().remove(&id);
-                    send::<()>(&channel, Response::Done);
-                });
+        //             this.subscriptions().remove(&id);
+        //             send::<()>(&channel, Response::Done);
+        //         });
 
-                // if the client uses an existing ID, we will assume the previous subscription is no longer required
-                if let Some(old) = self.subscriptions().insert(id, handle) {
-                    old.abort();
-                }
-            }
-            Request::Abort(id) => {
-                if let Some(h) = self.subscriptions().remove(&id) {
-                    h.abort();
-                }
-            }
-        }
+        //         // if the client uses an existing ID, we will assume the previous subscription is no longer required
+        //         if let Some(old) = self.subscriptions().insert(id, handle) {
+        //             old.abort();
+        //         }
+        //     }
+        //     Request::Abort(id) => {
+        //         if let Some(h) = self.subscriptions().remove(&id) {
+        //             h.abort();
+        //         }
+        //     }
+        // }
     }
 }
 

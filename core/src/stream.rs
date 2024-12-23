@@ -74,18 +74,6 @@ impl ProcedureStream {
     }
 
     /// TODO
-    pub async fn next_status(&mut self) -> (u16, bool) {
-        // TODO: Panic if it isn't the start of the stream or not???
-
-        // TODO: Poll till the first return value and return it's code.
-
-        // TODO: Should we keep polling so we can tell if it's a value or a stream for the content type???
-
-        // todo!();
-        (200, false)
-    }
-
-    /// TODO
     // TODO: Should error be `String` type?
     pub fn map<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T>(
         self,
