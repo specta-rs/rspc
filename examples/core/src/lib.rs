@@ -194,13 +194,13 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                     println!("FETCH POST FROM DB");
                     Ok(id)
                 })
-                .with(Invalidator::with(|event| {
-                    println!("--- AFTER");
-                    if let InvalidateEvent::Post { id } = event {
-                        return Invalidate::One((id.to_string(), ()));
-                    }
-                    Invalidate::None
-                }))
+            // .with(Invalidator::with(|event| {
+            //     println!("--- AFTER");
+            //     if let InvalidateEvent::Post { id } = event {
+            //         return Invalidate::One((id.to_string(), ()));
+            //     }
+            //     Invalidate::None
+            // }))
         })
         .procedure("sfmPostEdit", {
             <BaseProcedure>::builder().query(|ctx, id: String| async move {

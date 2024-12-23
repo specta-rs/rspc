@@ -263,7 +263,7 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
                 _ = fut => {}
             }
 
-            for stream in rspc_invalidation::queue(&invalidator, || ctx.clone(), &procedures) {
+            for stream in rspc_invalidation::queue(&invalidator, ctx, &procedures) {
                 runtime.insert(stream.map::<fn(ProcedureStreamValue) -> _, Vec<u8>>(|v| {
                     serde_json::to_vec(&v).map_err(|err| err.to_string())
                 }));
