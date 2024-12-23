@@ -9,11 +9,14 @@ use serde::Deserializer;
 
 use crate::{DynInput, ProcedureError, ProcedureStream};
 
+// TODO: Discuss cancellation safety
+
 /// a single type-erased operation that the server can execute.
 ///
 /// TODO: Show constructing and executing procedure.
 pub struct Procedure<TCtx> {
     handler: Arc<dyn Fn(TCtx, DynInput) -> ProcedureStream + Send + Sync>,
+
     #[cfg(debug_assertions)]
     handler_name: &'static str,
 }

@@ -7,6 +7,8 @@ use serde::{
 
 use crate::LegacyErrorInterop;
 
+// TODO: Discuss the stability guanrantees of the error handling system. Variant is fixed, message is not.
+
 /// TODO
 pub enum ProcedureError {
     /// Failed to find a procedure with the given name.
@@ -20,6 +22,9 @@ pub enum ProcedureError {
     /// The procedure unexpectedly unwinded.
     /// This happens when you panic inside a procedure.
     Unwind(Box<dyn Any + Send>),
+    // /// An error occurred while serializing the response.
+    // /// The error message can be provided should be omitted unless the client is trusted (Eg. Tauri).
+    // Serializer(Option<String>), // TODO: Sort this out
 }
 
 impl ProcedureError {
@@ -30,6 +35,7 @@ impl ProcedureError {
             Self::Downcast(_) => 400,
             Self::Resolver(err) => err.status(),
             Self::Unwind(_) => 500,
+            // Self::Serializer(_) => 500,
         }
     }
 
@@ -40,6 +46,7 @@ impl ProcedureError {
             ProcedureError::Downcast(_) => "Downcast",
             ProcedureError::Resolver(_) => "Resolver",
             ProcedureError::Unwind(_) => "ResolverPanic",
+            // ProcedureError::Serializer(_) => "Serializer",
         }
     }
 
@@ -54,6 +61,10 @@ impl ProcedureError {
                 .map(|err| err.to_string().into())
                 .unwrap_or("resolver error".into()),
             ProcedureError::Unwind(_) => "resolver panic".into(),
+            // ProcedureError::Serializer(err) => err
+            //     .clone()
+            //     .map(Into::into)
+            //     .unwrap_or("serializer error".into()),
         }
     }
 }
@@ -85,6 +96,7 @@ impl fmt::Debug for ProcedureError {
             Self::Downcast(err) => write!(f, "Downcast({err:?})"),
             Self::Resolver(err) => write!(f, "Resolver({err:?})"),
             Self::Unwind(err) => write!(f, "ResolverPanic({err:?})"),
+            // Self::Serializer(err) => write!(f, "Serializer({err:?})"),
         }
     }
 }
@@ -112,7 +124,7 @@ impl Serialize for ProcedureError {
             return err.value().serialize(serializer);
         }
 
-        let mut state = serializer.serialize_struct("ProcedureError", 1)?;
+        let mut state = serializer.serialize_struct("ProcedureError", 3)?;
         state.serialize_field("_rspc", &true)?;
         state.serialize_field("variant", &self.variant())?;
         state.serialize_field("message", &self.message())?;

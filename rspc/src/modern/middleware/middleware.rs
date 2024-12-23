@@ -22,8 +22,9 @@
 use std::{pin::Pin, sync::Arc};
 
 use futures::{Future, FutureExt, Stream};
+use rspc_core::State;
 
-use crate::modern::{procedure::ProcedureMeta, State};
+use crate::modern::procedure::ProcedureMeta;
 
 use super::Next;
 
@@ -130,6 +131,7 @@ where
         }
     }
 
+    // TODO: Allow multiple or error if defined multiple times?
     pub fn setup(mut self, func: impl FnOnce(&mut State, ProcedureMeta) + 'static) -> Self {
         self.setup = Some(Box::new(func));
         self

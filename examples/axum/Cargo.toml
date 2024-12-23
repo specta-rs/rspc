@@ -9,8 +9,14 @@ rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
 rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
 example-core = { path = "../core" }
 tokio = { version = "1.41.1", features = ["full"] }
-axum = "0.7.9"
+axum = { version = "0.7.9", features = ["multipart"] }
 tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }
 rspc-devtools = { version = "0.0.0", path = "../../middleware/devtools" }
+rspc-invalidation = { version = "0.0.0", path = "../../middleware/invalidation" }
+
+futures = "0.3" # TODO
+serde_json = "1.0.133"
+rspc-http = { version = "0.2.1", path = "../../integrations/http" }
+streamunordered = "0.5.4"

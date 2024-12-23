@@ -11,7 +11,9 @@ mod extractors;
 mod jsonrpc;
 mod jsonrpc_exec;
 // mod legacy;
+mod request;
 mod v2;
 
 pub use endpoint::Endpoint;
+pub use request::AxumRequest;
 pub use v2::endpoint;

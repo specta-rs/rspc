@@ -13,6 +13,7 @@
     html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
+mod as_date;
 mod languages;
 pub(crate) mod modern;
 mod procedure;
@@ -34,16 +35,18 @@ pub(crate) use modern::State;
 pub(crate) use procedure::Procedure2;
 
 #[cfg(feature = "unstable")]
+pub use as_date::AsDate;
+#[cfg(feature = "unstable")]
 pub use modern::{
     middleware, procedure::ProcedureBuilder, procedure::ProcedureMeta, procedure::ResolverInput,
-    procedure::ResolverOutput, Error as Error2, State, Stream,
+    procedure::ResolverOutput, Error as Error2, Extension, Stream,
 };
 #[cfg(feature = "unstable")]
 pub use procedure::Procedure2;
 
 pub use rspc_core::{
     DeserializeError, DowncastError, DynInput, Procedure, ProcedureError, ProcedureStream,
-    Procedures, ResolverError,
+    ProcedureStreamMap, ProcedureStreamValue, Procedures, ResolverError, State,
 };
 
 // Legacy stuff

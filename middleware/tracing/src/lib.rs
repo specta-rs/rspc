@@ -18,6 +18,8 @@ use tracing_futures::Instrument;
 
 // TODO: Support for Prometheus metrics and structured logging
 
+// TODO: Capturing serialization errors in `rspc-axum`
+
 /// TODO
 pub fn tracing<TError, TCtx, TInput, TResult, M>() -> Middleware<TError, TCtx, TInput, TResult>
 where

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, panic::Location, sync::Arc};
+use std::{borrow::Cow, marker::PhantomData, panic::Location, sync::Arc};
 
 use futures::{FutureExt, TryStreamExt};
 use rspc_core::Procedure;
@@ -6,10 +6,12 @@ use specta::datatype::DataType;
 
 use crate::{
     modern::{
-        procedure::{ProcedureBuilder, ProcedureMeta, ResolverInput, ResolverOutput},
+        procedure::{
+            ErasedProcedure, ProcedureBuilder, ProcedureMeta, ResolverInput, ResolverOutput,
+        },
         Error,
     },
-    ProcedureKind, State,
+    Extension, ProcedureKind, State,
 };
 
 #[derive(Clone)]
@@ -25,19 +27,19 @@ pub(crate) struct ProcedureType {
 ///
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
-pub struct Procedure2<TCtx> {
-    pub(crate) setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
-    pub(crate) ty: ProcedureType,
-    pub(crate) inner: Box<dyn FnOnce(Arc<State>) -> rspc_core::Procedure<TCtx>>,
+pub struct Procedure2<TCtx, TInput, TResult> {
+    pub(crate) build:
+        Box<dyn FnOnce(Vec<Box<dyn FnOnce(&mut State, ProcedureMeta)>>) -> ErasedProcedure<TCtx>>,
+    pub(crate) phantom: PhantomData<(TInput, TResult)>,
 }
 
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
 
-impl<TCtx> Procedure2<TCtx> {
+impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
     #[cfg(feature = "unstable")]
     /// Construct a new procedure using [`ProcedureBuilder`].
     #[track_caller]
-    pub fn builder<I, R, TError>() -> ProcedureBuilder<TError, TCtx, TCtx, I, R>
+    pub fn builder<I, R, TError>() -> ProcedureBuilder<TError, TCtx, TCtx, TInput, I, TResult, R>
     where
         TCtx: Send + 'static,
         TError: Error,
@@ -47,9 +49,24 @@ impl<TCtx> Procedure2<TCtx> {
     {
         let location = Location::caller().clone();
         ProcedureBuilder {
-            build: Box::new(move |kind, setups, handler| {
-                Procedure2 {
-                    setup: Default::default(),
+            build: Box::new(move |kind, setup, handler| {
+                ErasedProcedure {
+                    setup: setup
+                        .into_iter()
+                        .map(|setup| {
+                            let v: Box<dyn FnOnce(&mut State)> =
+                                Box::new(move |state: &mut State| {
+                                    let key: Cow<'static, str> = "todo".to_string().into(); // TODO: Work this out properly
+                                    let meta = ProcedureMeta::new(
+                                        key.into(),
+                                        kind,
+                                        Arc::new(State::default()), // TODO: Can we configure a panic instead of this!
+                                    );
+                                    setup(state, meta);
+                                });
+                            v
+                        })
+                        .collect::<Vec<_>>(),
                     ty: ProcedureType {
                         kind,
                         input: DataType::Any,  // I::data_type(type_map),
@@ -78,6 +95,22 @@ impl<TCtx> Procedure2<TCtx> {
                     }),
                 }
             }),
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn with(self, mw: Extension<TCtx, TInput, TResult>) -> Self
+    where
+        TCtx: 'static,
+    {
+        Procedure2 {
+            build: Box::new(move |mut setups| {
+                if let Some(setup) = mw.setup {
+                    setups.push(setup);
+                }
+                (self.build)(setups)
+            }),
+            phantom: PhantomData,
         }
     }
 
@@ -133,4 +166,10 @@ impl<TCtx> Procedure2<TCtx> {
     //         Err(input) => (self.handler)(ctx, &mut AnyInput(Some(input.into_value()))),
     //     }
     // }
+}
+
+impl<TCtx, TInput, TResult> Into<ErasedProcedure<TCtx>> for Procedure2<TCtx, TInput, TResult> {
+    fn into(self) -> ErasedProcedure<TCtx> {
+        (self.build)(Default::default())
+    }
 }

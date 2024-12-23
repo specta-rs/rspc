@@ -15,13 +15,13 @@
 //!
 
 mod builder;
+mod erased;
 mod meta;
-mod procedure;
 mod resolver_input;
 mod resolver_output;
 
 pub use builder::ProcedureBuilder;
+pub use erased::ErasedProcedure;
 pub use meta::{ProcedureKind, ProcedureMeta};
-// pub use procedure::{Procedure, ProcedureTypeDefinition, UnbuiltProcedure};
 pub use resolver_input::ResolverInput;
 pub use resolver_output::ResolverOutput;

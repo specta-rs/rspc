@@ -1,13 +1,11 @@
 [package]
-name = "rspc-invalidation"
+name = "rspc-validator"
 version = "0.0.0"
 edition = "2021"
 publish = false # TODO: Crate metadata & publish
 
 [dependencies]
-async-stream = "0.3.5"
 rspc = { path = "../../rspc", features = ["unstable"] }
-serde_json = "1.0.133"
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]

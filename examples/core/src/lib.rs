@@ -1,15 +1,12 @@
-use std::{
-    marker::PhantomData,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{marker::PhantomData, time::SystemTime};
 
 use async_stream::stream;
 use rspc::{
-    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
-    Router2,
+    middleware::Middleware, Error2, Extension, Procedure2, ProcedureBuilder, ResolverInput,
+    ResolverOutput, Router2,
 };
 use rspc_cache::{cache, cache_ttl, CacheState, Memory};
+use rspc_invalidation::Invalidate;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
@@ -17,7 +14,9 @@ use tracing::info;
 
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
-pub struct Ctx {}
+pub struct Ctx {
+    pub invalidator: Invalidator,
+}
 
 #[derive(Serialize, Type)]
 pub struct MyCustomType(String);
@@ -117,13 +116,26 @@ impl Error2 for Error {
 
 pub struct BaseProcedure<TErr = Error>(PhantomData<TErr>);
 impl<TErr> BaseProcedure<TErr> {
-    pub fn builder<TInput, TResult>() -> ProcedureBuilder<TErr, Ctx, Ctx, TInput, TResult>
+    pub fn builder<TInput, TResult>(
+    ) -> ProcedureBuilder<TErr, Ctx, Ctx, TInput, TInput, TResult, TResult>
     where
         TErr: Error2,
         TInput: ResolverInput,
         TResult: ResolverOutput<TErr>,
     {
         Procedure2::builder() // You add default middleware here
+    }
+}
+
+#[derive(Type)]
+struct SerialisationError;
+impl Serialize for SerialisationError {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::Error;
+        Err(S::Error::custom("lol"))
     }
 }
 
@@ -134,7 +146,7 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
         })
         .procedure("newstuff2", {
             <BaseProcedure>::builder()
-                .with(invalidation(|ctx: Ctx, key, event| false))
+                // .with(invalidation(|ctx: Ctx, key, event| false))
                 .with(Middleware::new(
                     move |ctx: Ctx, input: (), next| async move {
                         let result = next.exec(ctx, input).await;
@@ -145,6 +157,9 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
         })
         .procedure("newstuffpanic", {
             <BaseProcedure>::builder().query(|_, _: ()| async move { Ok(todo!()) })
+        })
+        .procedure("newstuffser", {
+            <BaseProcedure>::builder().query(|_, _: ()| async move { Ok(SerialisationError) })
         })
         .setup(CacheState::builder(Memory::new()).mount())
         .procedure("cached", {
@@ -157,33 +172,71 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                     Ok(SystemTime::now())
                 })
         })
+        .procedure("sfmPost", {
+            <BaseProcedure>::builder()
+                .with(Middleware::new(
+                    move |ctx: Ctx, input: (String, ()), next| async move {
+                        let result = next.exec(ctx, input.0).await;
+                        result
+                    },
+                ))
+                .with(Invalidator::with(|event| {
+                    println!("--- BEFORE");
+                    if let InvalidateEvent::Post { id } = event {
+                        return Invalidate::One((id.to_string(), ()));
+                    }
+                    Invalidate::None
+                }))
+                .query(|_, id: String| async {
+                    println!("FETCH POST FROM DB");
+                    Ok(id)
+                })
+                .with(Invalidator::with(|event| {
+                    println!("--- AFTER");
+                    if let InvalidateEvent::Post { id } = event {
+                        return Invalidate::One((id.to_string(), ()));
+                    }
+                    Invalidate::None
+                }))
+        })
+        .procedure("sfmPostEdit", {
+            <BaseProcedure>::builder().query(|ctx, id: String| async move {
+                println!("UPDATE THE POST {id:?}");
+                ctx.invalidator.invalidate(InvalidateEvent::Post { id });
+                Ok(())
+            })
+        })
+    // .procedure("sfmStatefulPost", {
+    //     <BaseProcedure>::builder()
+    //         // .with(Invalidator::mw(|ctx, input, event| {
+    //         //     event == InvalidateEvent::InvalidateKey(input.id)
+    //         // }))
+    //         .query(|_, id: String| async {
+    //             // Fetch the post from the DB
+    //             Ok(id)
+    //         })
+    // })
+    // .procedure("fileupload", {
+    //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })
+    // })
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
+// .with(Invalidator::mw(|ctx, input, event| {
+//     event == InvalidateEvent::InvalidateKey("abc".into())
+// }))
+// .with(Invalidator::mw_with_result(|ctx, input, result, event| {
+//     event == InvalidateEvent::InvalidateKey("abc".into())
+// }))
+
+#[derive(Debug, Clone, Serialize, Type, PartialEq, Eq)]
 pub enum InvalidateEvent {
+    Post { id: String },
     InvalidateKey(String),
 }
+pub type Invalidator = rspc_invalidation::Invalidator<InvalidateEvent>;
 
-fn invalidation<TError, TCtx, TInput, TResult>(
-    handler: impl Fn(TCtx, TInput, InvalidateEvent) -> bool + Send + Sync + 'static,
-) -> Middleware<TError, TCtx, TInput, TResult>
-where
-    TError: Send + 'static,
-    TCtx: Clone + Send + 'static,
-    TInput: Clone + Send + 'static,
-    TResult: Send + 'static,
-{
-    let handler = Arc::new(handler);
-    Middleware::new(move |ctx: TCtx, input: TInput, next| async move {
-        // TODO: Register this with `TCtx`
-        let ctx2 = ctx.clone();
-        let input2 = input.clone();
-        let result = next.exec(ctx, input).await;
-
-        // TODO: Unregister this with `TCtx`
-        result
-    })
-}
+// TODO: Debug, etc
+pub struct File<T = ()>(T);
 
 pub fn create_router() -> Router2<Ctx> {
     let router = Router2::from(mount());

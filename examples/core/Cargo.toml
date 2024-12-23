@@ -16,3 +16,4 @@ rspc-devtools = { version = "0.0.0", path = "../../middleware/devtools" }
 tracing = "0.1.41"
 futures = "0.3.31"
 rspc-cache = { version = "0.0.0", path = "../../middleware/cache" }
+rspc-invalidation = { version = "0.0.0", path = "../../middleware/invalidation" }

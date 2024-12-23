@@ -7,7 +7,7 @@ use std::{
 
 /// A hasher for `TypeId`s that takes advantage of its known characteristics.
 ///
-/// Author of `anymap` crate has done research on the topic:
+/// Author of `anymap` crate has done research on this topic:
 /// https://github.com/chris-morgan/anymap/blob/2e9a5704/src/lib.rs#L599
 #[derive(Debug, Default)]
 struct NoOpHasher(u64);

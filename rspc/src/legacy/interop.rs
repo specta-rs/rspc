@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, panic::Location};
+use std::{borrow::Cow, collections::BTreeMap, marker::PhantomData, panic::Location};
 
 use futures::{stream, FutureExt, StreamExt, TryStreamExt};
 use rspc_core::{ProcedureStream, ResolverError};
@@ -10,6 +10,7 @@ use specta::{
 
 use crate::{
     internal::{Layer, ProcedureKind, RequestContext, ValueOrStream},
+    modern::procedure::ErasedProcedure,
     procedure::ProcedureType,
     types::TypesOrType,
     util::literal_object,
@@ -43,7 +44,7 @@ pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
                 key.split(".")
                     .map(|s| s.to_string().into())
                     .collect::<Vec<Cow<'static, str>>>(),
-                Procedure2 {
+                ErasedProcedure {
                     setup: Default::default(),
                     ty: ProcedureType {
                         kind,

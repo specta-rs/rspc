@@ -10,3 +10,5 @@ example-core = { path = "../core" }
 rspc-actix-web = { path = "../../integrations/actix-web", features = [] }
 actix-web = "4"
 actix-cors = "0.7.0"
+actix-multipart = "0.7.2"
+futures = "0.3"

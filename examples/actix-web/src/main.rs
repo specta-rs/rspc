@@ -1,12 +1,28 @@
 use std::path::PathBuf;
 
 use actix_cors::Cors;
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_multipart::Multipart;
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use example_core::{create_router, Ctx};
+use futures::{StreamExt, TryStreamExt};
 
 #[get("/")]
 async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world from Actix Web!")
+}
+
+#[post("/upload")]
+async fn upload(mut payload: Multipart) -> impl Responder {
+    while let Ok(Some(field)) = payload.try_next().await {
+        println!(
+            "{:?} {:?} {:?}",
+            field.name().map(|v| v.to_string()),
+            field.content_type().map(|v| v.to_string()),
+            field.collect::<Vec<_>>().await
+        );
+    }
+
+    HttpResponse::Ok().body("Done!")
 }
 
 #[actix_web::main]
@@ -44,10 +60,12 @@ async fn main() -> std::io::Result<()> {
             // Don't use permissive CORS in production!
             .wrap(Cors::permissive())
             .service(hello)
+            .service(upload)
             .service(web::scope("/rspc").configure(
                 rspc_actix_web::Endpoint::builder(procedures.clone()).build(|| {
                     // println!("Client requested operation '{}'", parts.uri.path()); // TODO: Fix this
-                    Ctx {}
+                    // Ctx {}
+                    todo!();
                 }),
             ))
     })

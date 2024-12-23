@@ -72,6 +72,72 @@ impl ProcedureStream {
             Self(Err(err)) => err.take().map(Err),
         }
     }
+
+    /// TODO
+    pub async fn next_status(&mut self) -> (u16, bool) {
+        // TODO: Panic if it isn't the start of the stream or not???
+
+        // TODO: Poll till the first return value and return it's code.
+
+        // TODO: Should we keep polling so we can tell if it's a value or a stream for the content type???
+
+        // todo!();
+        (200, false)
+    }
+
+    /// TODO
+    // TODO: Should error be `String` type?
+    pub fn map<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T>(
+        self,
+        map: F,
+    ) -> ProcedureStreamMap<F, T> {
+        ProcedureStreamMap { stream: self, map }
+    }
+}
+
+pub struct ProcedureStreamMap<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> {
+    stream: ProcedureStream,
+    map: F,
+}
+
+impl<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> Stream
+    for ProcedureStreamMap<F, T>
+{
+    type Item = T;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+
+        match this.stream.0.as_mut() {
+            Ok(v) => v.as_mut().poll_next_value(cx).map(|v| {
+                v.map(|v| match v {
+                    Ok(()) => match (this.map)(ProcedureStreamValue(
+                        this.stream.0.as_mut().expect("checked above").value(),
+                    )) {
+                        Ok(v) => v,
+                        // TODO: Exposing this error to the client or not?
+                        // TODO: Error type???
+                        Err(err) => todo!(),
+                    },
+                    Err(err) => todo!("{err:?}"),
+                })
+            }),
+            Err(err) => todo!(),
+        }
+    }
+}
+
+// TODO: name
+pub struct ProcedureStreamValue<'a>(&'a (dyn erased_serde::Serialize + Send + Sync));
+// TODO: `Debug`, etc traits
+
+impl<'a> Serialize for ProcedureStreamValue<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.serialize(serializer)
+    }
 }
 
 impl From<ProcedureError> for ProcedureStream {

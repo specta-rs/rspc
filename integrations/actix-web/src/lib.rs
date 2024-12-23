@@ -6,11 +6,19 @@
     html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
+use std::{convert::Infallible, sync::Arc};
+
 use actix_web::{
-    web::{self, ServiceConfig},
-    HttpResponse, Resource,
+    body::BodyStream,
+    http::{header, StatusCode},
+    web::{self, Bytes, Payload, ServiceConfig},
+    HttpRequest, HttpResponse,
 };
+use actix_ws::Message;
+
+use futures_util::StreamExt;
 use rspc_core::Procedures;
+use rspc_http::ExecuteInput;
 
 pub struct Endpoint<TCtx> {
     procedures: Procedures<TCtx>,
@@ -33,45 +41,89 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
         self,
         ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static,
     ) -> impl FnOnce(&mut ServiceConfig) {
-        |service| {
+        let ctx_fn = Arc::new(ctx_fn);
+        move |service| {
             service.route(
                 "/ws",
-                web::to(|| {
-                    // let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
+                // TODO: Hook this up properly
+                web::to(|req: HttpRequest, body: Payload| async move {
+                    let (response, mut session, mut stream) = actix_ws::handle(&req, body)?;
 
-                    //    let mut stream = stream
-                    //        .aggregate_continuations()
-                    //        // aggregate continuation frames up to 1MiB
-                    //        .max_continuation_size(2_usize.pow(20));
+                    actix_web::rt::spawn(async move {
+                        session.text("Hello World From rspc").await.unwrap();
 
-                    //    // start task but don't wait for it
-                    //    rt::spawn(async move {
-                    //        // receive messages from websocket
-                    //        while let Some(msg) = stream.next().await {
-                    //            match msg {
-                    //                Ok(AggregatedMessage::Text(text)) => {
-                    //                    // echo text message
-                    //                    session.text(text).await.unwrap();
-                    //                }
+                        while let Some(Ok(msg)) = stream.next().await {
+                            match msg {
+                                Message::Ping(bytes) => {
+                                    if session.pong(&bytes).await.is_err() {
+                                        return;
+                                    }
+                                }
 
-                    //                Ok(AggregatedMessage::Binary(bin)) => {
-                    //                    // echo binary message
-                    //                    session.binary(bin).await.unwrap();
-                    //                }
+                                Message::Text(msg) => println!("Got text: {msg}"),
+                                _ => break,
+                            }
+                        }
 
-                    //                Ok(AggregatedMessage::Ping(msg)) => {
-                    //                    // respond to PING frame with PONG frame
-                    //                    session.pong(&msg).await.unwrap();
-                    //                }
+                        let _ = session.close(None).await;
+                    });
 
-                    //                _ => {}
-                    //            }
-                    //        }
-
-                    HttpResponse::NotFound()
+                    Ok::<_, actix_web::Error>(response)
                 }),
             );
-            service.route("/{route:.*}", web::to(|| HttpResponse::Ok()));
+
+            // TODO: Making extractors work
+
+            for (key, procedure) in self.procedures {
+                let ctx_fn = ctx_fn.clone();
+                let handler = move |req: HttpRequest, body: Bytes| {
+                    let procedure = procedure.clone();
+                    let ctx_fn = ctx_fn.clone();
+                    async move {
+                        let input = if body.is_empty() {
+                            ExecuteInput::Query(req.query_string())
+                        } else {
+                            // TODO: Error if not JSON content-type
+
+                            ExecuteInput::Body(&body)
+                        };
+
+                        let (status, stream) =
+                            rspc_http::execute(&procedure, input, || ctx_fn()).await;
+                        HttpResponse::build(
+                            StatusCode::from_u16(status)
+                                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                        )
+                        .insert_header(header::ContentType::json())
+                        .body(BodyStream::new(
+                            stream.map(|v| Ok::<_, Infallible>(v.into())),
+                        ))
+                    }
+                };
+
+                service.route(&key, web::get().to(handler.clone()));
+                service.route(&key, web::post().to(handler));
+            }
         }
     }
 }
+
+// pub struct TODO(HttpRequest);
+
+// impl rspc_http::Request for TODO {
+//     fn method(&self) -> &str {
+//         self.0.method().as_str()
+//     }
+
+//     // fn path(&self) -> &str {
+//     //     self.0.path()
+//     // }
+
+//     // fn query(&self) -> &str {
+//     //     self.0.query_string()
+//     // }
+
+//     // fn body(&self) {
+//     //     self.0.
+//     // }
+// }

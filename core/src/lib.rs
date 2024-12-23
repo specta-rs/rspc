@@ -17,8 +17,10 @@
 mod dyn_input;
 mod error;
 mod interop;
+mod logger;
 mod procedure;
 mod procedures;
+mod state;
 mod stream;
 
 pub use dyn_input::DynInput;
@@ -27,4 +29,5 @@ pub use error::{DeserializeError, DowncastError, ProcedureError, ResolverError};
 pub use interop::LegacyErrorInterop;
 pub use procedure::Procedure;
 pub use procedures::Procedures;
-pub use stream::ProcedureStream;
+pub use state::State;
+pub use stream::{ProcedureStream, ProcedureStreamMap, ProcedureStreamValue};

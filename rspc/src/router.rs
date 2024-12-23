@@ -10,13 +10,15 @@ use specta::TypeCollection;
 
 use rspc_core::Procedures;
 
-use crate::{types::TypesOrType, Procedure2, ProcedureKind, State, Types};
+use crate::{
+    modern::procedure::ErasedProcedure, types::TypesOrType, Procedure2, ProcedureKind, State, Types,
+};
 
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     types: TypeCollection,
-    procedures: BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>>,
+    procedures: BTreeMap<Vec<Cow<'static, str>>, ErasedProcedure<TCtx>>,
     errors: Vec<DuplicateProcedureKeyError>,
 }
 
@@ -41,7 +43,7 @@ impl<TCtx> Router2<TCtx> {
     pub fn procedure(
         mut self,
         key: impl Into<Cow<'static, str>>,
-        mut procedure: Procedure2<TCtx>,
+        procedure: impl Into<ErasedProcedure<TCtx>>,
     ) -> Self {
         let key = key.into();
 
@@ -52,6 +54,7 @@ impl<TCtx> Router2<TCtx> {
                 duplicate: Location::caller().clone(),
             });
         } else {
+            let mut procedure = procedure.into();
             self.setup.extend(procedure.setup.drain(..));
             self.procedures.insert(vec![key], procedure);
         }
@@ -121,13 +124,13 @@ impl<TCtx> Router2<TCtx> {
         self.build_with_state_inner(State::default())
     }
 
-    #[cfg(feature = "unstable")]
-    pub fn build_with_state(
-        self,
-        state: State,
-    ) -> Result<(Procedures<TCtx>, Types), Vec<DuplicateProcedureKeyError>> {
-        self.build_with_state_inner(state)
-    }
+    // #[cfg(feature = "unstable")]
+    // pub fn build_with_state(
+    //     self,
+    //     state: State,
+    // ) -> Result<(Procedures<TCtx>, Types), Vec<DuplicateProcedureKeyError>> {
+    //     self.build_with_state_inner(state)
+    // }
 
     fn build_with_state_inner(
         self,
@@ -165,7 +168,9 @@ impl<TCtx> Router2<TCtx> {
             .collect::<HashMap<_, _>>();
 
         Ok((
-            Procedures::from(procedures),
+            Procedures::new(procedures, state),
+            // TODO: Get rid of this and have `rspc-tracing` mount it
+            // .with_logger(|event| println!("{event:?}")),
             Types {
                 types: self.types,
                 procedures: procedure_types,
@@ -196,8 +201,9 @@ impl<TCtx> fmt::Debug for Router2<TCtx> {
 }
 
 impl<'a, TCtx> IntoIterator for &'a Router2<TCtx> {
-    type Item = (&'a Vec<Cow<'static, str>>, &'a Procedure2<TCtx>);
-    type IntoIter = std::collections::btree_map::Iter<'a, Vec<Cow<'static, str>>, Procedure2<TCtx>>;
+    type Item = (&'a Vec<Cow<'static, str>>, &'a ErasedProcedure<TCtx>);
+    type IntoIter =
+        std::collections::btree_map::Iter<'a, Vec<Cow<'static, str>>, ErasedProcedure<TCtx>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.procedures.iter()
@@ -215,7 +221,7 @@ impl<TCtx> From<crate::legacy::Router<TCtx>> for Router2<TCtx> {
 impl<TCtx> Router2<TCtx> {
     pub(crate) fn interop_procedures(
         &mut self,
-    ) -> &mut BTreeMap<Vec<Cow<'static, str>>, Procedure2<TCtx>> {
+    ) -> &mut BTreeMap<Vec<Cow<'static, str>>, ErasedProcedure<TCtx>> {
         &mut self.procedures
     }
 

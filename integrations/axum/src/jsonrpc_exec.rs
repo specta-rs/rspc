@@ -348,6 +348,7 @@ async fn next(
                 }
             }
             ProcedureError::Unwind(err) => panic!("{err:?}"), // Restore previous behavior lol
+                                                              // ProcedureError::Serializer(err) => panic!("{err:?}"),
         })
         .and_then(|v| {
             Ok(v.serialize(serde_json::value::Serializer)

@@ -39,10 +39,6 @@ where
     TInput: Clone + Send + 'static,
     TResult: Clone + Send + Sync + 'static,
 {
-    // let todo = poll_fn(|cx| {
-    //     todo!();
-    // });
-
     Middleware::new(move |ctx: TCtx, input: TInput, next| {
         async move {
             let meta = next.meta();

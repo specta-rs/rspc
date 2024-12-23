@@ -1,4 +1,4 @@
-use example_axum::{create_router, Ctx};
+use example_core::{create_router, Ctx};
 
 mod api;
 
@@ -7,8 +7,13 @@ pub fn run() {
     let router = create_router();
     let (procedures, types) = router.build().unwrap();
 
+    // TODO: Exporting types
+
     tauri::Builder::default()
-        .plugin(tauri_plugin_rspc::init(procedures, |_| Ctx {}))
+        .plugin(tauri_plugin_rspc::init(procedures, |_| {
+            // Ctx {}
+            todo!();
+        }))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

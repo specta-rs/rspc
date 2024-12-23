@@ -18,6 +18,7 @@ use axum::{
 };
 use futures::{stream::once, Stream, StreamExt, TryStreamExt};
 use rspc_core::{ProcedureError, ProcedureStream, Procedures};
+use rspc_http::ExecuteInput;
 
 /// Construct a new [`axum::Router`](axum::Router) to expose a given [`rspc::Router`](rspc::Router).
 pub struct Endpoint<TCtx> {
@@ -134,6 +135,8 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
         let mut r = axum::Router::new();
         let ctx_fn = Arc::new(ctx_fn);
 
+        // let logger = self.procedures.get_logger();
+
         for (key, procedure) in self.procedures {
             let ctx_fn = ctx_fn.clone();
             r = r.route(
@@ -141,65 +144,47 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
                 on(
                     MethodFilter::GET.or(MethodFilter::POST),
                     move |req: Request| {
-                        let ctx = ctx_fn();
+                        // let ctx = ctx_fn();
 
                         async move {
                             let hint = req.body().size_hint();
                             let has_body = hint.lower() != 0 || hint.upper() != Some(0);
-                            let mut stream = if !has_body {
-                                let mut params = form_urlencoded::parse(
-                                    req.uri().query().unwrap_or_default().as_ref(),
-                                );
 
-                                match params
-                                    .find_map(|(input, value)| (input == "input").then(|| value))
-                                {
-                                    Some(input) => procedure.exec_with_deserializer(
-                                        ctx,
-                                        &mut serde_json::Deserializer::from_str(&*input),
-                                    ),
-                                    None => procedure
-                                        .exec_with_deserializer(ctx, serde_json::Value::Null),
-                                }
+                            let mut bytes = None;
+                            let input = if !has_body {
+                                ExecuteInput::Query(req.uri().query().unwrap_or_default())
                             } else {
-                                if !json_content_type(req.headers()) {
-                                    let err: ProcedureError = rspc_core::DeserializeError::custom(
-                                        "Client did not set correct valid 'Content-Type' header",
-                                    )
-                                    .into();
-                                    let buf = serde_json::to_vec(&err).unwrap(); // TODO
+                                // TODO: bring this back
+                                // if !json_content_type(req.headers()) {
+                                //     let err: ProcedureError = rspc_core::DeserializeError::custom(
+                                //         "Client did not set correct valid 'Content-Type' header",
+                                //     )
+                                //     .into();
+                                //     let buf = serde_json::to_vec(&err).unwrap(); // TODO
 
-                                    return (
-                                        StatusCode::BAD_REQUEST,
-                                        [(header::CONTENT_TYPE, "application/json")],
-                                        Body::from(buf),
-                                    )
-                                        .into_response();
-                                }
+                                //     return (
+                                //         StatusCode::BAD_REQUEST,
+                                //         [(header::CONTENT_TYPE, "application/json")],
+                                //         Body::from(buf),
+                                //     )
+                                //         .into_response();
+                                // }
 
-                                let bytes = Bytes::from_request(req, &()).await.unwrap(); // TODO: Error handling
-                                procedure.exec_with_deserializer(
-                                    ctx,
-                                    &mut serde_json::Deserializer::from_slice(&bytes),
+                                // TODO: Error handling
+                                bytes = Some(Bytes::from_request(req, &()).await.unwrap());
+                                ExecuteInput::Body(
+                                    bytes.as_ref().expect("assigned on previous line"),
                                 )
                             };
 
-                            let mut stream = ProcedureStreamResponse {
-                                code: None,
-                                stream,
-                                first: None,
-                            };
-                            stream.first = Some(stream.next().await);
-
-                            let status = stream
-                                .code
-                                .and_then(|c| StatusCode::try_from(c).ok())
-                                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+                            let (status, stream) =
+                                rspc_http::execute(&procedure, input, || ctx_fn()).await;
 
                             (
-                                status,
+                                StatusCode::from_u16(status)
+                                    .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
                                 [(header::CONTENT_TYPE, "application/json")],
-                                Body::from_stream(stream),
+                                Body::from_stream(stream.map(Ok::<_, Infallible>)),
                             )
                                 .into_response()
                         }
@@ -211,51 +196,6 @@ impl<TCtx: Send + 'static> Endpoint<TCtx> {
         // TODO: Websocket endpoint
 
         r
-    }
-}
-
-struct ProcedureStreamResponse {
-    code: Option<u16>,
-    first: Option<Option<Result<Vec<u8>, Infallible>>>,
-    stream: ProcedureStream,
-}
-
-impl Stream for ProcedureStreamResponse {
-    type Item = Result<Vec<u8>, Infallible>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if let Some(first) = self.first.take() {
-            return Poll::Ready(first);
-        }
-
-        let (code, mut buf) = {
-            let Poll::Ready(v) = self.stream.poll_next(cx) else {
-                return Poll::Pending;
-            };
-
-            match v {
-                Some(Ok(v)) => (
-                    200,
-                    Some(serde_json::to_vec(&v).unwrap()), // TODO: Error handling
-                ),
-                Some(Err(err)) => (
-                    err.status(),
-                    Some(serde_json::to_vec(&err).unwrap()), // TODO: Error handling
-                ),
-                None => (200, None),
-            }
-        };
-
-        if let Some(buf) = &mut buf {
-            buf.extend_from_slice(b"\n\n");
-        };
-
-        self.code = Some(code);
-        Poll::Ready(buf.map(Ok))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.stream.size_hint()
     }
 }
 
