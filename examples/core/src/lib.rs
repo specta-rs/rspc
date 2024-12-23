@@ -209,6 +209,16 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                 Ok(())
             })
         })
+    // .procedure("manualFlush", {
+    //     <BaseProcedure>::builder()
+    //         .manual_flush()
+    //         .query(|ctx, id: String| async move {
+    //             println!("Set cookies");
+    //             flush().await;
+    //             println!("Do more stuff in background");
+    //             Ok(())
+    //         })
+    // })
 
     // .procedure("sfmStatefulPost", {
     //     <BaseProcedure>::builder()

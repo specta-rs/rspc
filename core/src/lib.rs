@@ -30,4 +30,4 @@ pub use interop::LegacyErrorInterop;
 pub use procedure::Procedure;
 pub use procedures::Procedures;
 pub use state::State;
-pub use stream::{ProcedureStream, ProcedureStreamMap, ProcedureStreamValue};
+pub use stream::{flush, ProcedureStream, ProcedureStreamMap, ProcedureStreamValue};

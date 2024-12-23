@@ -9,6 +9,7 @@ use std::{
 use crate::{Procedure, State};
 
 pub struct Procedures<TCtx> {
+    // TODO: Probally `Arc` around map and share that with `State`?
     procedures: HashMap<Cow<'static, str>, Procedure<TCtx>>,
     state: Arc<State>,
 }

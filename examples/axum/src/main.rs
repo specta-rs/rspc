@@ -7,11 +7,12 @@ use axum::{
 };
 use example_core::{create_router, Ctx};
 use futures::{stream::FuturesUnordered, Stream, StreamExt};
-use rspc::{ProcedureStreamValue, Procedures, State};
+use rspc::{ProcedureStream, ProcedureStreamMap, ProcedureStreamValue, Procedures, State};
+use rspc_invalidation::Invalidator;
 use serde_json::{de::SliceRead, value::RawValue, Value};
 use std::{
     convert::Infallible,
-    future::Future,
+    future::{poll_fn, Future},
     path::PathBuf,
     pin::{pin, Pin},
     task::{Context, Poll},
@@ -198,11 +199,20 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
     r.route(
         "/",
         post(move |mut multipart: Multipart| async move {
-            let mut runtime = StreamUnordered::new();
-
             let invalidator = rspc_invalidation::Invalidator::default();
             let ctx = Ctx {
                 invalidator: invalidator.clone(),
+            };
+
+            let mut runtime = StreamUnordered::new();
+            // TODO: Move onto `Prototype`???
+            let spawn = |runtime: &mut StreamUnordered<_>, p: ProcedureStream| {
+                runtime.insert(p.require_manual_stream().map::<fn(
+                    ProcedureStreamValue,
+                )
+                    -> Result<Vec<u8>, String>, Vec<u8>>(
+                    |v| serde_json::to_vec(&v).map_err(|err| err.to_string()),
+                ));
             };
 
             // TODO: If a file was being uploaded this would require reading the whole body until the `runtime` is polled.
@@ -226,73 +236,95 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
                 let procedure = procedures.get(&*name).unwrap();
                 println!("{:?} {:?} {:?}", name, input, procedure);
 
-                let stream = procedure.exec_with_deserializer(ctx.clone(), input);
-
-                runtime.insert(stream.map::<fn(ProcedureStreamValue) -> _, Vec<u8>>(|v| {
-                    serde_json::to_vec(&v).map_err(|err| err.to_string())
-                }));
-
-                // TODO: Spawn onto runtime
-                // let (status, is_stream) = stream.next_status().await;
-
-                // println!("{:?} {:?}", status, is_stream);
-
-                // (
-                //     StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
-                //     [
-                //         (
-                //             header::CONTENT_TYPE,
-                //             is_stream
-                //                 .then_some("application/jsonstream")
-                //                 .unwrap_or("application/json"),
-                //         ),
-                //         (HeaderName::from_static("x-rspc"), "1"),
-                //     ],
-                //     Body::from_stream(stream.map(|v| {
-                //         serde_json::to_vec(&v)
-                //             .map_err(|err| err.to_string())
-                //             .map(Ok::<_, Infallible>)
-                //     })),
-                // )
+                spawn(
+                    &mut runtime,
+                    procedure.exec_with_deserializer(ctx.clone(), input),
+                );
             }
 
-            // TODO: Wait until the full stream is Mattrax-style flushed to run this.
-            let fut = tokio::time::sleep(std::time::Duration::from_secs(1));
-            tokio::select! {
-                _ = runtime.next() => {}
-                _ = fut => {}
-            }
-
-            for stream in rspc_invalidation::queue(&invalidator, ctx, &procedures) {
-                runtime.insert(stream.map::<fn(ProcedureStreamValue) -> _, Vec<u8>>(|v| {
-                    serde_json::to_vec(&v).map_err(|err| err.to_string())
-                }));
-            }
+            // TODO: Move onto `Prototype`???
+            poll_fn(|cx| match runtime.poll_next_unpin(cx) {
+                // `ProcedureStream::require_manual_stream` is set.
+                Poll::Ready(_) => unreachable!(),
+                Poll::Pending => {
+                    // Once we know all futures are ready,
+                    // we allow them all to flush.
+                    if runtime
+                        .iter_mut()
+                        // TODO: If we want to allow the user to opt-in to manually flush and flush within a stream this won't work.
+                        .all(|stream| stream.resolved() || stream.flushable())
+                    {
+                        runtime.iter_mut().for_each(|s| s.stream());
+                        Poll::Ready(())
+                    } else {
+                        Poll::Pending
+                    }
+                }
+            })
+            .await;
 
             (
                 [(header::CONTENT_TYPE, "text/x-rspc")],
-                Body::from_stream(Prototype { runtime }),
+                Body::from_stream(Prototype {
+                    runtime,
+                    sfm: false,
+                    invalidator,
+                    ctx,
+                    procedures: procedures.clone(),
+                }),
             )
         }),
     )
 }
 
-pub struct Prototype<S: Stream<Item = Vec<u8>>> {
-    runtime: StreamUnordered<S>,
+// TODO: This abstraction is soooo bad.
+pub struct Prototype<TCtx, E> {
+    runtime: StreamUnordered<
+        ProcedureStreamMap<fn(ProcedureStreamValue) -> Result<Vec<u8>, String>, Vec<u8>>,
+    >,
+    invalidator: Invalidator<E>,
+    ctx: TCtx,
+    sfm: bool,
+    procedures: Procedures<TCtx>,
 }
 
-// TODO: Should `S: 'static` be a thing?
-impl<S: Stream<Item = Vec<u8>> + 'static> Stream for Prototype<S> {
+// impl<E> Prototype<E> {}
+
+// TODO: Drop `Unpin` requirement
+impl<TCtx: Unpin + Clone + 'static, E: 'static> Stream for Prototype<TCtx, E> {
     type Item = Result<Vec<u8>, Infallible>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
+            // We spawn SFM's after all futures are resolved, as we don't allow `.invalidate` calls after this point.
+            // In general you shouldn't be batching mutations so this won't make a difference to performance.
+            if !self.sfm
+                && self
+                    .as_mut()
+                    .get_mut()
+                    .runtime
+                    .iter_mut()
+                    .all(|s| s.resolved())
+            {
+                self.sfm = true;
+
+                for stream in
+                    rspc_invalidation::queue(&self.invalidator, self.ctx.clone(), &self.procedures)
+                {
+                    self.runtime.insert(
+                        stream.map::<fn(ProcedureStreamValue) -> Result<Vec<u8>, String>, Vec<u8>>(
+                            |v| serde_json::to_vec(&v).map_err(|err| err.to_string()),
+                        ),
+                    );
+                }
+            }
+
             let Poll::Ready(v) = self.runtime.poll_next_unpin(cx) else {
                 return Poll::Pending;
             };
 
             return Poll::Ready(match v {
-                Some((v, i)) => match v {
+                Some((v, _)) => match v {
                     StreamYield::Item(mut v) => {
                         let id = 0; // TODO: Include identifier to request/query
                         let identifier = 'O' as u8; // TODO: error, oneshot, event or complete message
