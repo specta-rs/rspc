@@ -17,7 +17,7 @@ use axum::{
     Json,
 };
 use futures::StreamExt;
-use rspc::{middleware::Middleware, Procedure2, ResolverInput, Router2};
+use rspc::{middleware::Middleware, Extension, Procedure2, ResolverInput, Router2};
 use serde_json::json;
 
 // TODO: Properly handle inputs from query params
@@ -72,24 +72,13 @@ impl OpenAPI {
 
     // TODO: Configure other OpenAPI stuff like auth???
 
-    pub fn build<TError, TThisCtx, TThisInput, TThisResult>(
-        self,
-    ) -> Middleware<TError, TThisCtx, TThisInput, TThisResult>
-    where
-        TError: 'static,
-        TThisCtx: Send + 'static,
-        TThisInput: Send + 'static,
-        TThisResult: Send + 'static,
-    {
-        // TODO: Can we have a middleware with only a `setup` function to avoid the extra future boxing???
-        Middleware::new(|ctx, input, next| async move { next.exec(ctx, input).await }).setup(
-            move |state, meta| {
-                state
-                    .get_mut_or_init::<OpenAPIState>(Default::default)
-                    .0
-                    .insert((self.method, self.path), meta.name().to_string());
-            },
-        )
+    pub fn build<TCtx, TInput, TResult>(self) -> Extension<TCtx, TInput, TResult> {
+        Extension::new().setup(move |state, meta| {
+            state
+                .get_mut_or_init::<OpenAPIState>(Default::default)
+                .0
+                .insert((self.method, self.path), meta.name().to_string());
+        })
     }
 }
 
