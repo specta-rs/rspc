@@ -42,8 +42,8 @@ specta-typescript = { version = "=0.0.7", features = [] } # TODO: Make optional 
 specta-rust = { git = "https://github.com/specta-rs/specta", optional = true, rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 
 # Temporary # TODO: Remove
-serde_json = "1.0.133"
-thiserror = "2.0.3"
+serde_json = "1.0.134"
+thiserror = "2.0.9"
 
 [lints]
 workspace = true

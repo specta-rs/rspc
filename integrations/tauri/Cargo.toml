@@ -30,4 +30,4 @@ serde_json = { version = "1", features = [
 workspace = true
 
 [build-dependencies]
-tauri-plugin = { version = "2.0.0", features = ["build"] }
+tauri-plugin = { version = "2.0.3", features = ["build"] }
