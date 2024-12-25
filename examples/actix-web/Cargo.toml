@@ -12,3 +12,4 @@ actix-web = "4"
 actix-cors = "0.7.0"
 actix-multipart = "0.7.2"
 futures = "0.3"
+rspc-zer = { version = "0.0.0", path = "../../crates/zer" }

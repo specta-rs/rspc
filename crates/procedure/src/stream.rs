@@ -527,7 +527,10 @@ impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T
                     Ok(v) => v,
                     // TODO: Exposing this error to the client or not?
                     // TODO: Error type???
-                    Err(err) => todo!(),
+                    Err(err) => {
+                        println!("Error serialzing {err:?}");
+                        todo!();
+                    }
                 }
             })
         })

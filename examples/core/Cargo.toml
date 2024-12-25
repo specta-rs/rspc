@@ -22,3 +22,5 @@ rspc-binario = { version = "0.0.0", path = "../../crates/binario" }
 rspc-tracing = { version = "0.0.0", path = "../../crates/tracing" }
 rspc-openapi = { version = "0.0.0", path = "../../crates/openapi" }
 validator = { version = "0.19.0", features = ["derive"] }
+rspc-zer = { version = "0.0.0", path = "../../crates/zer" }
+anyhow = "1.0.95"

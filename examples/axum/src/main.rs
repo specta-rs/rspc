@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::{Multipart, Request},
-    http::{header, HeaderName, StatusCode},
+    http::{header, request::Parts, HeaderMap, HeaderName, StatusCode},
     routing::{get, on, post, MethodFilter, MethodRouter},
     Json,
 };
@@ -54,23 +54,21 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello 'rspc'!" }))
-        .route(
-            "/upload",
-            post(|mut multipart: Multipart| async move {
-                println!("{:?}", multipart);
-
-                while let Some(field) = multipart.next_field().await.unwrap() {
-                    println!(
-                        "{:?} {:?} {:?}",
-                        field.name().map(|v| v.to_string()),
-                        field.content_type().map(|v| v.to_string()),
-                        field.collect::<Vec<_>>().await
-                    );
-                }
-
-                "Done!"
-            }),
-        )
+        // .route(
+        //     "/upload",
+        //     post(|mut multipart: Multipart| async move {
+        //         println!("{:?}", multipart);
+        //         while let Some(field) = multipart.next_field().await.unwrap() {
+        //             println!(
+        //                 "{:?} {:?} {:?}",
+        //                 field.name().map(|v| v.to_string()),
+        //                 field.content_type().map(|v| v.to_string()),
+        //                 field.collect::<Vec<_>>().await
+        //             );
+        //         }
+        //         "Done!"
+        //     }),
+        // )
         .route(
             "/rspc/custom",
             post(|| async move {
@@ -198,10 +196,16 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
     // TODO: Document CDN caching options with this setup
     r.route(
         "/",
-        post(move |mut multipart: Multipart| async move {
+        post(move |parts: Parts, mut multipart: Multipart| async move {
             let invalidator = rspc_invalidation::Invalidator::default();
+            let (zer, zer_response) = rspc_zer::Zer::from_request(
+                "session",
+                "some_secret".as_ref(),
+                parts.headers.get("cookie"),
+            );
             let ctx = Ctx {
                 invalidator: invalidator.clone(),
+                zer,
             };
 
             let mut runtime = StreamUnordered::new();
@@ -240,7 +244,7 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
                 };
 
                 let procedure = procedures.get(&*name).unwrap();
-                println!("{:?} {:?} {:?}", name, input, procedure);
+                // println!("{:?} {:?} {:?}", name, input, procedure);
 
                 spawn(
                     &mut runtime,
@@ -269,8 +273,14 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
             })
             .await;
 
+            let mut headers = HeaderMap::new();
+            headers.insert(header::CONTENT_TYPE, "text/x-rspc".parse().unwrap());
+            if let Some(h) = zer_response.set_cookie_header() {
+                headers.insert(header::SET_COOKIE, h.parse().unwrap());
+            }
+
             (
-                [(header::CONTENT_TYPE, "text/x-rspc")],
+                headers,
                 Body::from_stream(Prototype {
                     runtime,
                     sfm: false,

@@ -7,16 +7,23 @@ use rspc::{
 };
 use rspc_cache::{cache, cache_ttl, CacheState, Memory};
 use rspc_invalidation::Invalidate;
+use rspc_zer::Zer;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
 use tracing::info;
 use validator::Validate;
 
+#[derive(Clone, Serialize, Deserialize, Type)]
+pub struct MySession {
+    name: String,
+}
+
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
 pub struct Ctx {
     pub invalidator: Invalidator,
+    pub zer: Zer<MySession>,
 }
 
 #[derive(Serialize, Type)]
@@ -109,19 +116,27 @@ fn mount() -> rspc::Router<Ctx> {
     router
 }
 
-#[derive(Debug, Clone, Error, Serialize, Type)]
+#[derive(Debug, Error, Serialize, Type)]
 #[serde(tag = "type")]
 pub enum Error {
     #[error("you made a mistake: {0}")]
     Mistake(String),
     #[error("validation: {0}")]
     Validator(#[from] rspc_validator::RspcValidatorError),
+    #[error("authorization: {0}")]
+    Authorization(#[from] rspc_zer::UnauthorizedError), // TODO: This ends up being cringe: `{"type":"Authorization","error":"Unauthorized"}`
+    #[error("internal error: {0}")]
+    #[serde(skip)]
+    InternalError(#[from] anyhow::Error),
 }
 
 impl Error2 for Error {
     fn into_resolver_error(self) -> rspc::ResolverError {
         // rspc::ResolverError::new(self.to_string(), Some(self)) // TODO: Typesafe way to achieve this
-        rspc::ResolverError::new(self.clone(), Some(self))
+        rspc::ResolverError::new(
+            self,
+            None::<std::io::Error>, // TODO: `Some(self)` but `anyhow::Error` is not `Clone`
+        )
     }
 }
 
@@ -243,12 +258,20 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
         .procedure("validator", {
             <BaseProcedure>::builder()
                 .with(rspc_validator::validate())
-                .query(|ctx, input: ValidatedType| async move {
+                .query(|_, input: ValidatedType| async move {
                     println!("{input:?}");
                     Ok(())
                 })
         })
-    // ValidatedType
+        .procedure("login", {
+            <BaseProcedure>::builder().query(|ctx, name: String| async move {
+                ctx.zer.set_session(&MySession { name });
+                Ok(())
+            })
+        })
+        .procedure("me", {
+            <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
+        })
 
     // .procedure("fileupload", {
     //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })
