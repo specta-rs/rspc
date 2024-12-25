@@ -12,8 +12,8 @@ specta = { version = "=2.0.0-rc.20", features = [
     "derive",
 ] }
 thiserror = "2.0.9"
-rspc-devtools = { version = "0.0.0", path = "../../middleware/devtools" }
+rspc-devtools = { version = "0.0.0", path = "../../crates/devtools" }
 tracing = "0.1.41"
 futures = "0.3.31"
-rspc-cache = { version = "0.0.0", path = "../../middleware/cache" }
-rspc-invalidation = { version = "0.0.0", path = "../../middleware/invalidation" }
+rspc-cache = { version = "0.0.0", path = "../../crates/cache" }
+rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }

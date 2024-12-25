@@ -44,7 +44,7 @@ pub use modern::{
 #[cfg(feature = "unstable")]
 pub use procedure::Procedure2;
 
-pub use rspc_core::{
+pub use rspc_procedure::{
     flush, DeserializeError, DowncastError, DynInput, DynOutput, Procedure, ProcedureError,
     ProcedureStream, ProcedureStreamMap, Procedures, ResolverError, State,
 };
@@ -67,4 +67,4 @@ pub use legacy::{
     SerializeMarker, StreamResolver,
 };
 #[cfg(not(feature = "nolegacy"))]
-pub use rspc_core::LegacyErrorInterop;
+pub use rspc_procedure::LegacyErrorInterop;

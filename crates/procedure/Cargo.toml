@@ -1,0 +1,30 @@
+[package]
+name = "rspc-procedure"
+description = "Interface for a single type-erased operation that the server can execute"
+version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc-procedure"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+# Public
+futures-core = { version = "0.3", default-features = false }
+serde = { version = "1", default-features = false }
+
+# Private
+erased-serde = { version = "0.4", default-features = false, features = [
+    "std",
+] }
+pin-project-lite = { version = "0.2", default-features = false }
+
+[lints]
+workspace = true

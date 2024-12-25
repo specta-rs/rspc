@@ -5,7 +5,7 @@ use axum::{
     body::HttpBody,
     extract::{FromRequest, Request},
 };
-use rspc_core::{Procedure, ProcedureStream};
+use rspc_procedure::{Procedure, ProcedureStream};
 use serde::Deserializer;
 
 // TODO: rename?
@@ -26,7 +26,7 @@ impl AxumRequest {
         // } else {
         //     // TODO: bring this back
         //     // if !json_content_type(req.headers()) {
-        //     //     let err: ProcedureError = rspc_core::DeserializeError::custom(
+        //     //     let err: ProcedureError = rspc_procedure::DeserializeError::custom(
         //     //         "Client did not set correct valid 'Content-Type' header",
         //     //     )
         //     //     .into();

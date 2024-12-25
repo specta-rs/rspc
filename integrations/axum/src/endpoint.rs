@@ -17,7 +17,7 @@
 //     routing::{on, MethodFilter},
 // };
 // use futures::{stream::once, Stream, StreamExt, TryStreamExt};
-// use rspc_core::{ProcedureError, ProcedureStream, Procedures};
+// use rspc_procedure::{ProcedureError, ProcedureStream, Procedures};
 // use rspc_http::ExecuteInput;
 
 // /// Construct a new [`axum::Router`](axum::Router) to expose a given [`rspc::Router`](rspc::Router).
@@ -156,7 +156,7 @@
 //                             } else {
 //                                 // TODO: bring this back
 //                                 // if !json_content_type(req.headers()) {
-//                                 //     let err: ProcedureError = rspc_core::DeserializeError::custom(
+//                                 //     let err: ProcedureError = rspc_procedure::DeserializeError::custom(
 //                                 //         "Client did not set correct valid 'Content-Type' header",
 //                                 //     )
 //                                 //     .into();

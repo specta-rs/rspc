@@ -1,6 +1,6 @@
 use std::error;
 
-use rspc_core::ResolverError;
+use rspc_procedure::ResolverError;
 use serde::Serialize;
 use specta::Type;
 

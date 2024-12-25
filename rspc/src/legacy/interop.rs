@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, marker::PhantomData, panic::Location};
 
 use futures::{stream, FutureExt, StreamExt, TryStreamExt};
-use rspc_core::{ProcedureStream, ResolverError};
+use rspc_procedure::{ProcedureStream, ResolverError};
 use serde_json::Value;
 use specta::{
     datatype::{DataType, EnumRepr, EnumVariant, LiteralType},
@@ -78,8 +78,8 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
     path: String,
     kind: ProcedureKind,
     value: Box<dyn Layer<TCtx>>,
-) -> rspc_core::Procedure<TCtx> {
-    rspc_core::Procedure::new(move |ctx, input| {
+) -> rspc_procedure::Procedure<TCtx> {
+    rspc_procedure::Procedure::new(move |ctx, input| {
         let result = input.deserialize::<Value>().and_then(|input| {
             value
                 .call(
@@ -94,7 +94,7 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                     let err: crate::legacy::Error = err.into();
                     ResolverError::new(
                         (), /* typesafe errors aren't supported in legacy router */
-                        Some(rspc_core::LegacyErrorInterop(err.message)),
+                        Some(rspc_procedure::LegacyErrorInterop(err.message)),
                     )
                     .into()
                 })
@@ -112,7 +112,7 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                                 let err = crate::legacy::Error::from(err);
                                 ResolverError::new(
                                     (), /* typesafe errors aren't supported in legacy router */
-                                    Some(rspc_core::LegacyErrorInterop(err.message)),
+                                    Some(rspc_procedure::LegacyErrorInterop(err.message)),
                                 )
                                 .into()
                             })

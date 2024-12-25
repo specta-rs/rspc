@@ -20,7 +20,7 @@ default = []
 # ws = ["axum/ws"]
 
 [dependencies]
-rspc-core = { version = "0.0.1", path = "../../core" }
+rspc-procedure = { version = "0.0.1", path = "../../crates/procedure" }
 rspc-http = { path = "../http" }
 actix-web = "4"
 actix-ws = "0.3"

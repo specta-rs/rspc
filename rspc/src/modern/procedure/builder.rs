@@ -9,7 +9,7 @@ use crate::{
 use super::{ErasedProcedure, ProcedureKind, ProcedureMeta};
 
 use futures::{FutureExt, StreamExt};
-use rspc_core::State;
+use rspc_procedure::State;
 
 // TODO: Document the generics like `Middleware`. What order should they be in?
 pub struct ProcedureBuilder<TError, TBaseCtx, TCtx, TBaseInput, TInput, TBaseResult, TResult> {

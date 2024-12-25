@@ -14,7 +14,7 @@
 
 // use futures::StreamExt;
 // use futures_core::Stream;
-// use rspc_core::ProcedureStream;
+// use rspc_procedure::ProcedureStream;
 // use serde::Serializer;
 
 // pub enum ExecuteInput<'a> {
@@ -25,7 +25,7 @@
 // /// TODO: Explain this
 // // TODO: `Content-Type` header on response???
 // pub async fn execute<'a, 'b, TCtx>(
-//     procedure: &'a rspc_core::Procedure<TCtx>,
+//     procedure: &'a rspc_procedure::Procedure<TCtx>,
 //     input: ExecuteInput<'b>,
 //     ctx: impl FnOnce() -> TCtx,
 // ) -> (u16, impl Stream<Item = Vec<u8>> + Send + 'static) {

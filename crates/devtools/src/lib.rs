@@ -19,7 +19,7 @@ use std::{
 };
 
 use futures::stream;
-use rspc_core::{Procedure, ProcedureStream, Procedures};
+use rspc_procedure::{Procedure, ProcedureStream, Procedures};
 use types::{Metadata, ProcedureMetadata};
 
 pub fn mount<TCtx: 'static>(

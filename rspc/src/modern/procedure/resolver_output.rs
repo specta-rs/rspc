@@ -30,13 +30,13 @@
 // // )]
 
 use futures::{Stream, TryStreamExt};
-use rspc_core::{ProcedureError, ProcedureStream};
+use rspc_procedure::{ProcedureError, ProcedureStream};
 use serde::Serialize;
 use specta::{datatype::DataType, Generics, Type, TypeCollection};
 
 use crate::modern::Error;
 
-// TODO: Maybe in `rspc_core`??
+// TODO: Maybe in `rspc_procedure`??
 
 /// TODO: bring back any correct parts of the docs above
 pub trait ResolverOutput<TError>: Sized + Send + 'static {

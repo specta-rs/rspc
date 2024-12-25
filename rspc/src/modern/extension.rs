@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use rspc_core::State;
+use rspc_procedure::State;
 
 use crate::ProcedureMeta;
 

@@ -1,4 +1,4 @@
-//! rspc-client: Rust client for [rspc](https://docs.rs/rspc).
+//! Rust client for [`rspc`].
 //!
 //! # This is really unstable you should be careful using it!
 #![forbid(unsafe_code)]

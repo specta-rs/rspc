@@ -1,7 +1,7 @@
 use std::{borrow::Cow, panic::Location, sync::Arc};
 
 use futures::{FutureExt, TryStreamExt};
-use rspc_core::Procedure;
+use rspc_procedure::Procedure;
 use specta::datatype::DataType;
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
 pub struct ErasedProcedure<TCtx> {
     pub(crate) setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     pub(crate) ty: ProcedureType,
-    pub(crate) inner: Box<dyn FnOnce(Arc<State>) -> rspc_core::Procedure<TCtx>>,
+    pub(crate) inner: Box<dyn FnOnce(Arc<State>) -> rspc_procedure::Procedure<TCtx>>,
 }
 
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`

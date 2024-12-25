@@ -4,7 +4,7 @@ use std::{
     future::{poll_fn, Future},
 };
 
-use rspc_core::{ProcedureError, ProcedureStream, Procedures};
+use rspc_procedure::{ProcedureError, ProcedureStream, Procedures};
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
@@ -335,7 +335,7 @@ async fn next(
             ProcedureError::Resolver(resolver_err) => {
                 let legacy_error = resolver_err
                     .error()
-                    .and_then(|v| v.downcast_ref::<rspc_core::LegacyErrorInterop>())
+                    .and_then(|v| v.downcast_ref::<rspc_procedure::LegacyErrorInterop>())
                     .cloned();
 
                 jsonrpc::JsonRPCError {

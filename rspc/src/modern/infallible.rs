@@ -24,7 +24,7 @@
 // impl std::error::Error for Infallible {}
 
 // impl crate::modern::Error for Infallible {
-//     fn into_resolver_error(self) -> rspc_core::ResolverError {
+//     fn into_resolver_error(self) -> rspc_procedure::ResolverError {
 //         unreachable!()
 //     }
 // }

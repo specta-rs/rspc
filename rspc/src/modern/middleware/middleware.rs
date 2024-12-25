@@ -22,7 +22,7 @@
 use std::{pin::Pin, sync::Arc};
 
 use futures::{Future, FutureExt, Stream};
-use rspc_core::State;
+use rspc_procedure::State;
 
 use crate::modern::procedure::ProcedureMeta;
 

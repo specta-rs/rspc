@@ -1,11 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
+    "./crates/*",
 	"./rspc",
-	"./core",
-	"./client",
 	"./integrations/*",
-	"./middleware/*",
 	"./examples",
 	"./examples/core",
 	"./examples/axum",

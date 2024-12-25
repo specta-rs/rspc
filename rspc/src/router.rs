@@ -8,7 +8,7 @@ use std::{
 
 use specta::TypeCollection;
 
-use rspc_core::Procedures;
+use rspc_procedure::Procedures;
 
 use crate::{
     modern::procedure::ErasedProcedure, types::TypesOrType, Procedure2, ProcedureKind, State, Types,

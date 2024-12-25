@@ -12,7 +12,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, PoisonError},
 };
 
-use rspc_core::{ProcedureError, Procedures};
+use rspc_procedure::{ProcedureError, Procedures};
 use serde::{de::Error, Deserialize, Serialize};
 use serde_json::value::RawValue;
 use tauri::{

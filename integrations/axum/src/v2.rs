@@ -8,7 +8,7 @@ use axum::{
     routing::{on, MethodFilter},
     RequestExt, Router,
 };
-use rspc_core::{Procedure, Procedures};
+use rspc_procedure::{Procedure, Procedures};
 use serde_json::Value;
 
 use crate::{

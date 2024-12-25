@@ -17,7 +17,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-rspc-core = { version = "0.0.1", path = "../../core" }
+rspc-procedure = { version = "0.0.1", path = "../../crates/procedure" }
 tauri = "2"
 serde = { version = "1", features = [
 	"derive",

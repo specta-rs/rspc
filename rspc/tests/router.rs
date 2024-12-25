@@ -1,7 +1,7 @@
 use std::fmt;
 
 use rspc::{Procedure2, Router2};
-use rspc_core::ResolverError;
+use rspc_procedure::ResolverError;
 use serde::Serialize;
 use specta::Type;
 

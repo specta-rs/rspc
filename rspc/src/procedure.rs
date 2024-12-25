@@ -1,7 +1,7 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, sync::Arc};
 
 use futures::{FutureExt, TryStreamExt};
-use rspc_core::Procedure;
+use rspc_procedure::Procedure;
 use specta::datatype::DataType;
 
 use crate::{

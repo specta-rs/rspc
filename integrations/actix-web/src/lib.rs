@@ -17,7 +17,7 @@
 // use actix_ws::Message;
 
 // use futures_util::StreamExt;
-// use rspc_core::Procedures;
+// use rspc_procedure::Procedures;
 
 // pub struct Endpoint<TCtx> {
 //     procedures: Procedures<TCtx>,

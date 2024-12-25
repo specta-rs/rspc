@@ -30,7 +30,7 @@
 // /// }
 // /// ```
 
-// TODO: Should this be in `rspc_core`???
+// TODO: Should this be in `rspc_procedure`???
 // TODO: Maybe rename?
 
 use serde::de::DeserializeOwned;
@@ -41,7 +41,7 @@ pub trait ResolverInput: Sized + Send + 'static {
     fn data_type(types: &mut TypeCollection) -> DataType;
 
     /// Convert the [`DynInput`] into the type the user specified for the procedure.
-    fn from_input(input: rspc_core::DynInput) -> Result<Self, rspc_core::ProcedureError>;
+    fn from_input(input: rspc_procedure::DynInput) -> Result<Self, rspc_procedure::ProcedureError>;
 }
 
 impl<T: DeserializeOwned + Type + Send + 'static> ResolverInput for T {
@@ -49,7 +49,7 @@ impl<T: DeserializeOwned + Type + Send + 'static> ResolverInput for T {
         T::inline(types, specta::Generics::Definition)
     }
 
-    fn from_input(input: rspc_core::DynInput) -> Result<Self, rspc_core::ProcedureError> {
+    fn from_input(input: rspc_procedure::DynInput) -> Result<Self, rspc_procedure::ProcedureError> {
         Ok(input.deserialize()?)
     }
 }

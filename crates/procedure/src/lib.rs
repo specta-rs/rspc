@@ -1,4 +1,6 @@
-//! rspc-core: Core interface for [rspc](https://docs.rs/rspc).
+//! Interface for a single type-erased operation that the server can execute.
+//!
+//! HTTP integrations should prefer to depend on this crate instead of `rspc`.
 //!
 //! TODO: Describe all the types and why the split?
 //! TODO: This is kinda like `tower::Service`
