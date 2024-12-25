@@ -45,8 +45,8 @@ pub use modern::{
 pub use procedure::Procedure2;
 
 pub use rspc_core::{
-    DeserializeError, DowncastError, DynInput, Procedure, ProcedureError, ProcedureStream,
-    ProcedureStreamMap, ProcedureStreamValue, Procedures, ResolverError, State,
+    flush, DeserializeError, DowncastError, DynInput, DynOutput, Procedure, ProcedureError,
+    ProcedureStream, ProcedureStreamMap, Procedures, ResolverError, State,
 };
 
 // Legacy stuff

@@ -5,14 +5,14 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     pin::Pin,
     sync::Arc,
-    task::{Context, Poll, Waker},
+    task::{ready, Context, Poll, Waker},
 };
 
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 use serde::Serialize;
 
-use crate::ProcedureError;
+use crate::{DynOutput, ProcedureError};
 
 thread_local! {
     static CAN_FLUSH: RefCell<bool> = RefCell::default();
@@ -54,7 +54,7 @@ pub struct ProcedureStream {
     flush: Option<Waker>,
     // This is set `true` if `Poll::Ready` is called while `flush` is `Some`.
     // This informs the stream to yield the value immediately when `flush` is `None` again.
-    pending_value: bool,
+    pending_value: bool, // TODO: Could we just check for a value on `inner`? Less chance of panic in the case of a bug.
 }
 
 impl From<ProcedureError> for ProcedureStream {
@@ -75,8 +75,19 @@ impl ProcedureStream {
         T: Serialize + Send + Sync + 'static,
     {
         Self {
-            inner: Inner::Dyn(Box::pin(DynReturnImpl {
-                src: s,
+            inner: Inner::Dyn(Box::pin(GenericDynReturnValue {
+                inner: s,
+                poll: |s, cx| s.poll_next(cx),
+                size_hint: |s| s.size_hint(),
+                resolved: |_| true,
+                as_value: |v| {
+                    DynOutput::new_serialize(
+                        v.as_mut()
+                            // Attempted to access value when `Poll::Ready(None)` was not returned.
+                            .expect("unreachable"),
+                    )
+                },
+                flushed: false,
                 unwound: false,
                 value: None,
             })),
@@ -85,7 +96,56 @@ impl ProcedureStream {
         }
     }
 
-    // TODO: `fn from_future`
+    /// TODO
+    pub fn from_future<T, F>(f: F) -> Self
+    where
+        F: Future<Output = Result<T, ProcedureError>> + Send + 'static,
+        T: Serialize + Send + Sync + 'static,
+    {
+        pin_project! {
+            #[project = ReprProj]
+            struct Repr<F> {
+                #[pin]
+                inner: Option<F>,
+            }
+        }
+
+        Self {
+            inner: Inner::Dyn(Box::pin(GenericDynReturnValue {
+                inner: Repr { inner: Some(f) },
+                poll: |f, cx| {
+                    let mut this = f.project();
+                    let v = match this.inner.as_mut().as_pin_mut() {
+                        Some(fut) => ready!(fut.poll(cx)),
+                        None => return Poll::Ready(None),
+                    };
+
+                    this.inner.set(None);
+                    Poll::Ready(Some(v))
+                },
+                size_hint: |f| {
+                    if f.inner.is_some() {
+                        (1, Some(1))
+                    } else {
+                        (0, Some(0))
+                    }
+                },
+                as_value: |v| {
+                    DynOutput::new_serialize(
+                        v.as_mut()
+                            // Attempted to access value when `Poll::Ready(None)` was not returned.
+                            .expect("unreachable"),
+                    )
+                },
+                resolved: |f| f.inner.is_none(),
+                flushed: false,
+                unwound: false,
+                value: None,
+            })),
+            flush: None,
+            pending_value: false,
+        }
+    }
 
     /// TODO
     pub fn from_future_stream<T, F, S>(f: F) -> Self
@@ -94,15 +154,53 @@ impl ProcedureStream {
         S: Stream<Item = Result<T, ProcedureError>> + Send + 'static,
         T: Serialize + Send + Sync + 'static,
     {
-        // Self {
-        //     inner: Ok(Box::pin(DynReturnImpl {
-        //         src: f,
-        //         unwound: false,
-        //         value: None,
-        //     })),
-        //     manual_flush: false,
-        // }
-        todo!();
+        pin_project! {
+            #[project = ReprProj]
+            enum Repr<F, S> {
+                Future {
+                    #[pin]
+                    inner: F,
+                },
+                Stream {
+                    #[pin]
+                    inner: S,
+                },
+            }
+        }
+
+        Self {
+            inner: Inner::Dyn(Box::pin(GenericDynReturnValue {
+                inner: Repr::<F, S>::Future { inner: f },
+                poll: |mut f, cx| loop {
+                    let this = f.as_mut().project();
+                    match this {
+                        ReprProj::Future { inner } => {
+                            let Poll::Ready(Ok(stream)) = inner.poll(cx) else {
+                                return Poll::Pending;
+                            };
+
+                            f.set(Repr::Stream { inner: stream });
+                            continue;
+                        }
+                        ReprProj::Stream { inner } => return inner.poll_next(cx),
+                    }
+                },
+                size_hint: |_| (1, Some(1)),
+                resolved: |f| matches!(f, Repr::Stream { .. }),
+                as_value: |v| {
+                    DynOutput::new_serialize(
+                        v.as_mut()
+                            // Attempted to access value when `Poll::Ready(None)` was not returned.
+                            .expect("unreachable"),
+                    )
+                },
+                flushed: false,
+                unwound: false,
+                value: None::<T>,
+            })),
+            flush: None,
+            pending_value: false,
+        }
     }
 
     /// TODO
@@ -111,19 +209,116 @@ impl ProcedureStream {
         S: Stream<Item = Result<T, ProcedureError>> + Send + 'static,
         T: Send + Sync + 'static,
     {
-        todo!();
+        Self {
+            inner: Inner::Dyn(Box::pin(GenericDynReturnValue {
+                inner: s,
+                poll: |s, cx| s.poll_next(cx),
+                size_hint: |s| s.size_hint(),
+                resolved: |_| true,
+                // We passthrough the whole `Option` intentionally.
+                as_value: |v| DynOutput::new_value(v),
+                flushed: false,
+                unwound: false,
+                value: None,
+            })),
+            flush: None,
+            pending_value: false,
+        }
     }
 
-    // TODO: `fn from_future_value`
+    /// TODO
+    pub fn from_future_value<T, F>(f: F) -> Self
+    where
+        F: Future<Output = Result<T, ProcedureError>> + Send + 'static,
+        T: Send + Sync + 'static,
+    {
+        pin_project! {
+            #[project = ReprProj]
+            struct Repr<F> {
+                #[pin]
+                inner: Option<F>,
+            }
+        }
+
+        Self {
+            inner: Inner::Dyn(Box::pin(GenericDynReturnValue {
+                inner: Repr { inner: Some(f) },
+                poll: |f, cx| {
+                    let mut this = f.project();
+                    let v = match this.inner.as_mut().as_pin_mut() {
+                        Some(fut) => ready!(fut.poll(cx)),
+                        None => return Poll::Ready(None),
+                    };
+
+                    this.inner.set(None);
+                    Poll::Ready(Some(v))
+                },
+                size_hint: |f| {
+                    if f.inner.is_some() {
+                        (1, Some(1))
+                    } else {
+                        (0, Some(0))
+                    }
+                },
+                as_value: |v| DynOutput::new_value(v),
+                resolved: |f| f.inner.is_none(),
+                flushed: false,
+                unwound: false,
+                value: None,
+            })),
+            flush: None,
+            pending_value: false,
+        }
+    }
 
     /// TODO
     pub fn from_future_stream_value<T, F, S>(f: F) -> Self
     where
         F: Future<Output = Result<S, ProcedureError>> + Send + 'static,
         S: Stream<Item = Result<T, ProcedureError>> + Send + 'static,
-        T: Serialize + Send + Sync + 'static,
+        T: Send + Sync + 'static,
     {
-        todo!();
+        pin_project! {
+            #[project = ReprProj]
+            enum Repr<F, S> {
+                Future {
+                    #[pin]
+                    inner: F,
+                },
+                Stream {
+                    #[pin]
+                    inner: S,
+                },
+            }
+        }
+
+        Self {
+            inner: Inner::Dyn(Box::pin(GenericDynReturnValue {
+                inner: Repr::<F, S>::Future { inner: f },
+                poll: |mut f, cx| loop {
+                    let this = f.as_mut().project();
+                    match this {
+                        ReprProj::Future { inner } => {
+                            let Poll::Ready(Ok(stream)) = inner.poll(cx) else {
+                                return Poll::Pending;
+                            };
+
+                            f.set(Repr::Stream { inner: stream });
+                            continue;
+                        }
+                        ReprProj::Stream { inner } => return inner.poll_next(cx),
+                    }
+                },
+                size_hint: |_| (1, Some(1)),
+                resolved: |f| matches!(f, Repr::Stream { .. }),
+                as_value: |v| DynOutput::new_value(v),
+                flushed: false,
+                unwound: false,
+                value: None::<T>,
+            })),
+            flush: None,
+            pending_value: false,
+        }
     }
 
     /// By setting this the stream will delay returning any data until instructed by the caller (via `Self::stream`).
@@ -144,6 +339,12 @@ impl ProcedureStream {
     /// Once this is met you can call `Self::stream` on all of the streams at once to begin streaming data.
     ///
     pub fn require_manual_stream(mut self) -> Self {
+        // TODO: When stablised replace with - https://doc.rust-lang.org/stable/std/task/struct.Waker.html#method.noop
+        struct NoOpWaker;
+        impl std::task::Wake for NoOpWaker {
+            fn wake(self: std::sync::Arc<Self>) {}
+        }
+
         // This `Arc` is inefficient but `Waker::noop` is coming soon which will solve it.
         self.flush = Some(Arc::new(NoOpWaker).into());
         self
@@ -161,14 +362,20 @@ impl ProcedureStream {
     ///
     /// For a stream created via `Self::from_future*` this will be `true` once the future has resolved and for all other streams this will always be `true`.
     pub fn resolved(&self) -> bool {
-        true // TODO
+        match &self.inner {
+            Inner::Dyn(stream) => stream.resolved(),
+            Inner::Value(_) => true,
+        }
     }
 
     /// Will return `true` if the stream is ready to start streaming data.
     ///
     /// This is `false` until the `flush` function is called by the user.
     pub fn flushable(&self) -> bool {
-        false // TODO
+        match &self.inner {
+            Inner::Dyn(stream) => stream.flushed(),
+            Inner::Value(_) => false,
+        }
     }
 
     /// TODO
@@ -224,29 +431,34 @@ impl ProcedureStream {
     pub fn poll_next(
         &mut self,
         cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<impl Serialize + Send + Sync + '_, ProcedureError>>> {
+    ) -> Poll<Option<Result<DynOutput<'_>, ProcedureError>>> {
         self.poll_inner(cx).map(|v| {
             v.map(|v| {
                 v.map(|_: ()| {
                     let Inner::Dyn(s) = &mut self.inner else {
-                        unreachable!();
+                        unreachable!(); // TODO: Handle this?
                     };
-                    s.value()
+                    s.as_mut().value()
                 })
             })
         })
     }
 
     /// TODO
-    pub async fn next(
-        &mut self,
-    ) -> Option<Result<impl Serialize + Send + Sync + '_, ProcedureError>> {
-        poll_fn(move |cx| self.poll_inner(cx)).await
+    pub async fn next(&mut self) -> Option<Result<DynOutput<'_>, ProcedureError>> {
+        poll_fn(|cx| self.poll_inner(cx)).await.map(|v| {
+            v.map(|_: ()| {
+                let Inner::Dyn(s) = &mut self.inner else {
+                    unreachable!(); // TODO: Handle this?
+                };
+                s.as_mut().value()
+            })
+        })
     }
 
     /// TODO
     // TODO: Should error be `String` type?
-    pub fn map<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T>(
+    pub fn map<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T>(
         self,
         map: F,
     ) -> ProcedureStreamMap<F, T> {
@@ -254,12 +466,12 @@ impl ProcedureStream {
     }
 }
 
-pub struct ProcedureStreamMap<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> {
+pub struct ProcedureStreamMap<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> {
     stream: ProcedureStream,
     map: F,
 }
 
-impl<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> ProcedureStreamMap<F, T> {
+impl<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> ProcedureStreamMap<F, T> {
     /// Start streaming data.
     /// Refer to `Self::require_manual_stream` for more information.
     pub fn stream(&mut self) {
@@ -281,9 +493,7 @@ impl<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> ProcedureSt
     }
 }
 
-impl<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> Stream
-    for ProcedureStreamMap<F, T>
-{
+impl<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> Stream for ProcedureStreamMap<F, T> {
     type Item = T;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -297,7 +507,7 @@ impl<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> Stream
                             unreachable!();
                         };
 
-                        match (this.map)(ProcedureStreamValue(s.value())) {
+                        match (this.map)(s.as_mut().value()) {
                             Ok(v) => v,
                             // TODO: Exposing this error to the client or not?
                             // TODO: Error type???
@@ -316,19 +526,6 @@ impl<F: FnMut(ProcedureStreamValue) -> Result<T, String> + Unpin, T> Stream
     }
 }
 
-// TODO: name
-pub struct ProcedureStreamValue<'a>(&'a (dyn erased_serde::Serialize + Send + Sync));
-// TODO: `Debug`, etc traits
-
-impl<'a> Serialize for ProcedureStreamValue<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
 impl fmt::Debug for ProcedureStream {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!();
@@ -340,28 +537,35 @@ trait DynReturnValue: Send {
         self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<(), ProcedureError>>>;
-
-    fn value(&self) -> &(dyn erased_serde::Serialize + Send + Sync);
-
+    fn value(self: Pin<&mut Self>) -> DynOutput<'_>;
     fn size_hint(&self) -> (usize, Option<usize>);
-
-    fn ready_for_flush(&self) -> bool;
+    fn resolved(&self) -> bool;
+    fn flushed(&self) -> bool;
 }
 
 pin_project! {
-    struct DynReturnImpl<T, S>{
+    struct GenericDynReturnValue<S, T> {
         #[pin]
-        src: S,
+        inner: S,
+        // `Stream::poll`
+        poll: fn(Pin<&mut S>, &mut Context) -> Poll<Option<Result<T, ProcedureError>>>,
+        // `Stream::size_hint`
+        size_hint: fn(&S) -> (usize, Option<usize>),
+        // convert the current value to a `DynOutput`
+        as_value: fn(&mut Option<T>) -> DynOutput<'_>,
+        // detect when the stream has finished it's future if it has one.
+        resolved: fn(&S) -> bool,
+        // has the user called `flushed` within it?
+        flushed: bool,
+        // has the user panicked?
         unwound: bool,
+        // the last yielded value. We place it here for more efficient serialization.
+        // it also makes `ProcedureStream::require_manual_stream` possible.
         value: Option<T>,
     }
 }
 
-impl<T, S: Stream<Item = Result<T, ProcedureError>> + Send + 'static> DynReturnValue
-    for DynReturnImpl<T, S>
-where
-    T: Send + Sync + Serialize,
-{
+impl<S: Send, T: Send> DynReturnValue for GenericDynReturnValue<S, T> {
     fn poll_next_value<'a>(
         mut self: Pin<&'a mut Self>,
         cx: &mut Context<'_>,
@@ -374,7 +578,7 @@ where
         let this = self.as_mut().project();
         let r = catch_unwind(AssertUnwindSafe(|| {
             let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
-            this.src.poll_next(cx).map(|v| {
+            (this.poll)(this.inner, cx).map(|v| {
                 v.map(|v| {
                     v.map(|v| {
                         *this.value = Some(v);
@@ -393,22 +597,18 @@ where
         }
     }
 
-    fn value(&self) -> &(dyn erased_serde::Serialize + Send + Sync) {
-        // Attempted to access value when `Poll::Ready(None)` was not returned.
-        self.value.as_ref().expect("unreachable")
+    fn value(self: Pin<&mut Self>) -> DynOutput<'_> {
+        (self.as_value)(self.project().value)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.src.size_hint()
+        (self.size_hint)(&self.inner)
     }
 
-    fn ready_for_flush(&self) -> bool {
-        todo!();
+    fn resolved(&self) -> bool {
+        (self.resolved)(&self.inner)
     }
-}
-
-// TODO: When stablised replace with - https://doc.rust-lang.org/stable/std/task/struct.Waker.html#method.noop
-struct NoOpWaker;
-impl std::task::Wake for NoOpWaker {
-    fn wake(self: std::sync::Arc<Self>) {}
+    fn flushed(&self) -> bool {
+        self.flushed
+    }
 }

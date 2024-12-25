@@ -11,11 +11,11 @@ use crate::{DeserializeError, DowncastError, ProcedureError};
 
 /// TODO
 pub struct DynInput<'a, 'de> {
-    inner: DynInputInner<'a, 'de>,
+    inner: Repr<'a, 'de>,
     pub(crate) type_name: &'static str,
 }
 
-enum DynInputInner<'a, 'de> {
+enum Repr<'a, 'de> {
     Value(&'a mut (dyn Any + Send)),
     Deserializer(&'a mut (dyn erased_serde::Deserializer<'de> + Send)),
 }
@@ -23,23 +23,24 @@ enum DynInputInner<'a, 'de> {
 impl<'a, 'de> DynInput<'a, 'de> {
     pub fn new_value<T: Send + 'static>(value: &'a mut Option<T>) -> Self {
         Self {
-            inner: DynInputInner::Value(value),
+            inner: Repr::Value(value),
             type_name: type_name::<T>(),
         }
     }
 
-    pub fn new_deserializer<D: erased_serde::Deserializer<'de> + Send>(
+    // TODO: In a perfect world this would be public.
+    pub(crate) fn new_deserializer<D: erased_serde::Deserializer<'de> + Send>(
         deserializer: &'a mut D,
     ) -> Self {
         Self {
-            inner: DynInputInner::Deserializer(deserializer),
+            inner: Repr::Deserializer(deserializer),
             type_name: type_name::<D>(),
         }
     }
 
     /// TODO
     pub fn deserialize<T: Deserialize<'de>>(self) -> Result<T, ProcedureError> {
-        let DynInputInner::Deserializer(deserializer) = self.inner else {
+        let Repr::Deserializer(deserializer) = self.inner else {
             return Err(ProcedureError::Deserialize(DeserializeError(
                 erased_serde::Error::custom(format!(
                     "attempted to deserialize from value '{}' but expected deserializer",
@@ -53,12 +54,13 @@ impl<'a, 'de> DynInput<'a, 'de> {
     }
 
     /// TODO
-    pub fn value<T: 'static>(self) -> Result<T, DowncastError> {
-        let DynInputInner::Value(value) = self.inner else {
+    pub fn value<T: 'static>(self) -> Result<T, ProcedureError> {
+        let Repr::Value(value) = self.inner else {
             return Err(DowncastError {
                 from: None,
                 to: type_name::<T>(),
-            });
+            }
+            .into());
         };
         Ok(value
             .downcast_mut::<Option<T>>()

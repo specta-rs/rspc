@@ -357,7 +357,9 @@ async fn next(
                                                               // ProcedureError::Serializer(err) => panic!("{err:?}"),
         })
         .and_then(|v| {
-            Ok(v.serialize(serde_json::value::Serializer)
+            Ok(v.as_serialize()
+                .unwrap()
+                .serialize(serde_json::value::Serializer)
                 .expect("Error serialzing value")) // This panicking is bad but this is the old exectuor
         })
     })
