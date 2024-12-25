@@ -2,15 +2,16 @@ use std::{marker::PhantomData, time::SystemTime};
 
 use async_stream::stream;
 use rspc::{
-    middleware::Middleware, Error2, Extension, Procedure2, ProcedureBuilder, ResolverInput,
-    ResolverOutput, Router2,
+    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
+    Router2,
 };
 use rspc_cache::{cache, cache_ttl, CacheState, Memory};
 use rspc_invalidation::Invalidate;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
 use tracing::info;
+use validator::Validate;
 
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
@@ -20,6 +21,12 @@ pub struct Ctx {
 
 #[derive(Serialize, Type)]
 pub struct MyCustomType(String);
+
+#[derive(Debug, Deserialize, Type, Validate)]
+pub struct ValidatedType {
+    #[validate(email)]
+    mail: String,
+}
 
 #[derive(Type, Serialize)]
 #[serde(tag = "type")]
@@ -102,15 +109,19 @@ fn mount() -> rspc::Router<Ctx> {
     router
 }
 
-#[derive(Debug, Error, Serialize, Type)]
+#[derive(Debug, Clone, Error, Serialize, Type)]
+#[serde(tag = "type")]
 pub enum Error {
     #[error("you made a mistake: {0}")]
     Mistake(String),
+    #[error("validation: {0}")]
+    Validator(#[from] rspc_validator::RspcValidatorError),
 }
 
 impl Error2 for Error {
     fn into_resolver_error(self) -> rspc::ResolverError {
-        rspc::ResolverError::new(self.to_string(), None::<std::io::Error>)
+        // rspc::ResolverError::new(self.to_string(), Some(self)) // TODO: Typesafe way to achieve this
+        rspc::ResolverError::new(self.clone(), Some(self))
     }
 }
 
@@ -209,27 +220,36 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
                 Ok(())
             })
         })
-    // .procedure("manualFlush", {
-    //     <BaseProcedure>::builder()
-    //         .manual_flush()
-    //         .query(|ctx, id: String| async move {
-    //             println!("Set cookies");
-    //             flush().await;
-    //             println!("Do more stuff in background");
-    //             Ok(())
-    //         })
-    // })
+        // .procedure("sfmStatefulPost", {
+        //     <BaseProcedure>::builder()
+        //         // .with(Invalidator::mw(|ctx, input, event| {
+        //         //     event == InvalidateEvent::InvalidateKey(input.id)
+        //         // }))
+        //         .query(|_, id: String| async {
+        //             // Fetch the post from the DB
+        //             Ok(id)
+        //         })
+        // })
+        // .procedure("manualFlush", {
+        //     <BaseProcedure>::builder()
+        //         .manual_flush()
+        //         .query(|ctx, id: String| async move {
+        //             println!("Set cookies");
+        //             flush().await;
+        //             println!("Do more stuff in background");
+        //             Ok(())
+        //         })
+        // })
+        .procedure("validator", {
+            <BaseProcedure>::builder()
+                .with(rspc_validator::validate())
+                .query(|ctx, input: ValidatedType| async move {
+                    println!("{input:?}");
+                    Ok(())
+                })
+        })
+    // ValidatedType
 
-    // .procedure("sfmStatefulPost", {
-    //     <BaseProcedure>::builder()
-    //         // .with(Invalidator::mw(|ctx, input, event| {
-    //         //     event == InvalidateEvent::InvalidateKey(input.id)
-    //         // }))
-    //         .query(|_, id: String| async {
-    //             // Fetch the post from the DB
-    //             Ok(id)
-    //         })
-    // })
     // .procedure("fileupload", {
     //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })
     // })

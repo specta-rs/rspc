@@ -5,6 +5,8 @@ use std::{
 
 use serde::Serialize;
 
+use crate::ProcedureError;
+
 /// TODO
 pub struct DynOutput<'a> {
     inner: Repr<'a>,
@@ -45,7 +47,11 @@ impl<'a> DynOutput<'a> {
     pub fn as_value<T: Send + 'static>(self) -> Option<T> {
         match self.inner {
             Repr::Serialize(_) => None,
-            Repr::Value(v) => v.downcast_mut::<Option<_>>()?.take().expect("unreachable"),
+            Repr::Value(v) => v
+                .downcast_mut::<Option<Result<_, ProcedureError>>>()?
+                .take()
+                .expect("unreachable")
+                .expect("unreachable"),
         }
     }
 }

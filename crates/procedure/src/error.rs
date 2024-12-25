@@ -104,17 +104,17 @@ impl Serialize for ProcedureError {
         S: Serializer,
     {
         if let ProcedureError::Resolver(err) = self {
-            if let Some(err) = err.error() {
-                if let Some(v) = err.downcast_ref::<LegacyErrorInterop>() {
-                    return v.0.serialize(serializer);
-                }
-            }
+            // if let Some(err) = err.error() {
+            //     if let Some(v) = err.downcast_ref::<LegacyErrorInterop>() {
+            //         return v.0.serialize(serializer);
+            //     }
+            // }
 
             return err.value().serialize(serializer);
         }
 
         let mut state = serializer.serialize_struct("ProcedureError", 3)?;
-        state.serialize_field("_rspc", &true)?;
+        state.serialize_field("~rspc", &true)?;
         state.serialize_field("variant", &self.variant())?;
         state.serialize_field("message", &self.message())?;
         state.end()

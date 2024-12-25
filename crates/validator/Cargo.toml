@@ -6,6 +6,9 @@ publish = false # TODO: Crate metadata & publish
 
 [dependencies]
 rspc = { path = "../../rspc", features = ["unstable"] }
+serde = "1"
+specta = "=2.0.0-rc.20"
+validator = "0.19"
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]

@@ -83,6 +83,9 @@ impl ProcedureStream {
                 as_value: |v| {
                     DynOutput::new_serialize(
                         v.as_mut()
+                            // Error's are caught before `as_value` is called.
+                            .expect("unreachable")
+                            .as_mut()
                             // Attempted to access value when `Poll::Ready(None)` was not returned.
                             .expect("unreachable"),
                     )
@@ -133,6 +136,9 @@ impl ProcedureStream {
                 as_value: |v| {
                     DynOutput::new_serialize(
                         v.as_mut()
+                            // Error's are caught before `as_value` is called.
+                            .expect("unreachable")
+                            .as_mut()
                             // Attempted to access value when `Poll::Ready(None)` was not returned.
                             .expect("unreachable"),
                     )
@@ -190,13 +196,16 @@ impl ProcedureStream {
                 as_value: |v| {
                     DynOutput::new_serialize(
                         v.as_mut()
+                            // Error's are caught before `as_value` is called.
+                            .expect("unreachable")
+                            .as_mut()
                             // Attempted to access value when `Poll::Ready(None)` was not returned.
                             .expect("unreachable"),
                     )
                 },
                 flushed: false,
                 unwound: false,
-                value: None::<T>,
+                value: None,
             })),
             flush: None,
             pending_value: false,
@@ -314,7 +323,7 @@ impl ProcedureStream {
                 as_value: |v| DynOutput::new_value(v),
                 flushed: false,
                 unwound: false,
-                value: None::<T>,
+                value: None,
             })),
             flush: None,
             pending_value: false,
@@ -386,7 +395,7 @@ impl ProcedureStream {
         }
     }
 
-    fn poll_inner(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<(), ProcedureError>>> {
+    fn poll_inner(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
         // Ensure the waker is up to date.
         if let Some(waker) = &mut self.flush {
             if !waker.will_wake(cx.waker()) {
@@ -398,7 +407,7 @@ impl ProcedureStream {
             return if self.flush.is_none() {
                 // We have a queued value ready to be flushed.
                 self.pending_value = false;
-                Poll::Ready(Some(Ok(())))
+                Poll::Ready(Some(()))
             } else {
                 // The async runtime would have no reason to be polling right now but we protect against it anyway.
                 Poll::Pending
@@ -411,15 +420,21 @@ impl ProcedureStream {
                     if self.flush.is_none() {
                         Poll::Ready(v)
                     } else {
-                        self.pending_value = true;
-                        Poll::Pending
+                        match v {
+                            Some(v) => {
+                                self.pending_value = true;
+                                Poll::Pending
+                            }
+                            None => Poll::Ready(None),
+                        }
                     }
                 }
                 Poll::Pending => Poll::Pending,
             },
             Inner::Value(v) => {
                 if self.flush.is_none() {
-                    Poll::Ready(v.take().map(Err))
+                    // Poll::Ready(v.take().map(Err))
+                    todo!();
                 } else {
                     Poll::Pending
                 }
@@ -433,20 +448,6 @@ impl ProcedureStream {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<DynOutput<'_>, ProcedureError>>> {
         self.poll_inner(cx).map(|v| {
-            v.map(|v| {
-                v.map(|_: ()| {
-                    let Inner::Dyn(s) = &mut self.inner else {
-                        unreachable!(); // TODO: Handle this?
-                    };
-                    s.as_mut().value()
-                })
-            })
-        })
-    }
-
-    /// TODO
-    pub async fn next(&mut self) -> Option<Result<DynOutput<'_>, ProcedureError>> {
-        poll_fn(|cx| self.poll_inner(cx)).await.map(|v| {
             v.map(|_: ()| {
                 let Inner::Dyn(s) = &mut self.inner else {
                     unreachable!(); // TODO: Handle this?
@@ -457,8 +458,18 @@ impl ProcedureStream {
     }
 
     /// TODO
+    pub async fn next(&mut self) -> Option<Result<DynOutput<'_>, ProcedureError>> {
+        poll_fn(|cx| self.poll_inner(cx)).await.map(|_: ()| {
+            let Inner::Dyn(s) = &mut self.inner else {
+                unreachable!(); // TODO: Handle this?
+            };
+            s.as_mut().value()
+        })
+    }
+
+    /// TODO
     // TODO: Should error be `String` type?
-    pub fn map<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T>(
+    pub fn map<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T>(
         self,
         map: F,
     ) -> ProcedureStreamMap<F, T> {
@@ -466,12 +477,17 @@ impl ProcedureStream {
     }
 }
 
-pub struct ProcedureStreamMap<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> {
+pub struct ProcedureStreamMap<
+    F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin,
+    T,
+> {
     stream: ProcedureStream,
     map: F,
 }
 
-impl<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> ProcedureStreamMap<F, T> {
+impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T>
+    ProcedureStreamMap<F, T>
+{
     /// Start streaming data.
     /// Refer to `Self::require_manual_stream` for more information.
     pub fn stream(&mut self) {
@@ -493,29 +509,25 @@ impl<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> ProcedureStreamMap<F, 
     }
 }
 
-impl<F: FnMut(DynOutput) -> Result<T, String> + Unpin, T> Stream for ProcedureStreamMap<F, T> {
+impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T> Stream
+    for ProcedureStreamMap<F, T>
+{
     type Item = T;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
 
         this.stream.poll_inner(cx).map(|v| {
-            v.map(|v| {
-                match v {
-                    Ok(()) => {
-                        let Inner::Dyn(s) = &mut this.stream.inner else {
-                            unreachable!();
-                        };
+            v.map(|_: ()| {
+                let Inner::Dyn(s) = &mut this.stream.inner else {
+                    unreachable!();
+                };
 
-                        match (this.map)(s.as_mut().value()) {
-                            Ok(v) => v,
-                            // TODO: Exposing this error to the client or not?
-                            // TODO: Error type???
-                            Err(err) => todo!(),
-                        }
-                    }
-                    // TODO: Fix this
-                    Err(_) => todo!(),
+                match (this.map)(s.as_mut().value()) {
+                    Ok(v) => v,
+                    // TODO: Exposing this error to the client or not?
+                    // TODO: Error type???
+                    Err(err) => todo!(),
                 }
             })
         })
@@ -533,11 +545,8 @@ impl fmt::Debug for ProcedureStream {
 }
 
 trait DynReturnValue: Send {
-    fn poll_next_value<'a>(
-        self: Pin<&'a mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<(), ProcedureError>>>;
-    fn value(self: Pin<&mut Self>) -> DynOutput<'_>;
+    fn poll_next_value<'a>(self: Pin<&'a mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>>;
+    fn value(self: Pin<&mut Self>) -> Result<DynOutput<'_>, ProcedureError>;
     fn size_hint(&self) -> (usize, Option<usize>);
     fn resolved(&self) -> bool;
     fn flushed(&self) -> bool;
@@ -552,24 +561,22 @@ pin_project! {
         // `Stream::size_hint`
         size_hint: fn(&S) -> (usize, Option<usize>),
         // convert the current value to a `DynOutput`
-        as_value: fn(&mut Option<T>) -> DynOutput<'_>,
+        as_value: fn(&mut Option<Result<T, ProcedureError>>) -> DynOutput<'_>,
         // detect when the stream has finished it's future if it has one.
         resolved: fn(&S) -> bool,
         // has the user called `flushed` within it?
         flushed: bool,
         // has the user panicked?
         unwound: bool,
-        // the last yielded value. We place it here for more efficient serialization.
-        // it also makes `ProcedureStream::require_manual_stream` possible.
-        value: Option<T>,
+        // the last yielded value. We place `T` here so we can type-erase it and avoiding boxing every value.
+        // we hold `Result<_, ProcedureError>` for `ProcedureStream::require_manual_stream` to bepossible.
+        // Be extemely careful changing this type as it's used in `DynOutput`'s downcasting!
+        value: Option<Result<T, ProcedureError>>,
     }
 }
 
 impl<S: Send, T: Send> DynReturnValue for GenericDynReturnValue<S, T> {
-    fn poll_next_value<'a>(
-        mut self: Pin<&'a mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<(), ProcedureError>>> {
+    fn poll_next_value<'a>(mut self: Pin<&'a mut Self>, cx: &mut Context<'_>) -> Poll<Option<()>> {
         if self.unwound {
             // The stream is now done.
             return Poll::Ready(None);
@@ -580,10 +587,8 @@ impl<S: Send, T: Send> DynReturnValue for GenericDynReturnValue<S, T> {
             let _ = this.value.take(); // Reset value to ensure `take` being misused causes it to panic.
             (this.poll)(this.inner, cx).map(|v| {
                 v.map(|v| {
-                    v.map(|v| {
-                        *this.value = Some(v);
-                        ()
-                    })
+                    *this.value = Some(v);
+                    ()
                 })
             })
         }));
@@ -592,13 +597,23 @@ impl<S: Send, T: Send> DynReturnValue for GenericDynReturnValue<S, T> {
             Ok(v) => v,
             Err(err) => {
                 *this.unwound = true;
-                Poll::Ready(Some(Err(ProcedureError::Unwind(err))))
+                *this.value = Some(Err(ProcedureError::Unwind(err)));
+                Poll::Ready(Some(()))
             }
         }
     }
 
-    fn value(self: Pin<&mut Self>) -> DynOutput<'_> {
-        (self.as_value)(self.project().value)
+    fn value(self: Pin<&mut Self>) -> Result<DynOutput<'_>, ProcedureError> {
+        let this = self.project();
+        match this.value {
+            Some(Err(_)) => {
+                let Some(Err(err)) = std::mem::replace(this.value, None) else {
+                    unreachable!(); // checked above
+                };
+                Err(err)
+            }
+            v => Ok((this.as_value)(v)),
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

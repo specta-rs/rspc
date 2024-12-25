@@ -7,7 +7,7 @@ use axum::{
 };
 use example_core::{create_router, Ctx};
 use futures::{stream::FuturesUnordered, Stream, StreamExt};
-use rspc::{DynOutput, ProcedureStream, ProcedureStreamMap, Procedures, State};
+use rspc::{DynOutput, ProcedureError, ProcedureStream, ProcedureStreamMap, Procedures, State};
 use rspc_invalidation::Invalidator;
 use serde_json::{de::SliceRead, value::RawValue, Value};
 use std::{
@@ -207,13 +207,18 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
             let mut runtime = StreamUnordered::new();
             // TODO: Move onto `Prototype`???
             let spawn = |runtime: &mut StreamUnordered<_>, p: ProcedureStream| {
-                runtime.insert(
-                    p.require_manual_stream()
-                        .map::<fn(DynOutput) -> Result<Vec<u8>, String>, Vec<u8>>(|v| {
-                            serde_json::to_vec(&v.as_serialize().unwrap())
-                                .map_err(|err| err.to_string())
-                        }),
-                );
+                runtime.insert(p.require_manual_stream().map::<fn(
+                    Result<DynOutput, ProcedureError>,
+                )
+                    -> Result<Vec<u8>, String>, Vec<u8>>(
+                    |v| {
+                        match v {
+                            Ok(v) => serde_json::to_vec(&v.as_serialize().unwrap()),
+                            Err(err) => serde_json::to_vec(&err),
+                        }
+                        .map_err(|err| err.to_string())
+                    },
+                ));
             };
 
             // TODO: If a file was being uploaded this would require reading the whole body until the `runtime` is polled.
@@ -280,7 +285,12 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
 
 // TODO: This abstraction is soooo bad.
 pub struct Prototype<TCtx, E> {
-    runtime: StreamUnordered<ProcedureStreamMap<fn(DynOutput) -> Result<Vec<u8>, String>, Vec<u8>>>,
+    runtime: StreamUnordered<
+        ProcedureStreamMap<
+            fn(Result<DynOutput, ProcedureError>) -> Result<Vec<u8>, String>,
+            Vec<u8>,
+        >,
+    >,
     invalidator: Invalidator<E>,
     ctx: TCtx,
     sfm: bool,
@@ -311,9 +321,11 @@ impl<TCtx: Unpin + Clone + 'static, E: 'static> Stream for Prototype<TCtx, E> {
                     rspc_invalidation::queue(&self.invalidator, self.ctx.clone(), &self.procedures)
                 {
                     self.runtime.insert(
-                        stream.map::<fn(DynOutput) -> Result<Vec<u8>, String>, Vec<u8>>(|v| {
-                            serde_json::to_vec(&v.as_serialize().unwrap())
-                                .map_err(|err| err.to_string())
+                        stream.map::<fn(Result<DynOutput, ProcedureError>) -> Result<Vec<u8>, String>, Vec<u8>>(|v| {
+                            match v {
+                                Ok(v) => serde_json::to_vec(&v.as_serialize().unwrap()),
+                                Err(err) => serde_json::to_vec(&err),
+                            }.map_err(|err| err.to_string())
                         }),
                     );
                 }
