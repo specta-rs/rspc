@@ -1,6 +1,6 @@
 use std::fmt;
 
-use rspc::{Procedure, Router};
+use rspc::{Procedure, ProcedureError, Router};
 use rspc_procedure::ResolverError;
 use serde::Serialize;
 use specta::Type;
@@ -74,7 +74,7 @@ impl Serialize for Infallible {
 impl std::error::Error for Infallible {}
 
 impl rspc::Error for Infallible {
-    fn into_resolver_error(self) -> ResolverError {
+    fn into_procedure_error(self) -> ProcedureError {
         unreachable!()
     }
 }

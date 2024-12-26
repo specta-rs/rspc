@@ -93,7 +93,7 @@ where
     fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
         self.0
             .map_ok(|v| v.into_stream())
-            .map_err(|err| err.into_resolver_error())
+            .map_err(|err| err.into_procedure_error())
             .try_flatten()
     }
 

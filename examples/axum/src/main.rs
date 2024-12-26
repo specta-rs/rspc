@@ -1,26 +1,22 @@
 use axum::{
     body::Body,
-    extract::{Multipart, Request},
-    http::{header, request::Parts, HeaderMap, HeaderName, StatusCode},
-    routing::{get, on, post, MethodFilter, MethodRouter},
-    Json,
+    extract::Multipart,
+    http::{header, request::Parts, HeaderMap},
+    routing::{get, post},
 };
-use axum_extra::body::AsyncReadBody;
 use example_core::{mount, Ctx};
-use futures::{stream::FuturesUnordered, Stream, StreamExt, TryStreamExt};
-use rspc::{DynOutput, ProcedureError, ProcedureStream, ProcedureStreamMap, Procedures, State};
-use rspc_binario::BinarioOutput;
+use futures::{Stream, StreamExt};
+use rspc::{DynOutput, ProcedureError, ProcedureStream, ProcedureStreamMap, Procedures};
 use rspc_invalidation::Invalidator;
-use serde_json::{de::SliceRead, value::RawValue, Value};
+use serde_json::Value;
 use std::{
     convert::Infallible,
-    future::{poll_fn, Future},
+    future::poll_fn,
     path::PathBuf,
-    pin::{pin, Pin},
+    pin::Pin,
     task::{Context, Poll},
 };
 use streamunordered::{StreamUnordered, StreamYield};
-use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -56,39 +52,7 @@ async fn main() {
         .allow_origin(Any);
 
     let app = axum::Router::new()
-        .route("/", get(|| async { "Hello 'rspc'!" }))
-        // .route(
-        //     "/upload",
-        //     post(|mut multipart: Multipart| async move {
-        //         println!("{:?}", multipart);
-        //         while let Some(field) = multipart.next_field().await.unwrap() {
-        //             println!(
-        //                 "{:?} {:?} {:?}",
-        //                 field.name().map(|v| v.to_string()),
-        //                 field.content_type().map(|v| v.to_string()),
-        //                 field.collect::<Vec<_>>().await
-        //             );
-        //         }
-        //         "Done!"
-        //     }),
-        // )
-        .route(
-            "/rspc/custom",
-            post(|| async move {
-                // println!("{:?}", multipart);
-
-                // while let Some(field) = multipart.next_field().await.unwrap() {
-                //     println!(
-                //         "{:?} {:?} {:?}",
-                //         field.name().map(|v| v.to_string()),
-                //         field.content_type().map(|v| v.to_string()),
-                //         field.collect::<Vec<_>>().await
-                //     );
-                // }
-
-                todo!();
-            }),
-        )
+        .route("/", get(|| async { "rspc 🤝 Axum!" }))
         // .nest(
         //     "/rspc",
         //     rspc_axum::endpoint(procedures, |parts: Parts| {
@@ -114,63 +78,7 @@ async fn main() {
 }
 
 pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
-    let mut r = axum::Router::new();
-
-    r = r.route(
-        "/binario",
-        // This endpoint lacks batching, SFM's, etc but that's fine.
-        post({
-            let procedures = procedures.clone();
-
-            move |parts: Parts, body: Body| async move {
-                let invalidator = rspc_invalidation::Invalidator::default();
-                let (zer, _zer_response) = rspc_zer::Zer::from_request(
-                    "session",
-                    "some_secret".as_ref(),
-                    parts.headers.get("cookie"),
-                )
-                .unwrap(); // TODO: Error handling
-                let ctx = Ctx {
-                    invalidator: invalidator.clone(),
-                    zer,
-                };
-
-                // if parts.headers.get("Content-Type") != Some(&"text/x-binario".parse().unwrap()) {
-                //     // TODO: Error handling
-                // }
-
-                let mut params = form_urlencoded::parse(parts.uri.query().unwrap_or("").as_bytes());
-                let procedure_name = params
-                    .find(|(key, _)| key == "procedure")
-                    .map(|(_, value)| value)
-                    .unwrap(); // TODO: Error handling
-
-                let procedure = procedures.get(&procedure_name).unwrap(); // TODO: Error handling
-
-                let stream = procedure.exec_with_value(
-                    ctx.clone(),
-                    rspc_binario::BinarioInput::from_stream(
-                        body.into_data_stream()
-                            .map_err(|err| todo!()) // TODO: Error handling
-                            .into_async_read()
-                            .compat(),
-                    ),
-                );
-                let mut headers = HeaderMap::new();
-                headers.insert(header::CONTENT_TYPE, "text/x-binario".parse().unwrap());
-
-                (
-                    headers,
-                    Body::from_stream(stream.map(|v| match v {
-                        Ok(v) => Ok(Ok::<_, Infallible>(
-                            v.as_value::<BinarioOutput>().unwrap().0,
-                        )),
-                        Err(err) => todo!("{err:?}"),
-                    })),
-                )
-            }
-        }),
-    );
+    let r = axum::Router::new();
 
     // TODO: Support file upload and download
 
@@ -426,9 +334,9 @@ impl<TCtx: Unpin + Clone + 'static, E: 'static> Stream for Prototype<TCtx, E> {
     }
 }
 
-fn encode_msg(a: (), b: (), c: ()) {
-    todo!();
-}
+// fn encode_msg(a: (), b: (), c: ()) {
+//     todo!();
+// }
 
 // TODO: support `GET`
 // r = r.route(

@@ -24,7 +24,7 @@ impl Serialize for Infallible {
 impl std::error::Error for Infallible {}
 
 impl rspc::Error for Infallible {
-    fn into_resolver_error(self) -> rspc::ResolverError {
+    fn into_procedure_error(self) -> rspc::ProcedureError {
         unreachable!()
     }
 }

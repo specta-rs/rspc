@@ -5,8 +5,6 @@ use serde::{
     Serialize, Serializer,
 };
 
-use crate::LegacyErrorInterop;
-
 // TODO: Discuss the stability guanrantees of the error handling system. Variant is fixed, message is not.
 
 /// TODO
@@ -104,12 +102,6 @@ impl Serialize for ProcedureError {
         S: Serializer,
     {
         if let ProcedureError::Resolver(err) = self {
-            // if let Some(err) = err.error() {
-            //     if let Some(v) = err.downcast_ref::<LegacyErrorInterop>() {
-            //         return v.0.serialize(serializer);
-            //     }
-            // }
-
             return err.value().serialize(serializer);
         }
 

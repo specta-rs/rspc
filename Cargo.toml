@@ -11,6 +11,7 @@ members = [
     "./examples/tauri/src-tauri",
     "./examples/legacy",
     "./examples/legacy-compat",
+    "./examples/binario",
 ]
 
 [workspace.dependencies]

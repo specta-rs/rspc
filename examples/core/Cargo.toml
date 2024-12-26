@@ -6,21 +6,17 @@ publish = false
 
 [dependencies]
 rspc = { path = "../../rspc", features = ["typescript", "rust"] }
-async-stream = "0.3.6"
-serde = { version = "1.0.216", features = ["derive"] }
-specta = { version = "=2.0.0-rc.20", features = ["derive"] }
-thiserror = "2.0.9"
 rspc-devtools = { version = "0.0.0", path = "../../crates/devtools" }
-tracing = "0.1.41"
-futures = "0.3.31"
 rspc-cache = { version = "0.0.0", path = "../../crates/cache" }
 rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
 rspc-validator = { version = "0.0.0", path = "../../crates/validator" }
-rspc-binario = { version = "0.0.0", path = "../../crates/binario" }
 rspc-tracing = { version = "0.0.0", path = "../../crates/tracing" }
 rspc-openapi = { version = "0.0.0", path = "../../crates/openapi" }
-validator = { version = "0.19.0", features = ["derive"] }
 rspc-zer = { version = "0.0.0", path = "../../crates/zer" }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+async-stream = "0.3.6"
+thiserror = "2.0.9"
+validator = { version = "0.19.0", features = ["derive"] }
 anyhow = "1.0.95"
-binario = "0.0.2"
-pin-project = "1.1.7"

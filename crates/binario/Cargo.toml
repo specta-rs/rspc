@@ -7,7 +7,7 @@ publish = false                          # TODO: Crate metadata & publish
 
 [dependencies]
 binario = "0.0.2"
-futures.workspace = true       # TODO: Drop this or drop down to `futures-util`
+futures-util.workspace = true
 rspc = { path = "../../rspc" }
 specta = { workspace = true }
 tokio = "1.42.0"

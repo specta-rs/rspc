@@ -107,7 +107,7 @@ impl<TCtx, TInput, TResult> Procedure<TCtx, TInput, TResult> {
                                 )
                                 .into_stream()
                                 .map_ok(|v| v.into_stream())
-                                .map_err(|err| err.into_resolver_error())
+                                .map_err(|err| err.into_procedure_error())
                                 .try_flatten()
                                 .into_stream(),
                             )

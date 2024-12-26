@@ -1,19 +1,14 @@
 use std::{marker::PhantomData, time::SystemTime};
 
-use async_stream::stream;
-use binario::encode;
-use futures::executor::block_on;
 use rspc::{
     middleware::Middleware, Procedure, ProcedureBuilder, ResolverInput, ResolverOutput, Router,
 };
-use rspc_binario::Binario;
 use rspc_cache::{cache, cache_ttl, CacheState, Memory};
 use rspc_invalidation::Invalidate;
 use rspc_zer::Zer;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
-use tracing::info;
 use validator::Validate;
 
 #[derive(Clone, Serialize, Deserialize, Type)]
@@ -60,12 +55,13 @@ pub enum Error {
 }
 
 impl rspc::Error for Error {
-    fn into_resolver_error(self) -> rspc::ResolverError {
+    fn into_procedure_error(self) -> rspc::ProcedureError {
         // rspc::ResolverError::new(self.to_string(), Some(self)) // TODO: Typesafe way to achieve this
         rspc::ResolverError::new(
             self,
             None::<std::io::Error>, // TODO: `Some(self)` but `anyhow::Error` is not `Clone`
         )
+        .into()
     }
 }
 
@@ -200,26 +196,6 @@ pub fn mount() -> Router<Ctx> {
         })
         .procedure("me", {
             <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
-        })
-        .procedure("binario", {
-            #[derive(Debug, binario::Encode, binario::Decode, Type)]
-            pub struct Input {
-                name: String,
-            }
-
-            // let mut buf = vec![];
-            // block_on(encode(
-            //     &Input {
-            //         name: "Oscar".to_string(),
-            //     },
-            //     &mut buf,
-            // ))
-            // .unwrap();
-            // println!("{:?}", buf);
-
-            <BaseProcedure>::builder()
-                .with(rspc_binario::binario())
-                .query(|_, input: Input| async move { Ok(input) })
         })
 
     // .procedure("fileupload", {

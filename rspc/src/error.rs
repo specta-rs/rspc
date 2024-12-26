@@ -1,9 +1,6 @@
-use std::error;
+use rspc_procedure::ProcedureError;
 
-use rspc_procedure::ResolverError;
-use serde::Serialize;
-use specta::Type;
-
-pub trait Error: error::Error + Send + Serialize + Type + 'static {
-    fn into_resolver_error(self) -> ResolverError;
+// TODO: Drop bounds on this cause they can be added at the impl.
+pub trait Error: 'static {
+    fn into_procedure_error(self) -> ProcedureError;
 }
