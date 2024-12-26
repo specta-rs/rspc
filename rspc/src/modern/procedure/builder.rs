@@ -3,7 +3,7 @@ use std::{fmt, future::Future, marker::PhantomData, sync::Arc};
 use crate::{
     middleware::IntoMiddleware,
     modern::{middleware::MiddlewareHandler, Error},
-    Procedure2,
+    Procedure,
 };
 
 use super::{ErasedProcedure, ProcedureKind, ProcedureMeta};
@@ -69,8 +69,8 @@ where
     pub fn query<F: Future<Output = Result<TResult, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure2<TRootCtx, TBaseInput, TBaseResult> {
-        Procedure2 {
+    ) -> Procedure<TRootCtx, TBaseInput, TBaseResult> {
+        Procedure {
             build: Box::new(move |setups| {
                 (self.build)(
                     ProcedureKind::Query,
@@ -85,8 +85,8 @@ where
     pub fn mutation<F: Future<Output = Result<TResult, TError>> + Send + 'static>(
         self,
         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-    ) -> Procedure2<TRootCtx, TBaseInput, TBaseResult> {
-        Procedure2 {
+    ) -> Procedure<TRootCtx, TBaseInput, TBaseResult> {
+        Procedure {
             build: Box::new(move |setups| {
                 (self.build)(
                     ProcedureKind::Mutation,

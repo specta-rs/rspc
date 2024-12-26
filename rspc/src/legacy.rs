@@ -16,9 +16,9 @@ use crate::{
     util::literal_object, ProcedureKind,
 };
 
-impl<TCtx> From<rspc_legacy::Router<TCtx>> for crate::Router2<TCtx> {
+impl<TCtx> From<rspc_legacy::Router<TCtx>> for crate::Router<TCtx> {
     fn from(router: rspc_legacy::Router<TCtx>) -> Self {
-        let mut r = crate::Router2::new();
+        let mut r = crate::Router::new();
 
         let (queries, mutations, subscriptions, mut type_map) = router.into_parts();
 

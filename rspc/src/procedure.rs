@@ -1,7 +1,7 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, sync::Arc};
 
 use futures_util::{FutureExt, TryStreamExt};
-use rspc_procedure::Procedure;
+
 use specta::datatype::DataType;
 
 use crate::{
@@ -27,7 +27,7 @@ pub(crate) struct ProcedureType {
 ///
 /// A [`Procedure`] is built from a [`ProcedureBuilder`] and holds the type information along with the logic to execute the operation.
 ///
-pub struct Procedure2<TCtx, TInput, TResult> {
+pub struct Procedure<TCtx, TInput, TResult> {
     pub(crate) build:
         Box<dyn FnOnce(Vec<Box<dyn FnOnce(&mut State, ProcedureMeta)>>) -> ErasedProcedure<TCtx>>,
     pub(crate) phantom: PhantomData<(TInput, TResult)>,
@@ -35,7 +35,7 @@ pub struct Procedure2<TCtx, TInput, TResult> {
 
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
 
-impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
+impl<TCtx, TInput, TResult> Procedure<TCtx, TInput, TResult> {
     /// Construct a new procedure using [`ProcedureBuilder`].
     #[track_caller]
     pub fn builder<TError>(
@@ -78,7 +78,7 @@ impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
                         let key: Cow<'static, str> = "todo".to_string().into(); // TODO: Work this out properly
                         let meta = ProcedureMeta::new(key.clone(), kind, state);
 
-                        Procedure::new(move |ctx, input| {
+                        rspc_procedure::Procedure::new(move |ctx, input| {
                             TResult::into_procedure_stream(
                                 handler(
                                     ctx,
@@ -103,7 +103,7 @@ impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
     where
         TCtx: 'static,
     {
-        Procedure2 {
+        Procedure {
             build: Box::new(move |mut setups| {
                 if let Some(setup) = mw.setup {
                     setups.push(setup);
@@ -168,7 +168,7 @@ impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
     // }
 }
 
-impl<TCtx, TInput, TResult> Into<ErasedProcedure<TCtx>> for Procedure2<TCtx, TInput, TResult> {
+impl<TCtx, TInput, TResult> Into<ErasedProcedure<TCtx>> for Procedure<TCtx, TInput, TResult> {
     fn into(self) -> ErasedProcedure<TCtx> {
         (self.build)(Default::default())
     }

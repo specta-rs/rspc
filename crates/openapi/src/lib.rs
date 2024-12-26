@@ -17,7 +17,7 @@ use axum::{
     Json,
 };
 use futures::StreamExt;
-use rspc::{middleware::Middleware, Extension, Procedure2, ResolverInput, Router2};
+use rspc::{middleware::Middleware, Extension, Procedure, ResolverInput, Router};
 use serde_json::json;
 
 // TODO: Properly handle inputs from query params
@@ -90,7 +90,7 @@ struct OpenAPIState(HashMap<(&'static str, Cow<'static, str>), String>);
 // TODO: Axum should be behind feature flag
 // TODO: Can we decouple webserver from OpenAPI while keeping something maintainable????
 pub fn mount<TCtx, S>(
-    router: Router2<TCtx>,
+    router: Router<TCtx>,
     // TODO: Make Axum extractors work
     ctx_fn: impl Fn(&Parts) -> TCtx + Clone + Send + Sync + 'static,
 ) -> axum::Router<S>

@@ -2,8 +2,7 @@ use std::{marker::PhantomData, time::SystemTime};
 
 use async_stream::stream;
 use rspc::{
-    middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
-    Router2,
+    middleware::Middleware, Procedure, ProcedureBuilder, ResolverInput, ResolverOutput, Router,
 };
 use rspc_binario::Binario;
 use rspc_cache::{cache, cache_ttl, CacheState, Memory};
@@ -58,7 +57,7 @@ pub enum Error {
     InternalError(#[from] anyhow::Error),
 }
 
-impl Error2 for Error {
+impl rspc::Error for Error {
     fn into_resolver_error(self) -> rspc::ResolverError {
         // rspc::ResolverError::new(self.to_string(), Some(self)) // TODO: Typesafe way to achieve this
         rspc::ResolverError::new(
@@ -73,11 +72,11 @@ impl<TErr> BaseProcedure<TErr> {
     pub fn builder<TInput, TResult>(
     ) -> ProcedureBuilder<TErr, Ctx, Ctx, TInput, TInput, TResult, TResult>
     where
-        TErr: Error2,
+        TErr: rspc::Error,
         TInput: ResolverInput,
         TResult: ResolverOutput<TErr>,
     {
-        Procedure2::builder() // You add default middleware here
+        Procedure::builder() // You add default middleware here
     }
 }
 
@@ -93,10 +92,10 @@ impl Serialize for SerialisationError {
     }
 }
 
-pub fn mount() -> Router2<Ctx> {
-    Router2::new()
+pub fn mount() -> Router<Ctx> {
+    Router::new()
         .procedure("withoutBaseProcedure", {
-            Procedure2::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
+            Procedure::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
         })
         .procedure("newstuff", {
             <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })

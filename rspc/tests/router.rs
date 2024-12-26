@@ -1,20 +1,20 @@
 use std::fmt;
 
-use rspc::{Procedure2, Router2};
+use rspc::{Procedure, Router};
 use rspc_procedure::ResolverError;
 use serde::Serialize;
 use specta::Type;
 
 #[test]
 fn errors() {
-    let router = <Router2>::new()
+    let router = <Router>::new()
         .procedure(
             "abc",
-            Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
+            Procedure::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
         )
         .procedure(
             "abc",
-            Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
+            Procedure::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
         );
 
     assert_eq!(
@@ -22,31 +22,31 @@ fn errors() {
         "[Duplicate procedure at path [\"abc\"]. Original: rspc/tests/router.rs:13:13 Duplicate: rspc/tests/router.rs:15:10\n]"
     );
 
-    let router = <Router2>::new()
+    let router = <Router>::new()
         .procedure(
             "abc",
-            Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
+            Procedure::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
         )
-        .merge(<Router2>::new().procedure(
+        .merge(<Router>::new().procedure(
             "abc",
-            Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
+            Procedure::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
         ));
 
     assert_eq!(format!("{:?}", router.build().unwrap_err()), "[Duplicate procedure at path [\"abc\"]. Original: rspc/tests/router.rs:32:13 Duplicate: rspc/tests/router.rs:28:13\n]");
 
-    let router = <Router2>::new()
+    let router = <Router>::new()
         .nest(
             "abc",
-            <Router2>::new().procedure(
+            <Router>::new().procedure(
                 "kjl",
-                Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
+                Procedure::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
             ),
         )
         .nest(
             "abc",
-            <Router2>::new().procedure(
+            <Router>::new().procedure(
                 "def",
-                Procedure2::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
+                Procedure::builder().query(|_, _: ()| async { Ok::<_, Infallible>(()) }),
             ),
         );
 
@@ -73,7 +73,7 @@ impl Serialize for Infallible {
 
 impl std::error::Error for Infallible {}
 
-impl rspc::Error2 for Infallible {
+impl rspc::Error for Infallible {
     fn into_resolver_error(self) -> ResolverError {
         unreachable!()
     }

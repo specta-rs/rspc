@@ -16,7 +16,7 @@ tower-http = { version = "0.6.2", default-features = false, features = [
 rspc-devtools = { version = "0.0.0", path = "../../crates/devtools" }
 rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
 
-futures = "0.3" # TODO
+futures = "0.3"                                                     # TODO
 serde_json = "1.0.134"
 rspc-http = { version = "0.2.1", path = "../../integrations/http" }
 streamunordered = "0.5.4"

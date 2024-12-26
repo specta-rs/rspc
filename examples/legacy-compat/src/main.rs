@@ -46,7 +46,7 @@ fn mount() -> RouterBuilder<Ctx> {
 
 #[tokio::main]
 async fn main() {
-    let (procedures, types) = rspc::Router2::from(mount().build()).build().unwrap();
+    let (procedures, types) = rspc::Router::from(mount().build()).build().unwrap();
 
     rspc::Typescript::default()
         .export_to(

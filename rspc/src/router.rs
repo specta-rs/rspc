@@ -11,11 +11,11 @@ use specta::TypeCollection;
 use rspc_procedure::Procedures;
 
 use crate::{
-    modern::procedure::ErasedProcedure, types::TypesOrType, Procedure2, ProcedureKind, State, Types,
+    modern::procedure::ErasedProcedure, types::TypesOrType, Procedure, ProcedureKind, State, Types,
 };
 
 /// TODO: Examples exporting types and with `rspc_axum`
-pub struct Router2<TCtx = ()> {
+pub struct Router<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
     // TODO: Seal these once `rspc-legacy` is gone.
     pub(crate) types: TypeCollection,
@@ -23,7 +23,7 @@ pub struct Router2<TCtx = ()> {
     errors: Vec<DuplicateProcedureKeyError>,
 }
 
-impl<TCtx> Default for Router2<TCtx> {
+impl<TCtx> Default for Router<TCtx> {
     fn default() -> Self {
         Self {
             setup: Default::default(),
@@ -34,7 +34,7 @@ impl<TCtx> Default for Router2<TCtx> {
     }
 }
 
-impl<TCtx> Router2<TCtx> {
+impl<TCtx> Router<TCtx> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -177,7 +177,7 @@ impl<TCtx> Router2<TCtx> {
     }
 }
 
-impl<TCtx> fmt::Debug for Router2<TCtx> {
+impl<TCtx> fmt::Debug for Router<TCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let procedure_keys = |kind: ProcedureKind| {
             self.procedures
@@ -198,7 +198,7 @@ impl<TCtx> fmt::Debug for Router2<TCtx> {
     }
 }
 
-impl<'a, TCtx> IntoIterator for &'a Router2<TCtx> {
+impl<'a, TCtx> IntoIterator for &'a Router<TCtx> {
     type Item = (&'a Vec<Cow<'static, str>>, &'a ErasedProcedure<TCtx>);
     type IntoIter =
         std::collections::btree_map::Iter<'a, Vec<Cow<'static, str>>, ErasedProcedure<TCtx>>;

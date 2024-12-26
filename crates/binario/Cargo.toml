@@ -3,10 +3,11 @@ name = "rspc-binario"
 description = "Binario support for rspc"
 version = "0.0.0"
 edition = "2021"
-publish = false # TODO: Crate metadata & publish
+publish = false                          # TODO: Crate metadata & publish
 
 [dependencies]
 rspc = { path = "../../rspc" }
+# rspc-procedure = { path = "../procedure" }
 specta = { workspace = true }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features

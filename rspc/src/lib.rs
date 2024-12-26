@@ -29,17 +29,20 @@ pub mod legacy;
 #[allow(unused)]
 pub use languages::*;
 pub use procedure_kind::ProcedureKind;
-pub use router::Router2;
+pub use router::Router;
 pub use types::Types;
 
 pub use as_date::AsDate;
 pub use modern::{
     middleware, procedure::ProcedureBuilder, procedure::ProcedureMeta, procedure::ResolverInput,
-    procedure::ResolverOutput, Error as Error2, Extension, Stream,
+    procedure::ResolverOutput, Error, Extension, Stream,
 };
-pub use procedure::Procedure2;
+pub use procedure::Procedure;
 
+// We only re-export types that are useful for a general user.
 pub use rspc_procedure::{
-    flush, DeserializeError, DowncastError, DynInput, DynOutput, Procedure, ProcedureError,
-    ProcedureStream, ProcedureStreamMap, Procedures, ResolverError, State,
+    flush, DynInput, ProcedureError, ProcedureStream, Procedures, ResolverError, State,
 };
+
+// TODO: Potentially remove these once Axum stuff is sorted.
+pub use rspc_procedure::{DynOutput, ProcedureStreamMap};
