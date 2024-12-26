@@ -12,8 +12,10 @@ use specta::{
 };
 
 use crate::{
-    modern::procedure::ErasedProcedure, procedure::ProcedureType, types::TypesOrType,
-    util::literal_object, ProcedureKind,
+    procedure::{ErasedProcedure, ProcedureType},
+    types::TypesOrType,
+    util::literal_object,
+    ProcedureKind,
 };
 
 impl<TCtx> From<rspc_legacy::Router<TCtx>> for crate::Router<TCtx> {

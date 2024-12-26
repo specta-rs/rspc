@@ -34,7 +34,7 @@ use rspc_procedure::{ProcedureError, ProcedureStream};
 use serde::Serialize;
 use specta::{datatype::DataType, Generics, Type, TypeCollection};
 
-use crate::modern::Error;
+use crate::Error;
 
 // TODO: Maybe in `rspc_procedure`??
 
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<TErr, S, T> ResolverOutput<TErr> for crate::modern::Stream<S>
+impl<TErr, S, T> ResolverOutput<TErr> for crate::Stream<S>
 where
     TErr: Error,
     S: Stream<Item = Result<T, TErr>> + Send + 'static,

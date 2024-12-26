@@ -11,7 +11,7 @@ use specta::TypeCollection;
 use rspc_procedure::Procedures;
 
 use crate::{
-    modern::procedure::ErasedProcedure, types::TypesOrType, Procedure, ProcedureKind, State, Types,
+    procedure::ErasedProcedure, types::TypesOrType, Procedure, ProcedureKind, State, Types,
 };
 
 /// TODO: Examples exporting types and with `rspc_axum`

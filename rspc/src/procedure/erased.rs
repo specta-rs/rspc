@@ -5,12 +5,8 @@ use rspc_procedure::Procedure;
 use specta::datatype::DataType;
 
 use crate::{
-    modern::{
-        procedure::{ProcedureBuilder, ProcedureMeta, ResolverInput, ResolverOutput},
-        Error,
-    },
-    procedure::ProcedureType,
-    State,
+    procedure::{ProcedureBuilder, ProcedureMeta, ProcedureType, ResolverInput, ResolverOutput},
+    Error, State,
 };
 
 pub struct ErasedProcedure<TCtx> {

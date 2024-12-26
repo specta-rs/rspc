@@ -24,7 +24,7 @@ use std::{pin::Pin, sync::Arc};
 use futures_util::{Future, FutureExt, Stream};
 use rspc_procedure::State;
 
-use crate::modern::procedure::ProcedureMeta;
+use crate::ProcedureMeta;
 
 use super::Next;
 

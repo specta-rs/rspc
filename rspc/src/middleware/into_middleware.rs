@@ -1,9 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::{
-    modern::{Error, Extension},
-    ProcedureBuilder,
-};
+use crate::{Error, Extension, ProcedureBuilder};
 
 use super::Middleware;
 

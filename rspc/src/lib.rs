@@ -13,12 +13,16 @@
     html_favicon_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png"
 )]
 
+pub mod middleware;
+
 mod as_date;
+mod error;
+mod extension;
 mod languages;
-pub(crate) mod modern;
 mod procedure;
 mod procedure_kind;
 mod router;
+mod stream;
 mod types;
 pub(crate) mod util;
 
@@ -26,18 +30,18 @@ pub(crate) mod util;
 #[cfg_attr(docsrs, doc(cfg(feature = "legacy")))]
 pub mod legacy;
 
+pub use as_date::AsDate;
+pub use error::Error;
+pub use extension::Extension;
 #[allow(unused)]
 pub use languages::*;
+pub use procedure::{
+    ErasedProcedure, Procedure, ProcedureBuilder, ProcedureMeta, ResolverInput, ResolverOutput,
+};
 pub use procedure_kind::ProcedureKind;
 pub use router::Router;
+pub use stream::Stream;
 pub use types::Types;
-
-pub use as_date::AsDate;
-pub use modern::{
-    middleware, procedure::ProcedureBuilder, procedure::ProcedureMeta, procedure::ResolverInput,
-    procedure::ResolverOutput, Error, Extension, Stream,
-};
-pub use procedure::Procedure;
 
 // We only re-export types that are useful for a general user.
 pub use rspc_procedure::{

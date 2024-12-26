@@ -1,14 +1,12 @@
 use std::{fmt, future::Future, marker::PhantomData, sync::Arc};
 
 use crate::{
-    middleware::IntoMiddleware,
-    modern::{middleware::MiddlewareHandler, Error},
-    Procedure,
+    middleware::{IntoMiddleware, MiddlewareHandler},
+    Error, Procedure,
 };
 
 use super::{ErasedProcedure, ProcedureKind, ProcedureMeta};
 
-use futures_util::{FutureExt, StreamExt};
 use rspc_procedure::State;
 
 // TODO: Document the generics like `Middleware`. What order should they be in?
