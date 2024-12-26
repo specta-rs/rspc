@@ -1,77 +1,67 @@
-use std::{borrow::Cow, collections::BTreeMap, marker::PhantomData, panic::Location};
+//! TODO: Explain how to do it.
 
-use futures::{stream, FutureExt, StreamExt, TryStreamExt};
+use std::{borrow::Cow, collections::BTreeMap, panic::Location};
+
+use futures_util::{stream, FutureExt, StreamExt, TryStreamExt};
+use rspc_legacy::internal::{Layer, RequestContext, ValueOrStream};
 use rspc_procedure::{ProcedureStream, ResolverError};
 use serde_json::Value;
 use specta::{
     datatype::{DataType, EnumRepr, EnumVariant, LiteralType},
-    NamedType, SpectaID, Type,
+    NamedType, Type,
 };
 
 use crate::{
-    internal::{Layer, ProcedureKind, RequestContext, ValueOrStream},
-    modern::procedure::ErasedProcedure,
-    procedure::ProcedureType,
-    types::TypesOrType,
-    util::literal_object,
-    Procedure2, Router, Router2,
+    modern::procedure::ErasedProcedure, procedure::ProcedureType, types::TypesOrType,
+    util::literal_object, ProcedureKind,
 };
 
-pub fn legacy_to_modern<TCtx>(mut router: Router<TCtx>) -> Router2<TCtx> {
-    let mut r = Router2::new();
+impl<TCtx> From<rspc_legacy::Router<TCtx>> for crate::Router2<TCtx> {
+    fn from(router: rspc_legacy::Router<TCtx>) -> Self {
+        let mut r = crate::Router2::new();
 
-    let bridged_procedures = router
-        .queries
-        .store
-        .into_iter()
-        .map(|v| (ProcedureKind::Query, v))
-        .chain(
-            router
-                .mutations
-                .store
-                .into_iter()
-                .map(|v| (ProcedureKind::Mutation, v)),
-        )
-        .chain(
-            router
-                .subscriptions
-                .store
-                .into_iter()
-                .map(|v| (ProcedureKind::Subscription, v)),
-        )
-        .map(|(kind, (key, p))| {
-            (
-                key.split(".")
-                    .map(|s| s.to_string().into())
-                    .collect::<Vec<Cow<'static, str>>>(),
-                ErasedProcedure {
-                    setup: Default::default(),
-                    ty: ProcedureType {
-                        kind,
-                        input: p.ty.arg_ty,
-                        output: p.ty.result_ty,
-                        error: specta::datatype::DataType::Unknown,
-                        // TODO: This location is obviously wrong but the legacy router has no location information.
-                        // This will work properly with the new procedure syntax.
-                        location: Location::caller().clone(),
-                    },
-                    // location: Location::caller().clone(), // TODO: This needs to actually be correct
-                    inner: Box::new(move |_| layer_to_procedure(key, kind, p.exec)),
-                },
+        let (queries, mutations, subscriptions, mut type_map) = router.into_parts();
+
+        let bridged_procedures = queries
+            .into_iter()
+            .map(|v| (ProcedureKind::Query, v))
+            .chain(mutations.into_iter().map(|v| (ProcedureKind::Mutation, v)))
+            .chain(
+                subscriptions
+                    .into_iter()
+                    .map(|v| (ProcedureKind::Subscription, v)),
             )
-        });
+            .map(|(kind, (key, p))| {
+                (
+                    key.split(".")
+                        .map(|s| s.to_string().into())
+                        .collect::<Vec<Cow<'static, str>>>(),
+                    ErasedProcedure {
+                        setup: Default::default(),
+                        ty: ProcedureType {
+                            kind,
+                            input: p.ty.arg_ty,
+                            output: p.ty.result_ty,
+                            error: specta::datatype::DataType::Unknown,
+                            // TODO: This location is obviously wrong but the legacy router has no location information.
+                            // This will work properly with the new procedure syntax.
+                            location: Location::caller().clone(),
+                        },
+                        // location: Location::caller().clone(), // TODO: This needs to actually be correct
+                        inner: Box::new(move |_| layer_to_procedure(key.to_string(), kind, p.exec)),
+                    },
+                )
+            });
 
-    for (key, procedure) in bridged_procedures {
-        if r.interop_procedures()
-            .insert(key.clone(), procedure)
-            .is_some()
-        {
-            panic!("Attempted to mount '{key:?}' multiple times.\nrspc no longer supports different operations (query/mutation/subscription) with overlapping names.")
+        for (key, procedure) in bridged_procedures {
+            if r.procedures.insert(key.clone(), procedure).is_some() {
+                panic!("Attempted to mount '{key:?}' multiple times.\nrspc no longer supports different operations (query/mutation/subscription) with overlapping names.")
+            }
         }
-    }
 
-    r.interop_types().extend(&mut router.type_map);
-    r
+        r.types.extend(&mut type_map);
+        r
+    }
 }
 
 pub(crate) fn layer_to_procedure<TCtx: 'static>(
@@ -86,15 +76,23 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                     ctx,
                     input,
                     RequestContext {
-                        kind: kind.clone(),
+                        kind: match kind {
+                            ProcedureKind::Query => rspc_legacy::internal::ProcedureKind::Query,
+                            ProcedureKind::Mutation => {
+                                rspc_legacy::internal::ProcedureKind::Mutation
+                            }
+                            ProcedureKind::Subscription => {
+                                rspc_legacy::internal::ProcedureKind::Subscription
+                            }
+                        },
                         path: path.clone(),
                     },
                 )
                 .map_err(|err| {
-                    let err: crate::legacy::Error = err.into();
+                    let err: rspc_legacy::Error = err.into();
                     ResolverError::new(
                         (), /* typesafe errors aren't supported in legacy router */
-                        Some(rspc_procedure::LegacyErrorInterop(err.message)),
+                        Some(rspc_procedure::LegacyErrorInterop(err.message().into())),
                     )
                     .into()
                 })
@@ -109,17 +107,17 @@ pub(crate) fn layer_to_procedure<TCtx: 'static>(
                         }
                         Ok(ValueOrStream::Stream(s)) => s
                             .map_err(|err| {
-                                let err = crate::legacy::Error::from(err);
+                                let err = rspc_legacy::Error::from(err);
                                 ResolverError::new(
                                     (), /* typesafe errors aren't supported in legacy router */
-                                    Some(rspc_procedure::LegacyErrorInterop(err.message)),
+                                    Some(rspc_procedure::LegacyErrorInterop(err.message().into())),
                                 )
                                 .into()
                             })
                             .boxed(),
                         Err(err) => {
-                            let err: crate::legacy::Error = err.into();
-                            let err = ResolverError::new(err.message, err.cause);
+                            let err: rspc_legacy::Error = err.into();
+                            let err = ResolverError::new(err.message().to_string(), err.cause());
                             stream::once(async { Err(err.into()) }).boxed()
                         }
                     }

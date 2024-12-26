@@ -8,7 +8,7 @@ use crate::{
 
 use super::{ErasedProcedure, ProcedureKind, ProcedureMeta};
 
-use futures::{FutureExt, StreamExt};
+use futures_util::{FutureExt, StreamExt};
 use rspc_procedure::State;
 
 // TODO: Document the generics like `Middleware`. What order should they be in?

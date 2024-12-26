@@ -12,3 +12,7 @@ pub(crate) use procedure_store::*;
 // Used by `rspc_axum`
 pub use middleware::ProcedureKind;
 pub mod jsonrpc;
+
+// Were not exported by rspc 0.3.0 but required by `rspc::legacy` interop layer
+#[doc(hidden)]
+pub use middleware::{Layer, RequestContext, ValueOrStream};

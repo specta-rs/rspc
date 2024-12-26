@@ -1,6 +1,6 @@
 use std::{borrow::Cow, marker::PhantomData, panic::Location, sync::Arc};
 
-use futures::{FutureExt, TryStreamExt};
+use futures_util::{FutureExt, TryStreamExt};
 use rspc_procedure::Procedure;
 use specta::datatype::DataType;
 
@@ -36,7 +36,6 @@ pub struct Procedure2<TCtx, TInput, TResult> {
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
 
 impl<TCtx, TInput, TResult> Procedure2<TCtx, TInput, TResult> {
-    #[cfg(feature = "unstable")]
     /// Construct a new procedure using [`ProcedureBuilder`].
     #[track_caller]
     pub fn builder<TError>(

@@ -1,10 +1,10 @@
-use example_core::{create_router, Ctx};
+use example_core::{mount, Ctx};
 
 mod api;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let router = create_router();
+    let router = mount();
     let (procedures, types) = router.build().unwrap();
 
     // TODO: Exporting types

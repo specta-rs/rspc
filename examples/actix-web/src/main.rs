@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use actix_cors::Cors;
 use actix_multipart::Multipart;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use example_core::{create_router, Ctx};
+use example_core::{mount, Ctx};
 use futures::{StreamExt, TryStreamExt};
 
 #[get("/")]
@@ -27,7 +27,7 @@ async fn upload(mut payload: Multipart) -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let router = create_router();
+    let router = mount();
     let (procedures, types) = router.build().unwrap();
 
     rspc::Typescript::default()

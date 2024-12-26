@@ -5,7 +5,7 @@ edition = "2021"
 publish = false # TODO: Crate metadata & publish
 
 [dependencies]
-rspc = { path = "../../rspc", features = ["unstable"] }
+rspc = { path = "../../rspc" }
 tracing = { workspace = true }
 futures = { workspace = true }
 tracing-futures = "0.2.5"

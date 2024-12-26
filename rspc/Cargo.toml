@@ -19,32 +19,28 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 
-typescript = [] # TODO: "dep:specta-typescript"
+typescript = ["dep:specta-typescript", "dep:serde_json"]
 rust = ["dep:specta-rust"]
 
-# TODO: Remove these in future
-unstable = []
-nolegacy = []
+# TODO: Remove
+legacy = ["dep:rspc-legacy"]
 
 [dependencies]
 # Public
 rspc-procedure = { path = "../crates/procedure" }
-# rspc-legacy = { path = "../crates/legacy" }
-serde = "1"
-futures = "0.3" # TODO: Drop down to `futures-core` when removing legacy stuff?
-specta = { version = "=2.0.0-rc.20", features = [
+rspc-legacy = { path = "../crates/legacy", optional = true }
+serde = { workspace = true }
+futures-util = { workspace = true, features = ["alloc"] }
+specta = { workspace = true, features = [
     "serde",
     "serde_json",
-    "derive", # TODO: remove this
+    "derive",     # TODO: remove this
 ] }
 
 # Private
-specta-typescript = { version = "=0.0.7", features = [] } # TODO: Make optional once legacy stuff is removed -  optional = true,
+specta-typescript = { version = "=0.0.7", optional = true, features = [] }
+serde_json = { workspace = true, optional = true }
 specta-rust = { git = "https://github.com/specta-rs/specta", optional = true, rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
-
-# Temporary # TODO: Remove
-serde_json = "1.0.134"
-thiserror = "2.0.9"
 
 [lints]
 workspace = true

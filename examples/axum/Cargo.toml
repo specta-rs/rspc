@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
+rspc = { path = "../../rspc", features = ["typescript", "rust"] }
 rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
 example-core = { path = "../core" }
 tokio = { version = "1.42.0", features = ["full"] }

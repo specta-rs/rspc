@@ -17,8 +17,9 @@ use crate::{
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router2<TCtx = ()> {
     setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
-    types: TypeCollection,
-    procedures: BTreeMap<Vec<Cow<'static, str>>, ErasedProcedure<TCtx>>,
+    // TODO: Seal these once `rspc-legacy` is gone.
+    pub(crate) types: TypeCollection,
+    pub(crate) procedures: BTreeMap<Vec<Cow<'static, str>>, ErasedProcedure<TCtx>>,
     errors: Vec<DuplicateProcedureKeyError>,
 }
 
@@ -38,7 +39,6 @@ impl<TCtx> Router2<TCtx> {
         Self::default()
     }
 
-    #[cfg(feature = "unstable")]
     #[track_caller]
     pub fn procedure(
         mut self,
@@ -63,7 +63,6 @@ impl<TCtx> Router2<TCtx> {
     }
 
     // TODO: Document the order this is run in for `build`
-    #[cfg(feature = "unstable")]
     pub fn setup(mut self, func: impl FnOnce(&mut State) + 'static) -> Self {
         self.setup.push(Box::new(func));
         self
@@ -124,7 +123,6 @@ impl<TCtx> Router2<TCtx> {
         self.build_with_state_inner(State::default())
     }
 
-    // #[cfg(feature = "unstable")]
     // pub fn build_with_state(
     //     self,
     //     state: State,
@@ -207,26 +205,6 @@ impl<'a, TCtx> IntoIterator for &'a Router2<TCtx> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.procedures.iter()
-    }
-}
-
-#[cfg(not(feature = "nolegacy"))]
-impl<TCtx> From<crate::legacy::Router<TCtx>> for Router2<TCtx> {
-    fn from(router: crate::legacy::Router<TCtx>) -> Self {
-        crate::interop::legacy_to_modern(router)
-    }
-}
-
-#[cfg(not(feature = "nolegacy"))]
-impl<TCtx> Router2<TCtx> {
-    pub(crate) fn interop_procedures(
-        &mut self,
-    ) -> &mut BTreeMap<Vec<Cow<'static, str>>, ErasedProcedure<TCtx>> {
-        &mut self.procedures
-    }
-
-    pub(crate) fn interop_types(&mut self) -> &mut TypeCollection {
-        &mut self.types
     }
 }
 

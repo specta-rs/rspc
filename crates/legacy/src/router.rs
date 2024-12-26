@@ -20,7 +20,7 @@ use crate::{
 
 #[cfg_attr(
     feature = "deprecated",
-    deprecated = "This is replaced by `rspc::Router`. Refer to the `rspc::compat` module for bridging a legacy router into a modern one."
+    deprecated = "This is replaced by `rspc::Router`. Refer to the `rspc::legacy` module for bridging a legacy router into a modern one."
 )]
 /// TODO
 pub struct Router<TCtx = (), TMeta = ()>
@@ -129,6 +129,27 @@ where
 
     pub fn subscriptions(&self) -> &BTreeMap<String, Procedure<TCtx>> {
         &self.subscriptions.store
+    }
+
+    #[doc(hidden)] // Used for `rspc::legacy` interop
+    pub fn into_parts(
+        self,
+    ) -> (
+        BTreeMap<String, Procedure<TCtx>>,
+        BTreeMap<String, Procedure<TCtx>>,
+        BTreeMap<String, Procedure<TCtx>>,
+        TypeCollection,
+    ) {
+        if self.config.export_bindings_on_build.is_some() || self.config.bindings_header.is_some() {
+            panic!("Note: `rspc_legacy::Config` is ignored by `rspc::Router`. You should set the configuration on `rspc::Typescript` instead.");
+        }
+
+        (
+            self.queries.store,
+            self.mutations.store,
+            self.subscriptions.store,
+            self.type_map,
+        )
     }
 
     #[allow(clippy::unwrap_used)] // TODO

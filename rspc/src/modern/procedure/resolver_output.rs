@@ -29,7 +29,7 @@
 // //     note = "ResolverOutput requires a `T where T: serde::Serialize + specta::Type + 'static` to be returned from your procedure"
 // // )]
 
-use futures::{Stream, TryStreamExt};
+use futures_util::{Stream, TryStreamExt};
 use rspc_procedure::{ProcedureError, ProcedureStream};
 use serde::Serialize;
 use specta::{datatype::DataType, Generics, Type, TypeCollection};
@@ -67,7 +67,7 @@ where
     }
 
     fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
-        futures::stream::once(async move { Ok(self) })
+        futures_util::stream::once(async move { Ok(self) })
     }
 
     fn into_procedure_stream(

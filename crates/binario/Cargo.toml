@@ -6,7 +6,7 @@ edition = "2021"
 publish = false # TODO: Crate metadata & publish
 
 [dependencies]
-rspc = { path = "../../rspc", features = ["unstable"] }
+rspc = { path = "../../rspc" }
 specta = { workspace = true }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features

@@ -5,7 +5,7 @@ edition = "2021"
 publish = false # TODO: Crate metadata & publish
 
 [dependencies]
-rspc = { path = "../../rspc", features = ["unstable"] }
+rspc = { path = "../../rspc" }
 serde = { workspace = true }
 specta = { workspace = true }
 validator = "0.19"

@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 moka = { version = "0.12.8", features = ["sync"] }
 pin-project-lite = { workspace = true }
-rspc = { path = "../../rspc", features = ["unstable"] }
+rspc = { path = "../../rspc" }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]

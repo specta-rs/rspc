@@ -22,49 +22,24 @@ mod router;
 mod types;
 pub(crate) mod util;
 
+#[cfg(feature = "legacy")]
+#[cfg_attr(docsrs, doc(cfg(feature = "legacy")))]
+pub mod legacy;
+
 #[allow(unused)]
 pub use languages::*;
 pub use procedure_kind::ProcedureKind;
 pub use router::Router2;
 pub use types::Types;
 
-// TODO: These will come in the future.
-#[cfg(not(feature = "unstable"))]
-pub(crate) use modern::State;
-#[cfg(not(feature = "unstable"))]
-pub(crate) use procedure::Procedure2;
-
-#[cfg(feature = "unstable")]
 pub use as_date::AsDate;
-#[cfg(feature = "unstable")]
 pub use modern::{
     middleware, procedure::ProcedureBuilder, procedure::ProcedureMeta, procedure::ResolverInput,
     procedure::ResolverOutput, Error as Error2, Extension, Stream,
 };
-#[cfg(feature = "unstable")]
 pub use procedure::Procedure2;
 
 pub use rspc_procedure::{
     flush, DeserializeError, DowncastError, DynInput, DynOutput, Procedure, ProcedureError,
     ProcedureStream, ProcedureStreamMap, Procedures, ResolverError, State,
 };
-
-// Legacy stuff
-#[cfg(not(feature = "nolegacy"))]
-mod legacy;
-
-#[cfg(not(feature = "nolegacy"))]
-pub(crate) use legacy::interop;
-
-// These remain to respect semver but will all go with the next major.
-#[allow(deprecated)]
-#[cfg(not(feature = "nolegacy"))]
-pub use legacy::{
-    internal, test_result_type, test_result_value, typedef, Config, DoubleArgMarker,
-    DoubleArgStreamMarker, Error, ErrorCode, ExecError, ExecKind, ExportError, FutureMarker,
-    Middleware, MiddlewareBuilder, MiddlewareContext, MiddlewareLike,
-    MiddlewareWithResponseHandler, RequestLayer, Resolver, ResultMarker, Router, RouterBuilder,
-    SerializeMarker, StreamResolver,
-};
-#[cfg(not(feature = "nolegacy"))]
-pub use rspc_procedure::LegacyErrorInterop;

@@ -68,11 +68,11 @@ where
     TLayerCtx: Send + Sync + 'static,
     TMiddleware: MiddlewareBuilderLike<TCtx, LayerContext = TLayerCtx> + Send + 'static,
 {
-    // /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
-    // pub fn config(mut self, config: Config) -> Self {
-    //     self.config = config;
-    //     self
-    // }
+    /// Attach a configuration to the router. Calling this multiple times will overwrite the previous config.
+    pub fn config(mut self, config: Config) -> Self {
+        self.config = config;
+        self
+    }
 
     pub fn middleware<TNewMiddleware, TNewLayerCtx>(
         self,

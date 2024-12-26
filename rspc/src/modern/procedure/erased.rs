@@ -1,6 +1,6 @@
 use std::{borrow::Cow, panic::Location, sync::Arc};
 
-use futures::{FutureExt, TryStreamExt};
+use futures_util::{FutureExt, TryStreamExt};
 use rspc_procedure::Procedure;
 use specta::datatype::DataType;
 

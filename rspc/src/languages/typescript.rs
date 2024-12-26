@@ -103,10 +103,9 @@ impl Typescript {
     pub fn export(&self, types: &Types) -> Result<String, ExportError> {
         let mut typess = types.types.clone();
 
-        #[cfg(not(feature = "nolegacy"))]
+        #[cfg(feature = "legacy")]
         {
-            let legacy_types =
-                crate::legacy::interop::construct_legacy_bindings_type(&types.procedures);
+            let legacy_types = crate::legacy::construct_legacy_bindings_type(&types.procedures);
 
             #[derive(Type)]
             struct ProceduresLegacy;

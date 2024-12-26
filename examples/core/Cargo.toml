@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
+rspc = { path = "../../rspc", features = ["typescript", "rust"] }
 async-stream = "0.3.6"
 serde = { version = "1.0.216", features = ["derive"] }
 specta = { version = "=2.0.0-rc.20", features = [
@@ -24,3 +24,4 @@ rspc-openapi = { version = "0.0.0", path = "../../crates/openapi" }
 validator = { version = "0.19.0", features = ["derive"] }
 rspc-zer = { version = "0.0.0", path = "../../crates/zer" }
 anyhow = "1.0.95"
+binario = "0.0.1"

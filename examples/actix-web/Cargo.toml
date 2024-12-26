@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../rspc", features = ["typescript", "rust", "unstable"] }
+rspc = { path = "../../rspc", features = ["typescript", "rust"] }
 example-core = { path = "../core" }
 rspc-actix-web = { path = "../../integrations/actix-web", features = [] }
 actix-web = "4"

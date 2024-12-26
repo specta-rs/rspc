@@ -142,6 +142,16 @@ impl Error {
             cause: Some(Arc::new(cause)),
         }
     }
+
+    #[doc(hidden)]
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    #[doc(hidden)]
+    pub fn cause(self) -> Option<Arc<dyn error::Error + Send + Sync>> {
+        self.cause
+    }
 }
 
 /// TODO

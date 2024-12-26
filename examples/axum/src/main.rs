@@ -5,7 +5,7 @@ use axum::{
     routing::{get, on, post, MethodFilter, MethodRouter},
     Json,
 };
-use example_core::{create_router, Ctx};
+use example_core::{mount, Ctx};
 use futures::{stream::FuturesUnordered, Stream, StreamExt};
 use rspc::{DynOutput, ProcedureError, ProcedureStream, ProcedureStreamMap, Procedures, State};
 use rspc_invalidation::Invalidator;
@@ -22,7 +22,7 @@ use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
 async fn main() {
-    let router = create_router();
+    let router = mount();
     let (procedures, types) = router.build().unwrap();
 
     rspc::Typescript::default()

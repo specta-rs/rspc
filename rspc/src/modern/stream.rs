@@ -3,7 +3,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::StreamExt;
+use futures_util::StreamExt;
 
 /// Return a [`Stream`](futures::Stream) of values from a [`Procedure::query`](procedure::ProcedureBuilder::query) or [`Procedure::mutation`](procedure::ProcedureBuilder::mutation).
 ///
@@ -25,24 +25,24 @@ use futures::StreamExt;
 /// <Procedure>::builder().query(|_, _: ()| async move { rspc::Stream(once(async move { 42 })) });
 /// ```
 ///
-pub struct Stream<S: futures::Stream>(pub S);
+pub struct Stream<S: futures_util::Stream>(pub S);
 
 // WARNING: We can not add an implementation for `Debug` without breaking `rspc_tracing`
 
-impl<S: futures::Stream + Default> Default for Stream<S> {
+impl<S: futures_util::Stream + Default> Default for Stream<S> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<S: futures::Stream + Clone> Clone for Stream<S> {
+impl<S: futures_util::Stream + Clone> Clone for Stream<S> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
 // TODO: I hate this requiring `Unpin` but we couldn't use `pin-project-lite` with the tuple variant.
-impl<S: futures::Stream + Unpin> futures::Stream for Stream<S> {
+impl<S: futures_util::Stream + Unpin> futures_util::Stream for Stream<S> {
     type Item = S::Item;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

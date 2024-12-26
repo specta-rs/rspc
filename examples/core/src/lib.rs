@@ -5,6 +5,7 @@ use rspc::{
     middleware::Middleware, Error2, Procedure2, ProcedureBuilder, ResolverInput, ResolverOutput,
     Router2,
 };
+use rspc_binario::Binario;
 use rspc_cache::{cache, cache_ttl, CacheState, Memory};
 use rspc_invalidation::Invalidate;
 use rspc_zer::Zer;
@@ -41,79 +42,6 @@ pub struct ValidatedType {
 pub enum DeserializationError {
     // Is not a map-type so invalid.
     A(String),
-}
-
-// http://[::]:4000/rspc/version
-// http://[::]:4000/legacy/version
-
-// http://[::]:4000/rspc/nested.hello
-// http://[::]:4000/legacy/nested.hello
-
-// http://[::]:4000/rspc/error
-// http://[::]:4000/legacy/error
-
-// http://[::]:4000/rspc/echo
-// http://[::]:4000/legacy/echo
-
-// http://[::]:4000/rspc/echo?input=42
-// http://[::]:4000/legacy/echo?input=42
-
-fn mount() -> rspc::Router<Ctx> {
-    let inner = rspc::Router::<Ctx>::new().query("hello", |t| t(|_, _: ()| "Hello World!"));
-
-    let router = rspc::Router::<Ctx>::new()
-        .merge("nested.", inner)
-        .query("version", |t| {
-            t(|_, _: ()| {
-                info!("Hello World from Version Query!");
-
-                env!("CARGO_PKG_VERSION")
-            })
-        })
-        .query("panic", |t| t(|_, _: ()| todo!()))
-        // .mutation("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
-        .query("echo", |t| t(|_, v: String| v))
-        .query("error", |t| {
-            t(|_, _: ()| {
-                Err(rspc::Error::new(
-                    rspc::ErrorCode::InternalServerError,
-                    "Something went wrong".into(),
-                )) as Result<String, rspc::Error>
-            })
-        })
-        .query("transformMe", |t| t(|_, _: ()| "Hello, world!".to_string()))
-        .mutation("sendMsg", |t| {
-            t(|_, v: String| {
-                println!("Client said '{}'", v);
-                v
-            })
-        })
-        // .mutation("anotherOne", |t| t(|_, v: String| Ok(MyCustomType(v))))
-        .subscription("pings", |t| {
-            t(|_ctx, _args: ()| {
-                stream! {
-                    println!("Client subscribed to 'pings'");
-                    for i in 0..5 {
-                        println!("Sending ping {}", i);
-                        yield "ping".to_string();
-                        // sleep(Duration::from_secs(1)).await; // TODO: Figure this out. Async runtime is now not determined so maybe inject.
-                    }
-                }
-            })
-        })
-        // TODO: Results being returned from subscriptions
-        // .subscription("errorPings", |t| t(|_ctx, _args: ()| {
-        //     stream! {
-        //         for i in 0..5 {
-        //             yield Ok("ping".to_string());
-        //             sleep(Duration::from_secs(1)).await;
-        //         }
-        //         yield Err(rspc::Error::new(ErrorCode::InternalServerError, "Something went wrong".into()));
-        //     }
-        // }))
-        .build();
-
-    router
 }
 
 #[derive(Debug, Error, Serialize, Type)]
@@ -165,8 +93,8 @@ impl Serialize for SerialisationError {
     }
 }
 
-fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
-    router
+pub fn mount() -> Router2<Ctx> {
+    Router2::new()
         .procedure("withoutBaseProcedure", {
             Procedure2::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
         })
@@ -272,6 +200,11 @@ fn test_unstable_stuff(router: Router2<Ctx>) -> Router2<Ctx> {
         .procedure("me", {
             <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
         })
+    // .procedure("binario", {
+    //     #[derive(binario::Encode)]
+    //     pub struct Input {}
+    //     <BaseProcedure>::builder().query(|ctx, _: Binario<Input>| async move { Ok(()) })
+    // })
 
     // .procedure("fileupload", {
     //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })
@@ -294,10 +227,3 @@ pub type Invalidator = rspc_invalidation::Invalidator<InvalidateEvent>;
 
 // TODO: Debug, etc
 pub struct File<T = ()>(T);
-
-pub fn create_router() -> Router2<Ctx> {
-    let router = Router2::from(mount());
-    let router = test_unstable_stuff(router);
-
-    router
-}
