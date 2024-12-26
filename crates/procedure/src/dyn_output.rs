@@ -21,7 +21,8 @@ enum Repr<'a> {
 // TODO: `Debug`, etc traits
 
 impl<'a> DynOutput<'a> {
-    pub fn new_value<T: Send + 'static>(value: &'a mut Option<T>) -> Self {
+    // TODO: We depend on the type of `T` can we either force it so this can be public?
+    pub(crate) fn new_value<T: Send + 'static>(value: &'a mut T) -> Self {
         Self {
             inner: Repr::Value(value),
             type_name: type_name::<T>(),
@@ -48,10 +49,10 @@ impl<'a> DynOutput<'a> {
         match self.inner {
             Repr::Serialize(_) => None,
             Repr::Value(v) => v
-                .downcast_mut::<Option<Result<_, ProcedureError>>>()?
+                .downcast_mut::<Option<Result<T, ProcedureError>>>()?
                 .take()
                 .expect("unreachable")
-                .expect("unreachable"),
+                .ok(),
         }
     }
 }

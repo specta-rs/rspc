@@ -1,6 +1,8 @@
 use std::{marker::PhantomData, time::SystemTime};
 
 use async_stream::stream;
+use binario::encode;
+use futures::executor::block_on;
 use rspc::{
     middleware::Middleware, Procedure, ProcedureBuilder, ResolverInput, ResolverOutput, Router,
 };
@@ -199,11 +201,26 @@ pub fn mount() -> Router<Ctx> {
         .procedure("me", {
             <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
         })
-    // .procedure("binario", {
-    //     #[derive(binario::Encode)]
-    //     pub struct Input {}
-    //     <BaseProcedure>::builder().query(|ctx, _: Binario<Input>| async move { Ok(()) })
-    // })
+        .procedure("binario", {
+            #[derive(Debug, binario::Encode, binario::Decode, Type)]
+            pub struct Input {
+                name: String,
+            }
+
+            // let mut buf = vec![];
+            // block_on(encode(
+            //     &Input {
+            //         name: "Oscar".to_string(),
+            //     },
+            //     &mut buf,
+            // ))
+            // .unwrap();
+            // println!("{:?}", buf);
+
+            <BaseProcedure>::builder()
+                .with(rspc_binario::binario())
+                .query(|_, input: Input| async move { Ok(input) })
+        })
 
     // .procedure("fileupload", {
     //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })

@@ -16,6 +16,7 @@ use std::{
 
 use cookie::Cookie;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use rspc::{ProcedureError, ResolverError};
 use serde::{de::DeserializeOwned, ser::SerializeStruct, Serialize};
 use specta::Type;
 
@@ -68,7 +69,7 @@ impl<S: Serialize + DeserializeOwned> Zer<S> {
         cookie_name: impl Into<Cow<'static, str>>,
         secret: &[u8],
         cookie: Option<impl AsRef<[u8]>>,
-    ) -> (Self, ZerResponse) {
+    ) -> Result<(Self, ZerResponse), ProcedureError> {
         let mut cookies = vec![];
         if let Some(cookie) = cookie {
             // TODO: Error handling
@@ -79,7 +80,13 @@ impl<S: Serialize + DeserializeOwned> Zer<S> {
 
         let resp_cookies = ResponseCookie::default();
 
-        (
+        // TODO: Being the `ResolverError` makes this not typesafe. We probally need a separate variant.
+        // return Err(ProcedureError::Resolver(ResolverError::new(
+        //     "zer says bruh",
+        //     None::<std::io::Error>,
+        // )));
+
+        Ok((
             Self {
                 cookie_name: cookie_name.into(),
                 key: EncodingKey::from_secret(secret),
@@ -91,7 +98,12 @@ impl<S: Serialize + DeserializeOwned> Zer<S> {
             ZerResponse {
                 cookies: resp_cookies,
             },
-        )
+        ))
+    }
+
+    // TODO: Allow one which errors when accessing any of the methods?
+    pub fn noop() -> Self {
+        todo!();
     }
 
     pub fn session(&self) -> Result<S, UnauthorizedError> {

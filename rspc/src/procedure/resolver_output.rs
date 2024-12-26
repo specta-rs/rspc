@@ -40,8 +40,7 @@ use crate::Error;
 
 /// TODO: bring back any correct parts of the docs above
 pub trait ResolverOutput<TError>: Sized + Send + 'static {
-    // TODO: This won't allow us to return upcast/downcastable stuff
-    type T; // : Serialize + Send + Sync + 'static;
+    type T;
 
     // TODO: Be an associated type instead so we can constrain later for better errors????
     fn data_type(types: &mut TypeCollection) -> DataType;

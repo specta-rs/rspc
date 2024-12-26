@@ -5,9 +5,11 @@ use axum::{
     routing::{get, on, post, MethodFilter, MethodRouter},
     Json,
 };
+use axum_extra::body::AsyncReadBody;
 use example_core::{mount, Ctx};
-use futures::{stream::FuturesUnordered, Stream, StreamExt};
+use futures::{stream::FuturesUnordered, Stream, StreamExt, TryStreamExt};
 use rspc::{DynOutput, ProcedureError, ProcedureStream, ProcedureStreamMap, Procedures, State};
+use rspc_binario::BinarioOutput;
 use rspc_invalidation::Invalidator;
 use serde_json::{de::SliceRead, value::RawValue, Value};
 use std::{
@@ -18,6 +20,7 @@ use std::{
     task::{Context, Poll},
 };
 use streamunordered::{StreamUnordered, StreamYield};
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::{Any, CorsLayer};
 
 #[tokio::main]
@@ -112,8 +115,64 @@ async fn main() {
 
 pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
     let mut r = axum::Router::new();
+
+    r = r.route(
+        "/binario",
+        // This endpoint lacks batching, SFM's, etc but that's fine.
+        post({
+            let procedures = procedures.clone();
+
+            move |parts: Parts, body: Body| async move {
+                let invalidator = rspc_invalidation::Invalidator::default();
+                let (zer, _zer_response) = rspc_zer::Zer::from_request(
+                    "session",
+                    "some_secret".as_ref(),
+                    parts.headers.get("cookie"),
+                )
+                .unwrap(); // TODO: Error handling
+                let ctx = Ctx {
+                    invalidator: invalidator.clone(),
+                    zer,
+                };
+
+                // if parts.headers.get("Content-Type") != Some(&"text/x-binario".parse().unwrap()) {
+                //     // TODO: Error handling
+                // }
+
+                let mut params = form_urlencoded::parse(parts.uri.query().unwrap_or("").as_bytes());
+                let procedure_name = params
+                    .find(|(key, _)| key == "procedure")
+                    .map(|(_, value)| value)
+                    .unwrap(); // TODO: Error handling
+
+                let procedure = procedures.get(&procedure_name).unwrap(); // TODO: Error handling
+
+                let stream = procedure.exec_with_value(
+                    ctx.clone(),
+                    rspc_binario::BinarioInput::from_stream(
+                        body.into_data_stream()
+                            .map_err(|err| todo!()) // TODO: Error handling
+                            .into_async_read()
+                            .compat(),
+                    ),
+                );
+                let mut headers = HeaderMap::new();
+                headers.insert(header::CONTENT_TYPE, "text/x-binario".parse().unwrap());
+
+                (
+                    headers,
+                    Body::from_stream(stream.map(|v| match v {
+                        Ok(v) => Ok(Ok::<_, Infallible>(
+                            v.as_value::<BinarioOutput>().unwrap().0,
+                        )),
+                        Err(err) => todo!("{err:?}"),
+                    })),
+                )
+            }
+        }),
+    );
+
     // TODO: Support file upload and download
-    // TODO: `rspc_zer` how worky?
 
     // for (key, procedure) in procedures.clone() {
     //     r = r.route(
@@ -202,7 +261,8 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
                 "session",
                 "some_secret".as_ref(),
                 parts.headers.get("cookie"),
-            );
+            )
+            .unwrap(); // TODO: Error handling
             let ctx = Ctx {
                 invalidator: invalidator.clone(),
                 zer,
@@ -229,27 +289,25 @@ pub fn rspc_handler(procedures: Procedures<Ctx>) -> axum::Router {
             while let Some(field) = multipart.next_field().await.unwrap() {
                 let name = field.name().unwrap().to_string(); // TODO: Error handling
 
-                // field.headers()
-
-                // TODO: Don't use `serde_json::Value`
-                let input: Value = match field.content_type() {
-                    // TODO:
-                    // Some("application/json") => {
-                    //     // TODO: Error handling
-                    //     serde_json::from_slice(field.bytes().await.unwrap().as_ref()).unwrap()
-                    // }
-                    // Some(_) => todo!(),
-                    // None => todo!(),
-                    _ => serde_json::from_slice(field.bytes().await.unwrap().as_ref()).unwrap(),
-                };
-
                 let procedure = procedures.get(&*name).unwrap();
-                // println!("{:?} {:?} {:?}", name, input, procedure);
 
+                // TODO: Error handling
                 spawn(
                     &mut runtime,
-                    procedure.exec_with_deserializer(ctx.clone(), input),
-                );
+                    match field.content_type() {
+                        // Some("text/x-binario") => procedure.exec_with_value(
+                        //     ctx.clone(),
+                        //     // TODO: Stream decoding is pretty rough with multipart so we omit it for now.
+                        //     rspc_binario::BinarioStream(field.bytes().await.unwrap().to_vec()),
+                        // ),
+                        _ => procedure.exec_with_deserializer(
+                            ctx.clone(),
+                            // TODO: Don't use `serde_json::Value`
+                            serde_json::from_slice::<Value>(field.bytes().await.unwrap().as_ref())
+                                .unwrap(),
+                        ),
+                    },
+                )
             }
 
             // TODO: Move onto `Prototype`???

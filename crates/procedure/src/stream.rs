@@ -469,7 +469,7 @@ impl ProcedureStream {
 
     /// TODO
     // TODO: Should error be `String` type?
-    pub fn map<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T>(
+    pub fn map<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String>, T>(
         self,
         map: F,
     ) -> ProcedureStreamMap<F, T> {
@@ -477,17 +477,12 @@ impl ProcedureStream {
     }
 }
 
-pub struct ProcedureStreamMap<
-    F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin,
-    T,
-> {
+pub struct ProcedureStreamMap<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String>, T> {
     stream: ProcedureStream,
     map: F,
 }
 
-impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T>
-    ProcedureStreamMap<F, T>
-{
+impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String>, T> ProcedureStreamMap<F, T> {
     /// Start streaming data.
     /// Refer to `Self::require_manual_stream` for more information.
     pub fn stream(&mut self) {
@@ -509,6 +504,7 @@ impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T
     }
 }
 
+// TODO: Drop `Unpin` requirement
 impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String> + Unpin, T> Stream
     for ProcedureStreamMap<F, T>
 {
