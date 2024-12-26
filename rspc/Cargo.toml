@@ -29,6 +29,7 @@ nolegacy = []
 [dependencies]
 # Public
 rspc-procedure = { path = "../crates/procedure" }
+# rspc-legacy = { path = "../crates/legacy" }
 serde = "1"
 futures = "0.3" # TODO: Drop down to `futures-core` when removing legacy stuff?
 specta = { version = "=2.0.0-rc.20", features = [

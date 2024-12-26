@@ -19,5 +19,5 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 reqwest = { version = "0.12.9", features = ["json"] }
 rspc-procedure = { version = "0.0.1", path = "../procedure" }
-serde = { version = "1.0.216", features = ["derive"] } # TODO: Drop derive feature?
-serde_json = "1.0.134"
+serde = { workspace = true, features = ["derive"] } # TODO: Drop derive feature?
+serde_json = { workspace = true }

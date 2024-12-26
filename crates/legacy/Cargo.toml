@@ -1,0 +1,33 @@
+[package]
+name = "rspc-legacy"
+description = "The rspc 0.3.1 syntax implemented on top of the 0.4.0 core"
+version = "0.0.0"
+edition = "2021"
+publish = false # TODO: Crate metadata & publish
+
+[features]
+default = []
+# Warnings for deprecations
+deprecated = []
+
+[dependencies]
+rspc-procedure = { path = "../procedure" }
+serde = { workspace = true }
+futures = { workspace = true }
+specta = { workspace = true, features = [
+    "serde",
+    "serde_json",
+    "derive", # TODO: remove this
+] }
+specta-typescript = { version = "=0.0.7", features = [] }
+serde_json = { workspace = true }
+thiserror = "2.0.9"
+tokio = { version = "1.42.0", features = ["macros", "sync", "rt"] }
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
