@@ -81,8 +81,6 @@ where
     TErr: Error,
     S: Stream<Item = Result<T, TErr>> + Send + 'static,
     T: ResolverOutput<TErr>,
-    // Should prevent nesting `Stream`s
-    T::T: Serialize + Send + Sync + 'static,
 {
     type T = T::T;
 
@@ -100,6 +98,6 @@ where
     fn into_procedure_stream(
         stream: impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static,
     ) -> ProcedureStream {
-        ProcedureStream::from_stream(stream)
+        T::into_procedure_stream(stream)
     }
 }

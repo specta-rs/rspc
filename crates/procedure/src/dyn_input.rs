@@ -21,6 +21,7 @@ enum Repr<'a, 'de> {
 }
 
 impl<'a, 'de> DynInput<'a, 'de> {
+    // TODO: Explain invariant on `Option` + enforce it
     pub fn new_value<T: Send + 'static>(value: &'a mut Option<T>) -> Self {
         Self {
             inner: Repr::Value(value),

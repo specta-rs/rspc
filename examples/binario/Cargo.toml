@@ -15,7 +15,6 @@ tower-http = { version = "0.6.2", default-features = false, features = [
 ] }
 futures = "0.3"
 form_urlencoded = "1.2.1"
-axum-extra = { version = "0.9.6", features = ["async-read-body"] }
 tokio-util = { version = "0.7.13", features = ["compat"] }
 binario = "0.0.2"
 pin-project = "1.1.7"

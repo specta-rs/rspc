@@ -6,7 +6,7 @@
 //!
 //! Checkout the official docs at <https://rspc.dev>. This documentation is generally written **for authors of middleware and adapter**.
 //!
-#![forbid(unsafe_code)]
+// #![forbid(unsafe_code)] // TODO
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://github.com/specta-rs/rspc/raw/main/.github/logo.png",

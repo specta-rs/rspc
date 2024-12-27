@@ -11,6 +11,7 @@ export type Procedures = {
 	newstuffser: { kind: "query", input: any, output: any, error: any },
 	sfmPost: { kind: "query", input: any, output: any, error: any },
 	sfmPostEdit: { kind: "query", input: any, output: any, error: any },
+	streamInStreamInStreamInStream: { kind: "query", input: any, output: any, error: any },
 	validator: { kind: "query", input: any, output: any, error: any },
 	withoutBaseProcedure: { kind: "query", input: any, output: any, error: any },
 }

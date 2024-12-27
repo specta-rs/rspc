@@ -1,4 +1,13 @@
 //! rspc-binario: Binario support for rspc
+//!
+//! TODO:
+//!  - Support for streaming the result. Right now we encode into a buffer.
+//!  - `BinarioDeserializeError` should end up as a `ProcedureError::Deserialize` not `ProcedureError::Resolver`
+//!  - Binario needs impl for `()` for procedures with no input.
+//!  - Client integration
+//!  - Cleanup HTTP endpoint on `example-binario`. Maybe don't use HTTP cause Axum's model doesn't mesh with Binario?
+//!  - Maybe actix-web example to show portability. Might be interesting with the fact that Binario depends on `tokio::AsyncRead`.
+//!
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
@@ -9,7 +18,7 @@
 use std::{error, fmt, marker::PhantomData, pin::Pin};
 
 use binario::{encode, Decode, Encode};
-use futures_util::{stream, Stream};
+use futures_util::{stream, Stream, StreamExt};
 use rspc::{
     middleware::Middleware, DynInput, ProcedureError, ProcedureStream, ResolverInput,
     ResolverOutput,
@@ -46,23 +55,65 @@ impl<T: Decode + Type + Send + 'static> ResolverInput for TypedBinarioInput<T> {
     }
 }
 
-// TODO: Streaming instead of this
+// TODO: This should probs be a stream not a buffer.
+// Binario currently only supports `impl AsyncRead` not `impl Stream`
 pub struct BinarioOutput(pub Vec<u8>);
-pub struct TypedBinarioOutput<T>(pub T);
+pub struct TypedBinarioOutput<T, M>(pub T, pub PhantomData<fn() -> M>);
 
-impl<TError, T: Encode + Type + Send + Sync + 'static> ResolverOutput<TError>
-    for TypedBinarioOutput<T>
+pub(crate) mod sealed {
+    use super::*;
+
+    pub trait ValidBinarioOutput<M>: Send + 'static {
+        type T: Encode + Send + Sync + 'static;
+        fn data_type(types: &mut TypeCollection) -> DataType;
+        fn into_stream(
+            self,
+        ) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static;
+    }
+    pub enum ValueMarker {}
+    impl<T: Encode + Type + Send + Sync + 'static> ValidBinarioOutput<ValueMarker> for T {
+        type T = T;
+        fn data_type(types: &mut TypeCollection) -> DataType {
+            T::inline(types, Generics::Definition)
+        }
+        fn into_stream(
+            self,
+        ) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
+            stream::once(async move { Ok(self) })
+        }
+    }
+    pub enum StreamMarker {}
+    impl<S: Stream + Send + Sync + 'static> ValidBinarioOutput<StreamMarker> for rspc::Stream<S>
+    where
+        S::Item: Encode + Type + Send + Sync + 'static,
+    {
+        type T = S::Item;
+
+        fn data_type(types: &mut TypeCollection) -> DataType {
+            S::Item::inline(types, Generics::Definition)
+        }
+        fn into_stream(
+            self,
+        ) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
+            self.0.map(|v| Ok(v))
+        }
+    }
+}
+
+impl<TError, M: 'static, T: sealed::ValidBinarioOutput<M>> ResolverOutput<TError>
+    for TypedBinarioOutput<T, M>
 {
     type T = BinarioOutput;
 
     fn data_type(types: &mut TypeCollection) -> DataType {
-        T::inline(types, Generics::Definition)
+        T::data_type(types)
     }
 
     fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
-        stream::once(async move {
+        // TODO: Encoding into a buffer is not how Binario is intended to work but it's how rspc needs it.
+        self.0.into_stream().then(|v| async move {
             let mut buf = Vec::new();
-            encode(&self.0, &mut buf).await.unwrap(); // TODO: Error handling
+            encode(&v?, &mut buf).await.unwrap(); // TODO: Error handling
             Ok(BinarioOutput(buf))
         })
     }
@@ -74,11 +125,11 @@ impl<TError, T: Encode + Type + Send + Sync + 'static> ResolverOutput<TError>
     }
 }
 
-pub fn binario<TError, TCtx, TInput, TResult>() -> Middleware<
+pub fn binario<TError, TCtx, TInput, TResult, M>() -> Middleware<
     TError,
     TCtx,
     TypedBinarioInput<TInput>,
-    TypedBinarioOutput<TResult>,
+    TypedBinarioOutput<TResult, M>,
     TCtx,
     TInput,
     TResult,
@@ -87,7 +138,7 @@ where
     TError: From<DeserializeError> + Send + 'static,
     TCtx: Send + 'static,
     TInput: Decode + Send + 'static,
-    TResult: Encode + Send + Sync + 'static,
+    TResult: sealed::ValidBinarioOutput<M>,
 {
     Middleware::new(
         move |ctx: TCtx, input: TypedBinarioInput<TInput>, next| async move {
@@ -97,7 +148,9 @@ where
             }
             .map_err(DeserializeError)?;
 
-            next.exec(ctx, input).await.map(TypedBinarioOutput)
+            next.exec(ctx, input)
+                .await
+                .map(|v| TypedBinarioOutput(v, PhantomData))
         },
     )
 }

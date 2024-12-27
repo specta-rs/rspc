@@ -21,9 +21,26 @@
     5, 0, 0, 0, 0, 0, 0, 0, 79, 115, 99, 97, 114,
   ]);
   if (!isEqualBytes(result, expected))
-    throw new Error("Result doesn't match expected value");
+    throw new Error(`Result doesn't match expected value. Got ${result}`);
 
   console.log("Success!", result);
+
+  const resp2 = await fetch(
+    "http://localhost:4000/rspc/binario?procedure=streaming",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/x-binario",
+      },
+      // { name: "Oscar" }
+      body: new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0, 79, 115, 99, 97, 114]),
+    },
+  );
+  if (!resp2.ok) throw new Error(`Failed to fetch ${resp2.status}`);
+  if (resp2.headers.get("content-type") !== "text/x-binario")
+    throw new Error("Invalid content type");
+
+  console.log(await resp2.arrayBuffer());
 })();
 
 function isEqualBytes(bytes1: Uint8Array, bytes2: Uint8Array): boolean {

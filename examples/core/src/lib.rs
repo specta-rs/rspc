@@ -197,6 +197,14 @@ pub fn mount() -> Router<Ctx> {
         .procedure("me", {
             <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
         })
+        .procedure("streamInStreamInStreamInStream", {
+            // You would never actually do this but it's just checking how the system behaves
+            <BaseProcedure>::builder().query(|_, _: ()| async move {
+                Ok(rspc::Stream(rspc::Stream(rspc::Stream(
+                    futures::stream::once(async move { Ok(42) }),
+                ))))
+            })
+        })
 
     // .procedure("fileupload", {
     //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })

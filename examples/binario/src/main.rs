@@ -42,17 +42,29 @@ impl<TErr> BaseProcedure<TErr> {
     }
 }
 
-pub fn mount() -> rspc::Router<()> {
-    rspc::Router::new().procedure("binario", {
-        #[derive(Debug, binario::Encode, binario::Decode, Type)]
-        pub struct Input {
-            name: String,
-        }
+#[derive(Debug, Clone, binario::Encode, binario::Decode, Type)]
+pub struct Input {
+    name: String,
+}
 
-        <BaseProcedure>::builder()
-            .with(rspc_binario::binario())
-            .query(|_, input: Input| async move { Ok(input) })
-    })
+pub fn mount() -> rspc::Router<()> {
+    rspc::Router::new()
+        .procedure("binario", {
+            <BaseProcedure>::builder()
+                .with(rspc_binario::binario())
+                .query(|_, input: Input| async move { Ok(input) })
+        })
+        .procedure("streaming", {
+            <BaseProcedure>::builder()
+                .with(rspc_binario::binario())
+                .query(|_, input: Input| async move {
+                    Ok(rspc::Stream(futures::stream::iter([
+                        input.clone(),
+                        input.clone(),
+                        input,
+                    ])))
+                })
+        })
 }
 
 #[tokio::main]
@@ -104,7 +116,7 @@ pub fn rspc_binario_handler(procedures: Procedures<()>) -> axum::Router {
                     ctx.clone(),
                     rspc_binario::BinarioInput::from_stream(
                         body.into_data_stream()
-                            .map_err(|err| todo!()) // TODO: Error handling
+                            .map_err(|_err| todo!()) // TODO: Error handling
                             .into_async_read()
                             .compat(),
                     ),
@@ -112,13 +124,29 @@ pub fn rspc_binario_handler(procedures: Procedures<()>) -> axum::Router {
                 let mut headers = HeaderMap::new();
                 headers.insert(header::CONTENT_TYPE, "text/x-binario".parse().unwrap());
 
+                let mut first = true;
                 (
                     headers,
-                    Body::from_stream(stream.map(|v| match v {
-                        Ok(v) => Ok(Ok::<_, Infallible>(
-                            v.as_value::<BinarioOutput>().unwrap().0,
-                        )),
-                        Err(err) => todo!("{err:?}"),
+                    Body::from_stream(stream.map(move |v| {
+                        let buf = match v {
+                            Ok(v) => Ok(Ok::<_, Infallible>(
+                                v.as_value::<BinarioOutput>().unwrap().0,
+                            )),
+                            Err(err) => todo!("{err:?}"),
+                        };
+
+                        if first {
+                            first = false;
+                            buf
+                        } else {
+                            buf.map(|v| {
+                                v.map(|mut v| {
+                                    let mut buf = vec!['\n' as u8, '\n' as u8];
+                                    buf.append(&mut v);
+                                    buf
+                                })
+                            })
+                        }
                     })),
                 )
             }
