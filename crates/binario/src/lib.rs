@@ -50,8 +50,11 @@ impl<T: Decode + Type + Send + 'static> ResolverInput for TypedBinarioInput<T> {
         T::inline(types, Generics::Definition)
     }
 
-    fn from_input(input: DynInput) -> Result<Self, ProcedureError> {
-        Ok(Self(input.value()?, PhantomData))
+    fn from_input(mut input: DynInput) -> Result<Self, ProcedureError> {
+        Ok(Self(
+            input.value::<Option<_>>()?.take().expect("unreachable"),
+            PhantomData,
+        ))
     }
 }
 

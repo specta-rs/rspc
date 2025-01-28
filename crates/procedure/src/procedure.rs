@@ -50,15 +50,6 @@ impl<TCtx> Procedure<TCtx> {
             .map_err(|err| ProcedureError::Unwind(err).into());
         v
     }
-
-    pub fn exec_with_value<T: Send + 'static>(&self, ctx: TCtx, input: T) -> ProcedureStream {
-        let mut input = Some(input);
-        let value = DynInput::new_value(&mut input);
-
-        let (Ok(v) | Err(v)) = catch_unwind(AssertUnwindSafe(|| (self.handler)(ctx, value)))
-            .map_err(|err| ProcedureError::Unwind(err).into());
-        v
-    }
 }
 
 impl<TCtx> Clone for Procedure<TCtx> {

@@ -1,4 +1,7 @@
-use std::{marker::PhantomData, time::SystemTime};
+use std::{
+    marker::PhantomData,
+    time::{Instant, SystemTime},
+};
 
 use rspc::{
     middleware::Middleware, Procedure, ProcedureBuilder, ResolverInput, ResolverOutput, Router,
@@ -227,3 +230,18 @@ pub type Invalidator = rspc_invalidation::Invalidator<InvalidateEvent>;
 
 // TODO: Debug, etc
 pub struct File<T = ()>(T);
+
+pub fn timing_middleware<TError, TCtx, TInput, TResult>(
+) -> Middleware<TError, TCtx, TInput, (TResult, String), TCtx, TInput, TResult>
+where
+    TError: Send + 'static,
+    TCtx: Send + 'static,
+    TInput: Send + 'static,
+    TResult: Send + Sync + 'static,
+{
+    Middleware::new(move |ctx: TCtx, input: TInput, next| async move {
+        let instant = Instant::now();
+        let result = next.exec(ctx, input).await?;
+        Ok((result, format!("{:?}", instant.elapsed())))
+    })
+}

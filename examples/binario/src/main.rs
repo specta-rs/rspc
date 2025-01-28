@@ -7,7 +7,7 @@ use axum::{
     routing::{get, post},
 };
 use futures::TryStreamExt;
-use rspc::{Procedure, ProcedureBuilder, Procedures, ResolverInput, ResolverOutput};
+use rspc::{DynInput, Procedure, ProcedureBuilder, Procedures, ResolverInput, ResolverOutput};
 use rspc_binario::BinarioOutput;
 use specta::Type;
 use std::{convert::Infallible, marker::PhantomData};
@@ -112,15 +112,13 @@ pub fn rspc_binario_handler(procedures: Procedures<()>) -> axum::Router {
 
                 let procedure = procedures.get(&procedure_name).unwrap(); // TODO: Error handling
 
-                let stream = procedure.exec_with_value(
-                    ctx.clone(),
-                    rspc_binario::BinarioInput::from_stream(
-                        body.into_data_stream()
-                            .map_err(|_err| todo!()) // TODO: Error handling
-                            .into_async_read()
-                            .compat(),
-                    ),
-                );
+                let mut input = Some(rspc_binario::BinarioInput::from_stream(
+                    body.into_data_stream()
+                        .map_err(|_err| todo!()) // TODO: Error handling
+                        .into_async_read()
+                        .compat(),
+                ));
+                let stream = procedure.exec(ctx.clone(), DynInput::new_value(&mut input));
                 let mut headers = HeaderMap::new();
                 headers.insert(header::CONTENT_TYPE, "text/x-binario".parse().unwrap());
 

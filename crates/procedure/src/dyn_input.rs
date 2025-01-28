@@ -21,8 +21,8 @@ enum Repr<'a, 'de> {
 }
 
 impl<'a, 'de> DynInput<'a, 'de> {
-    // TODO: Explain invariant on `Option` + enforce it
-    pub fn new_value<T: Send + 'static>(value: &'a mut Option<T>) -> Self {
+    // TODO: Discuss using `Option` as a workaround for ownership
+    pub fn new_value<T: Send + 'static>(value: &'a mut T) -> Self {
         Self {
             inner: Repr::Value(value),
             type_name: type_name::<T>(),
@@ -55,23 +55,18 @@ impl<'a, 'de> DynInput<'a, 'de> {
     }
 
     /// TODO
-    pub fn value<T: 'static>(self) -> Result<T, ProcedureError> {
-        let Repr::Value(value) = self.inner else {
+    pub fn value<T: 'static>(&mut self) -> Result<&mut T, ProcedureError> {
+        let Repr::Value(ref mut value) = self.inner else {
             return Err(DowncastError {
                 from: None,
                 to: type_name::<T>(),
             }
             .into());
         };
-        Ok(value
-            .downcast_mut::<Option<T>>()
-            .ok_or(DowncastError {
-                from: Some(self.type_name),
-                to: type_name::<T>(),
-            })?
-            .take()
-            // This takes method takes `self` and it's not `Clone` so it's not possible to double take the value.
-            .expect("unreachable"))
+        Ok(value.downcast_mut::<T>().ok_or(DowncastError {
+            from: Some(self.type_name),
+            to: type_name::<T>(),
+        })?)
     }
 }
 
