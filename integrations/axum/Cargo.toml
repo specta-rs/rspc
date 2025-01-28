@@ -31,7 +31,7 @@ tokio = { version = "1", features = ["sync", "macros"] } # TODO: No more `tokio:
 serde = { version = "1", features = ["derive"] } # TODO: Remove features
 serde_urlencoded = "0.7.1"
 mime = "0.3.17"
-rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
+# rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
 
 [lints]
 workspace = true
