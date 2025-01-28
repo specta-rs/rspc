@@ -1,0 +1,19 @@
+[package]
+name = "rspc-openapi"
+version = "0.0.0"
+edition = "2021"
+publish = false # TODO: Crate metadata & publish
+
+[dependencies]
+rspc = { path = "../../rspc" }
+axum = { version = "0.7.9", default-features = false } # TODO: Remove this
+serde_json = { workspace = true }
+futures = { workspace = true }
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

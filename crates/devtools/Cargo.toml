@@ -1,0 +1,20 @@
+[package]
+name = "rspc-devtools"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+futures = { workspace = true }
+rspc-procedure = { path = "../../crates/procedure" }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

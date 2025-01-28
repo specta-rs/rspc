@@ -1,0 +1,21 @@
+[package]
+name = "rspc-binario"
+description = "Binario support for rspc"
+version = "0.0.0"
+edition = "2021"
+publish = false                          # TODO: Crate metadata & publish
+
+[dependencies]
+binario = "0.0.2"
+futures-util.workspace = true
+rspc = { path = "../../rspc" }
+specta = { workspace = true }
+tokio = "1.42.0"
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

@@ -1,22 +1,30 @@
 [package]
 name = "rspc-core"
-version = "0.0.0"
+description = "Core types and traits for rspc"
+version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
-publish = false    # TODO: Metadata
+license = "MIT"
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc-procedure"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
 
-# TODO: Disable all features for each of them
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 # Public
-futures-core = { version = "0.3.31", default-features = false }
-serde = { version = "1.0.215", default-features = false }
+futures-core = { workspace = true, default-features = false }
+serde = { workspace = true, default-features = false }
 
 # Private
-erased-serde = { version = "0.4.5", default-features = false, features = [
+erased-serde = { workspace = true, default-features = false, features = [
     "std",
 ] }
-pin-project-lite = { version = "0.2.15", default-features = false }
+pin-project-lite = { workspace = true, default-features = false }
 
-# TODO: Remove these
-[dev-dependencies]
-futures = "0.3.31"
-serde_json = "1.0.133"
+[lints]
+workspace = true

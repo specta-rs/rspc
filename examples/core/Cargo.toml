@@ -1,0 +1,23 @@
+[package]
+name = "example-core"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rspc = { path = "../../rspc", features = ["typescript", "rust"] }
+rspc-devtools = { version = "0.0.0", path = "../../crates/devtools" }
+rspc-cache = { version = "0.0.0", path = "../../crates/cache" }
+rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
+rspc-validator = { version = "0.0.0", path = "../../crates/validator" }
+rspc-tracing = { version = "0.0.0", path = "../../crates/tracing" }
+rspc-openapi = { version = "0.0.0", path = "../../crates/openapi" }
+rspc-zer = { version = "0.0.0", path = "../../crates/zer" }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+async-stream = "0.3.6"
+thiserror = "2.0.9"
+validator = { version = "0.19.0", features = ["derive"] }
+anyhow = "1.0.95"
+futures.workspace = true

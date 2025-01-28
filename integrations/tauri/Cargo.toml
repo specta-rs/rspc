@@ -1,0 +1,33 @@
+[package]
+name = "tauri-plugin-rspc"
+description = "Tauri adapter for rspc"
+version = "0.1.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc-axum/latest/rspc-axum"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+links = "tauri-plugin-rspc"
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+rspc-procedure = { version = "0.0.1", path = "../../crates/procedure" }
+tauri = "2"
+serde = { version = "1", features = [
+	"derive",
+] } # is a dependency of Tauri anyway
+serde_json = { version = "1", features = [
+	"raw_value",
+] } # is a dependency of Tauri anyway
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-plugin = { version = "2.0.3", features = ["build"] }

@@ -1,0 +1,37 @@
+[package]
+name = "rspc-axum"
+description = "Axum adapter for rspc"
+version = "0.2.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc-axum/latest/rspc-axum"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+ws = ["axum/ws"]
+
+[dependencies]
+rspc-procedure = { version = "0.0.1", path = "../../crates/procedure" }
+axum = { version = "0.7.9", features = ["ws", "json"] }
+serde_json = "1"
+
+# TODO: Drop these
+form_urlencoded = "1.2.1"                       # TODO: use Axum's built in extractor
+futures = "0.3"                              # TODO: No blocking execution, etc
+tokio = { version = "1", features = ["sync", "macros"] } # TODO: No more `tokio::select` + spawning threads. Axum's Websocket upgrade handles that.
+serde = { version = "1", features = ["derive"] } # TODO: Remove features
+serde_urlencoded = "0.7.1"
+mime = "0.3.17"
+rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
+
+[lints]
+workspace = true

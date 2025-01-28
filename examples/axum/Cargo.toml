@@ -5,11 +5,19 @@ edition = "2021"
 publish = false
 
 [dependencies]
-rspc = { path = "../../" }
-rspc-axum = { path = "../../crates/axum", features = ["ws"] }
-tokio = { version = "1.41.1", features = ["full"] }
-async-stream = "0.3.6"
-axum = { version = "0.7.9", features = ["ws"] }
+rspc = { path = "../../rspc", features = ["typescript", "rust"] }
+rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
+rspc-devtools = { version = "0.0.0", path = "../../crates/devtools" }
+rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
+rspc-zer = { version = "0.0.0", path = "../../crates/zer" }
+example-core = { path = "../core" }
+
+tokio = { version = "1.42.0", features = ["full"] }
+axum = { version = "0.7.9", features = ["multipart"] }
 tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }
+futures = "0.3"
+serde_json = "1.0.134"
+streamunordered = "0.5.4"
+serde.workspace = true

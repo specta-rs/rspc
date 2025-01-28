@@ -1,0 +1,19 @@
+[package]
+name = "rspc-validator"
+version = "0.0.0"
+edition = "2021"
+publish = false # TODO: Crate metadata & publish
+
+[dependencies]
+rspc = { path = "../../rspc" }
+serde = { workspace = true }
+specta = { workspace = true }
+validator = "0.19"
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true

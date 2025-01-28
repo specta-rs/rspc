@@ -1,0 +1,46 @@
+[package]
+name = "rspc"
+description = "A blazing fast and easy to use TRPC server for Rust."
+version = "0.3.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition = "2021"
+license = "MIT"
+include = ["/src", "/LICENCE", "/README.md"]
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc/latest/rspc"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
+
+# /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
+[package.metadata."docs.rs"]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = []
+
+typescript = ["dep:specta-typescript", "dep:serde_json"]
+rust = ["dep:specta-rust"]
+
+# TODO: Remove
+legacy = ["dep:rspc-legacy"]
+
+[dependencies]
+# Public
+rspc-procedure = { path = "../crates/procedure" }
+rspc-legacy = { path = "../crates/legacy", optional = true }
+serde = { workspace = true }
+futures-util = { workspace = true, features = ["alloc"] }
+specta = { workspace = true, features = [
+    "serde",
+    "serde_json",
+    "derive",     # TODO: remove this
+] }
+
+# Private
+specta-typescript = { version = "=0.0.7", optional = true, features = [] }
+serde_json = { workspace = true, optional = true }
+specta-rust = { git = "https://github.com/specta-rs/specta", optional = true, rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+
+[lints]
+workspace = true
