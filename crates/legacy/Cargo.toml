@@ -25,7 +25,7 @@ specta = { workspace = true, features = [
     "serde_json",
     "derive", # TODO: remove this
 ] }
-specta-typescript = { version = "=0.0.7", features = [] }
+specta-typescript = { workspace = true, features = [] }
 serde_json = { workspace = true }
 thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["macros", "sync", "rt"] }

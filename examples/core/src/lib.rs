@@ -153,13 +153,13 @@ pub fn mount() -> Router<Ctx> {
             //     Invalidate::None
             // }))
         })
-        .procedure("sfmPostEdit", {
-            <BaseProcedure>::builder().query(|ctx, id: String| async move {
-                println!("UPDATE THE POST {id:?}");
-                ctx.invalidator.invalidate(InvalidateEvent::Post { id });
-                Ok(())
-            })
-        })
+        // .procedure("sfmPostEdit", {
+        //     <BaseProcedure>::builder().query(|ctx, id: String| async move {
+        //         println!("UPDATE THE POST {id:?}");
+        //         ctx.invalidator.invalidate(InvalidateEvent::Post { id });
+        //         Ok(())
+        //     })
+        // })
         // .procedure("sfmStatefulPost", {
         //     <BaseProcedure>::builder()
         //         // .with(Invalidator::mw(|ctx, input, event| {
@@ -188,15 +188,15 @@ pub fn mount() -> Router<Ctx> {
                     Ok(())
                 })
         })
-        .procedure("login", {
-            <BaseProcedure>::builder().query(|ctx, name: String| async move {
-                ctx.zer.set_session(&MySession { name });
-                Ok(())
-            })
-        })
-        .procedure("me", {
-            <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
-        })
+        // .procedure("login", {
+        //     <BaseProcedure>::builder().query(|ctx, name: String| async move {
+        //         ctx.zer.set_session(&MySession { name });
+        //         Ok(())
+        //     })
+        // })
+        // .procedure("me", {
+        //     <BaseProcedure>::builder().query(|ctx, _: ()| async move { Ok(ctx.zer.session()?) })
+        // })
         .procedure("streamInStreamInStreamInStream", {
             // You would never actually do this but it's just checking how the system behaves
             <BaseProcedure>::builder().query(|_, _: ()| async move {

@@ -38,7 +38,7 @@ specta = { workspace = true, features = [
 ] }
 
 # Private
-specta-typescript = { version = "=0.0.7", optional = true, features = [] }
+specta-typescript = { workspace = true, optional = true, features = [] }
 serde_json = { workspace = true, optional = true }
 specta-rust = { git = "https://github.com/specta-rs/specta", optional = true, rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 

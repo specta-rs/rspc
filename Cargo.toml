@@ -14,12 +14,12 @@ members = [
 
 [workspace.dependencies]
 # Private
-specta-typescript = { version = "0.0.7", default-features = false }
+specta-typescript = { version = "0.0.9", default-features = false }
 pin-project-lite = { version = "0.2", default-features = false }
 erased-serde = { version = "0.4", default-features = false }
 
 # Public
-specta = { version = "=2.0.0-rc.20", default-features = false }
+specta = { version = "=2.0.0-rc.22", default-features = false }
 serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false }
 futures = { version = "0.3", default-features = false }
@@ -35,10 +35,10 @@ panic = { level = "warn", priority = -1 }
 todo = { level = "warn", priority = -1 }
 panic_in_result_fn = { level = "warn", priority = -1 }
 
-[patch.crates-io]
-specta = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
-specta-serde = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
-specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+# [patch.crates-io]
+# specta = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+# specta-serde = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
+# specta-typescript = { git = "https://github.com/specta-rs/specta", rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 
 # specta = { path = "/Users/oscar/Desktop/specta/specta" }
 # specta-typescript = { path = "/Users/oscar/Desktop/specta/specta-typescript" }
