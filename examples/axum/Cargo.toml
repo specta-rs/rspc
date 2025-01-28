@@ -9,7 +9,6 @@ rspc = { path = "../../rspc", features = ["typescript", "rust"] }
 rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
 rspc-devtools = { version = "0.0.0", path = "../../crates/devtools" }
 rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
-rspc-http = { version = "0.2.1", path = "../../integrations/http" }
 rspc-zer = { version = "0.0.0", path = "../../crates/zer" }
 example-core = { path = "../core" }
 

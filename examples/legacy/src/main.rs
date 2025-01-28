@@ -4,8 +4,8 @@
 use std::{path::PathBuf, time::Duration};
 
 use async_stream::stream;
-use axum::routing::get;
-use rspc_legacy::{Config, Error, ErrorCode, Router, RouterBuilder};
+use axum::{http::request::Parts, routing::get};
+use rspc_legacy::{Error, ErrorCode, Router, RouterBuilder};
 use tokio::time::sleep;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -13,11 +13,6 @@ pub(crate) struct Ctx {}
 
 fn mount() -> RouterBuilder<Ctx> {
     Router::<Ctx>::new()
-        .config(
-            Config::new().export_ts_bindings(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
-            ),
-        )
         .query("version", |t| t(|_, _: ()| env!("CARGO_PKG_VERSION")))
         .query("echo", |t| t(|_, v: String| v))
         .query("error", |t| {
@@ -51,7 +46,14 @@ fn mount() -> RouterBuilder<Ctx> {
 
 #[tokio::main]
 async fn main() {
-    let router = mount().build().arced();
+    let (procedures, types) = rspc::Router::from(mount().build()).build().unwrap();
+
+    rspc::Typescript::default()
+        .export_to(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../bindings.ts"),
+            &types,
+        )
+        .unwrap();
 
     // We disable CORS because this is just an example. DON'T DO THIS IN PRODUCTION!
     let cors = CorsLayer::new()
@@ -61,13 +63,13 @@ async fn main() {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello from rspc legacy!" }))
-        // .nest(
-        //     "/rspc",
-        //     rspc_axum::endpoint(procedures, |parts: Parts| {
-        //         println!("Client requested operation '{}'", parts.uri.path());
-        //         Ctx {}
-        //     }),
-        // )
+        .nest(
+            "/rspc",
+            rspc_axum::endpoint(procedures, |parts: Parts| {
+                println!("Client requested operation '{}'", parts.uri.path());
+                Ctx {}
+            }),
+        )
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4

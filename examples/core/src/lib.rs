@@ -21,10 +21,7 @@ pub struct MySession {
 
 // `Clone` is only required for usage with Websockets
 #[derive(Clone)]
-pub struct Ctx {
-    pub invalidator: Invalidator,
-    pub zer: Zer<MySession>,
-}
+pub struct Ctx {}
 
 #[derive(Serialize, Type)]
 pub struct MyCustomType(String);

@@ -6,11 +6,9 @@ members = [
     "./integrations/*",
     "./examples/core",
     "./examples/axum",
-    "./examples/actix-web",
     "./examples/client",
     "./examples/tauri/src-tauri",
     "./examples/legacy",
-    "./examples/legacy-compat",
     "./examples/binario",
 ]
 
