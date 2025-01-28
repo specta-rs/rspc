@@ -1,9 +1,15 @@
 [package]
 name = "rspc-legacy"
-description = "The rspc 0.3.1 syntax implemented on top of the 0.4.0 core"
-version = "0.0.0"
+description = "The rspc 0.3 syntax implemented on top of the 0.4 core"
+version = "0.0.1"
+authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
-publish = false # TODO: Crate metadata & publish
+license = "MIT"
+include = ["/src", "/LICENCE", "/README.md"]
+repository = "https://github.com/specta-rs/rspc"
+documentation = "https://docs.rs/rspc-legacy/latest/rspc-legacy"
+keywords = ["async", "specta", "rust-to-ts", "typescript", "typesafe"]
+categories = ["web-programming", "asynchronous"]
 
 [features]
 default = []
@@ -11,7 +17,7 @@ default = []
 deprecated = []
 
 [dependencies]
-rspc-procedure = { path = "../procedure" }
+rspc-procedure = { version = "0.0.1", path = "../procedure" }
 serde = { workspace = true }
 futures = { workspace = true }
 specta = { workspace = true, features = [
