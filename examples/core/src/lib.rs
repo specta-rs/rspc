@@ -92,6 +92,12 @@ impl Serialize for SerialisationError {
 
 pub fn mount() -> Router<Ctx> {
     Router::new()
+        .procedure("sendMsg", {
+            <BaseProcedure>::builder().query(|_, msg: String| async move {
+                println!("Got message from frontend: {msg}");
+                Ok(msg)
+            })
+        })
         .procedure("withoutBaseProcedure", {
             Procedure::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
         })

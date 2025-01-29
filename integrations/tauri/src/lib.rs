@@ -1,4 +1,19 @@
-//! rspc-tauri: Tauri integration for [rspc](https://rspc.dev).
+//! [Tauri](https://tauri.app) integration for [rspc](https://rspc.dev).
+//!
+//! # Example
+//!
+//! ```rust
+//! use rspc::Router;
+//!
+//! let router = Router::new();
+//! let (procedures, _types) = router.build().unwrap();
+//!
+//! tauri::Builder::default()
+//!     .plugin(tauri_plugin_rspc::init(procedures, |window| todo!()))
+//!     .run(tauri::generate_context!())
+//!     .expect("error while running tauri application");
+//! ```
+//!
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
@@ -48,66 +63,77 @@ where
         channel: tauri::ipc::Channel<IpcResultResponse>,
         req: Request,
     ) {
-        todo!();
-        // match req {
-        //     Request::Request { path, input } => {
-        //         let id = channel.id();
-        //         let ctx = (self.ctx_fn)(window);
+        match req {
+            Request::Request { path, input } => {
+                let id = channel.id();
+                let ctx = (self.ctx_fn)(window);
 
-        //         let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
-        //             let err = ProcedureError::NotFound;
-        //             send(
-        //                 &channel,
-        //                 Response::Value {
-        //                     code: err.status(),
-        //                     value: &err,
-        //                 },
-        //             );
-        //             send::<()>(&channel, Response::Done);
-        //             return;
-        //         };
+                let Some(procedure) = self.procedures.get(&Cow::Borrowed(&*path)) else {
+                    let err = ProcedureError::NotFound;
+                    send(
+                        &channel,
+                        Response::Value {
+                            code: match err {
+                                ProcedureError::NotFound => 404,
+                                ProcedureError::Deserialize(_) => 400,
+                                ProcedureError::Downcast(_) => 400,
+                                ProcedureError::Resolver(_) => 500, // This is a breaking change. It previously came from the user.
+                                ProcedureError::Unwind(_) => 500,
+                            },
+                            value: &err,
+                        },
+                    );
+                    send::<()>(&channel, Response::Done);
+                    return;
+                };
 
-        //         let mut stream = match input {
-        //             Some(i) => procedure.exec_with_deserializer(ctx, i.as_ref()),
-        //             None => procedure.exec_with_deserializer(ctx, serde_json::Value::Null),
-        //         };
+                let mut stream = match input {
+                    Some(i) => procedure.exec_with_deserializer(ctx, i.as_ref()),
+                    None => procedure.exec_with_deserializer(ctx, serde_json::Value::Null),
+                };
 
-        //         let this = self.clone();
-        //         let handle = spawn(async move {
-        //             while let Some(value) = stream.next().await {
-        //                 match value {
-        //                     Ok(v) => send(
-        //                         &channel,
-        //                         Response::Value {
-        //                             code: 200,
-        //                             value: &v,
-        //                         },
-        //                     ),
-        //                     Err(err) => send(
-        //                         &channel,
-        //                         Response::Value {
-        //                             code: err.status(),
-        //                             value: &err,
-        //                         },
-        //                     ),
-        //                 }
-        //             }
+                let this = self.clone();
+                let handle = spawn(async move {
+                    while let Some(value) = stream.next().await {
+                        match value {
+                            Ok(v) => send(
+                                &channel,
+                                Response::Value {
+                                    code: 200,
+                                    value: &v.as_serialize().unwrap(),
+                                },
+                            ),
+                            Err(err) => send(
+                                &channel,
+                                Response::Value {
+                                    code: match err {
+                                        ProcedureError::NotFound => 404,
+                                        ProcedureError::Deserialize(_) => 400,
+                                        ProcedureError::Downcast(_) => 400,
+                                        ProcedureError::Resolver(_) => 500, // This is a breaking change. It previously came from the user.
+                                        ProcedureError::Unwind(_) => 500,
+                                    },
+                                    value: &err,
+                                },
+                            ),
+                        }
+                    }
 
-        //             this.subscriptions().remove(&id);
-        //             send::<()>(&channel, Response::Done);
-        //         });
+                    this.subscriptions().remove(&id);
+                    send::<()>(&channel, Response::Done);
+                });
 
-        //         // if the client uses an existing ID, we will assume the previous subscription is no longer required
-        //         if let Some(old) = self.subscriptions().insert(id, handle) {
-        //             old.abort();
-        //         }
-        //     }
-        //     Request::Abort(id) => {
-        //         if let Some(h) = self.subscriptions().remove(&id) {
-        //             h.abort();
-        //         }
-        //     }
-        // }
+                // if the client uses an existing ID, we will assume the previous subscription is no longer required
+                if let Some(old) = self.subscriptions().insert(id, handle) {
+                    old.abort();
+                }
+            }
+            Request::Abort(id) => {
+                if let Some(h) = self.subscriptions().remove(&id) {
+                    h.abort();
+                }
+            }
+        }
     }
 }
 
