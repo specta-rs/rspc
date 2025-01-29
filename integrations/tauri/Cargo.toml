@@ -1,7 +1,7 @@
 [package]
 name = "tauri-plugin-rspc"
 description = "Tauri adapter for rspc"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
 edition = "2021"
 license = "MIT"
@@ -14,6 +14,7 @@ links = "tauri-plugin-rspc"
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]
 all-features = true
+rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]

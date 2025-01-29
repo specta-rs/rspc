@@ -20,6 +20,10 @@ cd integrations/axum/
 cargo publish
 cd ..
 
+cd integrations/tauri/
+cargo publish
+cd ..
+
 cd rspc/
 cargo publish
 cd ..
