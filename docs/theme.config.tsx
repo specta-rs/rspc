@@ -6,6 +6,18 @@ import logoIcon from "./public/logo.png";
 
 const config: DocsThemeConfig = {
   docsRepositoryBase: "https://github.com/oscartbeaumont/rspc/tree/main/docs",
+  banner: {
+    key: "legacy-docs",
+    text: (
+      <>
+        These docs are for rspc v0.3.0 and will be deprecated. Checkout{" "}
+        <a href="https://specta.dev/docs/rspc" className="underline">
+          specta.dev
+        </a>{" "}
+        for the latest docs.
+      </>
+    ),
+  },
   useNextSeoProps() {
     const { asPath } = useRouter();
 
