@@ -1,0 +1,13 @@
+[package]
+name = "anyhow-error"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rspc = { path = "../../rspc", features = ["typescript"] }
+specta.workspace = true
+anyhow = "1.0.95"
+thiserror = "2.0.11"
+
+[lints]
+workspace = true
