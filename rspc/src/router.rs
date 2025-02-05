@@ -85,6 +85,7 @@ impl<TCtx> Router<TCtx> {
                 path.extend(e.path);
                 DuplicateProcedureKeyError { path, ..e }
             }));
+            self.types.extend(other.types);
             self.procedures
                 .extend(other.procedures.into_iter().map(|(k, v)| {
                     let mut key = vec![prefix.clone()];
@@ -110,6 +111,7 @@ impl<TCtx> Router<TCtx> {
 
         self.setup.append(&mut other.setup);
         self.procedures.extend(other.procedures.into_iter());
+        self.types.extend(other.types);
         self.errors.extend(other.errors);
 
         self
