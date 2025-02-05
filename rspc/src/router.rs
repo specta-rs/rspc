@@ -98,8 +98,6 @@ impl<TCtx> Router<TCtx> {
 
     #[track_caller]
     pub fn merge(mut self, mut other: Self) -> Self {
-        let error_count = self.errors.len();
-
         for (k, original) in other.procedures.iter() {
             if let Some(new) = self.procedures.get(k) {
                 self.errors.push(DuplicateProcedureKeyError {
