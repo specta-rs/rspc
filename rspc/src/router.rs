@@ -110,11 +110,9 @@ impl<TCtx> Router<TCtx> {
             }
         }
 
-        if self.errors.len() > error_count {
-            self.setup.append(&mut other.setup);
-            self.procedures.extend(other.procedures.into_iter());
-            self.errors.extend(other.errors);
-        }
+        self.setup.append(&mut other.setup);
+        self.procedures.extend(other.procedures.into_iter());
+        self.errors.extend(other.errors);
 
         self
     }
