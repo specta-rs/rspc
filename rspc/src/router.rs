@@ -85,6 +85,7 @@ impl<TCtx> Router<TCtx> {
                 path.extend(e.path);
                 DuplicateProcedureKeyError { path, ..e }
             }));
+            self.types.extend(other.types);
             self.procedures
                 .extend(other.procedures.into_iter().map(|(k, v)| {
                     let mut key = vec![prefix.clone()];
@@ -98,8 +99,6 @@ impl<TCtx> Router<TCtx> {
 
     #[track_caller]
     pub fn merge(mut self, mut other: Self) -> Self {
-        let error_count = self.errors.len();
-
         for (k, original) in other.procedures.iter() {
             if let Some(new) = self.procedures.get(k) {
                 self.errors.push(DuplicateProcedureKeyError {
@@ -110,11 +109,10 @@ impl<TCtx> Router<TCtx> {
             }
         }
 
-        if self.errors.len() > error_count {
-            self.setup.append(&mut other.setup);
-            self.procedures.extend(other.procedures.into_iter());
-            self.errors.extend(other.errors);
-        }
+        self.setup.append(&mut other.setup);
+        self.procedures.extend(other.procedures.into_iter());
+        self.types.extend(other.types);
+        self.errors.extend(other.errors);
 
         self
     }
