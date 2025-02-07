@@ -8,13 +8,13 @@ publish = false
 rspc = { path = "../../rspc", features = ["typescript", "rust"] }
 rspc-binario = { version = "0.0.0", path = "../../crates/binario" }
 specta = { workspace = true, features = ["derive"] }
-tokio = { version = "1.42.0", features = ["full"] }
-axum = { version = "0.7.9", features = ["multipart"] }
+tokio = { version = "1.43.0", features = ["full"] }
+axum = { version = "0.8.1", features = ["multipart"] }
 tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }
 futures = "0.3"
 form_urlencoded = "1.2.1"
 tokio-util = { version = "0.7.13", features = ["compat"] }
-binario = "0.0.2"
-pin-project = "1.1.7"
+binario = "0.0.3"
+pin-project = "1.1.9"

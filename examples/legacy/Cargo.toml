@@ -9,7 +9,7 @@ tokio = { version = "1", features = ["full"] }
 rspc = { path = "../../rspc", features = ["typescript", "rust", "legacy"] }
 rspc-axum = { path = "../../integrations/axum", features = ["ws"] }
 rspc-legacy = { path = "../../crates/legacy" }
-axum = { version = "0.7.9", features = ["multipart"] }
+axum = { version = "0.8.1", features = ["multipart"] }
 tower-http = { version = "0.6.2", default-features = false, features = [
     "cors",
 ] }

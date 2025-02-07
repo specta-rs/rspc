@@ -21,7 +21,7 @@ ws = ["axum/ws"]
 
 [dependencies]
 rspc-procedure = { version = "0.0.1", path = "../../crates/procedure" }
-axum = { version = "0.7.9", features = ["ws", "json"] }
+axum = { version = "0.8.1", features = ["ws", "json"] }
 serde_json = "1"
 
 # TODO: Drop these

@@ -6,4 +6,4 @@ publish = false
 
 [dependencies]
 rspc-client = { path = "../../crates/client" }
-tokio = { version = "1.42.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread"] }

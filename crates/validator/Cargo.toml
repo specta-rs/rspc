@@ -8,7 +8,7 @@ publish = false # TODO: Crate metadata & publish
 rspc = { path = "../../rspc" }
 serde = { workspace = true }
 specta = { workspace = true }
-validator = "0.19"
+validator = "0.20"
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features
 [package.metadata."docs.rs"]
