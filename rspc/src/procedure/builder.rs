@@ -7,6 +7,7 @@ use crate::{
 
 use super::{ErasedProcedure, ProcedureKind, ProcedureMeta};
 
+use futures_util::{FutureExt, Stream};
 use rspc_procedure::State;
 
 // TODO: Document the generics like `Middleware`. What order should they be in?
@@ -97,26 +98,33 @@ where
     }
 }
 
-// TODO
-// impl<TRootCtx, TCtx, TError, TInput, S, T>
-//     ProcedureBuilder<TError, TRootCtx, TCtx, TInput, crate::modern::Stream<S>>
-// where
-//     TError: Error,
-//     TRootCtx: 'static,
-//     TCtx: 'static,
-//     TInput: 'static,
-//     S: futures::Stream<Item = Result<T, TError>> + Send + 'static,
-// {
-//     pub fn subscription<F: Future<Output = Result<S, TError>> + Send + 'static>(
-//         self,
-//         handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
-//     ) -> Procedure2<TRootCtx> {
-//         (self.build)(
-//             ProcedureKind::Subscription,
-//             Vec::new(),
-//             Box::new(move |ctx, input, _| {
-//                 Box::pin(handler(ctx, input).map(|s| s.map(|s| crate::modern::Stream(s))))
-//             }),
-//         )
-//     }
-// }
+impl<TRootCtx, TCtx, TError, TBaseInput, TInput, TBaseResult, TResult, S>
+    ProcedureBuilder<TError, TRootCtx, TCtx, TBaseInput, TInput, TBaseResult, crate::Stream<S>>
+where
+    TError: Error,
+    TRootCtx: 'static,
+    TCtx: 'static,
+    TInput: 'static,
+    TBaseInput: 'static,
+    TResult: 'static,
+    TBaseResult: 'static,
+    S: Stream<Item = TResult> + 'static,
+{
+    pub fn subscription<F: Future<Output = Result<S, TError>> + Send + 'static>(
+        self,
+        handler: impl Fn(TCtx, TInput) -> F + Send + Sync + 'static,
+    ) -> Procedure<TRootCtx, TBaseInput, crate::Stream<S>> {
+        Procedure {
+            build: Box::new(move |setups| {
+                (self.build)(
+                    ProcedureKind::Subscription,
+                    setups,
+                    Arc::new(move |ctx, input, _| {
+                        Box::pin(handler(ctx, input).map(|f| f.map(|s| crate::Stream(s))))
+                    }),
+                )
+            }),
+            phantom: PhantomData,
+        }
+    }
+}
