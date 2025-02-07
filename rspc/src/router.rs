@@ -1,5 +1,5 @@
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     collections::{BTreeMap, HashMap},
     fmt,
     panic::Location,
@@ -10,9 +10,7 @@ use specta::TypeCollection;
 
 use rspc_procedure::Procedures;
 
-use crate::{
-    procedure::ErasedProcedure, types::TypesOrType, Procedure, ProcedureKind, State, Types,
-};
+use crate::{procedure::ErasedProcedure, types::TypesOrType, ProcedureKind, State, Types};
 
 /// TODO: Examples exporting types and with `rspc_axum`
 pub struct Router<TCtx = ()> {
@@ -50,7 +48,7 @@ impl<TCtx> Router<TCtx> {
         if let Some((_, original)) = self.procedures.iter().find(|(k, _)| k[0] == key) {
             self.errors.push(DuplicateProcedureKeyError {
                 path: vec![key],
-                original: original.ty.location,
+                original: original.location,
                 duplicate: Location::caller().clone(),
             });
         } else {
@@ -75,7 +73,7 @@ impl<TCtx> Router<TCtx> {
         if let Some((_, original)) = self.procedures.iter().find(|(k, _)| k[0] == prefix) {
             self.errors.push(DuplicateProcedureKeyError {
                 path: vec![prefix],
-                original: original.ty.location,
+                original: original.location,
                 duplicate: Location::caller().clone(),
             });
         } else {
@@ -103,8 +101,8 @@ impl<TCtx> Router<TCtx> {
             if let Some(new) = self.procedures.get(k) {
                 self.errors.push(DuplicateProcedureKeyError {
                     path: k.clone(),
-                    original: original.ty.location,
-                    duplicate: new.ty.location,
+                    original: original.location,
+                    duplicate: new.location,
                 });
             }
         }
@@ -129,7 +127,7 @@ impl<TCtx> Router<TCtx> {
     // }
 
     fn build_with_state_inner(
-        self,
+        mut self,
         mut state: State,
     ) -> Result<(Procedures<TCtx>, Types), Vec<DuplicateProcedureKeyError>> {
         if self.errors.len() > 0 {
@@ -146,6 +144,8 @@ impl<TCtx> Router<TCtx> {
             .procedures
             .into_iter()
             .map(|(key, p)| {
+                let (procedure, ty) = (p.inner)(state.clone(), &mut self.types);
+
                 let mut current = &mut procedure_types;
                 // TODO: if `key.len()` is `0` we might run into issues here. It shouldn't but probs worth protecting.
                 for part in &key[..(key.len() - 1)] {
@@ -157,9 +157,9 @@ impl<TCtx> Router<TCtx> {
                         TypesOrType::Types(map) => current = map,
                     }
                 }
-                current.insert(key[key.len() - 1].clone(), TypesOrType::Type(p.ty));
+                current.insert(key[key.len() - 1].clone(), TypesOrType::Type(ty));
 
-                (get_flattened_name(&key), (p.inner)(state.clone()))
+                (get_flattened_name(&key), procedure)
             })
             .collect::<HashMap<_, _>>();
 
@@ -180,7 +180,7 @@ impl<TCtx> fmt::Debug for Router<TCtx> {
         let procedure_keys = |kind: ProcedureKind| {
             self.procedures
                 .iter()
-                .filter(move |(_, p)| p.ty.kind == kind)
+                .filter(move |(_, p)| p.kind == kind)
                 .map(|(k, _)| k.join("."))
                 .collect::<Vec<_>>()
         };

@@ -129,7 +129,7 @@ pub fn mount() -> Router<Ctx> {
                     // if input.some_arg {}
                     cache_ttl(10);
 
-                    Ok(SystemTime::now())
+                    Ok(42) // SystemTime::now())
                 })
         })
         .procedure("sfmPost", {

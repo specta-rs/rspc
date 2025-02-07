@@ -39,18 +39,23 @@ impl<TCtx> From<rspc_legacy::Router<TCtx>> for crate::Router<TCtx> {
                         .map(|s| s.to_string().into())
                         .collect::<Vec<Cow<'static, str>>>(),
                     ErasedProcedure {
+                        kind,
+                        location: Location::caller().clone(), // TODO: This needs to actually be correct
                         setup: Default::default(),
-                        ty: ProcedureType {
-                            kind,
-                            input: p.ty.arg_ty,
-                            output: p.ty.result_ty,
-                            error: specta::datatype::DataType::Unknown,
-                            // TODO: This location is obviously wrong but the legacy router has no location information.
-                            // This will work properly with the new procedure syntax.
-                            location: Location::caller().clone(),
-                        },
-                        // location: Location::caller().clone(), // TODO: This needs to actually be correct
-                        inner: Box::new(move |_| layer_to_procedure(key.to_string(), kind, p.exec)),
+                        inner: Box::new(move |_, types| {
+                            (
+                                layer_to_procedure(key.to_string(), kind, p.exec),
+                                ProcedureType {
+                                    kind,
+                                    input: p.ty.arg_ty.clone(),
+                                    output: p.ty.result_ty.clone(),
+                                    error: specta::datatype::DataType::Unknown,
+                                    // TODO: This location is obviously wrong but the legacy router has no location information.
+                                    // This will work properly with the new procedure syntax.
+                                    location: Location::caller().clone(), // TODO: This needs to actually be correct
+                                },
+                            )
+                        }),
                     },
                 )
             });

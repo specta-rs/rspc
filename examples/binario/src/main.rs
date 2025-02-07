@@ -14,8 +14,9 @@ use std::{convert::Infallible, marker::PhantomData};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tower_http::cors::{Any, CorsLayer};
 
+#[derive(Type)]
 pub enum Error {
-    Binario(rspc_binario::DeserializeError),
+    Binario(#[specta(skip)] rspc_binario::DeserializeError),
 }
 impl From<rspc_binario::DeserializeError> for Error {
     fn from(err: rspc_binario::DeserializeError) -> Self {

@@ -40,6 +40,25 @@ impl Typescript {
     // TODO: Clone all methods
 
     pub fn export_to(&self, path: impl AsRef<Path>, types: &Types) -> Result<(), ExportError> {
+        let mut typess = types.types.clone();
+
+        // #[cfg(feature = "legacy")]
+        {
+            let legacy_types = crate::legacy::construct_legacy_bindings_type(&types.procedures);
+
+            #[derive(Type)]
+            struct ProceduresLegacy;
+
+            let s = literal_object(
+                "ProceduresLegacy".into(),
+                Some(ProceduresLegacy::sid()),
+                legacy_types.into_iter(),
+            );
+            let mut ndt = ProceduresLegacy::definition_named_data_type(&mut typess);
+            ndt.inner = s.into();
+            typess.insert(ProceduresLegacy::sid(), ndt);
+        }
+
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -103,7 +122,7 @@ impl Typescript {
     pub fn export(&self, types: &Types) -> Result<String, ExportError> {
         let mut typess = types.types.clone();
 
-        #[cfg(feature = "legacy")]
+        // #[cfg(feature = "legacy")]
         {
             let legacy_types = crate::legacy::construct_legacy_bindings_type(&types.procedures);
 

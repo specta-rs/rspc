@@ -23,12 +23,12 @@ typescript = ["dep:specta-typescript", "dep:serde_json"]
 rust = [] # TODO: "dep:specta-rust"]
 
 # TODO: Remove
-legacy = ["dep:rspc-legacy"]
+legacy = [] # TODO: "dep:rspc-legacy"
 
 [dependencies]
 # Public
 rspc-procedure = { version = "0.0.1", path = "../crates/procedure" }
-rspc-legacy = { version = "0.0.1", path = "../crates/legacy", optional = true }
+rspc-legacy = { version = "0.0.1", path = "../crates/legacy" } # TODO: , optional = true
 serde = { workspace = true }
 futures-util = { workspace = true, features = ["alloc"] }
 specta = { workspace = true, features = [

@@ -1,18 +1,19 @@
-use std::{borrow::Cow, panic::Location, sync::Arc};
+use std::{panic::Location, sync::Arc};
 
-use futures_util::{FutureExt, TryStreamExt};
-use rspc_procedure::Procedure;
-use specta::datatype::DataType;
+use specta::TypeCollection;
 
-use crate::{
-    procedure::{ProcedureBuilder, ProcedureMeta, ProcedureType, ResolverInput, ResolverOutput},
-    Error, State,
-};
+use crate::{procedure::ProcedureType, ProcedureKind, State};
 
 pub struct ErasedProcedure<TCtx> {
     pub(crate) setup: Vec<Box<dyn FnOnce(&mut State) + 'static>>,
-    pub(crate) ty: ProcedureType,
-    pub(crate) inner: Box<dyn FnOnce(Arc<State>) -> rspc_procedure::Procedure<TCtx>>,
+    pub(crate) location: Location<'static>,
+    pub(crate) kind: ProcedureKind,
+    pub(crate) inner: Box<
+        dyn FnOnce(
+            Arc<State>,
+            &mut TypeCollection,
+        ) -> (rspc_procedure::Procedure<TCtx>, ProcedureType),
+    >,
 }
 
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`

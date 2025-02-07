@@ -55,22 +55,23 @@ pub struct Procedure<TCtx, TInput, TResult> {
 
 // TODO: `Debug`, `PartialEq`, `Eq`, `Hash`
 
-impl<TCtx, TInput, TResult> Procedure<TCtx, TInput, TResult> {
+impl<TCtx, TInput, TOutput> Procedure<TCtx, TInput, TOutput> {
     /// Construct a new procedure using [`ProcedureBuilder`].
     #[track_caller]
     pub fn builder<TError>(
-    ) -> ProcedureBuilder<TError, TCtx, TCtx, TInput, TInput, TResult, TResult>
+    ) -> ProcedureBuilder<TError, TCtx, TCtx, TInput, TInput, TOutput, TOutput>
     where
         TCtx: Send + 'static,
         TError: Error,
         // Only the first layer (middleware or the procedure) needs to be a valid input/output type
         TInput: ResolverInput,
-        TResult: ResolverOutput<TError>,
+        TOutput: ResolverOutput<TError>,
     {
         let location = Location::caller().clone();
         ProcedureBuilder {
             build: Box::new(move |kind, setup, handler| {
                 ErasedProcedure {
+                    kind,
                     setup: setup
                         .into_iter()
                         .map(|setup| {
@@ -87,31 +88,34 @@ impl<TCtx, TInput, TResult> Procedure<TCtx, TInput, TResult> {
                             v
                         })
                         .collect::<Vec<_>>(),
-                    ty: ProcedureType {
-                        kind,
-                        input: DataType::Any,  // I::data_type(type_map),
-                        output: DataType::Any, // R::data_type(type_map),
-                        error: DataType::Any,  // TODO
-                        location,
-                    },
-                    inner: Box::new(move |state| {
+                    location,
+                    inner: Box::new(move |state, types| {
                         let key: Cow<'static, str> = "todo".to_string().into(); // TODO: Work this out properly
                         let meta = ProcedureMeta::new(key.clone(), kind, state);
 
-                        rspc_procedure::Procedure::new(move |ctx, input| {
-                            TResult::into_procedure_stream(
-                                handler(
-                                    ctx,
-                                    TInput::from_input(input).unwrap(), // TODO: Error handling
-                                    meta.clone(),
+                        (
+                            rspc_procedure::Procedure::new(move |ctx, input| {
+                                TOutput::into_procedure_stream(
+                                    handler(
+                                        ctx,
+                                        TInput::from_input(input).unwrap(), // TODO: Error handling
+                                        meta.clone(),
+                                    )
+                                    .into_stream()
+                                    .map_ok(|v| v.into_stream())
+                                    .map_err(|err| err.into_procedure_error())
+                                    .try_flatten()
+                                    .into_stream(),
                                 )
-                                .into_stream()
-                                .map_ok(|v| v.into_stream())
-                                .map_err(|err| err.into_procedure_error())
-                                .try_flatten()
-                                .into_stream(),
-                            )
-                        })
+                            }),
+                            ProcedureType {
+                                kind,
+                                location,
+                                input: TInput::data_type(types),
+                                output: TOutput::data_type(types),
+                                error: DataType::Unknown, // TODO: TError::data_type(types),
+                            },
+                        )
                     }),
                 }
             }),
@@ -119,7 +123,7 @@ impl<TCtx, TInput, TResult> Procedure<TCtx, TInput, TResult> {
         }
     }
 
-    pub fn with(self, mw: Extension<TCtx, TInput, TResult>) -> Self
+    pub fn with(self, mw: Extension<TCtx, TInput, TOutput>) -> Self
     where
         TCtx: 'static,
     {
