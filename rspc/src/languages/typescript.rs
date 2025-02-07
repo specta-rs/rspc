@@ -2,7 +2,10 @@ use std::{borrow::Cow, collections::BTreeMap, iter::once, path::Path};
 
 use serde_json::json;
 use specta::{datatype::DataType, NamedType, Type};
-use specta_typescript::{datatype, export_named_datatype, ExportError};
+use specta_typescript::{
+    datatype, export_named_datatype, BigIntExportBehavior, CommentFormatterFn, ExportError,
+    FormatterFn,
+};
 
 use crate::{
     procedure::ProcedureType, types::TypesOrType, util::literal_object, ProcedureKind, Types,
@@ -32,12 +35,31 @@ impl Typescript {
         }
     }
 
+    pub fn bigint(self, bigint: BigIntExportBehavior) -> Self {
+        Self {
+            inner: self.inner.bigint(bigint),
+            ..self
+        }
+    }
+
+    pub fn comment_style(self, formatter: CommentFormatterFn) -> Self {
+        Self {
+            inner: self.inner.comment_style(formatter),
+            ..self
+        }
+    }
+
+    pub fn formatter(self, formatter: FormatterFn) -> Self {
+        Self {
+            inner: self.inner.formatter(formatter),
+            ..self
+        }
+    }
+
     pub fn enable_source_maps(mut self) -> Self {
         self.generate_source_maps = true;
         self
     }
-
-    // TODO: Clone all methods
 
     pub fn export_to(&self, path: impl AsRef<Path>, types: &Types) -> Result<(), ExportError> {
         let mut typess = types.types.clone();

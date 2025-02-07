@@ -25,7 +25,7 @@ async fn main() {
     let (procedures, types) = router.build().unwrap();
 
     rspc::Typescript::default()
-        // .formatter(specta_typescript::formatter::prettier),
+        // .formatter(specta_typescript::formatter::prettier)
         .header("// My custom header")
         // .enable_source_maps() // TODO: Fix this
         .export_to(
