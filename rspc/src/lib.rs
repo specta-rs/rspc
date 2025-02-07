@@ -30,9 +30,6 @@ pub(crate) mod util;
 #[cfg_attr(docsrs, doc(cfg(feature = "legacy")))]
 pub mod legacy;
 
-#[cfg(not(feature = "legacy"))]
-pub(crate) mod legacy;
-
 pub use as_date::AsDate;
 pub use error::Error;
 pub use extension::Extension;

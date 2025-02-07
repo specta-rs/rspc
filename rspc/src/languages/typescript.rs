@@ -42,7 +42,7 @@ impl Typescript {
     pub fn export_to(&self, path: impl AsRef<Path>, types: &Types) -> Result<(), ExportError> {
         let mut typess = types.types.clone();
 
-        // #[cfg(feature = "legacy")]
+        #[cfg(feature = "legacy")]
         {
             let legacy_types = crate::legacy::construct_legacy_bindings_type(&types.procedures);
 
@@ -122,7 +122,7 @@ impl Typescript {
     pub fn export(&self, types: &Types) -> Result<String, ExportError> {
         let mut typess = types.types.clone();
 
-        // #[cfg(feature = "legacy")]
+        #[cfg(feature = "legacy")]
         {
             let legacy_types = crate::legacy::construct_legacy_bindings_type(&types.procedures);
 

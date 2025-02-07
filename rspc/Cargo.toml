@@ -17,18 +17,18 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = []
+default = ["legacy"] # TODO: Legacy shouldn't be a default feature -> we need it for the legacy bindings syntax
 
 typescript = ["dep:specta-typescript", "dep:serde_json"]
 rust = [] # TODO: "dep:specta-rust"]
 
 # TODO: Remove
-legacy = [] # TODO: "dep:rspc-legacy"
+legacy = ["dep:rspc-legacy", "dep:serde_json"]
 
 [dependencies]
 # Public
 rspc-procedure = { version = "0.0.1", path = "../crates/procedure" }
-rspc-legacy = { version = "0.0.1", path = "../crates/legacy" } # TODO: , optional = true
+rspc-legacy = { version = "0.0.1", path = "../crates/legacy", optional = true }
 serde = { workspace = true }
 futures-util = { workspace = true, features = ["alloc"] }
 specta = { workspace = true, features = [
@@ -39,7 +39,7 @@ specta = { workspace = true, features = [
 
 # Private
 specta-typescript = { workspace = true, optional = true, features = [] }
-serde_json = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true } # TODO: Make this optional. Right now the legacy stuff needs it.
 # specta-rust = { git = "https://github.com/specta-rs/specta", optional = true, rev = "bf3a0937cceb29eca11df207076b9e1b942ba7bb" }
 
 [lints]
