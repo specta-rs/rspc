@@ -41,7 +41,7 @@ pub enum DeserializationError {
 }
 
 #[derive(Debug, Error, Serialize, Type)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "error")]
 pub enum Error {
     #[error("you made a mistake: {0}")]
     Mistake(String),

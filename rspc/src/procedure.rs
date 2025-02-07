@@ -30,7 +30,7 @@ use std::{borrow::Cow, marker::PhantomData, panic::Location, sync::Arc};
 
 use futures_util::{FutureExt, TryStreamExt};
 
-use specta::datatype::DataType;
+use specta::{datatype::DataType, Generics, Type};
 
 use crate::{Error, Extension, ProcedureKind, State};
 
@@ -113,7 +113,7 @@ impl<TCtx, TInput, TOutput> Procedure<TCtx, TInput, TOutput> {
                                 location,
                                 input: TInput::data_type(types),
                                 output: TOutput::data_type(types),
-                                error: DataType::Unknown, // TODO: TError::data_type(types),
+                                error: <TError as Type>::reference(types, &[]).inner,
                             },
                         )
                     }),
