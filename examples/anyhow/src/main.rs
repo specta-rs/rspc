@@ -1,4 +1,5 @@
 use rspc::{Procedure, Router};
+use specta::Type;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -28,9 +29,13 @@ fn fallible() -> Result<String, anyhow::Error> {
 // Make `anyhow::Error` work where `std::error::Error + Send + 'static` is expected.
 // NB: Define this only once; afterwards, you can import and use it anywhere.
 // See: https://github.com/dtolnay/anyhow/issues/153#issuecomment-833718851
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, Type)]
 #[error(transparent)]
-struct AnyhowError(#[from] anyhow::Error);
+struct AnyhowError(
+    #[from]
+    #[serde(skip)]
+    anyhow::Error,
+);
 
 impl rspc::Error for AnyhowError {
     fn into_procedure_error(self) -> rspc::ProcedureError {

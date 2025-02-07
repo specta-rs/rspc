@@ -10,7 +10,7 @@ members = [
     "./examples/tauri/src-tauri",
     "./examples/legacy",
     "./examples/binario",
-    "./examples/anyhow-error",
+    "./examples/anyhow",
 ]
 
 [workspace.dependencies]
