@@ -33,6 +33,10 @@
 </div>
 <br/>
 
+
+> [!WARNING]
+> rspc is no longer being maintained. [Learn more](https://github.com/specta-rs/rspc/discussions/351).
+
 ## Example
 
 You define a `rspc` router and attach procedures to it like below. This will be very familiar if you have used [trpc](https://trpc.io/) or [GraphQL](https://graphql.org) before.
