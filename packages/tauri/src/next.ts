@@ -14,13 +14,28 @@ export const tauriExecute: ExecuteFn = (args: ExecuteArgs) => {
 		const channel = new Channel<Response<any>>();
 
 		channel.onmessage = (response) => {
-			if (response === null) subscriber.complete();
-			return subscriber.next(response as any);
+			if (response === null) {
+				subscriber.complete();
+				return;
+			}
+			if (response.code === 200) {
+				subscriber.next({ type: "data", value: response.value });
+			} else {
+				subscriber.error(response.value);
+			}
 		};
 
 		handleRpc(
 			{ request: { path: args.path, input: args.input ?? null } },
 			channel,
-		);
+		)
+			.then(() => {
+				if (args.type === "subscription") {
+					subscriber.next({ type: "started" });
+				}
+			})
+			.catch(() => {
+				subscriber.complete();
+			});
 	});
 };

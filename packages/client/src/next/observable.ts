@@ -1,35 +1,39 @@
-export function observable<T>(
-	cb: (subscriber: { next: (value: T) => void; complete(): void }) => void,
-) {
-	let callbacks: Array<(v: T) => void> = [];
-	let completeCallbacks: Array<() => void> = [];
-	let done = false;
+export interface Observer<TData, TError> {
+	next(value: TData): void;
+	error(error: TError): void;
+	complete(): void;
+}
 
-	cb({
-		next: (v) => {
-			if (done) return;
-			callbacks.forEach((cb) => cb(v));
-		},
-		complete: () => {
-			if (done) return;
-			done = true;
-			completeCallbacks.forEach((cb) => cb());
-		},
-	});
+export function observable<TData, TError>(
+	cb: (observer: Observer<TData, TError>) => void,
+) {
+	let isDone = false;
 
 	return {
-		subscribe(cb: (v: T) => void) {
-			if (done) return Promise.resolve();
-
-			callbacks.push(cb);
-			return new Promise<void>((res) => {
-				completeCallbacks.push(() => res());
+		subscribe(observer: Partial<Observer<TData, TError>>) {
+			cb({
+				next: (value) => {
+					if (isDone) return;
+					observer.next?.(value);
+				},
+				error: (error) => {
+					if (isDone) return;
+					isDone = true;
+					observer.error?.(error);
+				},
+				complete: () => {
+					if (isDone) return;
+					isDone = true;
+					observer.complete?.();
+				},
 			});
 		},
 		get done() {
-			return done;
+			return isDone;
 		},
 	};
 }
 
-export type Observable<T> = ReturnType<typeof observable<T>>;
+export type Observable<TData, TError> = ReturnType<
+	typeof observable<TData, TError>
+>;

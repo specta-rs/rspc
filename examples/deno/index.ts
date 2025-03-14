@@ -5,11 +5,8 @@ import { Procedures } from "../bindings.ts";
 const url = "http://[::]:4000/rspc";
 
 const client = createClient<Procedures>((args) => {
-	if (args.type === "subscription") {
-		return sseExecute({ url }, args);
-	} else {
-		return fetchExecute({ url }, args);
-	}
+	if (args.type === "subscription") return sseExecute({ url }, args);
+	else return fetchExecute({ url }, args);
 });
 
 client.basicSubscription.subscribe(undefined, {

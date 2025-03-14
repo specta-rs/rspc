@@ -20,7 +20,7 @@ export function sseExecute(
 		? sseArgs.makeEventSource(fullUrl, sseArgs.eventSourceInitDict)
 		: new EventSource(fullUrl, sseArgs.eventSourceInitDict);
 
-	return observable<ExeceuteData>((o) => {
+	return observable<ExeceuteData, any>((o) => {
 		sse.onopen = () => {
 			o.next({ type: "started" });
 		};
@@ -41,9 +41,8 @@ export function sseExecute(
 			if (value.type === "event") {
 				o.next({ type: "data", value: value.data });
 			} else if (value.type === "error") {
-				o.next({ type: "error", error: value.error.data });
+				o.error(value.error.data);
 				sse.close();
-				o.complete();
 			}
 		};
 	});

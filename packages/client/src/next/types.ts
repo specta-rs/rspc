@@ -39,10 +39,9 @@ export type ExecuteArgs = {
 	path: string;
 	input: unknown;
 };
-export type ExecuteFn = (args: ExecuteArgs) => Observable<ExeceuteData>;
+export type ExecuteFn = (args: ExecuteArgs) => Observable<ExeceuteData, any>;
 
 export type ExeceuteData =
 	| { type: "started" }
 	| { type: "data"; value: unknown }
-	| { type: "error"; error: unknown }
 	| { type: "complete" };

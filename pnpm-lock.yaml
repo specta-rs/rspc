@@ -55,12 +55,6 @@ importers:
         specifier: ^19.0.8
         version: 19.0.8
 
-  examples/basic:
-    dependencies:
-      '@rspc/client':
-        specifier: workspace:*
-        version: link:../../packages/client
-
   examples/nextjs:
     dependencies:
       '@rspc/client':

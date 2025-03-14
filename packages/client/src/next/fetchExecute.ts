@@ -37,14 +37,7 @@ export const fetchExecute = (
 		promise
 			.then(async (r) => {
 				if (r.status === 200) {
-					const json: {
-						id: number | null;
-						result: { type: "response"; data: any };
-					} = await r.json();
-
-					if (json.result.type === "response") {
-						subscriber.next({ type: "data", value: json.result.data });
-					}
+					subscriber.next({ type: "data", value: await r.json() });
 				}
 			})
 			.finally(() => subscriber.complete());
