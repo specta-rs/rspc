@@ -1,4 +1,4 @@
-import { Observable } from "./UntypedClient";
+import { Observable } from "./observable";
 
 export type JoinPath<
 	TPath extends string,
@@ -31,7 +31,6 @@ export interface SubscriptionObserver<TValue, TError> {
 	onStarted: () => void;
 	onData: (value: TValue) => void;
 	onError: (err: TError) => void;
-	onStopped: () => void;
 	onComplete: () => void;
 }
 
@@ -42,10 +41,8 @@ export type ExecuteArgs = {
 };
 export type ExecuteFn = (args: ExecuteArgs) => Observable<ExeceuteData>;
 
-export type ExeceuteData = { code: number; value: any } | null;
-// | { type: "event"; data: any }
-// | { type: "response"; data: any }
-// | {
-// 		type: "error";
-// 		data: { code: number; data: any };
-//   };
+export type ExeceuteData =
+	| { type: "started" }
+	| { type: "data"; value: unknown }
+	| { type: "error"; error: unknown }
+	| { type: "complete" };

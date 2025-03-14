@@ -3,17 +3,18 @@
 
 export type Error = { type: "Mistake"; error: string } | { type: "Validator"; error: any } | { type: "Authorization"; error: string }
 
-export type ProceduresLegacy = { queries: { key: "cached"; input: null; result: number } | { key: "newstuff"; input: null; result: string } | { key: "newstuff2"; input: null; result: string } | { key: "newstuffpanic"; input: null; result: null } | { key: "newstuffser"; input: null; result: null } | { key: "sendMsg"; input: string; result: string } | { key: "sfmPost"; input: [string, null]; result: string } | { key: "streamInStreamInStreamInStream"; input: null; result: number } | { key: "validator"; input: { mail: string }; result: null } | { key: "withoutBaseProcedure"; input: string; result: null }; mutations: never; subscriptions: never }
+export type ProceduresLegacy = { queries: { key: "cached"; input: null; result: number } | { key: "newstuff2"; input: null; result: string } | { key: "newstuffpanic"; input: null; result: null } | { key: "newstuffser"; input: null; result: null } | { key: "sfmPost"; input: [string, null]; result: string } | { key: "streamInStreamInStreamInStream"; input: null; result: number } | { key: "validator"; input: { mail: string }; result: null } | { key: "version"; input: null; result: string } | { key: "withoutBaseProcedure"; input: string; result: null }; mutations: { key: "sendMsg"; input: string; result: string }; subscriptions: { key: "basicSubscription"; input: null; result: number } }
 
 export type Procedures = {
+	basicSubscription: { kind: "subscription", input: null, output: number, error: Error },
 	cached: { kind: "query", input: null, output: number, error: Error },
-	newstuff: { kind: "query", input: null, output: string, error: Error },
 	newstuff2: { kind: "query", input: null, output: string, error: Error },
 	newstuffpanic: { kind: "query", input: null, output: null, error: Error },
 	newstuffser: { kind: "query", input: null, output: null, error: Error },
-	sendMsg: { kind: "query", input: string, output: string, error: Error },
+	sendMsg: { kind: "mutation", input: string, output: string, error: Error },
 	sfmPost: { kind: "query", input: [string, null], output: string, error: Error },
 	streamInStreamInStreamInStream: { kind: "query", input: null, output: number, error: Error },
 	validator: { kind: "query", input: { mail: string }, output: null, error: Error },
+	version: { kind: "query", input: null, output: string, error: Error },
 	withoutBaseProcedure: { kind: "query", input: string, output: null, error: Error },
 }

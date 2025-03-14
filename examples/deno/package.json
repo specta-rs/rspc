@@ -1,0 +1,10 @@
+{
+	"name": "@rspc/examples-deno",
+	"type": "module",
+	"dependencies": {
+		"@rspc/client": "workspace:*"
+	},
+	"scripts": {
+		"dev": "deno run --allow-net --watch index.ts"
+	}
+}

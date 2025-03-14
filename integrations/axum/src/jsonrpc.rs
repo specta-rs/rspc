@@ -11,7 +11,6 @@ pub enum RequestId {
 
 #[derive(Debug, Clone, Deserialize, Serialize)] // TODO: Type on this
 pub struct Request {
-    pub jsonrpc: Option<String>, // This is required in the JsonRPC spec but I make it optional.
     pub id: RequestId,
     #[serde(flatten)]
     pub inner: RequestInner,
@@ -39,7 +38,6 @@ pub enum RequestInner {
 
 #[derive(Debug, Clone, Serialize)] // TODO: Add `specta::Type` when supported
 pub struct Response {
-    pub jsonrpc: &'static str,
     pub id: RequestId,
     pub result: ResponseInner,
 }

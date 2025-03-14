@@ -63,7 +63,7 @@ async fn main() {
         .layer(cors);
 
     let addr = "[::]:4000".parse::<std::net::SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
-    println!("listening on http://{}/rspc/version", addr);
+    println!("listening on http://{}/rspc", addr);
     axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
         .await
         .unwrap();

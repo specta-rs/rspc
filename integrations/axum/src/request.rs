@@ -1,7 +1,8 @@
 //! TODO: Use `axum_core` not `axum`
 
+use std::future::Future;
+
 use axum::{
-    async_trait,
     body::HttpBody,
     extract::{FromRequest, Request},
 };
@@ -54,11 +55,13 @@ impl AxumRequest {
     }
 }
 
-#[async_trait]
 impl<S> FromRequest<S> for AxumRequest {
     type Rejection = (); // TODO: What should this be?
 
-    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
-        Ok(Self { req })
+    fn from_request(
+        req: Request,
+        state: &S,
+    ) -> impl Future<Output = Result<Self, Self::Rejection>> + Send {
+        async { Ok(Self { req }) }
     }
 }

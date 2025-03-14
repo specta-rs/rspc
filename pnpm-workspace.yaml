@@ -4,3 +4,4 @@ packages:
   - examples/nextjs
   - examples/tauri
   - examples/sfm
+  - examples/basic

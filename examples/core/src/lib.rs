@@ -3,6 +3,7 @@ use std::{
     time::{Instant, SystemTime},
 };
 
+use futures::StreamExt;
 use rspc::{
     middleware::Middleware, Procedure, ProcedureBuilder, ResolverInput, ResolverOutput, Router,
 };
@@ -93,7 +94,7 @@ impl Serialize for SerialisationError {
 pub fn mount() -> Router<Ctx> {
     Router::new()
         .procedure("sendMsg", {
-            <BaseProcedure>::builder().query(|_, msg: String| async move {
+            <BaseProcedure>::builder().mutation(|_, msg: String| async move {
                 println!("Got message from frontend: {msg}");
                 Ok(msg)
             })
@@ -101,7 +102,7 @@ pub fn mount() -> Router<Ctx> {
         .procedure("withoutBaseProcedure", {
             Procedure::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
         })
-        .procedure("newstuff", {
+        .procedure("version", {
             <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
         })
         .procedure("newstuff2", {
@@ -211,6 +212,12 @@ pub fn mount() -> Router<Ctx> {
                 ))))
             })
         })
+        .procedure(
+            "basicSubscription",
+            <BaseProcedure>::builder().subscription(|_, _: ()| async move {
+                Ok(futures::stream::iter([1, 2, 3]).map(Ok))
+            }),
+        )
 
     // .procedure("fileupload", {
     //     <BaseProcedure>::builder().query(|_, _: File| async { Ok(env!("CARGO_PKG_VERSION")) })

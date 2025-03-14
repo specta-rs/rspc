@@ -207,7 +207,7 @@ where
 }
 
 #[derive(Deserialize, Serialize)]
-#[serde(tag = "method", content = "params", rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 enum Request {
     /// A request to execute a procedure.
     Request {
