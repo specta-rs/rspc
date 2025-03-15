@@ -117,7 +117,6 @@ impl Serialize for ProcedureError {
 pub struct ResolverError(Box<dyn ErrorInternalExt>);
 
 impl ResolverError {
-    // Warning: Returning > 400 will fallback to `500`. As redirects would be invalid and `200` would break matching.
     pub fn new<T: Serialize + Send + 'static, E: error::Error + Send + 'static>(
         value: T,
         source: Option<E>,
