@@ -15,8 +15,9 @@ example-core = { path = "../core" }
 tokio = { version = "1.43.0", features = ["full"] }
 axum = { version = "0.8.1", features = ["multipart"] }
 tower-http = { version = "0.6.2", default-features = false, features = [
-    "cors",
+	"cors",
 ] }
+tower-cookies = "0.11.0"
 futures = "0.3"
 serde_json = "1.0.138"
 streamunordered = "0.5.4"

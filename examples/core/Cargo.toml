@@ -21,3 +21,4 @@ thiserror = "2.0.11"
 validator = { version = "0.20.0", features = ["derive"] }
 anyhow = "1.0.95"
 futures.workspace = true
+tokio = { version = "1.44.1", features = ["time"] }

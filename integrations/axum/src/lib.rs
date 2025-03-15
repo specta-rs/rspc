@@ -15,5 +15,5 @@ mod request;
 mod v2;
 
 // pub use endpoint::Endpoint;
-pub use request::AxumRequest;
-pub use v2::endpoint;
+// pub use request::AxumRequest;
+pub use v2::{Endpoint, flush};

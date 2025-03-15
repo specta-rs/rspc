@@ -3,7 +3,7 @@ name = "rspc-axum"
 description = "Axum adapter for rspc"
 version = "0.3.0"
 authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
-edition = "2021"
+edition = "2024"
 license = "MIT"
 repository = "https://github.com/specta-rs/rspc"
 documentation = "https://docs.rs/rspc-axum/latest/rspc-axum"
@@ -21,7 +21,7 @@ ws = ["axum/ws"]
 
 [dependencies]
 rspc-procedure = { version = "0.0.1", path = "../../crates/procedure" }
-axum = { version = "0.8.1", features = ["ws", "json"] }
+axum = { version = "0.8.1", features = ["ws", "json", "multipart"] }
 serde_json = "1"
 
 # TODO: Drop these
@@ -34,6 +34,7 @@ tokio = { version = "1", features = [
 serde = { version = "1", features = ["derive"] } # TODO: Remove features
 serde_urlencoded = "0.7.1"
 mime = "0.3.17"
+streamunordered = "0.5.4"
 # rspc-invalidation = { version = "0.0.0", path = "../../crates/invalidation" }
 
 [dev-dependencies]

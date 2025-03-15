@@ -1,6 +1,6 @@
 use std::{
     marker::PhantomData,
-    time::{Instant, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use futures::StreamExt;
@@ -103,7 +103,10 @@ pub fn mount() -> Router<Ctx> {
             Procedure::builder::<Error>().query(|ctx: Ctx, id: String| async move { Ok(()) })
         })
         .procedure("version", {
-            <BaseProcedure>::builder().query(|_, _: ()| async { Ok(env!("CARGO_PKG_VERSION")) })
+            <BaseProcedure>::builder().query(|_, _: ()| async {
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+                Ok(env!("CARGO_PKG_VERSION"))
+            })
         })
         .procedure("newstuff2", {
             <BaseProcedure>::builder()

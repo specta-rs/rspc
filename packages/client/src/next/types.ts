@@ -1,3 +1,4 @@
+import { RSPCError } from "../error";
 import { Observable } from "./observable";
 
 export type JoinPath<
@@ -20,7 +21,7 @@ export type Procedures = {
 
 export type Result<Ok, Err> =
 	| { status: "ok"; data: Ok }
-	| { status: "err"; error: Err };
+	| { status: "err"; error: Err | RSPCError };
 
 export type ProcedureResult<P extends Procedure> = Result<
 	P["output"],

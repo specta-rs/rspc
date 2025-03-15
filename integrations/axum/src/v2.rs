@@ -1,110 +1,367 @@
-use std::{
-    borrow::{Borrow, Cow},
-    convert::Infallible,
-    future::{poll_fn, Future},
-    time::Duration,
-};
-
+use crate::extractors::TCtxFunc;
 use axum::{
-    body::{to_bytes, Body},
-    extract::State,
-    http::{request::Parts, Method, Response, StatusCode},
-    response::{sse::Event, IntoResponse, Sse},
-    routing::{on, MethodFilter},
-    Router,
+    RequestExt, Router,
+    body::{Body, to_bytes},
+    extract::{Multipart, State},
+    http::{HeaderValue, Method, Response, StatusCode, request::Parts},
+    response::{IntoResponse, Sse, sse::Event},
+    routing::{MethodFilter, on, post},
 };
-use futures::pin_mut;
+use futures::{
+    FutureExt, SinkExt, StreamExt, TryStreamExt, channel::oneshot, pin_mut,
+    stream::FuturesUnordered,
+};
 use rspc_procedure::{Procedure, ProcedureError, ProcedureStream, Procedures, ResolverError};
 use serde::Serialize;
-use serde_json::{json, Value};
-
-use crate::{
-    extractors::TCtxFunc,
-    jsonrpc::{self, JsonRPCError},
+use serde_json::{Value, json};
+use std::{
+    borrow::{Borrow, Cow},
+    cell::RefCell,
+    convert::Infallible,
+    marker::PhantomData,
+    pin::Pin,
+    sync::Arc,
+    time::Duration,
 };
+use streamunordered::{StreamUnordered, StreamYield};
+
+thread_local! {
+    static FLUSHED: RefCell<Option<oneshot::Sender<()>>> = RefCell::new(None);
+}
+
+pub fn flush() {
+    FLUSHED.take().map(|c| c.send(()));
+}
+
+macro_rules! rspc_err_json {
+	($json:expr) => {
+		json!({ "__rspc": $json })
+	}
+}
 
 macro_rules! rspc_err_body {
     ($json:expr) => {
         Body::from(
-            serde_json::to_vec(&json!({"__rspc": $json}))
+            serde_json::to_vec(&rspc_err_json!($json))
                 .expect("converting known json should never fail"),
         )
     };
 }
 
-pub fn endpoint<TCtx, TCtxFnMarker, TCtxFn, S>(
-    procedures: impl Borrow<Procedures<TCtx>>,
+pub struct Endpoint<TCtx, TCtxFn, S> {
+    procedures: Procedures<TCtx>,
     ctx_fn: TCtxFn,
-) -> Router<S>
+    manual_stream_flushing: bool,
+    phantom: PhantomData<(S)>,
+}
+
+impl<TCtx, TCtxFn, TCtxFnMarker, S> Endpoint<TCtx, TCtxFn, (TCtxFnMarker, S)>
 where
     S: Clone + Send + Sync + 'static,
     TCtx: Send + Sync + 'static,
     TCtxFnMarker: Send + Sync + 'static,
     TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
 {
-    let procedures = procedures.borrow().clone();
+    pub fn new(procedures: impl Borrow<Procedures<TCtx>>, ctx_fn: TCtxFn) -> Self {
+        Self {
+            procedures: procedures.borrow().clone(),
+            ctx_fn,
+            manual_stream_flushing: false,
+            phantom: PhantomData,
+        }
+    }
 
-    Router::<S>::new().route(
-        "/{id}",
-        on(
-            MethodFilter::GET.or(MethodFilter::POST),
-            move |state: State<S>, req: axum::extract::Request<Body>| {
-                let procedures = procedures.clone();
+    pub fn manual_stream_flushing(mut self) -> Self {
+        self.manual_stream_flushing = true;
+        self
+    }
 
-                async move {
-                    let (parts, body) = req.into_parts();
+    pub fn build(self) -> Router<S> {
+        let procedures = Arc::new(self.procedures);
 
-                    let procedure_name = parts.uri.path()[1..].to_string();
+        Router::<S>::new()
+            .route(
+                "/{id}",
+                on(MethodFilter::GET.or(MethodFilter::POST), {
+                    let procedures = procedures.clone();
+                    let ctx_fn = self.ctx_fn.clone();
 
-                    let Some(procedure) = procedures.get(&Cow::Borrowed(procedure_name.as_str()))
-                    else {
-                        return Response::builder()
-                            .status(StatusCode::NOT_FOUND)
-                            .header("Content-Type", "application/json")
-                            .body(rspc_err_body!("procedure not found"))
-                            .unwrap();
-                    };
+                    move |state: State<S>, req: axum::extract::Request<Body>| {
+                        let procedures = procedures.clone();
 
-                    match parts.method {
-                        Method::GET => handle_procedure(
-                            ctx_fn,
-                            parts
-                                .uri
-                                .query()
-                                .map(|query| form_urlencoded::parse(query.as_bytes()))
-                                .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
-                                .map(|v| serde_json::from_str(&v))
-                                .unwrap_or(Ok(None as Option<Value>)),
-                            parts,
-                            &procedure,
-                            state.0,
-                        )
-                        .await
-                        .into_response(),
-                        Method::POST => handle_procedure(
-                            ctx_fn,
-                            {
-                                let body = to_bytes(body, usize::MAX).await.unwrap(); // TODO: error handling
-                                (!body.is_empty())
-                                    .then(|| serde_json::from_slice(body.to_vec().as_slice()))
-                                    .unwrap_or(Ok(None))
-                            },
-                            parts,
-                            &procedure,
-                            state.0,
-                        )
-                        .await
-                        .into_response(),
-                        _ => Response::builder()
-                            .status(StatusCode::METHOD_NOT_ALLOWED)
-                            .header("Content-Type", "application/json")
-                            .body(rspc_err_body!("only GET or POST methods are allowed"))
-                            .unwrap(),
+                        async move {
+                            let (parts, body) = req.into_parts();
+
+                            let procedure_name = parts.uri.path()[1..].to_string();
+
+                            let Some(procedure) =
+                                procedures.get(&Cow::Borrowed(procedure_name.as_str()))
+                            else {
+                                return Response::builder()
+                                    .status(StatusCode::NOT_FOUND)
+                                    .header("Content-Type", "application/json")
+                                    .body(rspc_err_body!(format!(
+                                        "procedure not found: {procedure_name}"
+                                    )))
+                                    .unwrap();
+                            };
+
+                            match parts.method {
+                                Method::GET => handle_procedure(
+                                    ctx_fn,
+                                    parts
+                                        .uri
+                                        .query()
+                                        .map(|query| form_urlencoded::parse(query.as_bytes()))
+                                        .and_then(|mut params| {
+                                            params.find(|e| e.0 == "input").map(|e| e.1)
+                                        })
+                                        .map(|v| serde_json::from_str(&v))
+                                        .unwrap_or(Ok(None as Option<Value>)),
+                                    parts,
+                                    &procedure,
+                                    state.0,
+                                )
+                                .await
+                                .into_response(),
+                                Method::POST => handle_procedure(
+                                    ctx_fn,
+                                    {
+                                        let body = to_bytes(body, usize::MAX).await.unwrap(); // TODO: error handling
+                                        (!body.is_empty())
+                                            .then(|| {
+                                                serde_json::from_slice(body.to_vec().as_slice())
+                                            })
+                                            .unwrap_or(Ok(None))
+                                    },
+                                    parts,
+                                    &procedure,
+                                    state.0,
+                                )
+                                .await
+                                .into_response(),
+                                _ => Response::builder()
+                                    .status(StatusCode::METHOD_NOT_ALLOWED)
+                                    .header("Content-Type", "application/json")
+                                    .body(rspc_err_body!("only GET or POST methods are allowed"))
+                                    .unwrap(),
+                            }
+                        }
                     }
-                }
-            },
-        ),
-    )
+                }),
+            )
+            .route("/", {
+                post(
+                    move |state: State<S>, mut req: axum::extract::Request<Body>| {
+                        let procedures = procedures.clone();
+
+                        async move {
+                            let Ok(parts) = req.extract_parts::<Parts>().await;
+
+                            let mut multipart = match req.extract::<Multipart, _>().await {
+                                Ok(m) => m,
+                                Err(_) => {
+                                    return Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .header("Content-Type", "application/json")
+                                        .body(rspc_err_body!("invalid multipart data"))
+                                        .unwrap();
+                                }
+                            };
+
+                            let mut stream = StreamUnordered::new();
+
+                            let flushes = FuturesUnordered::new();
+
+                            loop {
+                                let Ok(field) = multipart.next_field().await else {
+                                    return Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .header("Content-Type", "application/json")
+                                        .body(rspc_err_body!("invalid multipart field"))
+                                        .unwrap();
+                                };
+
+                                let Some(field) = field else {
+                                    break;
+                                };
+
+                                let Some(name) = field.name().map(str::to_string) else {
+                                    return Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .header("Content-Type", "application/json")
+                                        .body(rspc_err_body!("multipart field missing name"))
+                                        .unwrap();
+                                };
+
+                                let Some(procedure) = procedures.get(name.as_str()) else {
+                                    return Response::builder()
+                                        .status(StatusCode::NOT_FOUND)
+                                        .header("Content-Type", "application/json")
+                                        .body(rspc_err_body!(format!(
+                                            "procedure '{name}' not found"
+                                        )))
+                                        .unwrap();
+                                };
+
+                                let bytes = field.bytes().await.unwrap();
+                                let input: Option<Value> = match serde_json::from_slice(&bytes) {
+                                    Ok(v) => v,
+                                    Err(_) if bytes.is_empty() => None,
+                                    Err(_) => {
+                                        return Response::builder()
+                                            .status(StatusCode::BAD_REQUEST)
+                                            .header("Content-Type", "application/json")
+                                            .body(rspc_err_body!(format!(
+                                                "invalid input for procedure '{name}'"
+                                            )))
+                                            .unwrap();
+                                    }
+                                };
+
+                                let ctx = match self.ctx_fn.exec(parts.clone(), &state).await {
+                                    Ok(ctx) => ctx,
+                                    Err(_err) => {
+                                        // #[cfg(feature = "tracing")]
+                                        // tracing::error!("Error executing context function: {}", _err);
+
+                                        return Response::builder()
+                                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                            .header("Content-Type", "application/json")
+                                            .body(rspc_err_body!(
+                                                "failed to execute context function"
+                                            ))
+                                            .unwrap();
+                                    }
+                                };
+
+                                let mut procedure_stream = procedure
+                                    .exec_with_deserializer(ctx, input.unwrap_or(Value::Null));
+
+                                let mut flush_tx_opt = if self.manual_stream_flushing {
+                                    let (tx, rx) = futures::channel::oneshot::channel();
+                                    flushes.push(rx);
+                                    Some(tx)
+                                } else {
+                                    None
+                                };
+
+                                stream.insert(futures::stream::once(async move {
+                                    let next_fut = next(&mut procedure_stream);
+                                    pin_mut!(next_fut);
+
+                                    match futures::future::poll_fn(|cx| {
+                                        if let Some(flush_tx) = flush_tx_opt.take() {
+                                            FLUSHED.set(Some(flush_tx));
+
+                                            let res = next_fut.poll_unpin(cx);
+
+                                            flush_tx_opt = FLUSHED.take();
+
+                                            res
+                                        } else {
+                                            next_fut.poll_unpin(cx)
+                                        }
+                                    })
+                                    .await
+                                    {
+                                        Some(Ok(value)) => (200, value),
+                                        Some(Err(NextError::Procedure(status, body))) => {
+                                            (status.as_u16(), rspc_err_json!(body))
+                                        }
+                                        Some(Err(NextError::Resolver(resolver_error))) => {
+                                            (500, json!(resolver_error.value()))
+                                        }
+                                        None => (
+                                            500,
+                                            rspc_err_json!("procedure didn't produce a value"),
+                                        ),
+                                        _ => unreachable!(),
+                                    }
+                                }));
+                            }
+
+                            if parts.headers.get("rspc-batch-mode")
+                                == Some(&HeaderValue::from_static("stream"))
+                            {
+                                let stream =
+                                    futures::stream::unfold(stream, |mut stream| async move {
+                                        let Some((item, i)) = stream.next().await else {
+                                            return None;
+                                        };
+
+                                        let stream_index = i - 1;
+
+                                        let out = match item {
+                                            StreamYield::Item(item) => {
+                                                format!(
+                                                    "{stream_index}:{}\n",
+                                                    serde_json::to_string(&json!(item)).expect(
+                                                        "failed to stringify serde_json::Value"
+                                                    )
+                                                )
+                                            }
+                                            StreamYield::Finished(s) => {
+                                                s.remove(Pin::new(&mut stream));
+
+                                                String::new()
+                                            }
+                                        };
+
+                                        Some((Ok::<_, Infallible>(out), stream))
+                                    });
+
+                                let body = if flushes.is_empty() {
+                                    Body::from_stream(stream)
+                                } else {
+                                    let (mut tx, rx) = futures::channel::mpsc::channel(1);
+
+                                    tokio::spawn(async move {
+                                        pin_mut!(stream);
+                                        while let Some(item) = stream.next().await {
+                                            if let Err(_) = tx.send(item).await {
+                                                return;
+                                            }
+                                        }
+                                    });
+
+                                    futures::future::join_all(flushes).await;
+
+                                    Body::from_stream(rx.into_stream())
+                                };
+
+                                Response::builder()
+                                    .header("Transfer-Encoding", "chunked")
+                                    .body(body)
+                                    .unwrap()
+                            } else {
+                                let mut responses = vec![None; stream.len()];
+
+                                while let Some((item, i)) = stream.next().await {
+                                    let stream_index = i - 1;
+
+                                    match item {
+                                        StreamYield::Item(item) => {
+                                            responses[stream_index].get_or_insert(item);
+                                        }
+                                        StreamYield::Finished(s) => {
+                                            s.remove(Pin::new(&mut stream));
+                                        }
+                                    };
+                                }
+
+                                Response::builder()
+                                    .header("Content-Type", "application/json")
+                                    .body(Body::from(
+                                        serde_json::to_vec(&json!(responses)).unwrap(),
+                                    ))
+                                    .unwrap()
+                            }
+                        }
+                    },
+                )
+            })
+    }
 }
 
 async fn handle_procedure<TCtx, TCtxFn, TCtxFnMarker, TState>(
@@ -168,31 +425,33 @@ where
             Error { status: u16, data: Value },
         }
 
-        Sse::new(futures::stream::unfold(Some(stream), |stream| async move {
+        Sse::new(futures::stream::unfold(Some(stream), async |stream| {
             let mut stream = stream?;
-            Some(match next(&mut stream).await {
-                Some(v) => (
-                    Ok::<_, Infallible>(
-                        Event::default()
-                            .json_data(v.map_or_else(
-                                |e| match e {
-                                    NextError::Procedure(code, message) => SSEEvent::Error {
-                                        status: code.as_u16(),
-                                        data: json!({"__rspc": message}),
-                                    },
-                                    NextError::Resolver(data) => SSEEvent::Error {
-                                        status: 500,
-                                        data: json!(data.value()),
-                                    },
-                                },
-                                SSEEvent::Item,
-                            ))
-                            .unwrap(),
-                    ),
-                    Some(stream),
-                ),
-                None => (Ok(Event::default().data("stopped")), None),
-            })
+
+            let Some(v) = next(&mut stream).await else {
+                return Some((Ok(Event::default().data("stopped")), None));
+            };
+
+            let data = v.map_or_else(
+                |e| match e {
+                    NextError::Procedure(code, message) => SSEEvent::Error {
+                        status: code.as_u16(),
+                        data: json!({"__rspc": message}),
+                    },
+                    NextError::Resolver(data) => SSEEvent::Error {
+                        status: 500,
+                        data: json!(data.value()),
+                    },
+                },
+                SSEEvent::Item,
+            );
+
+            let is_error = matches!(data, SSEEvent::Error { .. });
+
+            Some((
+                Ok::<_, Infallible>(Event::default().json_data(data).unwrap()),
+                (!is_error).then_some(stream),
+            ))
         }))
         .keep_alive(
             axum::response::sse::KeepAlive::new()
@@ -263,9 +522,6 @@ async fn next(stream: &mut ProcedureStream) -> Option<Result<serde_json::Value, 
 
 #[cfg(test)]
 mod test {
-
-    use std::future::IntoFuture;
-
     use axum::{
         body::Bytes,
         http::{self, HeaderValue},
@@ -300,7 +556,12 @@ mod test {
         }
     }
 
-    impl<'a, TCtx, TState, TCtxFnMarker, TCtxFn> Executor<'a, TCtx, TState, TCtxFnMarker, TCtxFn> {
+    impl<'a, TCtx, TState, TCtxFnMarker, TCtxFn> Executor<'a, TCtx, TState, TCtxFnMarker, TCtxFn>
+    where
+        TCtx: Send + Sync + 'static,
+        TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
+        TState: Send + Sync + 'static,
+    {
         pub fn with_input(mut self, input: Result<Option<Value>, serde_json::Error>) -> Self {
             self.input = input;
             self
@@ -313,14 +574,7 @@ mod test {
             self.request = request(self.request);
             self
         }
-    }
 
-    impl<'a, TCtx, TState, TCtxFnMarker, TCtxFn> Executor<'a, TCtx, TState, TCtxFnMarker, TCtxFn>
-    where
-        TCtx: Send + Sync + 'static,
-        TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
-        TState: Send + Sync + 'static,
-    {
         async fn execute(self) -> (http::response::Parts, Bytes) {
             let (parts, body) = handle_procedure::<TCtx, _, _, TState>(
                 self.ctx_fn,
@@ -333,22 +587,6 @@ mod test {
             .into_parts();
             let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
             (parts, bytes)
-        }
-    }
-
-    impl<'a, TCtx, TState, TCtxFnMarker, TCtxFn> IntoFuture
-        for Executor<'a, TCtx, TState, TCtxFnMarker, TCtxFn>
-    where
-        TCtxFnMarker: Send + 'static,
-        TCtx: Send + Sync + 'static,
-        TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
-        TState: Send + Sync + 'static,
-    {
-        type Output = (http::response::Parts, Bytes);
-        type IntoFuture = futures::future::BoxFuture<'a, Self::Output>;
-
-        fn into_future(self) -> Self::IntoFuture {
-            Box::pin(self.execute())
         }
     }
 
@@ -392,7 +630,7 @@ mod test {
     async fn query_200() {
         let procedure =
             Procedure::new(|_: (), _| ProcedureStream::from_future(async { Ok("Value") }));
-        let (parts, body) = Executor::new(&procedure, || ()).await;
+        let (parts, body) = Executor::new(&procedure, || ()).execute().await;
         let body = assert_json(&parts, body);
 
         assert_eq!(body, json!("Value"))
@@ -406,6 +644,7 @@ mod test {
 
         let (parts, body) = Executor::new(&procedure, || ())
             .modify_request(|b| b.header("Accept", "text/event-stream"))
+            .execute()
             .await;
         let events = assert_sse(&parts, body);
 
@@ -420,11 +659,40 @@ mod test {
     }
 
     #[tokio::test]
+    async fn stream_resolver_error() {
+        let procedure = Procedure::<()>::new(|_, _| {
+            ProcedureStream::from_stream(futures::stream::iter([
+                Ok(1),
+                Err(ProcedureError::Resolver(ResolverError::new(
+                    json!("error"),
+                    None::<Infallible>,
+                ))),
+                Ok(3),
+            ]))
+        });
+
+        let (parts, body) = Executor::new(&procedure, || ())
+            .modify_request(|b| b.header("Accept", "text/event-stream"))
+            .execute()
+            .await;
+        let events = assert_sse(&parts, body);
+
+        assert_eq!(
+            events,
+            vec![
+                json!({ "item": 1 }),
+                json!({ "error": { "status": 500, "data": "error" }}),
+            ]
+        );
+    }
+
+    #[tokio::test]
     async fn invalid_input_400() {
         let procedure = Procedure::new(|_: (), _| ProcedureStream::from_future(async { Ok(()) }));
 
         let (parts, body) = Executor::new(&procedure, || ())
             .with_input(serde_json::from_slice(&[]))
+            .execute()
             .await;
         let body = assert_json(&parts, body);
 
@@ -435,7 +703,9 @@ mod test {
     async fn failed_ctx_500() {
         let procedure = Procedure::new(|_: (), _| ProcedureStream::from_future(async { Ok(()) }));
 
-        let (parts, body) = Executor::new(&procedure, |_: tower_cookies::Cookies| ()).await;
+        let (parts, body) = Executor::new(&procedure, |_: tower_cookies::Cookies| ())
+            .execute()
+            .await;
         let body = assert_json(&parts, body);
 
         assert_rspc_err(&parts, &body, StatusCode::INTERNAL_SERVER_ERROR);
@@ -447,7 +717,7 @@ mod test {
             ProcedureStream::from_stream(futures::stream::empty::<Result<(), _>>())
         });
 
-        let (parts, body) = Executor::new(&procedure, || ()).await;
+        let (parts, body) = Executor::new(&procedure, || ()).execute().await;
         let body = assert_json(&parts, body);
 
         assert_rspc_err(&parts, &body, StatusCode::INTERNAL_SERVER_ERROR);
@@ -471,7 +741,7 @@ mod test {
             })
         });
 
-        let (parts, body) = Executor::new(&procedure, || ()).await;
+        let (parts, body) = Executor::new(&procedure, || ()).execute().await;
         let body = assert_json(&parts, body);
 
         assert_eq!(parts.status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -482,4 +752,7 @@ mod test {
             })
         );
     }
+
+    #[tokio::test]
+    async fn batch_query() {}
 }
