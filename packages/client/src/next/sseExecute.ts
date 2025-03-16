@@ -32,15 +32,14 @@ export function sseExecute(
 			}
 
 			const value:
-				| { type: "event"; data: any }
+				| { item: any }
 				| {
-						type: "error";
 						error: { code: number; message: String; data: any };
 				  } = JSON.parse(e.data);
 
-			if (value.type === "event") {
-				o.next({ type: "data", value: value.data });
-			} else if (value.type === "error") {
+			if ("item" in value) {
+				o.next({ type: "data", value: value.item });
+			} else if ("error" in value) {
 				o.error(value.error.data);
 				sse.close();
 			}

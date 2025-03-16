@@ -100,7 +100,7 @@ async fn main() {
                 Ctx {}
             })
             // rspc_axum::Endpoint::new(procedures, |cookies: Cookies| cookies)
-            .manual_stream_flushing()
+            // .manual_stream_flushing()
             .build(),
         )
         .layer(tower_cookies::CookieManagerLayer::new())

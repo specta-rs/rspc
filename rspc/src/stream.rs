@@ -18,7 +18,6 @@ use futures_util::StreamExt;
 /// This means it would be well suited for streaming the result of a computation or database query while a subscription would be well suited for a chat room.
 ///
 /// ## Usage
-/// **WARNING**: This example shows the low-level procedure API. You should refer to [`Rspc`](crate::Rspc) for the high-level API.
 /// ```rust
 /// use futures::stream::once;
 ///

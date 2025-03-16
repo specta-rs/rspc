@@ -81,11 +81,12 @@ where
     TErr: Error,
     S: Stream<Item = Result<T, TErr>> + Send + 'static,
     T: ResolverOutput<TErr>,
+    Vec<T>: ResolverOutput<TErr>,
 {
     type T = T::T;
 
     fn data_type(types: &mut TypeCollection) -> DataType {
-        T::data_type(types) // TODO: Do we need to do anything special here so the frontend knows this is a stream?
+        <Vec<T>>::data_type(types)
     }
 
     fn into_stream(self) -> impl Stream<Item = Result<Self::T, ProcedureError>> + Send + 'static {
