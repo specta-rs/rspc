@@ -228,7 +228,7 @@ async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
             biased; // Note: Order is important here
             msg = rx.recv() => {
                 match socket.send(Message::Text(match serde_json::to_string(&msg) {
-                    Ok(v) => v,
+                    Ok(v) => v.into(),
                     Err(_err) => {
                         // #[cfg(feature = "tracing")]
                         // tracing::error!("Error serializing websocket message: {}", _err);
