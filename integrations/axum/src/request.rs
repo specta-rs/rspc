@@ -1,7 +1,6 @@
 //! TODO: Use `axum_core` not `axum`
 
 use axum::{
-    async_trait,
     body::HttpBody,
     extract::{FromRequest, Request},
 };
@@ -54,8 +53,9 @@ impl AxumRequest {
     }
 }
 
-#[async_trait]
-impl<S> FromRequest<S> for AxumRequest {
+impl<S> FromRequest<S>  for AxumRequest
+where S: Send + Sync
+{
     type Rejection = (); // TODO: What should this be?
 
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
