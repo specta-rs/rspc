@@ -3,7 +3,8 @@
 	"compilerOptions": {
 		"jsx": "preserve",
 		"jsxImportSource": "solid-js",
-		"outDir": "dist/types"
+		"outDir": "dist/types",
+		"moduleResolution": "bundler"
 	},
 	"include": ["src/**/*"],
 	"exclude": ["dist/**/*"]

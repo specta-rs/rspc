@@ -90,7 +90,6 @@ impl ProcedureStream {
                             .expect("unreachable"),
                     )
                 },
-                flushed: false,
                 unwound: false,
                 value: None,
             })),
@@ -144,7 +143,7 @@ impl ProcedureStream {
                     )
                 },
                 resolved: |f| f.inner.is_none(),
-                flushed: false,
+
                 unwound: false,
                 value: None,
             })),
@@ -203,7 +202,6 @@ impl ProcedureStream {
                             .expect("unreachable"),
                     )
                 },
-                flushed: false,
                 unwound: false,
                 value: None,
             })),
@@ -226,7 +224,6 @@ impl ProcedureStream {
                 resolved: |_| true,
                 // We passthrough the whole `Option` intentionally.
                 as_value: |v| DynOutput::new_value(v),
-                flushed: false,
                 unwound: false,
                 value: None,
             })),
@@ -271,7 +268,6 @@ impl ProcedureStream {
                 },
                 as_value: |v| DynOutput::new_value(v),
                 resolved: |f| f.inner.is_none(),
-                flushed: false,
                 unwound: false,
                 value: None,
             })),
@@ -321,49 +317,11 @@ impl ProcedureStream {
                 size_hint: |_| (1, Some(1)),
                 resolved: |f| matches!(f, Repr::Stream { .. }),
                 as_value: |v| DynOutput::new_value(v),
-                flushed: false,
                 unwound: false,
                 value: None,
             })),
             flush: None,
             pending_value: false,
-        }
-    }
-
-    /// By setting this the stream will delay returning any data until instructed by the caller (via `Self::stream`).
-    ///
-    /// This allows you to progress an entire runtime of streams until all of them are in a state ready to start returning responses.
-    /// This mechanism allows anything that could need to modify the HTTP response headers to do so before the body starts being streamed.
-    ///
-    /// # Behaviour
-    ///
-    /// `ProcedureStream` will poll the underlying stream until the first value is ready.
-    /// It will then return `Poll::Pending` and go inactive until `Self::stream` is called.
-    /// When polled for the first time after `Self::stream` is called if a value was already ready it will be immediately returned.
-    /// It is *guaranteed* that the stream will never yield `Poll::Ready` until `flush` is called if this is set.
-    ///
-    /// # Usage
-    ///
-    /// It's generally expected you will continue to poll the runtime until some criteria based on `Self::resolved` & `Self::flushable` is met on all streams.
-    /// Once this is met you can call `Self::stream` on all of the streams at once to begin streaming data.
-    ///
-    pub fn require_manual_stream(mut self) -> Self {
-        // TODO: When stablised replace with - https://doc.rust-lang.org/stable/std/task/struct.Waker.html#method.noop
-        struct NoOpWaker;
-        impl std::task::Wake for NoOpWaker {
-            fn wake(self: std::sync::Arc<Self>) {}
-        }
-
-        // This `Arc` is inefficient but `Waker::noop` is coming soon which will solve it.
-        self.flush = Some(Arc::new(NoOpWaker).into());
-        self
-    }
-
-    /// Start streaming data.
-    /// Refer to `Self::require_manual_stream` for more information.
-    pub fn stream(&mut self) {
-        if let Some(waker) = self.flush.take() {
-            waker.wake();
         }
     }
 
@@ -374,16 +332,6 @@ impl ProcedureStream {
         match &self.inner {
             Inner::Dyn(stream) => stream.resolved(),
             Inner::Value(_) => true,
-        }
-    }
-
-    /// Will return `true` if the stream is ready to start streaming data.
-    ///
-    /// This is `false` until the `flush` function is called by the user.
-    pub fn flushable(&self) -> bool {
-        match &self.inner {
-            Inner::Dyn(stream) => stream.flushed(),
-            Inner::Value(_) => false,
         }
     }
 
@@ -483,24 +431,11 @@ pub struct ProcedureStreamMap<F: FnMut(Result<DynOutput, ProcedureError>) -> Res
 }
 
 impl<F: FnMut(Result<DynOutput, ProcedureError>) -> Result<T, String>, T> ProcedureStreamMap<F, T> {
-    /// Start streaming data.
-    /// Refer to `Self::require_manual_stream` for more information.
-    pub fn stream(&mut self) {
-        self.stream.stream();
-    }
-
     /// Will return `true` if the future has resolved.
     ///
     /// For a stream created via `Self::from_future*` this will be `true` once the future has resolved and for all other streams this will always be `true`.
     pub fn resolved(&self) -> bool {
         self.stream.resolved()
-    }
-
-    /// Will return `true` if the stream is ready to start streaming data.
-    ///
-    /// This is `false` until the `flush` function is called by the user.
-    pub fn flushable(&self) -> bool {
-        self.stream.flushable()
     }
 }
 
@@ -548,7 +483,6 @@ trait DynReturnValue: Send {
     fn value(self: Pin<&mut Self>) -> Result<DynOutput<'_>, ProcedureError>;
     fn size_hint(&self) -> (usize, Option<usize>);
     fn resolved(&self) -> bool;
-    fn flushed(&self) -> bool;
 }
 
 pin_project! {
@@ -563,8 +497,6 @@ pin_project! {
         as_value: fn(&mut Option<Result<T, ProcedureError>>) -> DynOutput<'_>,
         // detect when the stream has finished it's future if it has one.
         resolved: fn(&S) -> bool,
-        // has the user called `flushed` within it?
-        flushed: bool,
         // has the user panicked?
         unwound: bool,
         // the last yielded value. We place `T` here so we can type-erase it and avoiding boxing every value.
@@ -621,8 +553,5 @@ impl<S: Send, T: Send> DynReturnValue for GenericDynReturnValue<S, T> {
 
     fn resolved(&self) -> bool {
         (self.resolved)(&self.inner)
-    }
-    fn flushed(&self) -> bool {
-        self.flushed
     }
 }

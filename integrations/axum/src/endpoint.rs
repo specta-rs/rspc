@@ -1,225 +1,312 @@
-// use std::{
-//     convert::Infallible,
-//     future::poll_fn,
-//     pin::Pin,
-//     sync::Arc,
-//     task::{Context, Poll},
-// };
+use std::{borrow::Borrow, collections::HashMap};
 
-// use axum::{
-//     body::{Body, Bytes, HttpBody},
-//     extract::{FromRequest, Request},
-//     http::{header, HeaderMap, StatusCode},
-//     response::{
-//         sse::{Event, KeepAlive},
-//         IntoResponse, Sse,
-//     },
-//     routing::{on, MethodFilter},
-// };
-// use futures::{stream::once, Stream, StreamExt, TryStreamExt};
-// use rspc_procedure::{ProcedureError, ProcedureStream, Procedures};
-// use rspc_http::ExecuteInput;
+use axum::{
+    RequestExt, Router,
+    body::{Body, to_bytes},
+    extract::{Request, State},
+    http::{Method, Response, StatusCode, request::Parts},
+    response::IntoResponse,
+    routing::{MethodFilter, on},
+};
+use rspc_procedure::{Procedure, Procedures};
+use serde_json::Value;
 
-// /// Construct a new [`axum::Router`](axum::Router) to expose a given [`rspc::Router`](rspc::Router).
-// pub struct Endpoint<TCtx> {
-//     procedures: Procedures<TCtx>,
-//     // endpoints: bool,
-//     // websocket: Option<fn(&TCtx) -> TCtx>,
-//     // batching: bool,
-// }
+use crate::{
+    extractors::TCtxFunc,
+    jsonrpc::{self, ProcedureKind, RequestId},
+    jsonrpc_exec::{Sender, SubscriptionMap, handle_json_rpc},
+};
 
-// impl<TCtx: Send + 'static> Endpoint<TCtx> {
-//     // /// Construct a new [`axum::Router`](axum::Router) with all features enabled.
-//     // ///
-//     // /// This will enable all features, if you want to configure which features are enabled you can use [`Endpoint::builder`] instead.
-//     // ///
-//     // /// # Usage
-//     // ///
-//     // /// ```rust
-//     // /// axum::Router::new().nest(
-//     // ///     "/rspc",
-//     // ///     rspc_axum::Endpoint::new(rspc::Router::new().build().unwrap(), || ()),
-//     // /// );
-//     // /// ```
-//     // pub fn new<S>(
-//     //     router: BuiltRouter<TCtx>,
-//     //     // TODO: Parse this to `Self::build` -> It will make rustfmt result way nicer
-//     //     // TODO: Make Axum extractors work
-//     //     ctx_fn: impl Fn(&Parts) -> TCtx + Send + Sync + 'static,
-//     // ) -> axum::Router<S>
-//     // where
-//     //     S: Clone + Send + Sync + 'static,
-//     //     // TODO: Error type???
-//     //     // F: Future<Output = Result<TCtx, ()>> + Send + Sync + 'static,
-//     //     TCtx: Clone,
-//     // {
-//     //     let mut t = Self::builder(router).with_endpoints();
-//     //     #[cfg(feature = "ws")]
-//     //     {
-//     //         t = t.with_websocket();
-//     //     }
-//     //     t.with_batching().build(ctx_fn)
-//     // }
+pub fn endpoint<TCtx, TCtxFnMarker, TCtxFn, S>(
+    procedures: impl Borrow<Procedures<TCtx>>,
+    ctx_fn: TCtxFn,
+) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+    TCtx: Send + Sync + 'static,
+    TCtxFnMarker: Send + Sync + 'static,
+    TCtxFn: TCtxFunc<TCtx, S, TCtxFnMarker>,
+{
+    let procedures = procedures.borrow().clone();
 
-//     // /// Construct a new [`Endpoint`](Endpoint) with no features enabled.
-//     // ///
-//     // /// # Usage
-//     // ///
-//     // /// ```rust
-//     // /// axum::Router::new().nest(
-//     // ///     "/rspc",
-//     // ///     rspc_axum::Endpoint::builder(rspc::Router::new().build().unwrap())
-//     // ///         // Exposes HTTP endpoints for queries and mutations.
-//     // ///         .with_endpoints()
-//     // ///         // Exposes a Websocket connection for queries, mutations and subscriptions.
-//     // ///         .with_websocket()
-//     // ///         // Enables support for the frontend sending batched queries.
-//     // ///         .with_batching()
-//     // ///         .build(|| ()),
-//     // /// );
-//     // /// ```
-//     pub fn builder(router: Procedures<TCtx>) -> Self {
-//         Self {
-//             procedures: router,
-//             // endpoints: false,
-//             // websocket: None,
-//             // batching: false,
-//         }
-//     }
+    Router::<S>::new().route(
+        "/:id",
+        on(
+            MethodFilter::GET.or(MethodFilter::POST),
+            move |state: State<S>, req: axum::extract::Request<Body>| {
+                let procedures = procedures.clone();
 
-//     // /// Enables HTTP endpoints for queries and mutations.
-//     // ///
-//     // /// This is exposed as `/routerName.procedureName`
-//     // pub fn with_endpoints(mut self) -> Self {
-//     //     Self {
-//     //         endpoints: true,
-//     //         ..self
-//     //     }
-//     // }
+                async move {
+                    match (req.method(), &req.uri().path()[1..]) {
+                        (&Method::GET, "ws") => {
+                            #[cfg(feature = "ws")]
+                            {
+                                let mut req = req;
+                                return req
+                                    .extract_parts::<axum::extract::ws::WebSocketUpgrade>()
+                                    .await
+                                    .unwrap() // TODO: error handling
+                                    .on_upgrade(|socket| {
+                                        handle_websocket(
+                                            ctx_fn,
+                                            socket,
+                                            req.into_parts().0,
+                                            procedures,
+                                            state.0,
+                                        )
+                                    })
+                                    .into_response();
+                            }
 
-//     // /// Exposes a Websocket connection for queries, mutations and subscriptions.
-//     // ///
-//     // /// This is exposed as a `/ws` endpoint.
-//     // #[cfg(feature = "ws")]
-//     // #[cfg_attr(docsrs, doc(cfg(feature = "ws")))]
-//     // pub fn with_websocket(self) -> Self
-//     // where
-//     //     TCtx: Clone,
-//     // {
-//     //     Self {
-//     //         websocket: Some(|ctx| ctx.clone()),
-//     //         ..self
-//     //     }
-//     // }
+                            #[cfg(not(feature = "ws"))]
+                            Response::builder()
+                                .status(StatusCode::NOT_FOUND)
+                                .body(Body::from("[]")) // TODO: Better error message which frontend is actually setup to handle.
+                                .unwrap()
+                        }
+                        (&Method::GET, _) => {
+                            handle_http(ctx_fn, ProcedureKind::Query, req, &procedures, state.0)
+                                .await
+                                .into_response()
+                        }
+                        (&Method::POST, _) => {
+                            handle_http(ctx_fn, ProcedureKind::Mutation, req, &procedures, state.0)
+                                .await
+                                .into_response()
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            },
+        ),
+    )
+}
 
-//     // /// Enables support for the frontend sending batched queries.
-//     // ///
-//     // /// This is exposed as a `/_batch` endpoint.
-//     // pub fn with_batching(self) -> Self
-//     // where
-//     //     TCtx: Clone,
-//     // {
-//     //     Self {
-//     //         batching: true,
-//     //         ..self
-//     //     }
-//     // }
+async fn handle_http<TCtx, TCtxFn, TCtxFnMarker, TState>(
+    ctx_fn: TCtxFn,
+    kind: ProcedureKind,
+    req: Request,
+    procedures: &Procedures<TCtx>,
+    state: TState,
+) -> impl IntoResponse
+where
+    TCtx: Send + Sync + 'static,
+    TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
+    TState: Send + Sync + 'static,
+{
+    let procedure_name = req.uri().path()[1..].to_string(); // Has to be allocated because `TCtxFn` takes ownership of `req`
+    let (parts, body) = req.into_parts();
+    let input = match parts.method {
+        Method::GET => parts
+            .uri
+            .query()
+            .map(|query| form_urlencoded::parse(query.as_bytes()))
+            .and_then(|mut params| params.find(|e| e.0 == "input").map(|e| e.1))
+            .map(|v| serde_json::from_str(&v))
+            .unwrap_or(Ok(None as Option<Value>)),
+        Method::POST => {
+            // TODO: Limit body size?
+            let body = to_bytes(body, usize::MAX).await.unwrap(); // TODO: error handling
+            (!body.is_empty())
+                .then(|| serde_json::from_slice(body.to_vec().as_slice()))
+                .unwrap_or(Ok(None))
+        }
+        _ => unreachable!(),
+    };
 
-//     // TODO: Axum extractors
+    let input = match input {
+        Ok(input) => input,
+        Err(_err) => {
+            // #[cfg(feature = "tracing")]
+            // tracing::error!("Error passing parameters to operation '{procedure_name}': {_err}");
 
-//     /// Build an [`axum::Router`](axum::Router) with the configured features.
-//     pub fn build<S>(self, ctx_fn: impl Fn() -> TCtx + Send + Sync + 'static) -> axum::Router<S>
-//     where
-//         S: Clone + Send + Sync + 'static,
-//     {
-//         let mut r = axum::Router::new();
-//         let ctx_fn = Arc::new(ctx_fn);
+            return Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .header("Content-Type", "application/json")
+                .body(Body::from(b"[]".as_slice()))
+                .unwrap();
+        }
+    };
 
-//         // let logger = self.procedures.get_logger();
+    // #[cfg(feature = "tracing")]
+    // tracing::debug!("Executing operation '{procedure_name}' with params {input:?}");
 
-//         for (key, procedure) in self.procedures {
-//             let ctx_fn = ctx_fn.clone();
-//             r = r.route(
-//                 &format!("/{key}"),
-//                 on(
-//                     MethodFilter::GET.or(MethodFilter::POST),
-//                     move |req: Request| {
-//                         // let ctx = ctx_fn();
+    let mut resp = Sender::Response(None);
 
-//                         async move {
-//                             let hint = req.body().size_hint();
-//                             let has_body = hint.lower() != 0 || hint.upper() != Some(0);
+    let ctx = match ctx_fn.exec(parts, &state).await {
+        Ok(ctx) => ctx,
+        Err(_err) => {
+            // #[cfg(feature = "tracing")]
+            // tracing::error!("Error executing context function: {}", _err);
 
-//                             let mut bytes = None;
-//                             let input = if !has_body {
-//                                 ExecuteInput::Query(req.uri().query().unwrap_or_default())
-//                             } else {
-//                                 // TODO: bring this back
-//                                 // if !json_content_type(req.headers()) {
-//                                 //     let err: ProcedureError = rspc_procedure::DeserializeError::custom(
-//                                 //         "Client did not set correct valid 'Content-Type' header",
-//                                 //     )
-//                                 //     .into();
-//                                 //     let buf = serde_json::to_vec(&err).unwrap(); // TODO
+            return Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .header("Content-Type", "application/json")
+                .body(Body::from(b"[]".as_slice()))
+                .unwrap();
+        }
+    };
 
-//                                 //     return (
-//                                 //         StatusCode::BAD_REQUEST,
-//                                 //         [(header::CONTENT_TYPE, "application/json")],
-//                                 //         Body::from(buf),
-//                                 //     )
-//                                 //         .into_response();
-//                                 // }
+    handle_json_rpc(
+        ctx,
+        jsonrpc::Request {
+            jsonrpc: None,
+            id: RequestId::Null,
+            inner: match kind {
+                ProcedureKind::Query => jsonrpc::RequestInner::Query {
+                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
+                    input,
+                },
+                ProcedureKind::Mutation => jsonrpc::RequestInner::Mutation {
+                    path: procedure_name.to_string(), // TODO: Lifetime instead of allocate?
+                    input,
+                },
+                ProcedureKind::Subscription => {
+                    // #[cfg(feature = "tracing")]
+                    // tracing::error!("Attempted to execute a subscription operation with HTTP");
 
-//                                 // TODO: Error handling
-//                                 bytes = Some(Bytes::from_request(req, &()).await.unwrap());
-//                                 ExecuteInput::Body(
-//                                     bytes.as_ref().expect("assigned on previous line"),
-//                                 )
-//                             };
+                    return Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .header("Content-Type", "application/json")
+                        .body(Body::from(b"[]".as_slice()))
+                        .unwrap();
+                }
+            },
+        },
+        procedures,
+        &mut resp,
+        &mut SubscriptionMap::None,
+    )
+    .await;
 
-//                             let (status, stream) =
-//                                 rspc_http::execute(&procedure, input, || ctx_fn()).await;
+    match resp {
+        Sender::Response(Some(resp)) => match serde_json::to_vec(&resp) {
+            Ok(v) => Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .body(Body::from(v))
+                .unwrap(),
+            Err(_err) => {
+                // #[cfg(feature = "tracing")]
+                // tracing::error!("Error serializing response: {}", _err);
 
-//                             (
-//                                 StatusCode::from_u16(status)
-//                                     .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
-//                                 [(header::CONTENT_TYPE, "application/json")],
-//                                 Body::from_stream(stream.map(Ok::<_, Infallible>)),
-//                             )
-//                                 .into_response()
-//                         }
-//                     },
-//                 ),
-//             );
-//         }
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(b"[]".as_slice()))
+                    .unwrap()
+            }
+        },
+        _ => unreachable!(),
+    }
+}
 
-//         // TODO: Websocket endpoint
+#[cfg(feature = "ws")]
+async fn handle_websocket<TCtx, TCtxFn, TCtxFnMarker, TState>(
+    ctx_fn: TCtxFn,
+    mut socket: axum::extract::ws::WebSocket,
+    parts: Parts,
+    procedures: Procedures<TCtx>,
+    state: TState,
+) where
+    TCtx: Send + Sync + 'static,
+    TCtxFn: TCtxFunc<TCtx, TState, TCtxFnMarker>,
+    TState: Send + Sync,
+{
+    use axum::extract::ws::Message;
+    use futures::StreamExt;
+    use tokio::sync::mpsc;
 
-//         r
-//     }
-// }
+    // #[cfg(feature = "tracing")]
+    // tracing::debug!("Accepting websocket connection");
 
-// fn json_content_type(headers: &HeaderMap) -> bool {
-//     let content_type = if let Some(content_type) = headers.get(header::CONTENT_TYPE) {
-//         content_type
-//     } else {
-//         return false;
-//     };
+    let mut subscriptions = HashMap::new();
+    let (mut tx, mut rx) = mpsc::channel::<jsonrpc::Response>(100);
 
-//     let content_type = if let Ok(content_type) = content_type.to_str() {
-//         content_type
-//     } else {
-//         return false;
-//     };
+    loop {
+        tokio::select! {
+            biased; // Note: Order is important here
+            msg = rx.recv() => {
+                match socket.send(Message::Text(match serde_json::to_string(&msg) {
+                    Ok(v) => v,
+                    Err(_err) => {
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error serializing websocket message: {}", _err);
 
-//     let mime = if let Ok(mime) = content_type.parse::<mime::Mime>() {
-//         mime
-//     } else {
-//         return false;
-//     };
+                        continue;
+                    }
+                })).await {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error sending websocket message: {}", _err);
 
-//     let is_json_content_type = mime.type_() == "application"
-//         && (mime.subtype() == "json" || mime.suffix().map_or(false, |name| name == "json"));
+                        continue;
+                    }
+                }
+            }
+            msg = socket.next() => {
+                match msg {
+                    Some(Ok(msg)) => {
+                       let res = match msg {
+                            Message::Text(text) => serde_json::from_str::<Value>(&text),
+                            Message::Binary(binary) => serde_json::from_slice(&binary),
+                            Message::Ping(_) | Message::Pong(_) | Message::Close(_) => {
+                                continue;
+                            }
+                        };
 
-//     is_json_content_type
-// }
+                        match res.and_then(|v| match v.is_array() {
+                            true => serde_json::from_value::<Vec<jsonrpc::Request>>(v),
+                            false => serde_json::from_value::<jsonrpc::Request>(v).map(|v| vec![v]),
+                        }) {
+                            Ok(reqs) => {
+                                for request in reqs {
+                                    let ctx = match ctx_fn.exec(parts.clone(), &state).await {
+                                        Ok(ctx) => {
+                                            ctx
+                                        },
+                                        Err(_err) => {
+
+                                            // #[cfg(feature = "tracing")]
+                                            // tracing::error!("Error executing context function: {}", _err);
+
+                                            continue;
+                                        }
+                                    };
+
+                                    handle_json_rpc(ctx, request, &procedures, &mut Sender::Channel(&mut tx),
+                                    &mut SubscriptionMap::Ref(&mut subscriptions)).await;
+                                }
+                            },
+                            Err(_err) => {
+                                // #[cfg(feature = "tracing")]
+                                // tracing::error!("Error parsing websocket message: {}", _err);
+
+                                // TODO: Send report of error to frontend
+
+                                continue;
+                            }
+                        };
+                    }
+                    Some(Err(_err)) => {
+                        // #[cfg(feature = "tracing")]
+                        // tracing::error!("Error in websocket: {}", _err);
+
+                        // TODO: Send report of error to frontend
+
+                        continue;
+                    },
+                    None => {
+                        // #[cfg(feature = "tracing")]
+                        // tracing::debug!("Shutting down websocket connection");
+
+                        // TODO: Send report of error to frontend
+
+                        return;
+                    },
+                }
+            }
+        }
+    }
+}

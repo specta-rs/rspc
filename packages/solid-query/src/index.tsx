@@ -4,11 +4,6 @@ import * as solid from "solid-js";
 import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/solid-query";
 
-const proxy = queryCore.createTanstackQueryProxy<any, typeof tanstack>()({
-	queryOptions: tanstack.queryOptions,
-	infiniteQueryOptions: tanstack.infiniteQueryOptions,
-});
-
 export * from "@rspc/query-core";
 
 export function createSolidQueryHooks<

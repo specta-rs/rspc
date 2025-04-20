@@ -2,13 +2,13 @@ use crate::extractors::TCtxFunc;
 use axum::{
     Router,
     body::{Body, to_bytes},
-    extract::{Multipart, State},
+    extract::State,
     http::{HeaderValue, Method, Response, StatusCode, request::Parts},
     response::{IntoResponse, Sse, sse::Event},
     routing::{MethodFilter, on, post},
 };
 use futures::{
-    FutureExt, SinkExt, Stream, StreamExt, TryStreamExt, channel::oneshot, pin_mut,
+    FutureExt, SinkExt, StreamExt, TryStreamExt, channel::oneshot, pin_mut,
     stream::FuturesUnordered,
 };
 use rspc_procedure::{Procedure, ProcedureError, ProcedureStream, Procedures, ResolverError};
@@ -151,72 +151,57 @@ where
                 }),
             )
             .route("/", {
-                post(
-                    move |state: State<S>, mut req: axum::extract::Request<Body>| {
-                        let procedures = procedures.clone();
+                post(move |state: State<S>, req: axum::extract::Request<Body>| {
+                    let procedures = procedures.clone();
 
-                        async move {
-                            let (parts, body) = req.into_parts();
-                            // let Ok(parts) = req.extract_parts::<Parts>().await;
+                    async move {
+                        let (parts, body) = req.into_parts();
+                        #[derive(Deserialize)]
+                        struct BatchInput(Vec<(String, Value)>);
 
-                            // let multipart = match req.extract::<Multipart, _>().await {
-                            //     Ok(m) => m,
-                            //     Err(_) => {
-                            //         return Response::builder()
-                            //             .status(StatusCode::BAD_REQUEST)
-                            //             .header("Content-Type", "application/json")
-                            //             .body(rspc_err_body!("invalid multipart data"))
-                            //             .unwrap();
-                            //     }
-                            // };
+                        let Ok(input) = ({
+                            let body = to_bytes(body, usize::MAX).await.unwrap(); // TODO: error handling
+                            serde_json::from_slice::<BatchInput>(body.to_vec().as_slice())
+                        }) else {
+                            return Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .header("Content-Type", "application/json")
+                                .body(rspc_err_body!("invalid batch body"))
+                                .unwrap();
+                        };
 
-                            #[derive(Deserialize)]
-                            struct BatchInput(Vec<(String, Value)>);
+                        let input = input
+                            .0
+                            .into_iter()
+                            .map(|(procedure_name, input)| {
+                                let Some(procedure) = procedures.get(procedure_name.as_str())
+                                else {
+                                    return Err(Response::builder()
+                                        .status(StatusCode::NOT_FOUND)
+                                        .header("Content-Type", "application/json")
+                                        .body(rspc_err_body!(format!(
+                                            "procedure '{procedure_name}' not found"
+                                        )))
+                                        .unwrap());
+                                };
 
-                            let Ok(input) = ({
-                                let body = to_bytes(body, usize::MAX).await.unwrap(); // TODO: error handling
-                                serde_json::from_slice::<BatchInput>(body.to_vec().as_slice())
-                            }) else {
-                                return Response::builder()
-                                    .status(StatusCode::BAD_REQUEST)
-                                    .header("Content-Type", "application/json")
-                                    .body(rspc_err_body!("invalid batch body"))
-                                    .unwrap();
-                            };
+                                Ok((procedure, Some(input)))
+                            })
+                            .collect::<Result<Vec<_>, _>>();
 
-                            let input = input
-                                .0
-                                .into_iter()
-                                .map(|(procedure_name, input)| {
-                                    let Some(procedure) = procedures.get(procedure_name.as_str())
-                                    else {
-                                        return Err(Response::builder()
-                                            .status(StatusCode::NOT_FOUND)
-                                            .header("Content-Type", "application/json")
-                                            .body(rspc_err_body!(format!(
-                                                "procedure '{procedure_name}' not found"
-                                            )))
-                                            .unwrap());
-                                    };
-
-                                    Ok((procedure, Some(input)))
-                                })
-                                .collect::<Result<Vec<_>, _>>();
-
-                            handle_batch(
-                                self.ctx_fn,
-                                match input {
-                                    Ok(v) => v,
-                                    Err(e) => return e,
-                                },
-                                parts,
-                                state.0,
-                                self.manual_stream_flushing,
-                            )
-                            .await
-                        }
-                    },
-                )
+                        handle_batch(
+                            self.ctx_fn,
+                            match input {
+                                Ok(v) => v,
+                                Err(e) => return e,
+                            },
+                            parts,
+                            state.0,
+                            self.manual_stream_flushing,
+                        )
+                        .await
+                    }
+                })
             })
     }
 }
@@ -759,8 +744,8 @@ mod test {
         );
     }
 
-    #[tokio::test]
-    async fn batch_query() {
-        handle_batch(ctx_fn, inputs, req_parts, state, manual_stream_flushing)
-    }
+    // #[tokio::test]
+    // async fn batch_query() {
+    //     handle_batch(ctx_fn, inputs, req_parts, state, manual_stream_flushing)
+    // }
 }
