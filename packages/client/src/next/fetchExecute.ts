@@ -1,5 +1,5 @@
 import { observable } from "./observable";
-import { ExecuteArgs, ExecuteFn } from "./types";
+import type { ExecuteArgs, ExecuteFn } from "./types";
 
 type BatchLoader = {
 	data: [string, any][];
@@ -111,11 +111,17 @@ export const fetchExecute = (
 
 						const line = decoder.decode(value);
 
-						const regex = /(\d+):(\[.*?\])/;
+						// const regex = /(\d+):(\[.*?\])/;
+						// const regex = /(\d+):(\[.*?\])$/;
+						const regex = /(\d+):(\[.*\])\s*$/;
+
+						console.log(line);
 						const match = line.match(regex);
 						if (!match) throw new Error("invalid stream content!");
 
-						const index = parseInt(match[1]);
+						const index = Number.parseInt(match[1]);
+						console.log(index, match);
+						console.log(match.input);
 						const [status, data] = JSON.parse(match[2]);
 
 						batchLoader.callbacks[index]?.([status, data]);

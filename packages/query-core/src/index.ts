@@ -10,15 +10,13 @@ export function createTanstackQueryProxy<
 >() {
 	type TProcedures = rspc.inferProcedures<TProceduresLike>;
 
-	return function (args: {
+	return (args: {
 		queryOptions: TTanstack["queryOptions"];
 		infiniteQueryOptions: TTanstack["infiniteQueryOptions"];
-	}) {
-		return {
-			// queryOptions: args.queryOptions,
-			// mutationOptions: ():  => {},
-		};
-	};
+	}) => ({
+		// queryOptions: args.queryOptions,
+		// mutationOptions: ():  => {},
+	});
 }
 
 export interface BaseOptions<TProcedures extends rspc.ProceduresDef> {

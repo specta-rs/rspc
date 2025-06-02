@@ -1,182 +1,119 @@
-import type * as rspc from "@rspc/client";
-import * as solid from "solid-js";
-
-import * as queryCore from "@rspc/query-core";
+import type { VoidIfInputNull } from "@rspc/client/next";
+import {
+	type Client,
+	createProceduresProxy,
+	type Procedure,
+	type Procedures,
+	traverseClient,
+} from "@rspc/client/next";
 import * as tanstack from "@tanstack/solid-query";
 
-export * from "@rspc/query-core";
+export type RspcQueryOptions<P extends Procedure> = {
+	<TQueryFnData extends P["output"], TData = TQueryFnData>(
+		input: VoidIfInputNull<P> | tanstack.SkipToken,
+		options?: Omit<
+			ReturnType<
+				tanstack.UndefinedInitialDataOptions<
+					TQueryFnData,
+					P["error"],
+					TData,
+					any
+				>
+			>,
+			"queryKey" | "queryFn" | "queryHash" | "queryHashFn"
+		>,
+	): tanstack.UndefinedInitialDataOptions<TQueryFnData, P["error"], TData, any>;
+	<TQueryFnData extends P["output"], TData = TQueryFnData>(
+		input: VoidIfInputNull<P> | tanstack.SkipToken,
+		options?: Omit<
+			ReturnType<
+				tanstack.DefinedInitialDataOptions<TQueryFnData, P["error"], TData, any>
+			>,
+			"queryKey" | "queryFn" | "queryHash" | "queryHashFn"
+		>,
+	): tanstack.DefinedInitialDataOptions<TQueryFnData, P["error"], TData, any>;
+};
 
-export function createSolidQueryHooks<
-	TProceduresLike extends rspc.ProceduresDef,
->() {
-	type TProcedures = rspc.inferProcedures<TProceduresLike>;
+export type QueryMethods<P extends Procedure> = {
+	queryOptions: RspcQueryOptions<P>;
 
-	const Context = solid.createContext<queryCore.Context<TProcedures> | null>(
-		null,
-	);
+	queryKey: (
+		input?: Partial<VoidIfInputNull<P>>,
+	) => tanstack.DataTag<ReadonlyArray<unknown>, P["output"], P["error"]>;
+};
 
-	const helpers = queryCore.createQueryHookHelpers({
-		useContext: () => solid.useContext(Context),
+type RspcMutationOptions<P extends Procedure> = <TCtx = unknown>(
+	options?: Omit<
+		ReturnType<
+			tanstack.UseMutationOptions<P["output"], P["error"], P["input"], TCtx>
+		>,
+		"mutationKey" | "mutationFn"
+	>,
+) => tanstack.UseMutationOptions<P["output"], P["error"], P["input"], TCtx>;
+
+export type MutationMethods<P extends Procedure> = {
+	mutationOptions: RspcMutationOptions<P>;
+
+	mutationKey: () => ReadonlyArray<unknown>;
+};
+
+export type ProcedureProxyMethods<P extends Procedure> =
+	P["kind"] extends "query"
+		? QueryMethods<P>
+		: P["kind"] extends "mutation"
+			? MutationMethods<P>
+			: // : P["kind"] extends "subscription"
+				// ? { subscribe: SubscriptionResolver<P> }
+				never;
+
+export type OptionsProceduresProxy<P extends Procedures> = {
+	[K in keyof P]: P[K] extends Procedure
+		? ProcedureProxyMethods<P[K]>
+		: P[K] extends Procedures
+			? OptionsProceduresProxy<P[K]>
+			: never;
+};
+
+type UtilsMethods = keyof QueryMethods<any> | keyof MutationMethods<any>;
+
+export function createRSPCOptionsProxy<P extends Procedures>(
+	client: Client<P>,
+): OptionsProceduresProxy<P> {
+	return createProceduresProxy<OptionsProceduresProxy<P>>(({ args, path }) => {
+		const option = path.pop() as UtilsMethods;
+
+		const methods: Record<UtilsMethods, () => unknown> = {
+			queryOptions: () => {
+				return () =>
+					tanstack.queryOptions({
+						...(args[1] ?? {}),
+						queryKey: [path, args[0]],
+						queryFn:
+							args[0] === tanstack.skipToken
+								? args[0]
+								: () => (traverseClient(client, path) as any).query(args[0]),
+					});
+			},
+			queryKey: () => {
+				return [path, args[0]];
+			},
+			mutationOptions: () => {
+				return () => ({
+					...(args[0] ?? {}),
+					mutationKey: [path],
+					mutationFn: (input: unknown) =>
+						(traverseClient(client, path) as any).mutate(input),
+				});
+			},
+			mutationKey: () => {
+				return [path];
+			},
+		};
+
+		if (option in methods) {
+			return methods[option]();
+		}
+
+		throw new Error();
 	});
-
-	function useContext() {
-		const ctx = solid.useContext(Context);
-		if (ctx?.queryClient === undefined)
-			throw new Error(
-				"The rspc context has not been set. Ensure you have the <rspc.Provider> component higher up in your component tree.",
-			);
-		return ctx;
-	}
-
-	function useUtils() {
-		const ctx = useContext();
-		return queryCore.createRSPCQueryUtils(ctx.client, ctx.queryClient);
-	}
-
-	function createQuery<
-		K extends rspc.inferQueries<TProcedures>["key"] & string,
-	>(
-		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts?: solid.Accessor<
-			queryCore.WrapQueryOptions<
-				TProcedures,
-				tanstack.SolidQueryOptions<
-					rspc.inferQueryResult<TProcedures, K>,
-					rspc.RSPCError,
-					rspc.inferQueryResult<TProcedures, K>,
-					queryCore.KeyAndInputSkipToken<TProcedures, K>
-				> & {
-					initialData?: undefined;
-				}
-			>
-		>,
-	): tanstack.CreateQueryResult<
-		rspc.inferQueryResult<TProcedures, K>,
-		rspc.RSPCError
-	>;
-	function createQuery<
-		K extends rspc.inferQueries<TProcedures>["key"] & string,
-	>(
-		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts?: solid.Accessor<
-			queryCore.WrapQueryOptions<
-				TProcedures,
-				tanstack.SolidQueryOptions<
-					rspc.inferQueryResult<TProcedures, K>,
-					rspc.RSPCError,
-					rspc.inferQueryResult<TProcedures, K>,
-					queryCore.KeyAndInputSkipToken<TProcedures, K>
-				> & {
-					initialData:
-						| rspc.inferQueryResult<TProcedures, K>
-						| (() => rspc.inferQueryResult<TProcedures, K>);
-				}
-			>
-		>,
-	): tanstack.DefinedCreateBaseQueryResult<
-		rspc.inferQueryResult<TProcedures, K>,
-		rspc.RSPCError
-	>;
-	function createQuery<
-		K extends rspc.inferQueries<TProcedures>["key"] & string,
-	>(
-		keyAndInput: solid.Accessor<queryCore.KeyAndInputSkipToken<TProcedures, K>>,
-		opts?: solid.Accessor<
-			queryCore.WrapQueryOptions<
-				TProcedures,
-				tanstack.CreateQueryOptions<
-					rspc.inferQueryResult<TProcedures, K>,
-					rspc.RSPCError,
-					rspc.inferQueryResult<TProcedures, K>,
-					queryCore.KeyAndInputSkipToken<TProcedures, K>
-				>
-			>
-		>,
-	): tanstack.QueryObserverResult<
-		rspc.inferQueryResult<TProcedures, K>,
-		rspc.RSPCError
-	> {
-		return tanstack.createQuery(
-			() => helpers.useQueryArgs(keyAndInput(), opts?.()) as any,
-		);
-	}
-
-	function createMutation<
-		K extends rspc.inferMutations<TProcedures>["key"] & string,
-		TContext = unknown,
-	>(
-		key: solid.Accessor<K>,
-		opts?: tanstack.FunctionedParams<
-			queryCore.WrapMutationOptions<
-				TProcedures,
-				tanstack.SolidMutationOptions<
-					rspc.inferMutationResult<TProcedures, K>,
-					rspc.RSPCError,
-					rspc.inferMutationInput<TProcedures, K> extends never
-						? undefined
-						: rspc.inferMutationInput<TProcedures, K>,
-					TContext
-				>
-			>
-		>,
-	) {
-		return tanstack.createMutation(() =>
-			helpers.useMutationArgs(key(), opts?.()),
-		);
-	}
-
-	function createSubscription<
-		K extends rspc.inferSubscriptions<TProcedures>["key"] & string,
-	>(
-		keyAndInput: () => [
-			key: K,
-			...input:
-				| rspc._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
-				| [tanstack.SkipToken],
-		],
-		opts: () => queryCore.SubscriptionOptions<TProcedures, K>,
-	) {
-		solid.createEffect(
-			solid.on(
-				() => [keyAndInput(), opts()] as const,
-				([keyAndInput, opts]) => {
-					const unsubscribe = helpers.handleSubscription(
-						keyAndInput,
-						() => opts,
-						helpers.useClient(),
-					);
-
-					solid.onCleanup(() => unsubscribe?.());
-				},
-			),
-		);
-	}
-
-	return {
-		_rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
-		Provider: (props: {
-			children?: solid.JSX.Element;
-			client: rspc.Client<TProcedures>;
-			queryClient: tanstack.QueryClient;
-		}): solid.JSX.Element => {
-			return (
-				<Context.Provider
-					value={{
-						client: props.client,
-						queryClient: props.queryClient,
-					}}
-				>
-					<tanstack.QueryClientProvider client={props.queryClient}>
-						{props.children}
-					</tanstack.QueryClientProvider>
-				</Context.Provider>
-			);
-		},
-		useContext,
-		useUtils,
-		createQuery,
-		// createInfiniteQuery,
-		createMutation,
-		createSubscription,
-	};
 }

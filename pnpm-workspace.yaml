@@ -5,3 +5,4 @@ packages:
   - examples/tauri
   - examples/sfm
   - examples/basic
+  - examples/deno

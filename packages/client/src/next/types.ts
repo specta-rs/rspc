@@ -1,5 +1,5 @@
-import { RSPCError } from "../error";
-import { Observable } from "./observable";
+import type { RSPCError } from "../error";
+import type { Observable } from "./observable";
 
 export type JoinPath<
 	TPath extends string,

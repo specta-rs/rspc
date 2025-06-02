@@ -1,5 +1,5 @@
 import { observable } from "./observable";
-import { ExeceuteData, ExecuteArgs, ExecuteFn } from "./types";
+import type { ExeceuteData, ExecuteArgs, ExecuteFn } from "./types";
 
 interface SSEExecuteArgs {
 	url: string;
@@ -34,7 +34,7 @@ export function sseExecute(
 			const value:
 				| { item: any }
 				| {
-						error: { code: number; message: String; data: any };
+						error: { code: number; message: string; data: any };
 				  } = JSON.parse(e.data);
 
 			if ("item" in value) {

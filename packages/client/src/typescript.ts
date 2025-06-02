@@ -166,9 +166,8 @@ export type inferInfiniteQueryResult<
 export type _inferInfiniteQueryProcedureHandlerInput<
 	TProcedures extends ProceduresLike,
 	K extends inferInfiniteQueries<TProcedures>["key"],
-> =
-	inferInfiniteQueryInput<TProcedures, K> extends never
-		? []
-		: [inferInfiniteQueryInput<TProcedures, K>];
+> = inferInfiniteQueryInput<TProcedures, K> extends never
+	? []
+	: [inferInfiniteQueryInput<TProcedures, K>];
 
 // TODO: Extracting subset of operations by name or some shared key

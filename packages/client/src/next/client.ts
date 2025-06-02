@@ -1,7 +1,7 @@
 import { UntypedClient } from "./UntypedClient";
 import type {
 	ProcedureResult,
-	ProcedureKind as ProcedureKind,
+	ProcedureKind,
 	SubscriptionObserver,
 	ExecuteFn,
 	Procedure,
