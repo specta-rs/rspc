@@ -115,13 +115,10 @@ export const fetchExecute = (
 						// const regex = /(\d+):(\[.*?\])$/;
 						const regex = /(\d+):(\[.*\])\s*$/;
 
-						console.log(line);
 						const match = line.match(regex);
 						if (!match) throw new Error("invalid stream content!");
 
 						const index = Number.parseInt(match[1]);
-						console.log(index, match);
-						console.log(match.input);
 						const [status, data] = JSON.parse(match[2]);
 
 						batchLoader.callbacks[index]?.([status, data]);

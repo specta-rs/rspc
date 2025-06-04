@@ -14,7 +14,11 @@ export function sseExecute(
 	sseArgs: SSEExecuteArgs,
 	args: ExecuteArgs,
 ): ReturnType<ExecuteFn> {
-	const fullUrl = `${sseArgs.url}/${args.path}`;
+	let fullUrl = `${sseArgs.url}/${args.path}`;
+	if (args.input !== undefined) {
+		const encodedInput = encodeURIComponent(JSON.stringify(args.input));
+		fullUrl += `?input=${encodedInput}`;
+	}
 
 	const sse = sseArgs.makeEventSource
 		? sseArgs.makeEventSource(fullUrl, sseArgs.eventSourceInitDict)
@@ -25,6 +29,7 @@ export function sseExecute(
 			o.next({ type: "started" });
 		};
 		sse.onmessage = (e) => {
+			console.log("message", e);
 			if (e.data === "stopped") {
 				sse.close();
 				o.complete();

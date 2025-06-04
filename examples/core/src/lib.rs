@@ -96,7 +96,7 @@ pub fn mount() -> Router<Ctx> {
         .procedure("sendMsg", {
             <BaseProcedure>::builder().mutation(|_, msg: String| async move {
                 println!("Got message from frontend: {msg}");
-                Ok(msg)
+                Ok(true)
             })
         })
         .procedure("withoutBaseProcedure", {

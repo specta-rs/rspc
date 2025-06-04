@@ -1,9 +1,9 @@
-import { Channel, invoke } from "@tauri-apps/api/core";
 import {
 	type ExecuteArgs,
 	type ExecuteFn,
 	observable,
 } from "@rspc/client/next";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 type Request = { request: { path: string; input: any } } | { abort: number };
 

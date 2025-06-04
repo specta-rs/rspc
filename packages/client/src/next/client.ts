@@ -1,11 +1,11 @@
 import { UntypedClient } from "./UntypedClient";
 import type {
-	ProcedureResult,
-	ProcedureKind,
-	SubscriptionObserver,
 	ExecuteFn,
 	Procedure,
+	ProcedureKind,
+	ProcedureResult,
 	Procedures,
+	SubscriptionObserver,
 } from "./types";
 
 export type ProcedureWithKind<V extends ProcedureKind> = Omit<

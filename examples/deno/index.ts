@@ -12,7 +12,9 @@ client.version.query().then((v) => console.log("version", v));
 client.flush.query().then((v) => console.log("flush", v));
 client.flush2.query().then((v) => console.log("flush2", v));
 
-client.basicSubscription.subscribe(null as any, {
+client.sendMsg.mutate("message").then(v => console.log("message", v))
+
+client.basicSubscription.subscribe(void 0, {
   onData(value) {
     console.log(value)
   },

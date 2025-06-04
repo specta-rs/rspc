@@ -1,6 +1,6 @@
 import type { ProceduresDef } from "@rspc/client";
-import { getContext, setContext } from "svelte";
 import type { Context } from "@rspc/query-core";
+import { getContext, setContext } from "svelte";
 
 const _contextKey = "$$_rspcClient";
 

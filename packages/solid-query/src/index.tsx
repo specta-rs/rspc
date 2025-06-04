@@ -1,13 +1,14 @@
 import type { VoidIfInputNull } from "@rspc/client/next";
 import {
 	type Client,
-	createProceduresProxy,
 	type Procedure,
 	type Procedures,
+	createProceduresProxy,
 	traverseClient,
 } from "@rspc/client/next";
 import * as tanstack from "@tanstack/solid-query";
 
+// TODO: these should be overloaded to support passing options object when input is null
 export type RspcQueryOptions<P extends Procedure> = {
 	<TQueryFnData extends P["output"], TData = TQueryFnData>(
 		input: VoidIfInputNull<P> | tanstack.SkipToken,

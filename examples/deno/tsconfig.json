@@ -1,4 +1,4 @@
 {
-	"extends": "../../packages/tsconfig.json",
+  "extends": "../../packages/tsconfig.json",
   "compilerOptions": {}
 }
