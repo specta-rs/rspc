@@ -1,4 +1,5 @@
-import type { VoidIfInputNull } from "@rspc/client/next";
+import type { VoidIfInputNull, SubscriptionObserver } from "@rspc/client/next";
+import { UntypedClient } from "@rspc/client/next";
 import {
 	type Client,
 	type Procedure,
@@ -7,6 +8,7 @@ import {
 	traverseClient,
 } from "@rspc/client/next";
 import * as tanstack from "@tanstack/solid-query";
+import { type Accessor, createSignal } from "solid-js";
 
 // TODO: these should be overloaded to support passing options object when input is null
 export type RspcQueryOptions<P extends Procedure> = {
@@ -58,14 +60,21 @@ export type MutationMethods<P extends Procedure> = {
 	mutationKey: () => ReadonlyArray<unknown>;
 };
 
+export type SubscriptionMethods<P extends Procedure> = {
+	subscriptionOptions: (
+		input: VoidIfInputNull<P>,
+		opts: SubscriptionObserver<P["output"], P["error"]>,
+	) => SubscriptionOptions<P["output"], P["error"]>;
+};
+
 export type ProcedureProxyMethods<P extends Procedure> =
 	P["kind"] extends "query"
 		? QueryMethods<P>
 		: P["kind"] extends "mutation"
 			? MutationMethods<P>
-			: // : P["kind"] extends "subscription"
-				// ? { subscribe: SubscriptionResolver<P> }
-				never;
+			: P["kind"] extends "subscription"
+				? SubscriptionMethods<P>
+				: never;
 
 export type OptionsProceduresProxy<P extends Procedures> = {
 	[K in keyof P]: P[K] extends Procedure
@@ -75,7 +84,10 @@ export type OptionsProceduresProxy<P extends Procedures> = {
 			: never;
 };
 
-type UtilsMethods = keyof QueryMethods<any> | keyof MutationMethods<any>;
+type UtilsMethods =
+	| keyof QueryMethods<any>
+	| keyof MutationMethods<any>
+	| keyof SubscriptionMethods<any>;
 
 export function createRSPCOptionsProxy<P extends Procedures>(
 	client: Client<P>,
@@ -109,12 +121,65 @@ export function createRSPCOptionsProxy<P extends Procedures>(
 			mutationKey: () => {
 				return [path];
 			},
+			subscriptionOptions: () => {
+				return {
+					...args[1],
+					subscribe: (innerOpts: SubscriptionObserver<any, any>) =>
+						(traverseClient(client, path) as any).subscribe(args[0], innerOpts),
+				};
+			},
 		};
 
 		if (option in methods) {
 			return methods[option]();
 		}
 
-		throw new Error();
+		throw new Error(`Invalid proxy method '${option}'`);
 	});
+}
+
+export interface SubscriptionOptions<TOut, TError>
+	extends SubscriptionObserver<TOut, TError> {
+	subscribe: (innerOpts: SubscriptionObserver<TOut, TError>) => void;
+	enabled: boolean;
+	queryKey: unknown;
+}
+
+type SubscriptionStatus = "idle" | "pending" | "success" | "error";
+
+export function useSubscription<TOut, TError>(
+	options: SubscriptionOptions<TOut, TError>,
+): {
+	data: Accessor<TOut | undefined>;
+	error: Accessor<TError | undefined>;
+	status: Accessor<SubscriptionStatus>;
+} {
+	const [data, setData] = createSignal<TOut | undefined>(undefined);
+	const [error, setError] = createSignal<TError | undefined>(undefined);
+	const [status, setStatus] = createSignal<SubscriptionStatus>("idle");
+
+	options.subscribe({
+		onStarted() {
+			options.onStarted?.();
+			setStatus("pending");
+			setError(undefined);
+		},
+		onData(value) {
+			options.onData?.(value);
+			setStatus("pending");
+			setData(() => value);
+			setError(undefined);
+		},
+		onComplete() {
+			options.onComplete?.();
+			setStatus("success");
+		},
+		onError(err) {
+			setError(() => err);
+			options.onError?.(err);
+			setStatus("error");
+		},
+	});
+
+	return { data, error, status };
 }

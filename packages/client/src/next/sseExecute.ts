@@ -29,7 +29,6 @@ export function sseExecute(
 			o.next({ type: "started" });
 		};
 		sse.onmessage = (e) => {
-			console.log("message", e);
 			if (e.data === "stopped") {
 				sse.close();
 				o.complete();

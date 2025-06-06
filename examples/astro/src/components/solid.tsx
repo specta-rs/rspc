@@ -1,11 +1,12 @@
 /** @jsxImportSource solid-js */
 
 import { createClient, fetchExecute, sseExecute, } from "@rspc/client/next";
-import { createRSPCOptionsProxy } from "@rspc/solid-query";
+import { createRSPCOptionsProxy, useSubscription } from "@rspc/solid-query";
 import { QueryClient, QueryClientProvider, useQuery, useMutation, skipToken } from "@tanstack/solid-query";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import { Procedures } from "../../../bindings";
+import { Show } from "solid-js";
 
 const fetchQueryClient = new QueryClient({
   defaultOptions: {
@@ -20,18 +21,43 @@ const client = createClient<Procedures>((args) => {
   else return fetchExecute({ url, batch: true, stream: true }, args);
 })
 
+
 export const rspc = createRSPCOptionsProxy<Procedures>(client);
 
 function Example() {
-  const version = useQuery(rspc.version.queryOptions())
-  const validate = useQuery(rspc.validator.queryOptions({ mail: "test" }))
+  const version = useQuery(rspc.version.queryOptions(null as any, {}))
+  const validate = useQuery(rspc.validator.queryOptions({ mail: "example@example.com" }))
+  const { data, error, status } = useSubscription(rspc.basicSubscription.subscriptionOptions(null as any, {
+    onData(value) {
+      console.log("Data received", value)
+    },
+    onError(err) {
+      console.error(err.type, err.error)
+    },
+  }))
 
-  const mutation = useMutation(rspc.sendMsg.mutationOptions())
+
+  const mutation = useMutation(rspc.sendMsg.mutationOptions({
+    onSettled() {
+      fetchQueryClient.invalidateQueries({
+        queryKey: rspc.version.queryKey()
+      })
+    },
+  }))
 
   return (
     <div>
       <h1>SolidJS</h1>
-      <span>{version.data}</span>
+      <Show when={!version.isLoading} fallback={<p>Loading</p>}>
+        <p>{version.data}</p>
+      </Show>
+      <p>subscription {JSON.stringify(data())}</p>
+      <Show when={error()}>
+        {error =>
+          <p>Error {error().type}</p>
+        }
+      </Show>
+      <p>status {status()}</p>
       <button onClick={() => mutation.mutate("Message")}>Trigger mutation</button>
     </div>
   );

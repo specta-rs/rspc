@@ -29,10 +29,10 @@ export type ProcedureResult<P extends Procedure> = Result<
 >;
 
 export interface SubscriptionObserver<TValue, TError> {
-	onStarted: () => void;
-	onData: (value: TValue) => void;
-	onError: (err: TError) => void;
-	onComplete: () => void;
+	onStarted?: () => void;
+	onData?: (value: TValue) => void;
+	onError?: (err: TError) => void;
+	onComplete?: () => void;
 }
 
 export type ExecuteArgs = {
