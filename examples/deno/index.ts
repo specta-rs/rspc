@@ -14,7 +14,7 @@ client.flush2.query().then((v) => console.log("flush2", v));
 
 client.sendMsg.mutate("message").then(v => console.log("message", v))
 
-client.basicSubscription.subscribe(void 0, {
+client.basicSubscription.subscribe(null, {
   onData(value) {
     console.log(value)
   },

@@ -1,7 +1,7 @@
 /** @jsxImportSource solid-js */
 
 import { createClient, fetchExecute, sseExecute, } from "@rspc/client/next";
-import { createRSPCOptionsProxy, useSubscription } from "@rspc/solid-query";
+import { createRSPCOptionsProxy, inferInput, inferOutput, useSubscription, } from "@rspc/solid-query";
 import { QueryClient, QueryClientProvider, useQuery, useMutation, skipToken } from "@tanstack/solid-query";
 import { Show } from "solid-js";
 
@@ -21,9 +21,10 @@ const client = createClient<Procedures>((args) => {
   else return fetchExecute({ url, batch: true, stream: true }, args);
 })
 
-export const rspc = createRSPCOptionsProxy<Procedures>(client);
+const rspc = createRSPCOptionsProxy<Procedures>(client);
 
 function Example() {
+  type Version = inferOutput<typeof rspc.version>
   const version = useQuery(rspc.version.queryOptions())
   const validate = useQuery(rspc.validator.queryOptions({ mail: "example@example.com" }))
 
