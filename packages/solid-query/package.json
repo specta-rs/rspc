@@ -6,26 +6,30 @@
 	"author": "Oscar Beaumont",
 	"license": "MIT",
 	"type": "module",
-	"source": "src/index.tsx",
-	"main": "dist/cjs/index.js",
-	"module": "dist/esm/index.js",
-	"types": "dist/types/index.d.ts",
+	"source": "src/index.ts",
 	"files": ["dist"],
+	"main": "dist/index.cjs",
+	"types": "dist/index.d.ts",
 	"exports": {
 		"./package.json": "./package.json",
 		".": {
-			"types": "./dist/types/index.d.ts",
-			"solid": "./dist/source/index.jsx",
-			"import": "./dist/esm/index.js",
-			"browser": "./dist/esm/index.js",
-			"require": "./dist/cjs/index.js",
-			"node": "./dist/cjs/index.js"
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.cjs"
 		}
 	},
 	"scripts": {
-		"dev": "rollup -c -w",
-		"build": "rollup -c && tsc",
-		"prepare": "rollup -c && tsc"
+		"dev": "tsup --watch",
+		"build": "tsup",
+		"prepare": "tsup"
+	},
+	"tsup": {
+		"entry": ["src/index.ts"],
+		"format": ["esm", "cjs"],
+		"dts": true,
+		"splitting": true,
+		"clean": true,
+		"sourcemap": true
 	},
 	"dependencies": {
 		"@rspc/client": "workspace:*",
@@ -33,10 +37,9 @@
 	},
 	"devDependencies": {
 		"@tanstack/solid-query": "^5.79.0",
-		"rollup": "^4.34.4",
-		"rollup-preset-solid": "^2.0.1",
 		"solid-js": "^1.9.4",
 		"turbo": "^2.4.0",
+		"tsup": "^8.3.6",
 		"typescript": "^5.7.3"
 	},
 	"peerDependencies": {

@@ -3,10 +3,10 @@
 import { createClient, fetchExecute, sseExecute, } from "@rspc/client/next";
 import { createRSPCOptionsProxy, useSubscription } from "@rspc/solid-query";
 import { QueryClient, QueryClientProvider, useQuery, useMutation, skipToken } from "@tanstack/solid-query";
+import { Show } from "solid-js";
 
 // Export from Rust. Run `cargo run -p example-axum` to start server and export it!
 import { Procedures } from "../../../bindings";
-import { Show } from "solid-js";
 
 const fetchQueryClient = new QueryClient({
   defaultOptions: {
@@ -21,21 +21,11 @@ const client = createClient<Procedures>((args) => {
   else return fetchExecute({ url, batch: true, stream: true }, args);
 })
 
-
 export const rspc = createRSPCOptionsProxy<Procedures>(client);
 
 function Example() {
-  const version = useQuery(rspc.version.queryOptions(null as any, {}))
+  const version = useQuery(rspc.version.queryOptions())
   const validate = useQuery(rspc.validator.queryOptions({ mail: "example@example.com" }))
-  const { data, error, status } = useSubscription(rspc.basicSubscription.subscriptionOptions(null as any, {
-    onData(value) {
-      console.log("Data received", value)
-    },
-    onError(err) {
-      console.error(err.type, err.error)
-    },
-  }))
-
 
   const mutation = useMutation(rspc.sendMsg.mutationOptions({
     onSettled() {
@@ -45,19 +35,29 @@ function Example() {
     },
   }))
 
+  const subscription = useSubscription(rspc.basicSubscription.subscriptionOptions(null, {
+    enabled: true,
+    onData(value) {
+      console.log("Data received", value)
+    },
+    onError(err) {
+      console.error(err.type, err.error)
+    },
+  }))
+
   return (
     <div>
       <h1>SolidJS</h1>
       <Show when={!version.isLoading} fallback={<p>Loading</p>}>
         <p>{version.data}</p>
       </Show>
-      <p>subscription {JSON.stringify(data())}</p>
-      <Show when={error()}>
+      <p>subscription {JSON.stringify(subscription.data)}</p>
+      <Show when={subscription.error}>
         {error =>
           <p>Error {error().type}</p>
         }
       </Show>
-      <p>status {status()}</p>
+      <p>status {subscription.status}</p>
       <button onClick={() => mutation.mutate("Message")}>Trigger mutation</button>
     </div>
   );

@@ -40,9 +40,9 @@ export type ExecuteArgs = {
 	path: string;
 	input: unknown;
 };
-export type ExecuteFn = (args: ExecuteArgs) => Observable<ExeceuteData, any>;
+export type ExecuteFn = (args: ExecuteArgs) => Observable<ExecuteData, any>;
 
-export type ExeceuteData =
+export type ExecuteData =
 	| { type: "started" }
 	| { type: "data"; value: unknown }
 	| { type: "complete" };
