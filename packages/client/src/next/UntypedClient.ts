@@ -1,9 +1,4 @@
-import type {
-	ExeceuteData,
-	ExecuteArgs,
-	ExecuteFn,
-	SubscriptionObserver,
-} from "./types";
+import type { ExecuteArgs, ExecuteFn, SubscriptionObserver } from "./types";
 
 export class UntypedClient {
 	constructor(public execute: ExecuteFn) {}

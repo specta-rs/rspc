@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import { createClient, observable } from ".";
-import { fetchExecute } from "./UntypedClient";
+import { fetchExecute } from "./fetchExecute";
 
 type NestedProcedures = {
 	nested: {

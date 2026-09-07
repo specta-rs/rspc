@@ -2,6 +2,8 @@
 
 Allows making rspc requests
 
+#### This default permission set includes the following:
+
 - `allow-handle-rpc`
 
 ## Permission Table

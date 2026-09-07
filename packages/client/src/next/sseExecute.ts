@@ -1,5 +1,5 @@
 import { observable } from "./observable";
-import { ExeceuteData, ExecuteArgs, ExecuteFn } from "./types";
+import type { ExecuteData, ExecuteArgs, ExecuteFn } from "./types";
 
 interface SSEExecuteArgs {
 	url: string;
@@ -14,13 +14,17 @@ export function sseExecute(
 	sseArgs: SSEExecuteArgs,
 	args: ExecuteArgs,
 ): ReturnType<ExecuteFn> {
-	const fullUrl = `${sseArgs.url}/${args.path}`;
+	let fullUrl = `${sseArgs.url}/${args.path}`;
+	if (args.input !== undefined) {
+		const encodedInput = encodeURIComponent(JSON.stringify(args.input));
+		fullUrl += `?input=${encodedInput}`;
+	}
 
 	const sse = sseArgs.makeEventSource
 		? sseArgs.makeEventSource(fullUrl, sseArgs.eventSourceInitDict)
 		: new EventSource(fullUrl, sseArgs.eventSourceInitDict);
 
-	return observable<ExeceuteData, any>((o) => {
+	return observable<ExecuteData, any>((o) => {
 		sse.onopen = () => {
 			o.next({ type: "started" });
 		};
@@ -34,7 +38,7 @@ export function sseExecute(
 			const value:
 				| { item: any }
 				| {
-						error: { code: number; message: String; data: any };
+						error: { code: number; message: string; data: any };
 				  } = JSON.parse(e.data);
 
 			if ("item" in value) {
@@ -43,6 +47,9 @@ export function sseExecute(
 				o.error(value.error.data);
 				sse.close();
 			}
+		};
+		sse.onerror = (e) => {
+			o.error(e);
 		};
 	});
 }

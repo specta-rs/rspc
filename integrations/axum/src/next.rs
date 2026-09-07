@@ -3,7 +3,7 @@ use axum::{
     Router,
     body::{Body, to_bytes},
     extract::State,
-    http::{HeaderValue, Method, Response, StatusCode, request::Parts},
+    http::{HeaderValue, Method, Response, StatusCode, header, request::Parts},
     response::{IntoResponse, Sse, sse::Event},
     routing::{MethodFilter, on, post},
 };
@@ -414,28 +414,28 @@ where
 
     if stream_response {
         let stream = futures::stream::unfold(stream, |mut stream| async move {
-            let Some((item, i)) = stream.next().await else {
-                return None;
-            };
+            loop {
+                let Some((item, i)) = stream.next().await else {
+                    return None;
+                };
 
-            let out = match item {
-                StreamYield::Item(item) => {
-                    let stream_index = i - 1;
+                match item {
+                    StreamYield::Item(item) => {
+                        let stream_index = i - 1;
 
-                    format!(
-                        "{stream_index}:{}\n",
-                        serde_json::to_string(&json!(item))
-                            .expect("failed to stringify serde_json::Value")
-                    )
+                        let out = format!(
+                            "{stream_index}:{}\n",
+                            serde_json::to_string(&item)
+                                .expect("failed to stringify serde_json::Value")
+                        );
+                        return Some((Ok::<_, Infallible>(out), stream));
+                    }
+                    StreamYield::Finished(s) => {
+                        s.remove(Pin::new(&mut stream));
+                        continue;
+                    }
                 }
-                StreamYield::Finished(s) => {
-                    s.remove(Pin::new(&mut stream));
-
-                    String::new()
-                }
-            };
-
-            Some((Ok::<_, Infallible>(out), stream))
+            }
         });
 
         let body = if flushes.is_empty() {
@@ -478,8 +478,9 @@ where
         }
 
         Response::builder()
-            .header("Content-Type", "application/json")
-            .body(Body::from(serde_json::to_vec(&json!(responses)).unwrap()))
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(serde_json::to_vec(&responses).unwrap()))
             .unwrap()
     }
 }

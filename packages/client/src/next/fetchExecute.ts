@@ -1,5 +1,5 @@
 import { observable } from "./observable";
-import { ExecuteArgs, ExecuteFn } from "./types";
+import type { ExecuteArgs, ExecuteFn } from "./types";
 
 type BatchLoader = {
 	data: [string, any][];
@@ -43,6 +43,11 @@ export const fetchExecute = (
 
 			promise = fetch(url.toString(), {
 				method: "GET",
+				// Queries with no input all hit the same URL every call (e.g.
+				// `get_transactions`), which the browser's HTTP cache will otherwise
+				// happily serve stale on repeat navigations - the backend never sends
+				// Cache-Control either, so nothing stops it.
+				cache: "no-store",
 				headers: {
 					Accept: "application/json",
 				},
@@ -64,6 +69,8 @@ export const fetchExecute = (
 					if (r.status === 200) {
 						subscriber.next({ type: "data", value: await r.json() });
 						subscriber.complete();
+					} else {
+						subscriber.error(await r.json().catch(() => r.statusText));
 					}
 				})
 				.catch((e) => {
@@ -111,11 +118,11 @@ export const fetchExecute = (
 
 						const line = decoder.decode(value);
 
-						const regex = /(\d+):(\[.*?\])/;
+						const regex = /(\d+):(\[.*\])\s*$/;
 						const match = line.match(regex);
 						if (!match) throw new Error("invalid stream content!");
 
-						const index = parseInt(match[1]);
+						const index = Number.parseInt(match[1]);
 						const [status, data] = JSON.parse(match[2]);
 
 						batchLoader.callbacks[index]?.([status, data]);

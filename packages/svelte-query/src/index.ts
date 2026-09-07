@@ -1,9 +1,9 @@
 import type * as rspc from "@rspc/client";
 import * as queryCore from "@rspc/query-core";
 import * as tanstack from "@tanstack/svelte-query";
-import { getRspcClientContext } from "./context";
-import { derived, get, readable, type Readable } from "svelte/store";
 import { onDestroy } from "svelte";
+import { type Readable, derived, get, readable } from "svelte/store";
+import { getRspcClientContext } from "./context";
 
 export * from "@rspc/query-core";
 

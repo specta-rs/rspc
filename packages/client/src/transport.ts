@@ -1,6 +1,6 @@
 // TODO: Redo this entire system when links are introduced
 // TODO: Make this file work off Typescript types which are exported from Rust to ensure internal type-safety!
-import { OperationType, RSPCError } from ".";
+import { type OperationType, RSPCError } from ".";
 
 // TODO
 export interface Transport {
@@ -35,7 +35,7 @@ export class FetchTransport implements Transport {
 
 		let method = "GET";
 		let body = undefined as any;
-		let headers = new Headers();
+		const headers = new Headers();
 
 		const params = new URLSearchParams();
 		if (operation === "query") {
@@ -124,13 +124,13 @@ export class WebsocketTransport implements Transport {
 	}
 
 	async reconnect(timeoutIndex = 0) {
-		let timeout =
+		const timeout =
 			(timeouts[timeoutIndex] ?? timeouts[timeouts.length - 1]) +
 			(Math.floor(Math.random() * 5000 /* 5 Seconds */) + 1);
 
 		setTimeout(() => {
-			let ws = new WebSocket(this.url);
-			new Promise(function (resolve, reject) {
+			const ws = new WebSocket(this.url);
+			new Promise((resolve, reject) => {
 				ws.addEventListener("open", () => resolve(null));
 				ws.addEventListener("close", reject);
 			})

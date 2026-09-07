@@ -1,16 +1,16 @@
 // TODO: Redo this entire system when links are introduced
 import {
-	RSPCError,
-	ProceduresLike,
-	inferQueryResult,
-	ProceduresDef,
-	inferMutationResult,
-	inferProcedures,
-	inferSubscriptionResult,
+	type ProceduresDef,
+	type ProceduresLike,
+	type RSPCError,
 	_inferInfiniteQueryProcedureHandlerInput,
-	_inferProcedureHandlerInput,
+	type _inferProcedureHandlerInput,
+	type inferMutationResult,
+	type inferProcedures,
+	type inferQueryResult,
+	type inferSubscriptionResult,
 } from ".";
-import { randomId, Transport } from "./transport";
+import { type Transport, randomId } from "./transport";
 
 // TODO
 export interface SubscriptionOptions<TOutput> {

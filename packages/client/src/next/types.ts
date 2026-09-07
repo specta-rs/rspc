@@ -1,5 +1,5 @@
-import { RSPCError } from "../error";
-import { Observable } from "./observable";
+import type { RSPCError } from "../error";
+import type { Observable } from "./observable";
 
 export type JoinPath<
 	TPath extends string,
@@ -23,16 +23,13 @@ export type Result<Ok, Err> =
 	| { status: "ok"; data: Ok }
 	| { status: "err"; error: Err | RSPCError };
 
-export type ProcedureResult<P extends Procedure> = Result<
-	P["output"],
-	P["error"]
->;
+export type ProcedureResult<P extends Procedure> = P["output"];
 
 export interface SubscriptionObserver<TValue, TError> {
-	onStarted: () => void;
-	onData: (value: TValue) => void;
-	onError: (err: TError) => void;
-	onComplete: () => void;
+	onStarted?: () => void;
+	onData?: (value: TValue) => void;
+	onError?: (err: TError) => void;
+	onComplete?: () => void;
 }
 
 export type ExecuteArgs = {
@@ -40,9 +37,9 @@ export type ExecuteArgs = {
 	path: string;
 	input: unknown;
 };
-export type ExecuteFn = (args: ExecuteArgs) => Observable<ExeceuteData, any>;
+export type ExecuteFn = (args: ExecuteArgs) => Observable<ExecuteData, any>;
 
-export type ExeceuteData =
+export type ExecuteData =
 	| { type: "started" }
 	| { type: "data"; value: unknown }
 	| { type: "complete" };

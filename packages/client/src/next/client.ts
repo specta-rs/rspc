@@ -1,11 +1,11 @@
 import { UntypedClient } from "./UntypedClient";
 import type {
-	ProcedureResult,
-	ProcedureKind as ProcedureKind,
-	SubscriptionObserver,
 	ExecuteFn,
 	Procedure,
+	ProcedureKind,
+	ProcedureResult,
 	Procedures,
+	SubscriptionObserver,
 } from "./types";
 
 export type ProcedureWithKind<V extends ProcedureKind> = Omit<
@@ -18,7 +18,7 @@ type Unsubscribable = { unsubscribe: () => void };
 export type VoidIfInputNull<
 	P extends Procedure,
 	Else = P["input"],
-> = P["input"] extends null ? void : Else;
+> = P["input"] extends null ? void | null : Else;
 
 type Resolver<P extends Procedure> = (
 	input: VoidIfInputNull<P>,
