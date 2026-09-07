@@ -43,6 +43,11 @@ export const fetchExecute = (
 
 			promise = fetch(url.toString(), {
 				method: "GET",
+				// Queries with no input all hit the same URL every call (e.g.
+				// `get_transactions`), which the browser's HTTP cache will otherwise
+				// happily serve stale on repeat navigations - the backend never sends
+				// Cache-Control either, so nothing stops it.
+				cache: "no-store",
 				headers: {
 					Accept: "application/json",
 				},
@@ -64,6 +69,8 @@ export const fetchExecute = (
 					if (r.status === 200) {
 						subscriber.next({ type: "data", value: await r.json() });
 						subscriber.complete();
+					} else {
+						subscriber.error(await r.json().catch(() => r.statusText));
 					}
 				})
 				.catch((e) => {

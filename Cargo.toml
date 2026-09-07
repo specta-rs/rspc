@@ -8,10 +8,18 @@ members = [
     "./examples/axum",
     "./examples/client",
     "./examples/tauri/src-tauri",
-    "./examples/legacy",
-    "./examples/binario",
     "./examples/anyhow",
 ]
+
+# Parked, not abandoned — both are expected back. See PLAN.md.
+#
+#   examples/legacy  calls `rspc_axum::endpoint`, which is commented out of
+#                    integrations/axum/src/lib.rs. Returns when the JSON-RPC/WebSocket
+#                    path is re-enabled (Phase E).
+#   crates/binario   the `binario` crate returns non-`Send` futures, which cannot satisfy
+#                    rspc's `Send`-bound Middleware/ResolverOutput traits. Blocked upstream
+#                    (Phase G).
+exclude = ["./examples/legacy", "./examples/binario", "./crates/binario"]
 
 [workspace.dependencies]
 # Private

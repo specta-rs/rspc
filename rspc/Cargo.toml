@@ -17,12 +17,15 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["legacy"] # TODO: Legacy shouldn't be a default feature -> we need it for the legacy bindings syntax
+# `legacy` is opt-in rather than default: enabling it emits the extra `ProceduresLegacy`
+# type into generated bindings, which consumers that never used the 0.3 syntax don't want.
+# Users migrating from 0.3 turn it on explicitly. See PLAN.md D-1.
+default = []
 
 typescript = ["dep:specta-typescript", "dep:serde_json"]
 rust = [] # TODO: "dep:specta-rust"]
 
-# TODO: Remove
+# The rspc 0.3 syntax on top of the 0.4 core, for incremental migration. Kept deliberately.
 legacy = ["dep:rspc-legacy", "dep:serde_json"]
 
 [dependencies]

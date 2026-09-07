@@ -29,5 +29,5 @@
 		"@biomejs/biome": "^1.9.4",
 		"turbo": "^2.4.0"
 	},
-	"packageManager": "pnpm@9.5.0"
+	"packageManager": "pnpm@10.13.1"
 }

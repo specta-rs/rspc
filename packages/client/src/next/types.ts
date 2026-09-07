@@ -23,10 +23,7 @@ export type Result<Ok, Err> =
 	| { status: "ok"; data: Ok }
 	| { status: "err"; error: Err | RSPCError };
 
-export type ProcedureResult<P extends Procedure> = Result<
-	P["output"],
-	P["error"]
->;
+export type ProcedureResult<P extends Procedure> = P["output"];
 
 export interface SubscriptionObserver<TValue, TError> {
 	onStarted?: () => void;
