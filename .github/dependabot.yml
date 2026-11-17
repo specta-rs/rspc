@@ -1,9 +1,15 @@
 version: 2
+
+multi-ecosystem-groups:
+  rspc-deps:
+    schedule:
+      interval: "weekly"
+
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
+    multi-ecosystem-group: "rspc-deps"
+    patterns: ["*"]
 
   # TODO: Rust
   # TODO: npm
