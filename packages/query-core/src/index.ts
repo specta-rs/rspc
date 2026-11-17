@@ -159,6 +159,64 @@ export type WrapMutationOptions<P extends rspc.ProceduresDef, T> = Omit<
 > &
 	BaseOptions<P>;
 
+/**
+ * The resolved options object returned from `useQueryArgs`.
+ *
+ * This is written out explicitly (rather than inferred) because TanStack Query's
+ * `QueryObserverOptions` references types that are not exported from the package
+ * root, which makes the inferred type non-portable in the emitted declaration.
+ */
+export type QueryArgs<
+	P extends rspc.ProceduresDef,
+	K extends rspc.inferQueries<P>["key"] & string,
+> = WrapQueryOptions<
+	P,
+	tanstack.QueryObserverOptions<
+		rspc.inferQueryResult<P, K>,
+		rspc.RSPCError,
+		rspc.inferQueryResult<P, K>,
+		rspc.inferQueryResult<P, K>,
+		KeyAndInputSkipToken<P, K>
+	>
+> & {
+	queryKey: KeyAndInputSkipToken<P, K>;
+	queryFn:
+		| (() => Promise<rspc.inferQueryResult<P, K>>)
+		| tanstack.SkipToken;
+};
+
+export type MutationObserverOptions<
+	P extends rspc.ProceduresDef,
+	K extends rspc.inferMutations<P>["key"] & string,
+> = WrapMutationOptions<
+	P,
+	tanstack.MutationObserverOptions<
+		rspc.inferMutationResult<P, K>,
+		rspc.RSPCError,
+		rspc.inferMutationInput<P, K> extends never
+			? undefined
+			: rspc.inferMutationInput<P, K>,
+		any
+	>
+>;
+
+/**
+ * The resolved options object returned from `useMutationArgs`.
+ *
+ * @see QueryArgs for why this is written out explicitly.
+ */
+export type MutationArgs<
+	P extends rspc.ProceduresDef,
+	K extends rspc.inferMutations<P>["key"] & string,
+> = MutationObserverOptions<P, K> & {
+	mutationKey: [K];
+	mutationFn: (
+		input?: rspc.inferMutationInput<P, K> extends never
+			? undefined
+			: rspc.inferMutationInput<P, K>,
+	) => Promise<rspc.inferMutationResult<P, K>>;
+};
+
 function isSkipTokenInput(array: any[]): array is [tanstack.SkipToken] {
 	return array.length === 1 && array[0] === tanstack.skipToken;
 }
@@ -194,7 +252,7 @@ export function createQueryHookHelpers<P extends rspc.ProceduresDef>(args: {
 				KeyAndInputSkipToken<P, K>
 			>
 		>,
-	>(keyAndInput: KeyAndInputSkipToken<P, K>, opts?: O) {
+	>(keyAndInput: KeyAndInputSkipToken<P, K>, opts?: O): QueryArgs<P, K> {
 		const client = getClient(opts);
 		const [key, ...input] = keyAndInput;
 
@@ -207,24 +265,10 @@ export function createQueryHookHelpers<P extends rspc.ProceduresDef>(args: {
 		};
 	}
 
-	type MutationObserverOptions<
-		K extends rspc.inferMutations<P>["key"] & string,
-	> = WrapMutationOptions<
-		P,
-		tanstack.MutationObserverOptions<
-			rspc.inferMutationResult<P, K>,
-			rspc.RSPCError,
-			rspc.inferMutationInput<P, K> extends never
-				? undefined
-				: rspc.inferMutationInput<P, K>,
-			any
-		>
-	>;
-
 	function useMutationArgs<
 		K extends rspc.inferMutations<P>["key"] & string,
-		O extends MutationObserverOptions<K>,
-	>(key: K, opts?: O) {
+		O extends MutationObserverOptions<P, K>,
+	>(key: K, opts?: O): MutationArgs<P, K> {
 		const client = getClient(opts);
 
 		return {
@@ -232,14 +276,7 @@ export function createQueryHookHelpers<P extends rspc.ProceduresDef>(args: {
 			mutationKey: [key],
 			mutationFn: (input) =>
 				client.mutation([key, ...(input ? [input] : [])] as any),
-		} satisfies tanstack.MutationObserverOptions<
-			rspc.inferMutationResult<P, K>,
-			rspc.RSPCError,
-			rspc.inferMutationInput<P, K> extends never
-				? undefined
-				: rspc.inferMutationInput<P, K>,
-			any
-		>;
+		};
 	}
 
 	function handleSubscription<

@@ -30,8 +30,8 @@
 		"prepare": "tsup"
 	},
 	"devDependencies": {
-		"tsup": "^8.3.6",
-		"typescript": "^5.7.3"
+		"tsup": "^9.0.0",
+		"typescript": "^6.0.3"
 	},
 	"tsup": {
 		"entry": [
@@ -48,6 +48,6 @@
 		"sourcemap": true
 	},
 	"dependencies": {
-		"vitest": "^3.0.5"
+		"vitest": "^5.1.0"
 	}
 }

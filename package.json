@@ -17,17 +17,22 @@
 		"react": "pnpm --filter @rspc/react -- ",
 		"solid": "pnpm --filter @rspc/solid -- ",
 		"tauri": "pnpm --filter @rspc/tauri -- ",
-		"fix": "biome lint --apply . && biome format --write . && biome check . --apply"
+		"fix": "biome check --write ."
 	},
 	"engines": {
 		"pnpm": ">=7.0.0",
 		"npm": "pnpm",
 		"yarn": "pnpm",
-		"node": ">=16.0.0"
+		"node": ">=22.0.0"
 	},
 	"devDependencies": {
-		"biome": "^0.3.3",
-		"turbo": "^2.4.0"
+		"turbo": "^2.11.11",
+		"@biomejs/biome": "^2.6.8"
 	},
-	"packageManager": "pnpm@9.5.0"
+	"packageManager": "pnpm@9.5.0",
+	"pnpm": {
+		"overrides": {
+			"@rollup/plugin-terser": "^1.0.2"
+		}
+	}
 }

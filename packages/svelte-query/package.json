@@ -6,17 +6,17 @@
   "author": "Oscar Beaumont",
   "license": "MIT",
   "type": "module",
-  "source": "./src/index.tsx",
-  "types": "./dist/index.d.ts",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "svelte": "./dist/index.js",
+  "source": "./src/index.svelte.ts",
+  "types": "./dist/index.svelte.d.ts",
+  "main": "./dist/index.svelte.js",
+  "module": "./dist/index.svelte.js",
+  "svelte": "./dist/index.svelte.js",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "svelte": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/index.svelte.d.ts",
+      "import": "./dist/index.svelte.js",
+      "svelte": "./dist/index.svelte.js",
+      "default": "./dist/index.svelte.js"
     },
     "./package.json": "./package.json"
   },
@@ -33,14 +33,15 @@
   },
   "devDependencies": {
     "@rspc/client": "workspace:*",
-    "@sveltejs/package": "^2.3.10",
-    "@tanstack/svelte-query": "^5.66.0",
-    "tslib": "^2.8.1",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.5"
+    "@sveltejs/package": "^3.0.2",
+    "@tanstack/svelte-query": "^6.4.1",
+    "svelte": "^5.57.3",
+    "tslib": "^2.9.1",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
   },
   "peerDependencies": {
-    "@tanstack/svelte-query": "^5.0.0",
-    "svelte": ">=3 <5"
+    "@tanstack/svelte-query": "^6.0.0",
+    "svelte": "^5.25.0"
   }
 }
