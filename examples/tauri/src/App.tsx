@@ -8,7 +8,7 @@ import "./App.css";
 const client = createClient<Procedures>(tauriExecute);
 
 function App() {
-	client.sendMsg.mutate("bruh").then(console.log);
+	client.sendMsg.query("bruh").then(console.log);
 
 	return (
 		<main class="container">

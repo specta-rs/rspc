@@ -9,7 +9,7 @@ rspc = { path = "../../rspc" }
 serde = { workspace = true }
 specta = { workspace = true }
 serde_json = { workspace = true }
-jsonwebtoken = { version = "9", default-features = false }
+jsonwebtoken = { version = "10.3.0", default-features = false }
 cookie = { version = "0.18.1", features = ["percent-encode"] }
 
 # /bin/sh RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features

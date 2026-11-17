@@ -45,7 +45,7 @@ export function createSolidQueryHooks<
 		opts?: solid.Accessor<
 			queryCore.WrapQueryOptions<
 				TProcedures,
-				tanstack.SolidQueryOptions<
+				tanstack.QueryOptions<
 					rspc.inferQueryResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferQueryResult<TProcedures, K>,
@@ -66,7 +66,7 @@ export function createSolidQueryHooks<
 		opts?: solid.Accessor<
 			queryCore.WrapQueryOptions<
 				TProcedures,
-				tanstack.SolidQueryOptions<
+				tanstack.QueryOptions<
 					rspc.inferQueryResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferQueryResult<TProcedures, K>,
@@ -89,7 +89,7 @@ export function createSolidQueryHooks<
 		opts?: solid.Accessor<
 			queryCore.WrapQueryOptions<
 				TProcedures,
-				tanstack.CreateQueryOptions<
+				tanstack.QueryOptions<
 					rspc.inferQueryResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferQueryResult<TProcedures, K>,
@@ -111,10 +111,10 @@ export function createSolidQueryHooks<
 		TContext = unknown,
 	>(
 		key: solid.Accessor<K>,
-		opts?: tanstack.FunctionedParams<
+		opts?: solid.Accessor<
 			queryCore.WrapMutationOptions<
 				TProcedures,
-				tanstack.SolidMutationOptions<
+				tanstack.MutationOptions<
 					rspc.inferMutationResult<TProcedures, K>,
 					rspc.RSPCError,
 					rspc.inferMutationInput<TProcedures, K> extends never
@@ -133,12 +133,11 @@ export function createSolidQueryHooks<
 	function createSubscription<
 		K extends rspc.inferSubscriptions<TProcedures>["key"] & string,
 	>(
-		keyAndInput: () => [
-			key: K,
-			...input:
-				| rspc._inferProcedureHandlerInput<TProcedures, "subscriptions", K>
-				| [tanstack.SkipToken],
-		],
+		keyAndInput: () => queryCore.KeyAndInputSkipToken<
+			TProcedures,
+			K,
+			"subscriptions"
+		>,
 		opts: () => queryCore.SubscriptionOptions<TProcedures, K>,
 	) {
 		solid.createEffect(

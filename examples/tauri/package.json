@@ -14,14 +14,14 @@
 	"dependencies": {
 		"@rspc/client": "workspace:*",
 		"@rspc/tauri": "workspace:*",
-		"@tauri-apps/api": "^2.2.0",
-		"@tauri-apps/plugin-shell": "^2.2.0",
-		"solid-js": "^1.9.4"
+		"@tauri-apps/api": "^2.12.5",
+		"@tauri-apps/plugin-shell": "^2.6.0",
+		"solid-js": "^1.9.19"
 	},
 	"devDependencies": {
-		"@tauri-apps/cli": "^2.2.7",
-		"typescript": "^5.7.3",
-		"vite": "^6.1.0",
-		"vite-plugin-solid": "^2.11.1"
+		"@tauri-apps/cli": "^2.12.5",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.8",
+		"vite-plugin-solid": "^2.11.16"
 	}
 }
