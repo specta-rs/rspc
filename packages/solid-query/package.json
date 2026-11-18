@@ -33,15 +33,18 @@
     "@rspc/query-core": "workspace:*"
   },
   "devDependencies": {
-    "@tanstack/solid-query": "^5.107.1",
-    "rollup": "^4.68.4",
+    "@solidjs/babel-plugin": "2.0.0",
+    "@solidjs/web": "^2.0.0",
+    "@tanstack/solid-query": "^6.0.0-rc.6",
+    "rollup": "^4.68.5",
     "rollup-preset-solid": "^3.0.0",
-    "solid-js": "^1.9.19",
-    "turbo": "^2.11.11",
-    "typescript": "^6.0.3"
+    "solid-js": "^2.0.0",
+    "turbo": "^2.11.12",
+    "typescript": "^7.0.2"
   },
   "peerDependencies": {
-    "@tanstack/solid-query": "^5.0.0",
-    "solid-js": "^1.0.0"
+    "@solidjs/web": "^2.0.0",
+    "@tanstack/solid-query": "^6.0.0-rc.6",
+    "solid-js": "^2.0.0"
   }
 }
