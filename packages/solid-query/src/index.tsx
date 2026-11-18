@@ -1,3 +1,4 @@
+import type { JSX } from "@solidjs/web";
 import type * as rspc from "@rspc/client";
 import * as solid from "solid-js";
 
@@ -55,7 +56,7 @@ export function createSolidQueryHooks<
 				}
 			>
 		>,
-	): tanstack.CreateQueryResult<
+	): tanstack.UseQueryResult<
 		rspc.inferQueryResult<TProcedures, K>,
 		rspc.RSPCError
 	>;
@@ -78,7 +79,7 @@ export function createSolidQueryHooks<
 				}
 			>
 		>,
-	): tanstack.DefinedCreateBaseQueryResult<
+	): tanstack.DefinedUseQueryResult<
 		rspc.inferQueryResult<TProcedures, K>,
 		rspc.RSPCError
 	>;
@@ -97,12 +98,12 @@ export function createSolidQueryHooks<
 				>
 			>
 		>,
-	): tanstack.QueryObserverResult<
+	): tanstack.UseBaseQueryResult<
 		rspc.inferQueryResult<TProcedures, K>,
 		rspc.RSPCError
 	> {
-		return tanstack.createQuery(
-			() => helpers.useQueryArgs(keyAndInput(), opts?.()) as any,
+		return tanstack.useQuery(() =>
+			helpers.useQueryArgs(keyAndInput(), opts?.()),
 		);
 	}
 
@@ -125,7 +126,7 @@ export function createSolidQueryHooks<
 			>
 		>,
 	) {
-		return tanstack.createMutation(() =>
+		return tanstack.useMutation(() =>
 			helpers.useMutationArgs(key(), opts?.()),
 		);
 	}
@@ -141,30 +142,28 @@ export function createSolidQueryHooks<
 		opts: () => queryCore.SubscriptionOptions<TProcedures, K>,
 	) {
 		solid.createEffect(
-			solid.on(
-				() => [keyAndInput(), opts()] as const,
-				([keyAndInput, opts]) => {
-					const unsubscribe = helpers.handleSubscription(
-						keyAndInput,
-						() => opts,
-						helpers.useClient(),
-					);
+			() => [keyAndInput(), opts()] as const,
+			([keyAndInput, opts]) => {
+				const unsubscribe = helpers.handleSubscription(
+					keyAndInput,
+					() => opts,
+					helpers.useClient(),
+				);
 
-					solid.onCleanup(() => unsubscribe?.());
-				},
-			),
+				return () => unsubscribe?.();
+			},
 		);
 	}
 
 	return {
 		_rspc_def: undefined! as TProceduresLike, // This allows inferring the operations type from TS helpers
 		Provider: (props: {
-			children?: solid.JSX.Element;
+			children?: JSX.Element;
 			client: rspc.Client<TProcedures>;
 			queryClient: tanstack.QueryClient;
-		}): solid.JSX.Element => {
+		}): JSX.Element => {
 			return (
-				<Context.Provider
+				<Context
 					value={{
 						client: props.client,
 						queryClient: props.queryClient,
@@ -173,7 +172,7 @@ export function createSolidQueryHooks<
 					<tanstack.QueryClientProvider client={props.queryClient}>
 						{props.children}
 					</tanstack.QueryClientProvider>
-				</Context.Provider>
+				</Context>
 			);
 		},
 		useContext,
